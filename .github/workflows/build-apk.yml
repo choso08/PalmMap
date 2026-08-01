@@ -1,0 +1,51 @@
+name: Compilar APK
+
+# Compila a aplicação nos servidores do GitHub e publica o APK numa Release,
+# para poder ser descarregado e instalado diretamente no telemóvel.
+#
+# Como usar: separador "Actions" > "Compilar APK" > "Run workflow".
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # A pasta android/ não está no repositório — é o Expo que a gera.
+      - name: Gerar o projeto Android
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Compilar o APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Publicar o APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk PalmMap.apk
+          gh release create "apk-${{ github.run_number }}" PalmMap.apk \
+            --title "PalmMap — APK ${{ github.run_number }}" \
+            --notes "APK para instalar no telemóvel. Assinado com a chave de depuração, para uso pessoal."
