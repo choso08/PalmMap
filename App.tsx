@@ -1,7 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+  type EdgeInsets,
+} from 'react-native-safe-area-context';
 
 import { CategoryBar } from './src/components/CategoryBar';
 import { MapView, type MapViewRef } from './src/components/MapView';
@@ -30,15 +35,20 @@ configureTileRequests();
 /** As definições têm de envolver tudo, porque o tema sai delas. */
 export default function App() {
   return (
-    <SettingsProvider>
-      <PalmMap />
-    </SettingsProvider>
+    <SafeAreaProvider>
+      <SettingsProvider>
+        <PalmMap />
+      </SettingsProvider>
+    </SafeAreaProvider>
   );
 }
 
 function PalmMap() {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  // As margens do sistema: barra de estado, câmara ao centro e barra de
+  // navegação. No Android é preciso pedi-las — o mapa desenha por baixo delas.
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings } = useSettings();
 
   const mapRef = useRef<MapViewRef>(null);
@@ -304,7 +314,7 @@ function PalmMap() {
         onDropPin={handleDropPin}
       />
 
-      <SafeAreaView style={styles.top} pointerEvents="box-none">
+      <View style={styles.top} pointerEvents="box-none">
         <SearchBar
           onSelect={handleSearchSelect}
           onOpenSettings={() => setSettingsVisible(true)}
@@ -325,7 +335,7 @@ function PalmMap() {
             Toque sem largar no mapa para marcar um ponto e ir até lá.
           </Text>
         ) : null}
-      </SafeAreaView>
+      </View>
 
       {/* A ficha do negócio tem prioridade sobre o painel do percurso. */}
       {selectedPlace ? (
@@ -376,7 +386,7 @@ function PalmMap() {
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -388,7 +398,8 @@ function makeStyles(theme: Theme) {
       left: 0,
       right: 0,
       paddingLeft: 14,
-      paddingTop: 14,
+      // Abaixo da barra de estado e da câmara, mais uma folga para respirar.
+      paddingTop: insets.top + 12,
     },
     notice: {
       marginTop: 8,
@@ -419,7 +430,7 @@ function makeStyles(theme: Theme) {
     locateButton: {
       position: 'absolute',
       right: 16,
-      bottom: 28,
+      bottom: insets.bottom + 28,
       width: 52,
       height: 52,
       borderRadius: 26,
@@ -434,7 +445,7 @@ function makeStyles(theme: Theme) {
     },
     // Com um painel aberto em baixo, o botão sobe para não ficar tapado.
     locateRaised: {
-      bottom: 250,
+      bottom: insets.bottom + 260,
     },
   });
 }

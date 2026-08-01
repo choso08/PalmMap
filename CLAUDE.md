@@ -297,7 +297,21 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   servidor público de demonstração pode ter só o de carro instalado e devolver na mesma o
   percurso de carro. Não foi possível confirmar — o ecrã de definições avisa disso.
 
-### 5. Tema claro e escuro
+### 5. Margens do ecrã (câmara, barras do sistema)
+
+O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
+estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
+elementos por cima do mapa.
+
+- Usar sempre `useSafeAreaInsets()` do `react-native-safe-area-context`. O
+  `SafeAreaProvider` envolve a aplicação toda, no `App.tsx`.
+- **Nunca usar o `SafeAreaView` do `react-native`.** Só funciona no iOS — no Android não
+  faz absolutamente nada, e foi assim que a barra de pesquisa foi parar por baixo da
+  câmara.
+- Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
+  desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
+
+### 6. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -312,7 +326,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 6. Estado da aplicação
+### 7. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

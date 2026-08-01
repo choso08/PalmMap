@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import {
   APPEARANCE_MODES,
@@ -57,11 +58,21 @@ function ChoiceRow<T extends string>({
 /** Ecrã de definições. */
 export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      // Sem isto, a margem em cima dependeria de o ecrã desenhar ou não por
+      // baixo da barra de estado, que varia. Assim desenha sempre por baixo e
+      // é a nossa margem que manda.
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Definições</Text>
@@ -152,12 +163,13 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.surface,
-      paddingTop: 52,
+      // Abaixo da barra de estado e da câmara.
+      paddingTop: insets.top + 14,
     },
     header: {
       flexDirection: 'row',
@@ -181,7 +193,7 @@ function makeStyles(theme: Theme) {
     },
     content: {
       padding: 20,
-      paddingBottom: 40,
+      paddingBottom: insets.bottom + 36,
     },
     sectionTitle: {
       fontSize: 13,

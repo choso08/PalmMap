@@ -2,6 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
+
 import { useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Route } from '../types/geo';
@@ -21,12 +23,22 @@ interface StepsListProps {
  */
 export function StepsList({ visible, route, onClose }: StepsListProps) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
   const steps = route?.steps ?? [];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      // Sem isto, a margem em cima dependeria de o ecrã desenhar ou não por
+      // baixo da barra de estado, que varia. Assim desenha sempre por baixo e
+      // é a nossa margem que manda.
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
@@ -76,12 +88,13 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: theme.surface,
-      paddingTop: 52,
+      // Abaixo da barra de estado e da câmara.
+      paddingTop: insets.top + 14,
     },
     header: {
       flexDirection: 'row',
@@ -109,7 +122,9 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.surfaceMuted,
     },
     list: {
-      paddingVertical: 4,
+      paddingTop: 4,
+      // Para o último passo não ficar por baixo da barra de navegação.
+      paddingBottom: insets.bottom + 24,
     },
     step: {
       flexDirection: 'row',

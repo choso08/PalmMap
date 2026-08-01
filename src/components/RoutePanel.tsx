@@ -2,6 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
+
 import { useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
@@ -26,7 +28,8 @@ export function RoutePanel({
   onShowSteps,
 }: RoutePanelProps) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
   return (
     <View style={styles.container}>
@@ -89,7 +92,7 @@ export function RoutePanel({
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       backgroundColor: theme.surface,
@@ -97,7 +100,8 @@ function makeStyles(theme: Theme) {
       borderTopRightRadius: 22,
       paddingHorizontal: 20,
       paddingTop: 10,
-      paddingBottom: 28,
+      // Acima da barra de navegação do sistema.
+      paddingBottom: insets.bottom + 24,
       elevation: 12,
       shadowColor: '#000000',
       shadowOpacity: 0.2,
