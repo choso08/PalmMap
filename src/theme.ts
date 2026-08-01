@@ -1,11 +1,9 @@
-import { useColorScheme } from 'react-native';
-
 /**
  * Cores da aplicação, em versão clara e escura.
  *
- * A aplicação segue o que estiver definido no telemóvel: se o sistema estiver
- * em modo escuro, a aplicação fica escura sozinha. Para isso funcionar, o
- * `app.json` tem de ter `userInterfaceStyle` a "automatic".
+ * Só as paletas vivem aqui. Quem decide qual delas se usa é o `SettingsProvider`
+ * em `src/settings.tsx`, que junta o tema do telemóvel à preferência guardada.
+ * O gancho `useTheme()` também está lá.
  */
 export interface Theme {
   dark: boolean;
@@ -41,7 +39,7 @@ export interface Theme {
   onOverlay: string;
 }
 
-const light: Theme = {
+export const light: Theme = {
   dark: false,
   background: '#e5e7eb',
   surface: '#ffffff',
@@ -60,7 +58,7 @@ const light: Theme = {
   onOverlay: '#ffffff',
 };
 
-const dark: Theme = {
+export const dark: Theme = {
   dark: true,
   background: '#0b0f17',
   surface: '#161b26',
@@ -79,10 +77,6 @@ const dark: Theme = {
   onOverlay: '#f3f4f6',
 };
 
-/**
- * Devolve as cores certas para o tema atual do telemóvel.
- * Muda sozinho quando a pessoa troca de modo claro para escuro.
- */
-export function useTheme(): Theme {
-  return useColorScheme() === 'dark' ? dark : light;
+export function themeFor(isDark: boolean): Theme {
+  return isDark ? dark : light;
 }

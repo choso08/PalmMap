@@ -33,6 +33,7 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
+- Ecrã de definições: aspeto, meio de transporte e pinos automáticos no mapa.
 
 **O que ainda não foi confirmado no telemóvel:** tudo o que veio depois da v1 — os
 negócios, a lista de instruções e o tema escuro. Compila e os tipos estão verificados, mas
@@ -202,7 +203,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── CategoryBar.tsx # Botões "Restaurantes", "Farmácias", …
 │   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
-│   │   └── StepsList.tsx   # Lista das instruções do percurso
+│   │   ├── StepsList.tsx   # Lista das instruções do percurso
+│   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
 │   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
@@ -220,7 +222,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── format.ts       # Distâncias e durações em texto legível
 │   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
 │   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
-│   └── theme.ts            # Cores em versão clara e escura
+│   ├── theme.ts            # Cores em versão clara e escura
+│   └── settings.tsx        # Definições guardadas e o gancho useTheme()
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
 ├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
@@ -279,10 +282,25 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   isso o pin fica recolhido em relação às bordas. Ao mexer, confirmar que nada fica
   cortado.
 
-### 4. Tema claro e escuro
+### 4. Definições
+
+- As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
+  guardado no telemóvel com o `AsyncStorage`.
+- São três: **aspeto** (automático/claro/escuro), **meio de transporte**
+  (carro/a pé/bicicleta) e **mostrar negócios no mapa** (ligado/desligado).
+- Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
+  `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
+  os de origem ao arrancar, por isso versões antigas não rebentam.
+- **Ressalva do meio de transporte:** o endereço do OSRM aceita os três perfis, mas o
+  servidor público de demonstração pode ter só o de carro instalado e devolver na mesma o
+  percurso de carro. Não foi possível confirmar — o ecrã de definições avisa disso.
+
+### 5. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
-  uma cor à mão — pede-se ao tema com `useTheme()`.
+  uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
+- Qual das paletas se usa sai das definições: em "automático" segue o telemóvel, senão
+  segue o que a pessoa escolheu.
 - Os estilos passam a ser uma função do tema: `makeStyles(theme)` no fim do ficheiro, com
   `useMemo` no componente. Continua tudo num `StyleSheet.create`, só que dentro da função.
 - O `app.json` tem `userInterfaceStyle` a `"automatic"` — é isso que faz a aplicação seguir
@@ -292,7 +310,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 5. Estado da aplicação
+### 6. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

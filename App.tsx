@@ -1,12 +1,14 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { CategoryBar } from './src/components/CategoryBar';
-import { MapView } from './src/components/MapView';
+import { MapView, type MapViewRef } from './src/components/MapView';
 import { PlaceSheet } from './src/components/PlaceSheet';
 import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
+import { SettingsSheet } from './src/components/SettingsSheet';
 import { StepsList } from './src/components/StepsList';
 import {
   MAP_PINS_DEBOUNCE_MS,
@@ -16,16 +18,30 @@ import { getCurrentPosition } from './src/services/location';
 import { RouteError, getRoute } from './src/services/osrm';
 import { searchInBounds, searchNearby } from './src/services/overpass';
 import { configureTileRequests } from './src/services/tiles';
-import { type Theme, useTheme } from './src/theme';
+import { SettingsProvider, useSettings, useTheme } from './src/settings';
+import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
 
 // Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
 configureTileRequests();
 
+/** As definições têm de envolver tudo, porque o tema sai delas. */
 export default function App() {
+  return (
+    <SettingsProvider>
+      <PalmMap />
+    </SettingsProvider>
+  );
+}
+
+function PalmMap() {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const { settings } = useSettings();
+
+  const mapRef = useRef<MapViewRef>(null);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -77,7 +93,11 @@ export default function App() {
 
     void (async () => {
       try {
-        const result = await getRoute(userLocation, destination.coordinates);
+        const result = await getRoute(
+          userLocation,
+          destination.coordinates,
+          settings.travelMode,
+        );
         if (!cancelled) {
           setRoute(result);
         }
@@ -100,7 +120,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [destination, userLocation]);
+  }, [destination, userLocation, settings.travelMode]);
 
   /** Procura os negócios da categoria escolhida, à volta de onde a pessoa está. */
   useEffect(() => {
@@ -151,6 +171,11 @@ export default function App() {
         return;
       }
 
+      if (!settings.showPlacesOnMap) {
+        setPlaces([]);
+        return;
+      }
+
       if (pinsTimer.current) {
         clearTimeout(pinsTimer.current);
       }
@@ -177,7 +202,7 @@ export default function App() {
         })();
       }, MAP_PINS_DEBOUNCE_MS);
     },
-    [category],
+    [category, settings.showPlacesOnMap],
   );
 
   useEffect(() => {
@@ -228,6 +253,7 @@ export default function App() {
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         userLocation={userLocation}
         destination={destination?.coordinates ?? null}
         route={route}
@@ -237,7 +263,10 @@ export default function App() {
       />
 
       <SafeAreaView style={styles.top} pointerEvents="box-none">
-        <SearchBar onSelect={handleSearchSelect} />
+        <SearchBar
+          onSelect={handleSearchSelect}
+          onOpenSettings={() => setSettingsVisible(true)}
+        />
 
         <CategoryBar selected={category} onSelect={setCategory} />
 
@@ -271,6 +300,18 @@ export default function App() {
           />
         </View>
       ) : null}
+
+      {/* Botão de voltar à posição atual, como no Maps. */}
+      {userLocation ? (
+        <Pressable
+          style={[styles.locateButton, selectedPlace || destination ? styles.locateRaised : null]}
+          onPress={() => mapRef.current?.recenter(userLocation)}
+        >
+          <MaterialCommunityIcons name="crosshairs-gps" size={24} color={theme.accent} />
+        </Pressable>
+      ) : null}
+
+      <SettingsSheet visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
 
       <StepsList
         visible={stepsVisible}
@@ -313,6 +354,26 @@ function makeStyles(theme: Theme) {
       left: 0,
       right: 0,
       bottom: 0,
+    },
+    locateButton: {
+      position: 'absolute',
+      right: 16,
+      bottom: 28,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+    },
+    // Com um painel aberto em baixo, o botão sobe para não ficar tapado.
+    locateRaised: {
+      bottom: 250,
     },
   });
 }

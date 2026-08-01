@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,11 +13,13 @@ import {
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchPlaces } from '../services/nominatim';
-import { type Theme, useTheme } from '../theme';
+import { useTheme } from '../settings';
+import type { Theme } from '../theme';
 import type { Place } from '../types/geo';
 
 interface SearchBarProps {
   onSelect: (place: Place) => void;
+  onOpenSettings: () => void;
 }
 
 /**
@@ -26,7 +29,7 @@ interface SearchBarProps {
  * escrever (SEARCH_DEBOUNCE_MS) ou que carregue em Enter — é uma exigência das
  * regras de utilização do Nominatim, não uma preferência de interface.
  */
-export function SearchBar({ onSelect }: SearchBarProps) {
+export function SearchBar({ onSelect, onOpenSettings }: SearchBarProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -88,16 +91,30 @@ export function SearchBar({ onSelect }: SearchBarProps) {
   return (
     <View style={styles.container}>
       <View style={styles.inputRow}>
+        <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
+
         <TextInput
           style={styles.input}
           value={query}
           onChangeText={setQuery}
-          placeholder="Para onde vamos?"
+          placeholder="Pesquisar aqui"
           placeholderTextColor={theme.placeholder}
           returnKeyType="search"
           onSubmitEditing={() => void runSearch(query)}
         />
+
         {loading ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+
+        {/* Limpar o que está escrito, quando há alguma coisa. */}
+        {query.length > 0 && !loading ? (
+          <Pressable onPress={() => setQuery('')} hitSlop={10}>
+            <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
+          </Pressable>
+        ) : null}
+
+        <Pressable onPress={onOpenSettings} hitSlop={10} style={styles.settingsButton}>
+          <MaterialCommunityIcons name="tune-variant" size={20} color={theme.textMuted} />
+        </Pressable>
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -132,24 +149,29 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: {
       backgroundColor: theme.surface,
-      borderRadius: 12,
+      // Cápsula bem arredondada, como a barra de pesquisa do Maps.
+      borderRadius: 28,
       overflow: 'hidden',
-      elevation: 4,
+      elevation: 6,
       shadowColor: '#000000',
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
     },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
+      gap: 10,
+      paddingHorizontal: 18,
     },
     input: {
       flex: 1,
-      paddingVertical: 12,
+      paddingVertical: 14,
       fontSize: 16,
       color: theme.text,
+    },
+    settingsButton: {
+      paddingLeft: 4,
     },
     error: {
       paddingHorizontal: 14,

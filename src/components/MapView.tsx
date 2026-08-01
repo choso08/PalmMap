@@ -8,11 +8,11 @@ import {
   UserLocation,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { mapStyleFor } from '../services/tiles';
-import { useTheme } from '../theme';
+import { useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 
 interface MapViewProps {
@@ -25,6 +25,12 @@ interface MapViewProps {
   onViewportChange: (bounds: Bounds, zoom: number) => void;
   /** Chamado ao tocar num pino de negócio. */
   onPlacePress: (placeId: number) => void;
+  ref?: Ref<MapViewRef>;
+}
+
+export interface MapViewRef {
+  /** Leva a câmara de volta à posição atual. */
+  recenter: (coordinates: Coordinates) => void;
 }
 
 /** Ponto de partida da câmara quando ainda não se sabe onde a pessoa está. */
@@ -42,9 +48,20 @@ export function MapView({
   places,
   onViewportChange,
   onPlacePress,
+  ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
   const theme = useTheme();
+
+  useImperativeHandle(ref, () => ({
+    recenter: (coordinates: Coordinates) => {
+      cameraRef.current?.flyTo({
+        center: [coordinates.longitude, coordinates.latitude],
+        zoom: 16,
+        duration: 700,
+      });
+    },
+  }));
 
   // Sempre que há um percurso novo, enquadra-o todo no ecrã.
   useEffect(() => {

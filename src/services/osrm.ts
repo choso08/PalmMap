@@ -28,18 +28,27 @@ function toRouteStep(step: OsrmStep): RouteStep {
 }
 
 /**
- * Calcula o percurso de carro entre dois pontos, com as instruções passo a passo.
+ * Calcula o percurso entre dois pontos, com as instruções passo a passo.
  *
  * O servidor público do OSRM é para demonstrações e pode estar em baixo — quem
  * chamar esta função deve tratar o erro e mostrar uma mensagem decente.
+ *
+ * Sobre o `profile`: o endereço aceita 'driving', 'walking' e 'cycling', mas o
+ * servidor público de demonstração pode ter só o perfil de carro instalado e
+ * devolver na mesma o percurso de carro. Não foi possível confirmar isto — ver
+ * a nota no CLAUDE.md.
  */
-export async function getRoute(from: Coordinates, to: Coordinates): Promise<Route> {
+export async function getRoute(
+  from: Coordinates,
+  to: Coordinates,
+  profile: 'driving' | 'walking' | 'cycling' = 'driving',
+): Promise<Route> {
   // O OSRM espera as coordenadas por esta ordem: longitude,latitude.
   const path = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
 
   let response;
   try {
-    response = await client.get<OsrmRouteResponse>(`/route/v1/driving/${path}`, {
+    response = await client.get<OsrmRouteResponse>(`/route/v1/${profile}/${path}`, {
       // `steps=true` é o que traz as manobras uma a uma.
       params: { overview: 'full', geometries: 'geojson', steps: 'true' },
     });

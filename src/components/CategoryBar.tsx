@@ -2,7 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { type Theme, useTheme } from '../theme';
+import { useTheme } from '../settings';
+import type { Theme } from '../theme';
 import { SEARCH_CATEGORIES, type SearchCategory } from '../utils/categories';
 
 interface CategoryBarProps {

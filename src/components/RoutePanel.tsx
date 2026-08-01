@@ -2,7 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type Theme, useTheme } from '../theme';
+import { useTheme } from '../settings';
+import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
 
