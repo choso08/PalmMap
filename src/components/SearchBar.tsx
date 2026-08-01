@@ -1,0 +1,172 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+import { SEARCH_DEBOUNCE_MS } from '../services/config';
+import { searchPlaces } from '../services/nominatim';
+import type { Place } from '../types/geo';
+
+interface SearchBarProps {
+  onSelect: (place: Place) => void;
+}
+
+/**
+ * Barra de pesquisa de moradas.
+ *
+ * Importante: não pesquisa a cada tecla escrita. Espera que a pessoa pare de
+ * escrever (SEARCH_DEBOUNCE_MS) ou que carregue em Enter — é uma exigência das
+ * regras de utilização do Nominatim, não uma preferência de interface.
+ */
+export function SearchBar({ onSelect }: SearchBarProps) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Place[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /** Identifica a pesquisa mais recente, para ignorar respostas atrasadas. */
+  const latestSearch = useRef(0);
+
+  const runSearch = useCallback(async (term: string) => {
+    const searchId = ++latestSearch.current;
+
+    if (term.trim().length < 3) {
+      setResults([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const places = await searchPlaces(term);
+      // Se entretanto já houve outra pesquisa, esta resposta não interessa.
+      if (searchId === latestSearch.current) {
+        setResults(places);
+      }
+    } catch {
+      if (searchId === latestSearch.current) {
+        setError('Não foi possível pesquisar. Verifique a ligação à Internet.');
+        setResults([]);
+      }
+    } finally {
+      if (searchId === latestSearch.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  // O atraso que evita pesquisar a cada tecla escrita.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void runSearch(query);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [query, runSearch]);
+
+  const handleSelect = (place: Place) => {
+    setQuery(place.name);
+    setResults([]);
+    Keyboard.dismiss();
+    onSelect(place);
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Para onde vamos?"
+          placeholderTextColor="#9ca3af"
+          returnKeyType="search"
+          onSubmitEditing={() => void runSearch(query)}
+        />
+        {loading ? <ActivityIndicator size="small" color="#1d4ed8" /> : null}
+      </View>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {results.length > 0 ? (
+        <FlatList
+          style={styles.results}
+          data={results}
+          keyExtractor={(item) => String(item.id)}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <Pressable style={styles.result} onPress={() => handleSelect(item)}>
+              <Text style={styles.resultName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text style={styles.resultAddress} numberOfLines={1}>
+                {item.address}
+              </Text>
+            </Pressable>
+          )}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#111827',
+  },
+  error: {
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    color: '#b91c1c',
+    fontSize: 13,
+  },
+  results: {
+    maxHeight: 240,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e5e7eb',
+  },
+  result: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f3f4f6',
+  },
+  resultName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  resultAddress: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+});

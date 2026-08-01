@@ -22,29 +22,23 @@ Houve a ideia de **funcionar no Android Auto** (o ecrã do carro), mas essa part
 **pausada por decisão do autor** — ver a secção "Android Auto (pausado)" mais abaixo. Não
 começar trabalho nessa direção sem o autor voltar a pedir.
 
-## ⚠️ Estado atual do repositório — ler primeiro
+## Estado atual — o que já existe
 
-**Este repositório ainda não tem código nenhum.** Neste momento tem apenas:
+A base do projeto está criada e a aplicação já compila. O que está feito:
 
-```text
-/
-├── CLAUDE.md                        # este ficheiro
-└── docs/
-    └── project-brief-original.pdf   # o documento original do projeto (PDF)
-```
+- Projeto Expo (SDK 57) com TypeScript.
+- Mapa a funcionar com MapLibre e tiles do OpenStreetMap.
+- Pesquisa de moradas pelo Nominatim, com as regras de utilização cumpridas.
+- Cálculo de percurso pelo OSRM, desenhado no mapa, com distância e tempo estimado.
+- Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 
-Não existe `package.json`, não existe pasta `src/`, não existe `App.tsx`, não existe
-projeto Expo criado. Tudo o que está descrito mais abaixo é o que **se pretende construir**,
-não o que já existe.
+**O que ainda não foi feito:** nunca foi corrido num telemóvel nem num emulador. O código
+compila e os tipos estão verificados, mas o comportamento real no dispositivo — GPS,
+desenho do mapa, permissões — está por confirmar. Ao trabalhar aqui, não digas que algo
+"funciona" no telemóvel sem ter sido experimentado.
 
-Na prática, isto quer dizer:
-
-- Não digas que um ficheiro ou um comando funciona sem o teres criado e experimentado.
-- A primeira tarefa a fazer aqui é criar a base do projeto (ver "Arrancar do zero").
-- Antes de seguires qualquer convenção deste ficheiro, confirma se o ficheiro em causa já
-  existe mesmo.
-- Se criares a base do projeto, **atualiza este ficheiro** para deixar de dizer que o
-  repositório está vazio.
+Falta também a configuração do EAS (`eas.json`), que se cria com `eas build:configure` e
+precisa de conta Expo.
 
 O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
 convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
@@ -67,9 +61,9 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 
 | Para quê | Escolha |
 | --- | --- |
-| Base da aplicação | React Native + Expo (usar a versão atual do Expo) |
+| Base da aplicação | React Native 0.86 + Expo SDK 57 |
 | Linguagem | TypeScript |
-| Componente do mapa | Ver "Decisão importante" mais abaixo — recomenda-se MapLibre |
+| Componente do mapa | `@maplibre/maplibre-react-native` — ver "Decisão importante" |
 | Localização (GPS) | `expo-location` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
@@ -79,55 +73,53 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
 ficheiro de instalação descritas aqui são específicas do Android.
 
-## Decisão importante: qual o componente do mapa
+## Decisão importante: qual o componente do mapa — decidida
 
-Esta é a decisão que mais afeta o resto do projeto, por isso vem antes de tudo o resto.
+**O projeto usa o MapLibre** (`@maplibre/maplibre-react-native`). Fica aqui o porquê, para
+não se voltar atrás sem se perceber o que está em causa.
 
 O documento original indicava a biblioteca `react-native-maps`. **O problema:** no Android,
 essa biblioteca funciona por cima do Google Maps e, na prática, costuma exigir uma chave do
 Google para sequer arrancar — mesmo quando só queremos desenhar os tiles do OpenStreetMap
 por cima. Ou seja, entra em conflito direto com o objetivo do projeto.
 
-**Recomendação: usar MapLibre** — `@maplibre/maplibre-react-native` no telemóvel. É uma
-biblioteca de mapas completamente livre, sem qualquer ligação ao Google. O documento
-original já a referia como uma das opções possíveis.
+O MapLibre é uma biblioteca de mapas completamente livre, sem qualquer ligação ao Google. O
+documento original já a referia como uma das opções possíveis.
 
-Esta recomendação sustenta-se sozinha, só pela regra de não depender do Google. Como
-argumento adicional: se um dia se retomar o Android Auto, o MapLibre também tem uma
+Como argumento adicional: se um dia se retomar o Android Auto, o MapLibre também tem uma
 biblioteca nativa para Android, o que permitiria ao telemóvel e ao carro partilharem o
 mesmo motor de mapa e a mesma fonte de tiles. Não é a razão principal, mas é mais um ponto
 a favor.
 
-## Arrancar do zero
+## ⚠️ O Expo Go não serve para este projeto
 
-Como ainda não existe nada, o projeto tem de ser criado antes de qualquer outro comando
-deste ficheiro funcionar. Em traços gerais:
+O MapLibre traz código nativo que **não vem incluído na aplicação Expo Go**. Ou seja,
+`npx expo start` sozinho, com o Expo Go instalado no telemóvel, mostra a barra de pesquisa
+mas não consegue desenhar o mapa.
+
+É preciso uma **development build** — uma versão da aplicação compilada com o código nativo
+lá dentro. Faz-se uma vez, e depois é como o Expo Go: muda-se o código e recarrega.
 
 ```bash
-# Criar a aplicação Expo com TypeScript nesta pasta
-npx create-expo-app@latest . --template blank-typescript
+# Opção A: compilar no próprio computador (exige o Android Studio instalado)
+npx expo run:android
 
-# Instalar o que é preciso
-npx expo install expo-location
-npm install axios
+# Opção B: compilar na nuvem, com a Expo (exige conta Expo, gratuita)
+npx eas-cli build -p android --profile development
 ```
 
-A biblioteca do mapa instala-se depois, consoante a decisão acima.
-
-Confirmar que a aplicação arranca (`npx expo start`) antes de acrescentar funcionalidades.
-Guardar o ficheiro de dependências (`package-lock.json`) no repositório.
+Isto não é sinal de que algo está mal configurado — é simplesmente como funciona qualquer
+biblioteca com código nativo. O projeto continua em Expo "gerido": não há pasta `android/`
+no repositório, é o Expo que a gera quando compila.
 
 ## Comandos
-
-Estes são os comandos previstos **depois** de o projeto estar criado. Neste momento
-nenhum deles funciona, porque ainda não há projeto.
 
 ### Desenvolvimento
 
 ```bash
 npm install                 # Instalar as dependências
 npx expo start              # Arrancar o servidor de desenvolvimento
-npx expo run:android        # Correr num emulador ou telemóvel Android
+npx expo run:android        # Compilar e correr num emulador ou telemóvel Android
 ```
 
 ### Gerar o ficheiro de instalação (APK)
@@ -159,27 +151,41 @@ Não está definida nenhuma ferramenta de testes nem de formatação automática
 projeto pessoal deste tamanho, não é preciso — mas se acrescentares alguma, documenta-a
 aqui.
 
-## Estrutura pretendida do projeto
+## Estrutura do projeto
 
 ```text
 /
-├── assets/                 # Ícones, imagem de arranque, imagens fixas
+├── assets/                 # Ícones e imagem de arranque
+├── docs/
+│   └── project-brief-original.pdf
 ├── src/
-│   ├── components/         # Peças de interface reutilizáveis
-│   │   ├── MapView.tsx     # Desenha o mapa com os tiles do OpenStreetMap
+│   ├── components/         # Peças de interface
+│   │   ├── MapView.tsx     # Desenha o mapa, o percurso e o marcador do destino
 │   │   ├── SearchBar.tsx   # Barra de pesquisa de moradas (usa o Nominatim)
-│   │   └── RoutePanel.tsx  # Painel inferior com a informação do percurso e distância
+│   │   └── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   ├── services/           # Ligação aos serviços externos
+│   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
 │   │   ├── location.ts     # Gere o GPS do telemóvel
 │   │   ├── nominatim.ts    # Pesquisa de locais
-│   │   └── osrm.ts         # Cálculo de percursos
+│   │   ├── osrm.ts         # Cálculo de percursos
+│   │   └── tiles.ts        # Estilo do mapa e User-Agent dos tiles
 │   ├── types/              # Definições de tipos do TypeScript
-│   └── utils/              # Funções auxiliares (formatar textos, calcular distâncias)
-├── App.tsx                 # Ponto de entrada da aplicação
+│   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
+│   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
+│   │   └── osrm.ts         # Formato exato da resposta do OSRM
+│   └── utils/
+│       └── format.ts       # Distâncias e durações em texto legível
+├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
+├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── package.json
 └── tsconfig.json
 ```
+
+Repara na separação dentro de `src/types/`: `nominatim.ts` e `osrm.ts` descrevem o que os
+serviços devolvem exatamente, tal como está na documentação deles; `geo.ts` descreve o que
+a aplicação usa. Os serviços fazem a tradução de um para o outro. Assim, se um dia se
+trocar o OSRM por outro serviço, só muda a tradução — o resto da aplicação não dá por nada.
 
 **Regra prática:** todos os pedidos à Internet ficam dentro de `src/services/`. Os
 componentes do ecrã nunca chamam o `axios` diretamente — pedem as coisas aos serviços.
@@ -191,38 +197,41 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 ### 1. O mapa
 
 - **Nunca usar uma chave de API do Google.** É a regra central do projeto.
-- Os tiles vêm do OpenStreetMap:
-  `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
-- Enviar sempre um `User-Agent` próprio e identificável nos pedidos ao OpenStreetMap e ao
-  Nominatim. É uma exigência das regras de utilização destes serviços — basicamente, é
+- O estilo do mapa está definido em `src/services/tiles.ts`, com os tiles a virem de
+  `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Nota: usa-se o endereço direto, sem os
+  subdomínios `a.`/`b.`/`c.` que o documento original indicava — essa forma antiga está
+  desaconselhada pelo próprio OpenStreetMap.
+- O `User-Agent` dos pedidos de tiles é registado no arranque, em `App.tsx`, através do
+  `TransformRequestManager` do MapLibre. É uma exigência das regras de utilização — é
   dizer-lhes quem somos em vez de aparecer como anónimo.
-- Se, apesar da recomendação acima, o projeto ficar mesmo com o `react-native-maps`: usar o
-  componente `<UrlTile />` para os tiles e definir `mapType="none"` no mapa, para o mapa de
-  base não aparecer por baixo dos tiles do OpenStreetMap.
+- A atribuição ao OpenStreetMap fica visível no mapa (`attribution` no componente `Map`).
+  É exigida pela licença dos dados, não é opcional.
 
 ### 2. Permissões de localização (Android)
 
-- O ficheiro `app.json` tem de declarar as permissões de GPS:
-  - `ACCESS_FINE_LOCATION`
-  - `ACCESS_COARSE_LOCATION`
-- Pedir a permissão **durante a utilização** da aplicação, através do `expo-location`
-  (`Location.requestForegroundPermissionsAsync()`).
-- Se a pessoa recusar, a aplicação não deve rebentar nem ficar inutilizável: deve continuar
-  a dar para ver o mapa e pesquisar moradas, apenas sem mostrar a posição atual.
+- O ficheiro `app.json` declara as permissões de GPS `ACCESS_FINE_LOCATION` e
+  `ACCESS_COARSE_LOCATION`, em nome completo (`android.permission.…`). O plugin do
+  `expo-location` acrescenta as mesmas — escrevê-las na mesma grafia evita ficarem
+  duplicadas na aplicação final.
+- A permissão pede-se **durante a utilização**, através do `expo-location`
+  (`Location.requestForegroundPermissionsAsync()`), em `src/services/location.ts`.
+- Se a pessoa recusar, a aplicação não rebenta: `getCurrentPosition()` devolve `null` e o
+  ecrã continua a dar para ver o mapa e pesquisar moradas, apenas sem a posição atual.
+  Ao mexer aqui, manter este comportamento.
 
 ### 3. Estado da aplicação
 
-A informação principal, guardada ao nível do ecrã do mapa:
+A informação principal vive em `App.tsx`, com `useState`:
 
-- `userLocation` — a posição atual do telemóvel
-- `destination` — o destino escolhido ou pesquisado
-- `routeCoordinates` — os pontos que formam o percurso
+- `userLocation` — a posição atual do telemóvel (ou `null` se não houver permissão)
+- `destination` — o destino escolhido na pesquisa
+- `route` — o percurso calculado: os pontos da linha, a distância e a duração
 
-O percurso desenha-se no mapa como uma linha (`Polyline`) a partir de `routeCoordinates`.
+O percurso desenha-se no mapa como uma linha, a partir de `route.coordinates`.
 
-Chega perfeitamente usar o estado normal do React (`useState`) e, se for preciso partilhar
-informação entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado
-para um projeto deste tamanho.
+Chega perfeitamente o estado normal do React e, se um dia for preciso partilhar informação
+entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado para um
+projeto deste tamanho.
 
 ## Android Auto (pausado)
 
@@ -307,16 +316,22 @@ A boa notícia: como o PalmMap é para uso pessoal, o volume de pedidos é minú
 serviços públicos gratuitos chegam bem. **Não é preciso montar servidores próprios.** Só é
 preciso ser bem-educado com serviços que são mantidos por voluntários.
 
+Todas estas regras já estão cumpridas no código. O que se segue explica onde, para não
+serem desfeitas sem se perceber o que se está a desligar.
+
 ### Nominatim — pesquisa de moradas
 
 - No máximo **1 pedido por segundo**. É um limite rígido do serviço público.
+  *No código:* `src/services/nominatim.ts` tem uma fila que espera o tempo necessário entre
+  pedidos, mesmo que a aplicação peça várias coisas ao mesmo tempo.
 - É **obrigatório** enviar um `User-Agent` que identifique a aplicação. Pedidos sem isso
-  são recusados.
+  são recusados. *No código:* `USER_AGENT`, em `src/services/config.ts`.
 - **Não fazer um pedido a cada tecla escrita.** O serviço público proíbe expressamente a
-  pesquisa "à medida que se escreve". A solução é simples: esperar que a pessoa pare de
-  escrever cerca de 1 segundo, ou só pesquisar quando carregar em Enter.
+  pesquisa "à medida que se escreve". *No código:* a `SearchBar` espera
+  `SEARCH_DEBOUNCE_MS` (1 segundo) depois de a pessoa parar de escrever, e só pesquisa a
+  partir de 3 letras. **Não reduzir este valor.**
 - Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
-  vezes.
+  vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
 
 ### OSRM — cálculo de percursos
 
@@ -330,8 +345,8 @@ preciso ser bem-educado com serviços que são mantidos por voluntários.
 - Nota para o futuro: se um dia se quiser navegação passo-a-passo, o OSRM já devolve as
   manobras — basta pedir o percurso com `steps=true`. Não é preciso agora.
 
-O endereço base, o `User-Agent`, o intervalo entre pedidos e a memória de resultados devem
-estar todos definidos em `src/services/`, num único sítio.
+O endereço base, o `User-Agent`, o intervalo entre pedidos e o tempo de espera da pesquisa
+estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado pelo código.
 
 ## Estilo de código
 
@@ -347,6 +362,8 @@ estar todos definidos em `src/services/`, num único sítio.
 - O desenvolvimento desta tarefa acontece no branch `claude/claude-md-documentation-k64ki9`.
   O branch principal é o `main`.
 - Nunca guardar chaves de API nem ficheiros `.env` no repositório.
-- Criar um `.gitignore` logo no arranque (o do Expo já cobre `node_modules/`, `.expo/` e os
-  ficheiros gerados na compilação).
+- O `.gitignore` vem do Expo e já cobre `node_modules/`, `.expo/`, as pastas `android/` e
+  `ios/` geradas na compilação, e os ficheiros de assinatura (`*.jks`, `*.p12`).
+- O `package-lock.json` fica no repositório — é o que garante que uma instalação futura usa
+  exatamente as mesmas versões.
 - Não abrir um Pull Request sem ser explicitamente pedido.
