@@ -7,8 +7,12 @@ import {
   USER_AGENT,
 } from './config';
 import { createRateLimiter } from './rateLimit';
-import type { NominatimSearchResponse, NominatimSearchResult } from '../types/nominatim';
-import type { Place } from '../types/geo';
+import type {
+  NominatimReverseResponse,
+  NominatimSearchResponse,
+  NominatimSearchResult,
+} from '../types/nominatim';
+import type { Coordinates, Place } from '../types/geo';
 import { categoryLabel } from '../utils/categories';
 
 const client = axios.create({
@@ -79,4 +83,42 @@ export async function searchPlaces(query: string, limit = 8): Promise<Place[]> {
   const places = response.data.map(toPlace);
   cache.set(cacheKey, places);
   return places;
+}
+
+/**
+ * Descobre que morada corresponde a um ponto do mapa — o contrário da pesquisa.
+ *
+ * É o que dá nome ao pino que se larga com um toque longo. Devolve `null` se
+ * não houver nada naquele ponto (no meio do mar, por exemplo) ou se o serviço
+ * falhar: nesse caso o pino fica na mesma, só sem morada.
+ *
+ * Passa pela mesma fila de 1 pedido por segundo do resto do Nominatim.
+ */
+export async function reverseGeocode(coordinates: Coordinates): Promise<Place | null> {
+  const lat = coordinates.latitude.toFixed(5);
+  const lon = coordinates.longitude.toFixed(5);
+  const cacheKey = `reverse|${lat},${lon}`;
+
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    return cached[0] ?? null;
+  }
+
+  try {
+    const response = await schedule(() =>
+      client.get<NominatimReverseResponse>('/reverse', {
+        params: { lat, lon, format: 'jsonv2', zoom: 18, extratags: 1 },
+      }),
+    );
+
+    if ('error' in response.data) {
+      return null;
+    }
+
+    const place = toPlace(response.data);
+    cache.set(cacheKey, [place]);
+    return place;
+  } catch {
+    return null;
+  }
 }

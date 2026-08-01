@@ -31,3 +31,12 @@ export interface NominatimSearchResult {
 
 /** A pesquisa devolve uma lista destes resultados. */
 export type NominatimSearchResponse = NominatimSearchResult[];
+
+/**
+ * A pesquisa inversa (coordenadas → morada) devolve um só resultado, não uma
+ * lista. Quando não há nada naquele ponto — no meio do mar, por exemplo —
+ * devolve um objeto só com `error`.
+ */
+export type NominatimReverseResponse =
+  | NominatimSearchResult
+  | { error: string };

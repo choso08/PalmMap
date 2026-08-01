@@ -30,6 +30,8 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro.
 - Pesquisa de moradas e negócios pelo Nominatim, com as regras de utilização cumpridas.
 - Negócios pela Overpass: botões por categoria e pinos automáticos na área visível.
+- Toque longo no mapa larga um pino em qualquer ponto, com a morada obtida por pesquisa
+  inversa no Nominatim, e permite traçar o percurso até lá.
 - Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
@@ -423,6 +425,9 @@ serem desfeitas sem se perceber o que se está a desligar.
   partir de 3 letras. **Não reduzir este valor.**
 - Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
   vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
+- A pesquisa inversa (coordenadas → morada), usada pelo pino largado no mapa, passa pela
+  mesma fila e pela mesma cache. Se falhar, o pino fica na mesma, só sem morada — o
+  percurso não depende dela.
 
 ### Overpass — negócios e pontos de interesse
 

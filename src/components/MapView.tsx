@@ -5,6 +5,7 @@ import {
   Layer,
   Map,
   Marker,
+  type PressEvent,
   UserLocation,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
@@ -25,6 +26,10 @@ interface MapViewProps {
   onViewportChange: (bounds: Bounds, zoom: number) => void;
   /** Chamado ao tocar num pino de negócio. */
   onPlacePress: (placeId: number) => void;
+  /** Pino largado com um toque longo, à espera de virar destino. */
+  droppedPin: Coordinates | null;
+  /** Chamado num toque longo em qualquer ponto do mapa. */
+  onDropPin: (coordinates: Coordinates) => void;
   ref?: Ref<MapViewRef>;
 }
 
@@ -48,6 +53,8 @@ export function MapView({
   places,
   onViewportChange,
   onPlacePress,
+  droppedPin,
+  onDropPin,
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
@@ -102,6 +109,14 @@ export function MapView({
     });
   }, [destination, route]);
 
+  const handleLongPress = useCallback(
+    (event: NativeSyntheticEvent<PressEvent>) => {
+      const [longitude, latitude] = event.nativeEvent.lngLat;
+      onDropPin({ latitude, longitude });
+    },
+    [onDropPin],
+  );
+
   const handleRegionDidChange = useCallback(
     (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
       const { bounds, zoom } = event.nativeEvent;
@@ -118,6 +133,7 @@ export function MapView({
       attribution
       logo={false}
       onRegionDidChange={handleRegionDidChange}
+      onLongPress={handleLongPress}
     >
       <Camera
         ref={cameraRef}
@@ -203,6 +219,18 @@ export function MapView({
         </GeoJSONSource>
       ) : null}
 
+      {/*
+        O pino largado com o dedo. Fica com um aspeto diferente do destino,
+        para se perceber que ainda não há percurso traçado.
+      */}
+      {droppedPin ? (
+        <Marker id="dropped-pin" lngLat={[droppedPin.longitude, droppedPin.latitude]}>
+          <View style={[styles.droppedPin, { borderColor: theme.accent }]}>
+            <View style={[styles.droppedPinCore, { backgroundColor: theme.accent }]} />
+          </View>
+        </Marker>
+      ) : null}
+
       {destination ? (
         <Marker id="destination" lngLat={[destination.longitude, destination.latitude]}>
           <View
@@ -226,5 +254,19 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 3,
+  },
+  droppedPin: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 3,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  droppedPinCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
