@@ -10,13 +10,17 @@ O **PalmMap** é uma aplicação de mapas para telemóvel, pensada como alternat
 Maps, construída apenas com serviços abertos e gratuitos.
 
 **É um projeto de uso pessoal** — para o autor e, quando muito, mais algumas pessoas. Não
-se destina a ser publicado numa loja de aplicações nem a servir milhares de utilizadores.
-Isto é importante: significa que as soluções simples e gratuitas chegam perfeitamente, e
-que não vale a pena complicar com infraestrutura própria. Sempre que houver dúvida entre
-"o mais simples" e "o mais escalável", escolhe o mais simples.
+se destina a servir milhares de utilizadores. Isto é importante: significa que as soluções
+simples e gratuitas chegam perfeitamente, e que não vale a pena complicar com
+infraestrutura própria. Sempre que houver dúvida entre "o mais simples" e "o mais
+escalável", escolhe o mais simples.
 
 A regra central do projeto: **nada de Google Maps, nada de chaves de API pagas.** Todos os
 dados vêm de fontes abertas.
+
+Existe também o objetivo de **funcionar no Android Auto** (o ecrã do carro). Isso é
+possível, mas tem regras muito próprias e é bastante mais complicado do que a aplicação de
+telemóvel — ver a secção "Android Auto" mais abaixo antes de contar com isso.
 
 ## ⚠️ Estado atual do repositório — ler primeiro
 
@@ -75,7 +79,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
 ficheiro de instalação descritas aqui são específicas do Android.
 
-## Decisão importante por tomar: qual o componente do mapa
+## Decisão importante: qual o componente do mapa
 
 Esta é a decisão que mais afeta o resto do projeto, por isso vem antes de tudo o resto.
 
@@ -84,13 +88,16 @@ essa biblioteca funciona por cima do Google Maps e, na prática, costuma exigir 
 Google para sequer arrancar — mesmo quando só queremos desenhar os tiles do OpenStreetMap
 por cima. Ou seja, entra em conflito direto com o objetivo do projeto.
 
-**Recomendação: usar `@maplibre/maplibre-react-native`.** É uma biblioteca de mapas
-completamente livre, sem qualquer ligação ao Google, e é o caminho que cumpre mesmo o
-objetivo de não depender de serviços proprietários. O documento original já referia o
-MapLibre como uma das opções possíveis.
+**Recomendação: usar MapLibre** — `@maplibre/maplibre-react-native` no telemóvel. É uma
+biblioteca de mapas completamente livre, sem qualquer ligação ao Google. O documento
+original já a referia como uma das opções possíveis.
 
-Enquanto esta decisão não for confirmada com o autor do projeto, não vale a pena escrever o
-componente do mapa — é o alicerce de tudo o resto.
+O objetivo do Android Auto torna esta escolha praticamente obrigatória. No ecrã do carro, a
+aplicação tem de desenhar o mapa por si própria, a partir de código nativo Android — e o
+MapLibre tem uma biblioteca nativa para Android que usa exatamente os mesmos tiles do
+OpenStreetMap. Ou seja, com o MapLibre o telemóvel e o carro partilham o mesmo motor de
+mapa e a mesma fonte de dados. Com o `react-native-maps` não haveria nada reaproveitável no
+carro.
 
 ## Arrancar do zero
 
@@ -128,6 +135,9 @@ npx expo run:android        # Correr num emulador ou telemóvel Android
 
 Para uso pessoal, o mais prático é gerar um APK e instalá-lo diretamente no telemóvel. Não
 é preciso publicar na Play Store nem pagar nada.
+
+Atenção: isto serve para a aplicação de telemóvel. Para o Android Auto funcionar num carro
+a sério, o APK instalado à mão **não chega** — ver a secção "Android Auto".
 
 ```bash
 # Configurar o EAS (o serviço de compilação da Expo)
@@ -215,6 +225,70 @@ Chega perfeitamente usar o estado normal do React (`useState`) e, se for preciso
 informação entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado
 para um projeto deste tamanho.
 
+## Android Auto
+
+Objetivo desejado: poder usar o PalmMap no ecrã do carro. É possível, mas convém perceber
+bem as regras antes de investir tempo — são bastante mais apertadas do que no telemóvel.
+
+### O que é preciso saber
+
+**1. A parte do carro não pode ser feita em React Native.**
+As aplicações de Android Auto usam uma biblioteca própria da Google, a *Android for Cars
+App Library*, escrita em Kotlin/Java. O ecrã do carro **não mostra o ecrã da aplicação** —
+a aplicação fornece "modelos" (listas, painel de navegação, mapa) e é o carro que os
+desenha, com regras rígidas para não distrair o condutor. Consequência prática: a parte do
+Android Auto é um módulo nativo separado, à parte do código React Native. Só o mapa em si
+(via MapLibre nativo) e a lógica de ligação ao Nominatim/OSRM é que se reaproveitam em
+espírito — o código terá de ser reescrito em Kotlin, mas é pouco código.
+
+**2. Obriga a sair do Expo "gerido".**
+Para acrescentar código nativo é preciso correr `npx expo prebuild`, que gera a pasta
+`android/` para poder ser editada à mão. Não é dramático, mas é uma mudança de forma de
+trabalhar. **Vale a pena contar com isto desde o início.**
+
+**3. A grande armadilha: não dá para instalar por APK no carro.**
+O Android Auto tem uma opção de programador chamada "Unknown sources" que permite usar
+aplicações instaladas fora da Play Store. **Essa opção não se aplica a aplicações de
+navegação.** Está escrito na documentação da Google: a opção serve para apps de música,
+mensagens e apps de "estacionado", mas *não* para apps feitas com a Android for Cars App
+Library. Ou seja, o plano de gerar um APK e instalar no telemóvel — que funciona lindamente
+para a aplicação de telemóvel — **não chega para ter o PalmMap no carro**.
+
+**4. Para funcionar num carro a sério, é preciso a Play Store.**
+Isso implica conta de programador Google Play (pagamento único de cerca de 25 dólares) e,
+para apps de navegação, **uma revisão manual adicional feita pela Google**, com exigências
+sérias: navegação passo-a-passo real, indicações de faixa de rodagem, enviar a próxima
+manobra para o painel de instrumentos do carro, modo de demonstração de condução, regras de
+distração do condutor, etc. É um nível de exigência pensado para o Waze e o Sygic, não para
+um projeto pessoal.
+
+Nota: a documentação da Google é contraditória quanto a saber se os canais de teste interno
+da Play Store contornam esta revisão. Se se chegar a esse ponto, é algo a testar na prática
+em vez de assumir.
+
+**5. O que dá para fazer já, de graça: o Desktop Head Unit (DHU).**
+É um simulador de ecrã de carro que corre no computador e vem com o Android Studio. Permite
+desenvolver e experimentar toda a experiência de Android Auto sem carro, sem Play Store e
+sem revisão nenhuma. Para um projeto pessoal, é aqui que a parte do Android Auto se
+constrói e se testa.
+
+### Consequência para o plano de trabalho
+
+O que está descrito no resto deste ficheiro — mostrar o mapa, pesquisar uma morada, desenhar
+o percurso e a distância — é um projeto bem mais pequeno do que navegação passo-a-passo com
+manobras, recálculo de percurso e voz, que é o que o Android Auto exige de uma app de
+navegação.
+
+**Ordem sugerida:**
+
+1. Construir a aplicação de telemóvel com MapLibre, como está descrito neste ficheiro.
+2. Correr `npx expo prebuild` cedo, para o código nativo ser possível mais tarde.
+3. Só depois, como segunda fase, acrescentar o módulo de Android Auto em Kotlin e testá-lo
+   no DHU.
+4. A questão da Play Store fica para o fim, e só se a fase 3 correr bem.
+
+Enquanto a fase 1 não estiver feita, não começar a fase 3.
+
 ## Regras de utilização dos serviços externos
 
 Isto não são preferências de estilo — são as condições de utilização dos serviços. Se não
@@ -244,6 +318,9 @@ preciso ser bem-educado com serviços que são mantidos por voluntários.
   garantias de funcionamento. Para uso pessoal serve muito bem; convém apenas contar com a
   possibilidade de estar em baixo de vez em quando e mostrar uma mensagem de erro decente
   quando isso acontecer.
+- Se um dia se avançar para navegação passo-a-passo (ver "Android Auto"), o OSRM já devolve
+  as manobras — basta pedir o percurso com `steps=true`. A informação está lá; o trabalho
+  está em transformá-la em indicações e em recalcular o percurso quando se sai dele.
 
 O endereço base, o `User-Agent`, o intervalo entre pedidos e a memória de resultados devem
 estar todos definidos em `src/services/`, num único sítio.
