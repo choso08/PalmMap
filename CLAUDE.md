@@ -37,8 +37,9 @@ compila e os tipos estão verificados, mas o comportamento real no dispositivo �
 desenho do mapa, permissões — está por confirmar. Ao trabalhar aqui, não digas que algo
 "funciona" no telemóvel sem ter sido experimentado.
 
-Falta também a configuração do EAS (`eas.json`), que se cria com `eas build:configure` e
-precisa de conta Expo.
+O `eas.json` já está escrito, com três perfis de compilação (`development`, `preview` e
+`production`) — ver "Instalar no telemóvel". Falta só ligar o projeto a uma conta Expo, o
+que acontece sozinho na primeira compilação.
 
 O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
 convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
@@ -122,25 +123,6 @@ npx expo start              # Arrancar o servidor de desenvolvimento
 npx expo run:android        # Compilar e correr num emulador ou telemóvel Android
 ```
 
-### Gerar o ficheiro de instalação (APK)
-
-Para uso pessoal, o mais prático é gerar um APK e instalá-lo diretamente no telemóvel. Não
-é preciso publicar na Play Store nem pagar nada.
-
-(Isto serve para a aplicação de telemóvel. Para o ecrã do carro o APK não chegaria — foi
-uma das razões para o Android Auto ficar pausado.)
-
-```bash
-# Configurar o EAS (o serviço de compilação da Expo)
-npx eas-cli build:configure
-
-# Gerar um APK instalável diretamente no Android
-npx eas-cli build -p android --profile preview
-
-# Em alternativa, compilar no próprio computador (exige o Android Studio instalado)
-npx expo run:android --variant release
-```
-
 ### Verificar erros de tipos
 
 ```bash
@@ -150,6 +132,48 @@ npx tsc --noEmit
 Não está definida nenhuma ferramenta de testes nem de formatação automática. Para um
 projeto pessoal deste tamanho, não é preciso — mas se acrescentares alguma, documenta-a
 aqui.
+
+## Instalar no telemóvel
+
+Não é preciso Android Studio nem publicar na Play Store: o EAS compila na nuvem e devolve
+um APK para instalar diretamente. Só é preciso uma conta Expo, que é gratuita.
+
+Os perfis de compilação estão em `eas.json`. Há dois que interessam:
+
+| Perfil | Para quê |
+| --- | --- |
+| `preview` | A aplicação a sério, autónoma. Instala-se e usa-se. Para mudar o código, compila-se de novo. |
+| `development` | Instala-se uma vez e depois liga-se ao computador com `npx expo start`. O código recarrega sem compilar outra vez. É o que se usa enquanto se está a desenvolver. |
+
+```bash
+# Entrar na conta Expo (só na primeira vez)
+npx eas-cli login
+
+# Gerar o APK. Na primeira vez pergunta se pode ligar o projeto à conta — dizer que sim.
+npx eas-cli build -p android --profile preview
+```
+
+No fim aparece um endereço e um QR code. Abrir no telemóvel, descarregar o APK e instalar.
+
+Notas para instalar em Android:
+
+- É preciso autorizar a instalação de aplicações fora da Play Store, no navegador ou no
+  gestor de ficheiros que abrir o APK.
+- Em telemóveis Xiaomi/POCO (HyperOS ou MIUI) costuma aparecer um aviso extra de segurança.
+  Se a instalação for bloqueada, desligar a verificação automática de aplicações nas
+  definições de segurança.
+- A aplicação precisa de Internet para os tiles do mapa e para o Nominatim e o OSRM. Não
+  funciona offline.
+
+Em alternativa, compilar no próprio computador (exige o Android Studio instalado):
+
+```bash
+npx expo run:android                    # versão de desenvolvimento
+npx expo run:android --variant release  # versão final
+```
+
+(Isto serve para a aplicação de telemóvel. Para o ecrã do carro o APK não chegaria — foi
+uma das razões para o Android Auto ficar pausado.)
 
 ## Estrutura do projeto
 
@@ -178,6 +202,7 @@ aqui.
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
 ├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
+├── eas.json                # Perfis de compilação para gerar o APK
 ├── package.json
 └── tsconfig.json
 ```
