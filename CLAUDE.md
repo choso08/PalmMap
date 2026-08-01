@@ -190,7 +190,9 @@ uma das razões para o Android Auto ficar pausado.)
 
 ```text
 /
-├── assets/                 # Ícones e imagem de arranque
+├── assets/                 # Ícones e imagem de arranque (gerados por script)
+├── scripts/
+│   └── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
@@ -266,7 +268,18 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   ecrã continua a dar para ver o mapa e pesquisar moradas, apenas sem a posição atual.
   Ao mexer aqui, manter este comportamento.
 
-### 3. Tema claro e escuro
+### 3. O logo
+
+- O logo é um pin de mapa branco com uma palmeira recortada lá dentro, sobre azul — junta
+  o "Map" e o "Palm" do nome.
+- Os ficheiros em `assets/` **não se editam à mão**: são desenhados por
+  `scripts/generate-icons.py`. Para mudar cores ou proporções, mexe-se no script e
+  corre-se outra vez (`pip install Pillow && python3 scripts/generate-icons.py`).
+- O Android usa o ícone adaptativo (fundo e frente separados) e corta-o num círculo, por
+  isso o pin fica recolhido em relação às bordas. Ao mexer, confirmar que nada fica
+  cortado.
+
+### 4. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`.
@@ -279,7 +292,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 4. Estado da aplicação
+### 5. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 
