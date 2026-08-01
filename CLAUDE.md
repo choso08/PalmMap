@@ -18,9 +18,9 @@ escalável", escolhe o mais simples.
 A regra central do projeto: **nada de Google Maps, nada de chaves de API pagas.** Todos os
 dados vêm de fontes abertas.
 
-Existe também o objetivo de **funcionar no Android Auto** (o ecrã do carro). Isso é
-possível, mas tem regras muito próprias e é bastante mais complicado do que a aplicação de
-telemóvel — ver a secção "Android Auto" mais abaixo antes de contar com isso.
+Houve a ideia de **funcionar no Android Auto** (o ecrã do carro), mas essa parte está
+**pausada por decisão do autor** — ver a secção "Android Auto (pausado)" mais abaixo. Não
+começar trabalho nessa direção sem o autor voltar a pedir.
 
 ## ⚠️ Estado atual do repositório — ler primeiro
 
@@ -92,12 +92,11 @@ por cima. Ou seja, entra em conflito direto com o objetivo do projeto.
 biblioteca de mapas completamente livre, sem qualquer ligação ao Google. O documento
 original já a referia como uma das opções possíveis.
 
-O objetivo do Android Auto torna esta escolha praticamente obrigatória. No ecrã do carro, a
-aplicação tem de desenhar o mapa por si própria, a partir de código nativo Android — e o
-MapLibre tem uma biblioteca nativa para Android que usa exatamente os mesmos tiles do
-OpenStreetMap. Ou seja, com o MapLibre o telemóvel e o carro partilham o mesmo motor de
-mapa e a mesma fonte de dados. Com o `react-native-maps` não haveria nada reaproveitável no
-carro.
+Esta recomendação sustenta-se sozinha, só pela regra de não depender do Google. Como
+argumento adicional: se um dia se retomar o Android Auto, o MapLibre também tem uma
+biblioteca nativa para Android, o que permitiria ao telemóvel e ao carro partilharem o
+mesmo motor de mapa e a mesma fonte de tiles. Não é a razão principal, mas é mais um ponto
+a favor.
 
 ## Arrancar do zero
 
@@ -136,8 +135,8 @@ npx expo run:android        # Correr num emulador ou telemóvel Android
 Para uso pessoal, o mais prático é gerar um APK e instalá-lo diretamente no telemóvel. Não
 é preciso publicar na Play Store nem pagar nada.
 
-Atenção: isto serve para a aplicação de telemóvel. Para o Android Auto funcionar num carro
-a sério, o APK instalado à mão **não chega** — ver a secção "Android Auto".
+(Isto serve para a aplicação de telemóvel. Para o ecrã do carro o APK não chegaria — foi
+uma das razões para o Android Auto ficar pausado.)
 
 ```bash
 # Configurar o EAS (o serviço de compilação da Expo)
@@ -225,10 +224,15 @@ Chega perfeitamente usar o estado normal do React (`useState`) e, se for preciso
 informação entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado
 para um projeto deste tamanho.
 
-## Android Auto
+## Android Auto (pausado)
 
-Objetivo desejado: poder usar o PalmMap no ecrã do carro. É possível, mas convém perceber
-bem as regras antes de investir tempo — são bastante mais apertadas do que no telemóvel.
+> **Estado: pausado.** O autor decidiu pôr esta parte de lado depois de ver o que envolve.
+> Não começar a trabalhar no Android Auto, não instalar bibliotecas por causa dele e não
+> correr `expo prebuild` só para o preparar. A secção fica aqui como registo da pesquisa
+> já feita, para não ser preciso repeti-la se um dia se retomar.
+
+A ideia era poder usar o PalmMap no ecrã do carro. É possível, mas as regras são bastante
+mais apertadas do que no telemóvel — em resumo, o que se apurou:
 
 ### O que é preciso saber
 
@@ -272,22 +276,27 @@ desenvolver e experimentar toda a experiência de Android Auto sem carro, sem Pl
 sem revisão nenhuma. Para um projeto pessoal, é aqui que a parte do Android Auto se
 constrói e se testa.
 
-### Consequência para o plano de trabalho
+### Porque foi pausado
 
-O que está descrito no resto deste ficheiro — mostrar o mapa, pesquisar uma morada, desenhar
-o percurso e a distância — é um projeto bem mais pequeno do que navegação passo-a-passo com
-manobras, recálculo de percurso e voz, que é o que o Android Auto exige de uma app de
-navegação.
+Somando tudo: código nativo em Kotlin à parte do resto, saída do Expo gerido, e —
+sobretudo — a impossibilidade de instalar por APK no carro, com a Play Store e a revisão
+manual da Google como única via. Para um projeto pessoal, o esforço não compensa o
+resultado.
 
-**Ordem sugerida:**
+Há ainda o salto de dimensão: o que está descrito no resto deste ficheiro é mostrar o mapa,
+pesquisar uma morada e desenhar o percurso. O Android Auto exige navegação passo-a-passo
+com manobras, recálculo e voz — é outro projeto por cima deste.
 
-1. Construir a aplicação de telemóvel com MapLibre, como está descrito neste ficheiro.
-2. Correr `npx expo prebuild` cedo, para o código nativo ser possível mais tarde.
-3. Só depois, como segunda fase, acrescentar o módulo de Android Auto em Kotlin e testá-lo
-   no DHU.
-4. A questão da Play Store fica para o fim, e só se a fase 3 correr bem.
+### Se um dia se retomar
 
-Enquanto a fase 1 não estiver feita, não começar a fase 3.
+Nada do que se faz agora fica pelo caminho. O `expo prebuild` pode correr-se em qualquer
+altura, por isso **não vale a pena complicar o arranque por causa disto** — a aplicação de
+telemóvel constrói-se em Expo gerido, que é mais simples. A ordem seria:
+
+1. Ter a aplicação de telemóvel a funcionar (é o trabalho atual).
+2. Correr `npx expo prebuild` para poder acrescentar código nativo.
+3. Escrever o módulo de Android Auto em Kotlin e testá-lo no DHU, que é gratuito.
+4. A questão da Play Store só no fim, e só se o passo 3 correr bem.
 
 ## Regras de utilização dos serviços externos
 
@@ -318,9 +327,8 @@ preciso ser bem-educado com serviços que são mantidos por voluntários.
   garantias de funcionamento. Para uso pessoal serve muito bem; convém apenas contar com a
   possibilidade de estar em baixo de vez em quando e mostrar uma mensagem de erro decente
   quando isso acontecer.
-- Se um dia se avançar para navegação passo-a-passo (ver "Android Auto"), o OSRM já devolve
-  as manobras — basta pedir o percurso com `steps=true`. A informação está lá; o trabalho
-  está em transformá-la em indicações e em recalcular o percurso quando se sai dele.
+- Nota para o futuro: se um dia se quiser navegação passo-a-passo, o OSRM já devolve as
+  manobras — basta pedir o percurso com `steps=true`. Não é preciso agora.
 
 O endereço base, o `User-Agent`, o intervalo entre pedidos e a memória de resultados devem
 estar todos definidos em `src/services/`, num único sítio.
