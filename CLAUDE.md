@@ -1,232 +1,267 @@
 # CLAUDE.md — PalmMap
 
-Guidance for Claude Code and other AI assistants working in this repository.
+Guia para o Claude Code e outros assistentes de IA que trabalhem neste repositório.
+Está escrito em português de Portugal e em linguagem simples, para poder ser lido tanto
+por uma pessoa como por um assistente.
 
-## ⚠️ Current repository state — read this first
+## Objetivo do projeto
 
-**This repository contains no application code.** As of the latest commit, the tree is:
+O **PalmMap** é uma aplicação de mapas para telemóvel, pensada como alternativa ao Google
+Maps, construída apenas com serviços abertos e gratuitos.
+
+**É um projeto de uso pessoal** — para o autor e, quando muito, mais algumas pessoas. Não
+se destina a ser publicado numa loja de aplicações nem a servir milhares de utilizadores.
+Isto é importante: significa que as soluções simples e gratuitas chegam perfeitamente, e
+que não vale a pena complicar com infraestrutura própria. Sempre que houver dúvida entre
+"o mais simples" e "o mais escalável", escolhe o mais simples.
+
+A regra central do projeto: **nada de Google Maps, nada de chaves de API pagas.** Todos os
+dados vêm de fontes abertas.
+
+## ⚠️ Estado atual do repositório — ler primeiro
+
+**Este repositório ainda não tem código nenhum.** Neste momento tem apenas:
 
 ```text
 /
-├── CLAUDE.md                        # this file
+├── CLAUDE.md                        # este ficheiro
 └── docs/
-    └── project-brief-original.pdf   # the original spec (PDF, Portuguese)
+    └── project-brief-original.pdf   # o documento original do projeto (PDF)
 ```
 
-There is no `package.json`, no `src/`, no `App.tsx`, no Expo project, and no lockfile.
-Everything below the "Project overview" section describes the **intended** design, taken
-from the original brief. Treat it as a target to build toward, not as a description of
-existing code.
+Não existe `package.json`, não existe pasta `src/`, não existe `App.tsx`, não existe
+projeto Expo criado. Tudo o que está descrito mais abaixo é o que **se pretende construir**,
+não o que já existe.
 
-Practical consequences:
+Na prática, isto quer dizer:
 
-- Do not claim a file or command works until you have created it and run it.
-- The first real task in this repo is scaffolding (see "Bootstrapping").
-- Before following any structural convention here, check whether the file actually exists.
-- If you scaffold the project, **update this file** so it stops saying the repo is empty.
+- Não digas que um ficheiro ou um comando funciona sem o teres criado e experimentado.
+- A primeira tarefa a fazer aqui é criar a base do projeto (ver "Arrancar do zero").
+- Antes de seguires qualquer convenção deste ficheiro, confirma se o ficheiro em causa já
+  existe mesmo.
+- Se criares a base do projeto, **atualiza este ficheiro** para deixar de dizer que o
+  repositório está vazio.
 
-The original brief was committed as a PDF named `CLAUDE.md`. It has been converted to this
-Markdown file and the source PDF moved to `docs/project-brief-original.pdf`. That PDF is
-written in Portuguese; this file is in English. Everything substantive from the brief is
-carried over below.
+O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
+convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
 
-## Project overview
+## Pequeno glossário
 
-PalmMap is a mobile maps application built as an open-source alternative to Google Maps.
-It is planned as a **React Native (Expo)** app that uses:
+Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 
-- **OpenStreetMap** for map tile rendering
-- **Nominatim** for address search / geocoding
-- **OSRM** for route calculation and display
-
-The defining constraint of the project: **no Google Maps API key, no proprietary map
-services.** Every data source must be open.
-
-## Tech stack
-
-| Concern | Choice |
+| Termo | O que é |
 | --- | --- |
-| Framework | React Native + Expo (brief says SDK 51+; use the current Expo SDK when scaffolding) |
-| Language | TypeScript |
-| Map component | `react-native-maps` with a custom tile server — but see "Open decisions" below |
-| Geolocation | `expo-location` |
-| HTTP | `axios` |
-| Tiles | OpenStreetMap / CartoDB / MapLibre |
-| Geocoding | Nominatim API (`https://nominatim.openstreetmap.org`) |
-| Routing | OSRM API (`https://router.project-osrm.org`) |
+| **OpenStreetMap (OSM)** | Um mapa mundial feito de forma colaborativa e livre, o equivalente aberto ao mapa do Google. |
+| **Tiles** | Os quadradinhos de imagem que, juntos, formam o mapa que se vê no ecrã. |
+| **Nominatim** | Serviço que transforma uma morada escrita ("Rua Augusta, Lisboa") em coordenadas de latitude e longitude. É o motor de pesquisa do OpenStreetMap. |
+| **OSRM** | Serviço que calcula o caminho entre dois pontos e devolve o percurso e a distância. |
+| **Expo** | Conjunto de ferramentas que simplifica muito criar e testar aplicações em React Native. |
+| **APK** | O ficheiro que se instala diretamente num telemóvel Android, sem passar pela Play Store. |
+| **API** | A forma como um programa pede informação a um serviço na Internet. |
 
-Target platform is Android. Nothing in the brief rules out iOS, but the permissions and
-build guidance are Android-specific.
+## Tecnologias
 
-## Bootstrapping
+| Para quê | Escolha |
+| --- | --- |
+| Base da aplicação | React Native + Expo (usar a versão atual do Expo) |
+| Linguagem | TypeScript |
+| Componente do mapa | Ver "Decisão importante" mais abaixo — recomenda-se MapLibre |
+| Localização (GPS) | `expo-location` |
+| Pedidos à Internet | `axios` |
+| Mapa (tiles) | OpenStreetMap |
+| Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
+| Cálculo de percursos | OSRM (`https://router.project-osrm.org`) |
 
-Nothing exists yet, so the project has to be created before any other command in this file
-will run. Roughly:
+A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
+ficheiro de instalação descritas aqui são específicas do Android.
+
+## Decisão importante por tomar: qual o componente do mapa
+
+Esta é a decisão que mais afeta o resto do projeto, por isso vem antes de tudo o resto.
+
+O documento original indicava a biblioteca `react-native-maps`. **O problema:** no Android,
+essa biblioteca funciona por cima do Google Maps e, na prática, costuma exigir uma chave do
+Google para sequer arrancar — mesmo quando só queremos desenhar os tiles do OpenStreetMap
+por cima. Ou seja, entra em conflito direto com o objetivo do projeto.
+
+**Recomendação: usar `@maplibre/maplibre-react-native`.** É uma biblioteca de mapas
+completamente livre, sem qualquer ligação ao Google, e é o caminho que cumpre mesmo o
+objetivo de não depender de serviços proprietários. O documento original já referia o
+MapLibre como uma das opções possíveis.
+
+Enquanto esta decisão não for confirmada com o autor do projeto, não vale a pena escrever o
+componente do mapa — é o alicerce de tudo o resto.
+
+## Arrancar do zero
+
+Como ainda não existe nada, o projeto tem de ser criado antes de qualquer outro comando
+deste ficheiro funcionar. Em traços gerais:
 
 ```bash
-# Create the Expo + TypeScript app in this directory
+# Criar a aplicação Expo com TypeScript nesta pasta
 npx create-expo-app@latest . --template blank-typescript
 
-# Core dependencies
-npx expo install react-native-maps expo-location
+# Instalar o que é preciso
+npx expo install expo-location
 npm install axios
 ```
 
-Verify the app boots (`npx expo start`) before adding features. Commit the lockfile.
+A biblioteca do mapa instala-se depois, consoante a decisão acima.
 
-## Commands
+Confirmar que a aplicação arranca (`npx expo start`) antes de acrescentar funcionalidades.
+Guardar o ficheiro de dependências (`package-lock.json`) no repositório.
 
-These are the intended commands once the project is scaffolded. **None of them work in the
-current empty tree.**
+## Comandos
 
-### Development
+Estes são os comandos previstos **depois** de o projeto estar criado. Neste momento
+nenhum deles funciona, porque ainda não há projeto.
+
+### Desenvolvimento
 
 ```bash
-npm install                 # Install dependencies
-npx expo start              # Start the dev server
-npx expo run:android        # Run on an Android emulator/device
+npm install                 # Instalar as dependências
+npx expo start              # Arrancar o servidor de desenvolvimento
+npx expo run:android        # Correr num emulador ou telemóvel Android
 ```
 
-### Build / APK generation
+### Gerar o ficheiro de instalação (APK)
+
+Para uso pessoal, o mais prático é gerar um APK e instalá-lo diretamente no telemóvel. Não
+é preciso publicar na Play Store nem pagar nada.
 
 ```bash
-# Configure EAS (Expo Application Services)
+# Configurar o EAS (o serviço de compilação da Expo)
 npx eas-cli build:configure
 
-# Preview/test APK, installable directly on Android
+# Gerar um APK instalável diretamente no Android
 npx eas-cli build -p android --profile preview
 
-# Local release build (requires Android Studio / SDK installed)
+# Em alternativa, compilar no próprio computador (exige o Android Studio instalado)
 npx expo run:android --variant release
 ```
 
-### Type checking
+### Verificar erros de tipos
 
 ```bash
 npx tsc --noEmit
 ```
 
-No test runner, linter, or formatter is specified in the brief. If you add one, document
-it here.
+Não está definida nenhuma ferramenta de testes nem de formatação automática. Para um
+projeto pessoal deste tamanho, não é preciso — mas se acrescentares alguma, documenta-a
+aqui.
 
-## Intended project structure
+## Estrutura pretendida do projeto
 
 ```text
 /
-├── assets/                 # Icons, splash screens, static images
+├── assets/                 # Ícones, imagem de arranque, imagens fixas
 ├── src/
-│   ├── components/         # Reusable UI components
-│   │   ├── MapView.tsx     # Map renderer (react-native-maps + OpenStreetMap tiles)
-│   │   ├── SearchBar.tsx   # Address search with autocomplete (Nominatim)
-│   │   └── RoutePanel.tsx  # Bottom panel with route/distance information
-│   ├── services/           # External API clients
-│   │   ├── location.ts     # Device GPS manager
-│   │   ├── nominatim.ts    # Place-search API client
-│   │   └── osrm.ts         # Route-calculation API client
-│   ├── types/              # TypeScript type definitions
-│   └── utils/              # Utilities (formatters, distance calculation)
-├── App.tsx                 # Application entry point
-├── app.json                # Expo config and Android permissions
+│   ├── components/         # Peças de interface reutilizáveis
+│   │   ├── MapView.tsx     # Desenha o mapa com os tiles do OpenStreetMap
+│   │   ├── SearchBar.tsx   # Barra de pesquisa de moradas (usa o Nominatim)
+│   │   └── RoutePanel.tsx  # Painel inferior com a informação do percurso e distância
+│   ├── services/           # Ligação aos serviços externos
+│   │   ├── location.ts     # Gere o GPS do telemóvel
+│   │   ├── nominatim.ts    # Pesquisa de locais
+│   │   └── osrm.ts         # Cálculo de percursos
+│   ├── types/              # Definições de tipos do TypeScript
+│   └── utils/              # Funções auxiliares (formatar textos, calcular distâncias)
+├── App.tsx                 # Ponto de entrada da aplicação
+├── app.json                # Configuração do Expo e permissões do Android
 ├── package.json
 └── tsconfig.json
 ```
 
-Keep network calls inside `src/services/`. Components should consume services, never call
-`axios` directly — this keeps the Nominatim/OSRM usage rules (below) enforceable in one
-place.
+**Regra prática:** todos os pedidos à Internet ficam dentro de `src/services/`. Os
+componentes do ecrã nunca chamam o `axios` diretamente — pedem as coisas aos serviços.
+Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentradas num
+único sítio, em vez de espalhadas pelo código.
 
-## Architecture and code guidelines
+## Orientações de arquitetura
 
-### 1. Map rendering
+### 1. O mapa
 
-- **Never use a Google Maps API key.** This is the core project constraint.
-- Render OSM tiles with the `<UrlTile />` component from `react-native-maps`:
-  ```tsx
-  <UrlTile urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-  ```
-- Set `mapType="none"` on the `MapView` so the underlying provider's basemap is not drawn
-  on top of / underneath the OSM tiles.
-- Always send a descriptive custom `User-Agent` on requests to OpenStreetMap and Nominatim
-  services, as required by their fair-use policies.
+- **Nunca usar uma chave de API do Google.** É a regra central do projeto.
+- Os tiles vêm do OpenStreetMap:
+  `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
+- Enviar sempre um `User-Agent` próprio e identificável nos pedidos ao OpenStreetMap e ao
+  Nominatim. É uma exigência das regras de utilização destes serviços — basicamente, é
+  dizer-lhes quem somos em vez de aparecer como anónimo.
+- Se, apesar da recomendação acima, o projeto ficar mesmo com o `react-native-maps`: usar o
+  componente `<UrlTile />` para os tiles e definir `mapType="none"` no mapa, para o mapa de
+  base não aparecer por baixo dos tiles do OpenStreetMap.
 
-### 2. Location permissions (Android)
+### 2. Permissões de localização (Android)
 
-- `app.json` must declare the GPS permissions:
+- O ficheiro `app.json` tem de declarar as permissões de GPS:
   - `ACCESS_FINE_LOCATION`
   - `ACCESS_COARSE_LOCATION`
-- Request permissions **at runtime** via `expo-location`
-  (`Location.requestForegroundPermissionsAsync()`), and handle denial gracefully — the app
-  should still be usable for browsing and search without GPS.
+- Pedir a permissão **durante a utilização** da aplicação, através do `expo-location`
+  (`Location.requestForegroundPermissionsAsync()`).
+- Se a pessoa recusar, a aplicação não deve rebentar nem ficar inutilizável: deve continuar
+  a dar para ver o mapa e pesquisar moradas, apenas sem mostrar a posição atual.
 
-### 3. State management
+### 3. Estado da aplicação
 
-Core state, held at the map screen level:
+A informação principal, guardada ao nível do ecrã do mapa:
 
-- `userLocation` — current device position
-- `destination` — selected/searched location
-- `routeCoordinates` — decoded points of the active route
+- `userLocation` — a posição atual do telemóvel
+- `destination` — o destino escolhido ou pesquisado
+- `routeCoordinates` — os pontos que formam o percurso
 
-Draw routes on the map with the `<Polyline />` component from `react-native-maps`, fed from
-`routeCoordinates`.
+O percurso desenha-se no mapa como uma linha (`Polyline`) a partir de `routeCoordinates`.
 
-No state library is specified. Start with React state/context; introduce something heavier
-only if there is a concrete reason, and document it here.
+Chega perfeitamente usar o estado normal do React (`useState`) e, se for preciso partilhar
+informação entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado
+para um projeto deste tamanho.
 
-## External API rules
+## Regras de utilização dos serviços externos
 
-These are usage-policy constraints, not style preferences. Violating them gets the app's
-traffic blocked.
+Isto não são preferências de estilo — são as condições de utilização dos serviços. Se não
+forem cumpridas, os pedidos da aplicação acabam por ser bloqueados.
 
-### Nominatim (`https://nominatim.openstreetmap.org`)
+A boa notícia: como o PalmMap é para uso pessoal, o volume de pedidos é minúsculo e os
+serviços públicos gratuitos chegam bem. **Não é preciso montar servidores próprios.** Só é
+preciso ser bem-educado com serviços que são mantidos por voluntários.
 
-- Maximum **1 request per second**. Hard limit on the public instance.
-- A genuine, identifying `User-Agent` (or `Referer`) is **required**. Requests without one
-  are rejected.
-- The public instance's usage policy **prohibits autocomplete-style
-  search-as-you-type.** The brief asks for an autocomplete `SearchBar`; to stay within
-  policy, either debounce aggressively and only fire on submit/pause (≥1s idle), or run a
-  self-hosted Nominatim instance. Do not fire a request per keystroke.
-- Cache results client-side; never repeat an identical query.
+### Nominatim — pesquisa de moradas
 
-### OSRM (`https://router.project-osrm.org`)
+- No máximo **1 pedido por segundo**. É um limite rígido do serviço público.
+- É **obrigatório** enviar um `User-Agent` que identifique a aplicação. Pedidos sem isso
+  são recusados.
+- **Não fazer um pedido a cada tecla escrita.** O serviço público proíbe expressamente a
+  pesquisa "à medida que se escreve". A solução é simples: esperar que a pessoa pare de
+  escrever cerca de 1 segundo, ou só pesquisar quando carregar em Enter.
+- Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
+  vezes.
 
-- The public demo server is **for development and demos only** — no SLA, no heavy use, and
-  not suitable for a shipped app. Plan on self-hosting or another routing provider before
-  release.
-- Use **`https://`**, not `http://`. The original brief lists the `http://` URL, but
-  Android 9+ (API 28) blocks cleartext traffic by default, so plain HTTP requests will fail
-  at runtime.
+### OSRM — cálculo de percursos
 
-Centralize the base URLs, the `User-Agent` header, rate limiting, and caching in
-`src/services/` so these rules are applied in exactly one place.
+- Usar **`https://`** e não `http://`. O documento original indicava o endereço com
+  `http://`, mas o Android bloqueia ligações não seguras desde a versão 9, por isso os
+  pedidos falhariam.
+- O servidor público é oficialmente destinado a demonstrações e desenvolvimento, sem
+  garantias de funcionamento. Para uso pessoal serve muito bem; convém apenas contar com a
+  possibilidade de estar em baixo de vez em quando e mostrar uma mensagem de erro decente
+  quando isso acontecer.
 
-## Code style
+O endereço base, o `User-Agent`, o intervalo entre pedidos e a memória de resultados devem
+estar todos definidos em `src/services/`, num único sítio.
 
-- Write clean **TypeScript** with well-defined types for **all** API responses
-  (Nominatim and OSRM). No `any` on network boundaries — put the response types in
-  `src/types/`.
-- Prefer function components with **React Hooks** (`useState`, `useEffect`, `useCallback`).
-- Keep styles centralized in `StyleSheet.create` at the bottom of each component file.
+## Estilo de código
 
-## Open decisions and known risks
+- TypeScript limpo, com tipos bem definidos para **todas** as respostas das APIs (Nominatim
+  e OSRM). Nada de `any` nos dados que vêm da Internet — os tipos ficam em `src/types/`.
+- Componentes em forma de função, com Hooks (`useState`, `useEffect`, `useCallback`).
+- Os estilos ficam agrupados num `StyleSheet.create` no fim de cada ficheiro de componente.
+- Comentários e nomes de variáveis: o código em inglês, como é hábito; os comentários podem
+  ser em português.
 
-Flag these to the user rather than silently picking a side:
+## Trabalhar com o Git
 
-1. **`react-native-maps` may not satisfy the no-Google constraint on Android.** On Android,
-   `react-native-maps` is backed by the Google Maps SDK, which generally needs an API key to
-   initialize — even when you only draw `<UrlTile />` OSM tiles over it. The brief lists
-   MapLibre as a tile provider option; **`@maplibre/maplibre-react-native` is the path that
-   is genuinely free of Google dependencies.** Confirm which library the project is using
-   before building out `MapView.tsx`; this decision shapes the whole map layer.
-2. **Expo SDK version.** The brief says "SDK 51+", written well before now. Scaffold on the
-   current stable SDK rather than pinning to 51, and record the chosen version here.
-3. **Production geocoding/routing backends.** Both public endpoints above are
-   demo/fair-use tier. A shipping app needs self-hosted or commercial replacements.
-
-## Git workflow
-
-- Development for this task happens on `claude/claude-md-documentation-k64ki9`; the default
-  branch is `main`.
-- Do not commit API keys or `.env` files. Add a `.gitignore` (Expo's default covers
-  `node_modules/`, `.expo/`, and build output) as part of scaffolding.
-- Do not open a pull request unless explicitly asked.
+- O desenvolvimento desta tarefa acontece no branch `claude/claude-md-documentation-k64ki9`.
+  O branch principal é o `main`.
+- Nunca guardar chaves de API nem ficheiros `.env` no repositório.
+- Criar um `.gitignore` logo no arranque (o do Expo já cobre `node_modules/`, `.expo/` e os
+  ficheiros gerados na compilação).
+- Não abrir um Pull Request sem ser explicitamente pedido.
