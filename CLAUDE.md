@@ -24,22 +24,32 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 
 ## Estado atual — o que já existe
 
-A base do projeto está criada e a aplicação já compila. O que está feito:
+**A v1 foi confirmada a funcionar num telemóvel Android real.** O que está feito:
 
 - Projeto Expo (SDK 57) com TypeScript.
-- Mapa a funcionar com MapLibre e tiles do OpenStreetMap.
-- Pesquisa de moradas pelo Nominatim, com as regras de utilização cumpridas.
-- Cálculo de percurso pelo OSRM, desenhado no mapa, com distância e tempo estimado.
+- Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro.
+- Pesquisa de moradas e negócios pelo Nominatim, com as regras de utilização cumpridas.
+- Negócios pela Overpass: botões por categoria e pinos automáticos na área visível.
+- Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
+- Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
 
-**O que ainda não foi feito:** nunca foi corrido num telemóvel nem num emulador. O código
-compila e os tipos estão verificados, mas o comportamento real no dispositivo — GPS,
-desenho do mapa, permissões — está por confirmar. Ao trabalhar aqui, não digas que algo
-"funciona" no telemóvel sem ter sido experimentado.
+**O que ainda não foi confirmado no telemóvel:** tudo o que veio depois da v1 — os
+negócios, a lista de instruções e o tema escuro. Compila e os tipos estão verificados, mas
+não foi experimentado. Não digas que "funciona" sem ter sido visto a funcionar.
+
+Também não foi possível testar as consultas à Overpass contra o serviço real, porque o
+ambiente de desenvolvimento usado bloqueia o acesso. Se os negócios não aparecerem, é o
+primeiro sítio onde procurar.
 
 O `eas.json` já está escrito, com três perfis de compilação (`development`, `preview` e
-`production`) — ver "Instalar no telemóvel". Falta só ligar o projeto a uma conta Expo, o
-que acontece sozinho na primeira compilação.
+`production`) — ver "Instalar no telemóvel". Há também um workflow do GitHub Actions
+(`.github/workflows/build-apk.yml`) que compila o APK e o publica numa Release, sem ser
+preciso computador nem conta Expo.
+
+**O que falta, decidido mas por fazer:** a navegação passo-a-passo a sério — o ecrã que
+segue a posição, anuncia "daqui a 500 m vire à direita" e recalcula o percurso. Por agora
+só existe a lista de instruções, por escolha do autor.
 
 O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
 convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
@@ -54,6 +64,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | **Tiles** | Os quadradinhos de imagem que, juntos, formam o mapa que se vê no ecrã. |
 | **Nominatim** | Serviço que transforma uma morada escrita ("Rua Augusta, Lisboa") em coordenadas de latitude e longitude. É o motor de pesquisa do OpenStreetMap. |
 | **OSRM** | Serviço que calcula o caminho entre dois pontos e devolve o percurso e a distância. |
+| **Overpass** | Serviço que permite perguntar ao OpenStreetMap "que restaurantes há aqui à volta?". É o que está por trás dos negócios. |
 | **Expo** | Conjunto de ferramentas que simplifica muito criar e testar aplicações em React Native. |
 | **APK** | O ficheiro que se instala diretamente num telemóvel Android, sem passar pela Play Store. |
 | **API** | A forma como um programa pede informação a um serviço na Internet. |
@@ -184,25 +195,36 @@ uma das razões para o Android Auto ficar pausado.)
 │   └── project-brief-original.pdf
 ├── src/
 │   ├── components/         # Peças de interface
-│   │   ├── MapView.tsx     # Desenha o mapa, o percurso e o marcador do destino
-│   │   ├── SearchBar.tsx   # Barra de pesquisa de moradas (usa o Nominatim)
-│   │   └── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
+│   │   ├── MapView.tsx     # Mapa, pinos dos negócios, percurso e destino
+│   │   ├── SearchBar.tsx   # Barra de pesquisa (usa o Nominatim)
+│   │   ├── CategoryBar.tsx # Botões "Restaurantes", "Farmácias", …
+│   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
+│   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
+│   │   └── StepsList.tsx   # Lista das instruções do percurso
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
+│   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
 │   │   ├── location.ts     # Gere o GPS do telemóvel
-│   │   ├── nominatim.ts    # Pesquisa de locais
-│   │   ├── osrm.ts         # Cálculo de percursos
-│   │   └── tiles.ts        # Estilo do mapa e User-Agent dos tiles
+│   │   ├── nominatim.ts    # Pesquisa por nome
+│   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
+│   │   ├── osrm.ts         # Cálculo de percursos e instruções
+│   │   └── tiles.ts        # Estilos do mapa (claro/escuro) e User-Agent dos tiles
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
 │   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
+│   │   ├── overpass.ts     # Formato exato da resposta da Overpass
 │   │   └── osrm.ts         # Formato exato da resposta do OSRM
-│   └── utils/
-│       └── format.ts       # Distâncias e durações em texto legível
+│   ├── utils/
+│   │   ├── format.ts       # Distâncias e durações em texto legível
+│   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
+│   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
+│   └── theme.ts            # Cores em versão clara e escura
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
 ├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── eas.json                # Perfis de compilação para gerar o APK
+├── .github/workflows/
+│   └── build-apk.yml       # Compila o APK no GitHub e publica-o numa Release
 ├── package.json
 └── tsconfig.json
 ```
@@ -244,7 +266,20 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   ecrã continua a dar para ver o mapa e pesquisar moradas, apenas sem a posição atual.
   Ao mexer aqui, manter este comportamento.
 
-### 3. Estado da aplicação
+### 3. Tema claro e escuro
+
+- As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
+  uma cor à mão — pede-se ao tema com `useTheme()`.
+- Os estilos passam a ser uma função do tema: `makeStyles(theme)` no fim do ficheiro, com
+  `useMemo` no componente. Continua tudo num `StyleSheet.create`, só que dentro da função.
+- O `app.json` tem `userInterfaceStyle` a `"automatic"` — é isso que faz a aplicação seguir
+  a definição do telemóvel. Sem o `expo-system-ui` instalado, isto não funciona no Android.
+- O mapa também muda: tiles do OpenStreetMap em claro, do CARTO em escuro (ver
+  `src/services/tiles.ts`). O OpenStreetMap não tem versão escura dos seus tiles, por isso
+  é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
+  continua sem chaves de API.
+
+### 4. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 
@@ -358,6 +393,21 @@ serem desfeitas sem se perceber o que se está a desligar.
 - Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
   vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
 
+### Overpass — negócios e pontos de interesse
+
+É o serviço mais pesado dos três: cada consulta faz o servidor percorrer os dados do
+OpenStreetMap. Convém ser especialmente cuidadoso.
+
+- Intervalo mínimo de 2 segundos entre pedidos. *No código:* `OVERPASS_MIN_INTERVAL_MS`,
+  aplicado pela fila partilhada em `src/services/rateLimit.ts`.
+- Os pinos automáticos no mapa são o maior risco de abuso — sem travões, seria um pedido
+  por cada arrastar do dedo. *No código:* só se pede a partir do zoom `MAP_PINS_MIN_ZOOM`
+  (15), e só `MAP_PINS_DEBOUNCE_MS` (1,2 s) depois de o mapa parar. **Não desligar isto.**
+- Guardar em memória as consultas já feitas. *No código:* o `Map` de cache em
+  `src/services/overpass.ts`, com as coordenadas arredondadas para o GPS a oscilar não
+  gerar pedidos novos.
+- Limitar o número de resultados por consulta (`MAP_PINS_LIMIT`).
+
 ### OSRM — cálculo de percursos
 
 - Usar **`https://`** e não `http://`. O documento original indicava o endereço com
@@ -367,8 +417,8 @@ serem desfeitas sem se perceber o que se está a desligar.
   garantias de funcionamento. Para uso pessoal serve muito bem; convém apenas contar com a
   possibilidade de estar em baixo de vez em quando e mostrar uma mensagem de erro decente
   quando isso acontecer.
-- Nota para o futuro: se um dia se quiser navegação passo-a-passo, o OSRM já devolve as
-  manobras — basta pedir o percurso com `steps=true`. Não é preciso agora.
+- O percurso é pedido com `steps=true`, que traz as manobras uma a uma. A tradução para
+  português está em `src/utils/maneuvers.ts`.
 
 O endereço base, o `User-Agent`, o intervalo entre pedidos e o tempo de espera da pesquisa
 estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado pelo código.
@@ -378,7 +428,11 @@ estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado 
 - TypeScript limpo, com tipos bem definidos para **todas** as respostas das APIs (Nominatim
   e OSRM). Nada de `any` nos dados que vêm da Internet — os tipos ficam em `src/types/`.
 - Componentes em forma de função, com Hooks (`useState`, `useEffect`, `useCallback`).
-- Os estilos ficam agrupados num `StyleSheet.create` no fim de cada ficheiro de componente.
+- Os estilos ficam agrupados no fim de cada ficheiro de componente, numa função
+  `makeStyles(theme)` que devolve um `StyleSheet.create`. Nunca escrever cores à mão.
+- Ícones: `@expo/vector-icons`, família `MaterialCommunityIcons`. Antes de usar um nome
+  novo, confirmar que existe — a lista está em
+  `node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/`.
 - Comentários e nomes de variáveis: o código em inglês, como é hábito; os comentários podem
   ser em português.
 

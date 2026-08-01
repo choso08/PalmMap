@@ -19,28 +19,56 @@ export function configureTileRequests(): void {
   });
 }
 
+function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      base: {
+        type: 'raster',
+        tiles,
+        tileSize: 256,
+        maxzoom: 19,
+        attribution,
+      },
+    },
+    layers: [{ id: 'base', type: 'raster', source: 'base' }],
+  };
+}
+
 /**
- * Estilo do mapa: tiles do OpenStreetMap, sem qualquer dependência do Google.
+ * Mapa claro: tiles do OpenStreetMap.
  *
  * Nota: usa-se `tile.openstreetmap.org` diretamente. A forma antiga com
  * subdomínios (`a.`, `b.`, `c.`) está desaconselhada pelo próprio OpenStreetMap.
  */
-export const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap',
-    },
-  },
-  layers: [
-    {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm',
-    },
+const LIGHT_STYLE = rasterStyle(
+  ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+  '© OpenStreetMap',
+);
+
+/**
+ * Mapa escuro: tiles "dark matter" do CARTO, que são feitos a partir dos dados
+ * do OpenStreetMap.
+ *
+ * O OpenStreetMap não tem versão escura dos seus tiles, por isso é preciso outra
+ * fonte. O CARTO é gratuito para uso não comercial, desde que se dê a atribuição
+ * — e o documento original do projeto já o referia como opção. Continua sem
+ * chaves de API e sem nada do Google.
+ *
+ * Os quatro endereços são o mesmo serviço: distribuir os pedidos por vários
+ * subdomínios permite ao telemóvel descarregar mais tiles em paralelo.
+ */
+const DARK_STYLE = rasterStyle(
+  [
+    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
   ],
-};
+  '© OpenStreetMap © CARTO',
+);
+
+/** Devolve o estilo do mapa conforme o tema do telemóvel. */
+export function mapStyleFor(dark: boolean): StyleSpecification {
+  return dark ? DARK_STYLE : LIGHT_STYLE;
+}

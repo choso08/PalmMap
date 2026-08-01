@@ -6,8 +6,10 @@ import {
   REQUEST_TIMEOUT_MS,
   USER_AGENT,
 } from './config';
-import type { NominatimSearchResponse } from '../types/nominatim';
+import { createRateLimiter } from './rateLimit';
+import type { NominatimSearchResponse, NominatimSearchResult } from '../types/nominatim';
 import type { Place } from '../types/geo';
+import { categoryLabel } from '../utils/categories';
 
 const client = axios.create({
   baseURL: NOMINATIM_BASE_URL,
@@ -21,33 +23,13 @@ const client = axios.create({
  */
 const cache = new Map<string, Place[]>();
 
-/**
- * Fila que garante o intervalo mínimo entre pedidos.
- *
- * Cada pedido novo espera pelo anterior e, se for preciso, espera mais um pouco
- * até ter passado 1 segundo desde o último. Assim nunca se ultrapassa o limite do
- * serviço, mesmo que a aplicação peça várias coisas ao mesmo tempo.
- */
-let queue: Promise<unknown> = Promise.resolve();
-let lastRequestAt = 0;
-
-function schedule<T>(task: () => Promise<T>): Promise<T> {
-  const result = queue.then(async () => {
-    const waitFor = lastRequestAt + NOMINATIM_MIN_INTERVAL_MS - Date.now();
-    if (waitFor > 0) {
-      await new Promise((resolve) => setTimeout(resolve, waitFor));
-    }
-    lastRequestAt = Date.now();
-    return task();
-  });
-
-  // A fila continua mesmo que este pedido falhe, senão bloqueava os seguintes.
-  queue = result.catch(() => undefined);
-  return result;
-}
+/** Garante o intervalo mínimo de 1 pedido por segundo exigido pelo Nominatim. */
+const schedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
 
 /** Converte um resultado do Nominatim no formato que a aplicação usa. */
-function toPlace(raw: NominatimSearchResponse[number]): Place {
+function toPlace(raw: NominatimSearchResult): Place {
+  const extra = raw.extratags ?? {};
+
   return {
     id: raw.place_id,
     // Nem todos os resultados trazem `name`; nesse caso usa-se o início da morada.
@@ -56,6 +38,15 @@ function toPlace(raw: NominatimSearchResponse[number]): Place {
     coordinates: {
       latitude: Number(raw.lat),
       longitude: Number(raw.lon),
+    },
+    // O Nominatim dá a categoria em duas partes ('amenity' + 'restaurant'), que
+    // é a mesma forma das etiquetas do OpenStreetMap — dá para reaproveitar a
+    // mesma tradução que se usa nos negócios vindos da Overpass.
+    category: categoryLabel({ [raw.category]: raw.type }),
+    details: {
+      phone: extra.phone ?? extra['contact:phone'],
+      website: extra.website ?? extra['contact:website'],
+      openingHours: extra.opening_hours,
     },
   };
 }
@@ -80,7 +71,8 @@ export async function searchPlaces(query: string, limit = 8): Promise<Place[]> {
 
   const response = await schedule(() =>
     client.get<NominatimSearchResponse>('/search', {
-      params: { q: term, format: 'jsonv2', limit, addressdetails: 0 },
+      // `extratags=1` traz o telefone, o horário e o sítio na Internet.
+      params: { q: term, format: 'jsonv2', limit, addressdetails: 0, extratags: 1 },
     }),
   );
 
