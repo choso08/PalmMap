@@ -159,6 +159,15 @@ Os perfis de compilação estão em `eas.json`. Há dois que interessam:
 | `preview` | A aplicação a sério, autónoma. Instala-se e usa-se. Para mudar o código, compila-se de novo. |
 | `development` | Instala-se uma vez e depois liga-se ao computador com `npx expo start`. O código recarrega sem compilar outra vez. É o que se usa enquanto se está a desenvolver. |
 
+O APK é compilado só para **arm64-v8a**, o processador de qualquer telemóvel Android
+atual. Incluir as quatro arquiteturas triplicava o tamanho sem proveito nenhum, e um
+ficheiro enorme é mais fácil de chegar truncado — que é o que dá o erro "ocorreu um
+problema ao analisar o pacote" ao instalar.
+
+O workflow verifica o APK antes de o publicar: integridade do arquivo, identificação
+(pacote, `minSdk`, arquiteturas) e esquemas de assinatura. Assim um ficheiro estragado é
+apanhado na compilação e não só no telemóvel.
+
 ```bash
 # Entrar na conta Expo (só na primeira vez)
 npx eas-cli login

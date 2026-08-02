@@ -35,17 +35,40 @@ jobs:
       - name: Gerar o projeto Android
         run: npx expo prebuild --platform android --no-install
 
+      # Só arm64-v8a: é o processador de qualquer telemóvel Android atual.
+      # Incluir as quatro arquiteturas triplicava o tamanho do ficheiro sem
+      # nenhum proveito, e um APK enorme é mais fácil de chegar truncado.
       - name: Compilar o APK
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      # Confirma que o APK saiu inteiro e bem assinado. Sem isto, um ficheiro
+      # estragado só se descobre no telemóvel, com um "erro ao analisar o pacote".
+      - name: Verificar o APK
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          ls -l "$APK"
+          unzip -t "$APK" > /dev/null && echo "Arquivo íntegro."
+
+          TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "--- identificação ---"
+          "$TOOLS/aapt2" dump badging "$APK" | grep -E "^package|sdkVersion|native-code"
+          echo "--- assinatura ---"
+          "$TOOLS/apksigner" verify --print-certs -v "$APK"
 
       - name: Publicar o APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mv android/app/build/outputs/apk/release/app-release.apk PalmMap.apk
+          SIZE=$(du -h PalmMap.apk | cut -f1)
+          SHA=$(sha256sum PalmMap.apk | cut -c1-16)
           gh release create "apk-${{ github.run_number }}" PalmMap.apk \
             --title "PalmMap — APK ${{ github.run_number }}" \
-            --notes "APK para instalar no telemóvel. Assinado com a chave de depuração, para uso pessoal."
+            --notes "APK para instalar no telemóvel, assinado com a chave de depuração.
+
+          Tamanho: $SIZE · início do SHA-256: \`$SHA\`
+
+          Se der \"erro ao analisar o pacote\", o ficheiro chegou incompleto — descarregue outra vez."
