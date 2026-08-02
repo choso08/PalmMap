@@ -191,6 +191,12 @@ export function MapView({
       mapStyle={mapStyle}
       attribution
       logo={false}
+      // A bússola do MapLibre aparece sozinha assim que o mapa deixa de estar
+      // virado a norte — e o sítio de origem dela é o canto superior direito,
+      // mesmo por trás da barra de pesquisa, onde só se via um bocado a espreitar.
+      // Passa para o canto inferior esquerdo, que está livre, e continua a servir
+      // para tocar e voltar a norte.
+      compassPosition={{ bottom: 24, left: 16 }}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
       onPress={onTapEmpty}

@@ -134,16 +134,16 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       backgroundColor: theme.surface,
-      borderTopLeftRadius: 22,
-      borderTopRightRadius: 22,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
       paddingHorizontal: 20,
       paddingTop: 10,
       // Acima da barra de navegação do sistema.
       paddingBottom: insets.bottom + 24,
       elevation: 12,
       shadowColor: '#000000',
-      shadowOpacity: 0.2,
-      shadowRadius: 12,
+      shadowOpacity: 0.14,
+      shadowRadius: 18,
       shadowOffset: { width: 0, height: -3 },
     },
     handle: {
@@ -185,7 +185,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     closeButton: {
       padding: 4,
-      borderRadius: 14,
+      borderRadius: 18,
       backgroundColor: theme.surfaceMuted,
     },
     details: {
@@ -213,7 +213,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       gap: 8,
       marginTop: 20,
       backgroundColor: theme.accent,
-      borderRadius: 14,
+      borderRadius: 18,
       paddingVertical: 15,
     },
     buttonText: {

@@ -15,6 +15,7 @@ import { PlaceSheet } from './src/components/PlaceSheet';
 import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
+import { Reveal } from './src/components/Reveal';
 import { StepsList } from './src/components/StepsList';
 import {
   ANNOUNCE_AT_METERS,
@@ -661,17 +662,22 @@ function PalmMap() {
 
         {placesError ? <Text style={styles.notice}>{placesError}</Text> : null}
 
-        {hintVisible && !destination && !selectedPlace && !locationDenied && !placesError ? (
+        <Reveal
+          visible={
+            hintVisible && !destination && !selectedPlace && !locationDenied && !placesError
+          }
+          from={-10}
+        >
           <Text style={styles.hint}>
             Toque sem largar no mapa para marcar um ponto e ir até lá.
           </Text>
-        ) : null}
+        </Reveal>
       </View>
       ) : null}
 
       {/* A ficha do negócio tem prioridade sobre o painel do percurso. */}
       {navigating ? null : selectedPlace ? (
-        <View style={styles.bottom}>
+        <Reveal style={styles.bottom}>
           <PlaceSheet
             place={selectedPlace}
             favourite={isFavourite(selectedPlace)}
@@ -682,9 +688,9 @@ function PalmMap() {
               setDroppedPin(null);
             }}
           />
-        </View>
+        </Reveal>
       ) : destination ? (
-        <View style={styles.bottom}>
+        <Reveal style={styles.bottom}>
           <RoutePanel
             destination={destination}
             route={route}
@@ -696,13 +702,14 @@ function PalmMap() {
             favourite={isFavourite(destination)}
             onToggleFavourite={() => toggleFavourite(destination)}
           />
-        </View>
+        </Reveal>
       ) : null}
 
       {/* Trocar entre mapa desenhado e imagem de satélite. */}
       {!navigating ? (
         <Pressable
           style={[styles.layersButton, selectedPlace || destination ? styles.layersRaised : null]}
+          android_ripple={{ borderless: true, color: theme.border }}
           onPress={() => update('mapType', settings.mapType === 'map' ? 'satellite' : 'map')}
         >
           <MaterialCommunityIcons
@@ -717,6 +724,7 @@ function PalmMap() {
       {userLocation && !navigating ? (
         <Pressable
           style={[styles.locateButton, selectedPlace || destination ? styles.locateRaised : null]}
+          android_ripple={{ borderless: true, color: theme.border }}
           onPress={() => mapRef.current?.recenter(userLocation)}
         >
           <MaterialCommunityIcons name="crosshairs-gps" size={24} color={theme.accent} />
@@ -809,9 +817,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.surface,
       elevation: 6,
       shadowColor: '#000000',
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
     },
     layersRaised: {
       bottom: insets.bottom + 322,
@@ -828,9 +836,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.surface,
       elevation: 6,
       shadowColor: '#000000',
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
     },
     // Com um painel aberto em baixo, o botão sobe para não ficar tapado.
     locateRaised: {

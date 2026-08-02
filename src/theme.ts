@@ -1,6 +1,26 @@
 /**
  * Cores da aplicação, em versão clara e escura.
  *
+ * ## A ideia: Ilha
+ *
+ * O nome é PalmMap e o logo é uma palmeira dentro de um pin. As cores vêm daí:
+ * **areia, água funda e coral**. Em claro, o ecrã é areia quente com texto cor
+ * de petróleo; em escuro, água funda com areia por cima. O destaque é coral —
+ * a cor que salta na areia e no mar sem ser gritante.
+ *
+ * ## O que mandou nas escolhas
+ *
+ * Isto usa-se a conduzir e ao sol, por isso o bonito tem de caber dentro do
+ * legível. Duas regras que não se devem desfazer ao mexer aqui:
+ *
+ * - **Texto sempre bem separado do fundo.** Nada de cinzentos claros sobre
+ *   areia: o texto principal é quase preto, e o secundário ainda se lê ao sol.
+ * - **Cada coisa importante tem cor própria.** O percurso é coral, o destino é
+ *   água e os negócios são âmbar. A conduzir não há tempo para ler legendas.
+ *
+ * As cores do **mapa** estão à parte, em `src/services/vectorStyle.ts`, e
+ * acompanham esta paleta. Ao mexer numa, olhar para a outra.
+ *
  * Só as paletas vivem aqui. Quem decide qual delas se usa é o `SettingsProvider`
  * em `src/settings.tsx`, que junta o tema do telemóvel à preferência guardada.
  * O gancho `useTheme()` também está lá.
@@ -41,40 +61,43 @@ export interface Theme {
 
 export const light: Theme = {
   dark: false,
-  background: '#e5e7eb',
-  surface: '#ffffff',
-  surfaceMuted: '#ffffff',
-  text: '#111827',
-  textMuted: '#6b7280',
-  placeholder: '#9ca3af',
-  accent: '#1d4ed8',
-  onAccent: '#ffffff',
-  border: '#e5e7eb',
-  danger: '#b91c1c',
-  destination: '#dc2626',
-  poi: '#f59e0b',
-  poiOutline: '#ffffff',
-  overlay: 'rgba(17, 24, 39, 0.75)',
-  onOverlay: '#ffffff',
+  background: '#EFE6D9',
+  surface: '#FCF8F2',
+  surfaceMuted: '#F5EDE1',
+  text: '#1C2B33',
+  textMuted: '#5F7079',
+  placeholder: '#97A6AD',
+  accent: '#D9634A',
+  onAccent: '#FFFFFF',
+  border: '#E3D8C8',
+  danger: '#A8341F',
+  // Água funda. O destino tem de se distinguir do percurso, que é coral.
+  destination: '#0F6E70',
+  poi: '#C98526',
+  poiOutline: '#FCF8F2',
+  overlay: 'rgba(24, 38, 45, 0.80)',
+  onOverlay: '#FCF8F2',
 };
 
 export const dark: Theme = {
   dark: true,
-  background: '#0b0f17',
-  surface: '#161b26',
-  surfaceMuted: '#232936',
-  text: '#f3f4f6',
-  textMuted: '#9ca3af',
-  placeholder: '#6b7280',
-  accent: '#60a5fa',
-  onAccent: '#0b0f17',
-  border: '#2a3140',
-  danger: '#f87171',
-  destination: '#f87171',
-  poi: '#fbbf24',
-  poiOutline: '#161b26',
-  overlay: 'rgba(0, 0, 0, 0.8)',
-  onOverlay: '#f3f4f6',
+  background: '#0B1319',
+  surface: '#152230',
+  // Um degrau acima do `surface`, senão os botões por escolher desapareciam.
+  surfaceMuted: '#1E2E3C',
+  text: '#EDE5D8',
+  textMuted: '#95A6B0',
+  placeholder: '#6C7D87',
+  // Coral mais claro: o de dia perdia-se contra a água funda.
+  accent: '#F2846B',
+  onAccent: '#0B1319',
+  border: '#25384A',
+  danger: '#F08A72',
+  destination: '#3FAAA6',
+  poi: '#E0AC55',
+  poiOutline: '#152230',
+  overlay: 'rgba(5, 11, 15, 0.86)',
+  onOverlay: '#EDE5D8',
 };
 
 export function themeFor(isDark: boolean): Theme {

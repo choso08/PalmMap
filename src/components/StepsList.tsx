@@ -119,7 +119,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     closeButton: {
       padding: 6,
-      borderRadius: 16,
+      borderRadius: 20,
       backgroundColor: theme.surfaceMuted,
     },
     list: {

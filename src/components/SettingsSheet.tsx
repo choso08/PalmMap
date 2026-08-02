@@ -305,7 +305,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     closeButton: {
       padding: 6,
-      borderRadius: 16,
+      borderRadius: 20,
       backgroundColor: theme.surfaceMuted,
     },
     content: {
@@ -335,7 +335,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       alignItems: 'center',
       gap: 6,
       paddingVertical: 14,
-      borderRadius: 14,
+      borderRadius: 18,
       backgroundColor: theme.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
@@ -358,7 +358,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       justifyContent: 'center',
       gap: 8,
       marginTop: 14,
-      borderRadius: 14,
+      borderRadius: 18,
       paddingVertical: 13,
       backgroundColor: theme.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
