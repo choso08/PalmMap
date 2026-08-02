@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { clearMapCache } from '../services/tiles';
+import { OfflineMaps } from './OfflineMaps';
 import {
   APPEARANCE_MODES,
   CACHE_SIZES,
@@ -198,6 +199,17 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
               {clearing ? 'A apagar…' : 'Apagar o mapa guardado'}
             </Text>
           </Pressable>
+
+          <Text style={styles.sectionTitle}>Mapas de países</Text>
+          <Text style={styles.sectionHint}>
+            Guardar o mapa de um país inteiro no telemóvel, para funcionar sem rede.
+          </Text>
+          <OfflineMaps />
+          <Text style={styles.note}>
+            Isto é diferente do "mapa guardado" acima. Ali fica só o que já viu; aqui fica o
+            país todo, a qualquer zoom, mesmo em sítios onde nunca esteve. São mapas
+            vetoriais do Protomaps, publicados precisamente para serem usados assim.
+          </Text>
 
           <Text style={styles.sectionTitle}>Navegação</Text>
           <View style={styles.switchRow}>

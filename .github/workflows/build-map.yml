@@ -97,14 +97,17 @@ jobs:
           jq . manifesto.tmp > mapas/mapas.json
           cat mapas/mapas.json
 
+      # Publica-se sempre na mesma etiqueta, 'mapas'. Assim a aplicação sabe o
+      # endereço de cor e não tem de andar à procura da Release mais recente.
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # -R é preciso mesmo com checkout, para não depender da pasta atual.
-          gh release create "mapa-${{ github.run_number }}" mapas/* \
+          gh release delete mapas -R "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create "mapas" mapas/* \
             -R "${{ github.repository }}" \
-            --title "Mapas offline ${{ github.run_number }}" \
+            --title "Mapas offline" \
             --notes "Mapas vetoriais para usar sem rede, gerados a partir do mapa mundial do Protomaps.
 
           $(jq -r '.regioes[] | "- \(.nome): \(.bytes/1048576 | floor) MB (zoom \(.maxzoom))"' mapas/mapas.json)"
