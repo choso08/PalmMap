@@ -713,7 +713,6 @@ function PalmMap() {
       {!navigating ? (
         <Pressable
           style={[styles.layersButton, selectedPlace || destination ? styles.layersRaised : null]}
-          android_ripple={{ borderless: true, color: theme.border }}
           onPress={() => update('mapType', settings.mapType === 'map' ? 'satellite' : 'map')}
         >
           <MaterialCommunityIcons
@@ -727,8 +726,11 @@ function PalmMap() {
       {/* Botão de voltar à posição atual, como no Maps. */}
       {userLocation && !navigating ? (
         <Pressable
-          style={[styles.locateButton, selectedPlace || destination ? styles.locateRaised : null]}
-          android_ripple={{ borderless: true, color: theme.border }}
+          style={({ pressed }) => [
+            styles.locateButton,
+            selectedPlace || destination ? styles.locateRaised : null,
+            pressed && styles.buttonPressed,
+          ]}
           onPress={() => mapRef.current?.recenter(userLocation)}
         >
           <MaterialCommunityIcons name="crosshairs-gps" size={24} color={theme.accent} />
@@ -845,6 +847,17 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOffset: { width: 0, height: 4 },
     },
     // Com um painel aberto em baixo, o botão sobe para não ficar tapado.
+    /**
+     * Resposta ao toque nos botões redondos.
+     *
+     * Feita à mão de propósito. A onda do Android (`android_ripple`) passa a ser
+     * o fundo do botão e apaga o `backgroundColor` — foi assim que os círculos
+     * brancos destes dois desapareceram e os ícones ficaram soltos no mapa.
+     */
+    buttonPressed: {
+      transform: [{ scale: 0.92 }],
+      opacity: 0.9,
+    },
     locateRaised: {
       bottom: insets.bottom + 260,
     },
