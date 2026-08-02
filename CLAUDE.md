@@ -4,6 +4,29 @@ Guia para o Claude Code e outros assistentes de IA que trabalhem neste repositó
 Está escrito em português de Portugal e em linguagem simples, para poder ser lido tanto
 por uma pessoa como por um assistente.
 
+## Onde é que isto vai — ler primeiro
+
+Se estás a pegar neste projeto agora, esta secção diz-te em que ponto ele está. O resto do
+ficheiro explica o porquê de cada coisa.
+
+**O que está feito e confirmado no telemóvel:** a aplicação de mapas funciona. Mapa,
+pesquisa, negócios, percursos, navegação, definições, favoritos, satélite.
+
+**O que está a meio:** os **mapas de países para usar sem rede** (formato PMTiles). Os
+ficheiros já se geram e já se descarregam para o telemóvel, mas **ainda não são
+desenhados** — falta o estilo vetorial. É o trabalho seguinte e está descrito ao pormenor
+em "Mapas de países (PMTiles) — o que falta".
+
+**Duas coisas a saber antes de mexer:**
+
+1. **A última compilação do APK é a 7.** Há várias alterações por compilar desde então. O
+   autor pediu: **compilar só quando ele disser.** Não lançar o workflow sem pedido.
+2. **Os mapas gerados estão na etiqueta errada.** A aplicação procura-os em
+   `releases/download/mapas`, mas o último workflow publicou-os em `mapa-3`, porque correu
+   com uma versão anterior do ficheiro. **Basta voltar a correr o workflow "Gerar mapa
+   offline"** — a versão atual já publica na etiqueta certa. Sem isso, o menu diz "não foi
+   possível obter a lista".
+
 ## Objetivo do projeto
 
 O **PalmMap** é uma aplicação de mapas para telemóvel, pensada como alternativa ao Google
@@ -24,7 +47,7 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 
 ## Estado atual — o que já existe
 
-**A v1 foi confirmada a funcionar num telemóvel Android real.** O que está feito:
+**A aplicação foi confirmada a funcionar num telemóvel Android real.** O que está feito:
 
 - Projeto Expo (SDK 57) com TypeScript.
 - Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro, e
@@ -38,22 +61,26 @@ começar trabalho nessa direção sem o autor voltar a pedir.
   lê-a em voz alta e recalcula o percurso se se sair dele.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
-- Ecrã de definições: aspeto, transporte, correção do tempo, pinos automáticos e voz.
+- Ecrã de definições com sete opções — ver "Definições".
 - Sítios guardados (favoritos), no telemóvel — aparecem na pesquisa e funcionam sem rede.
+- Cache do mapa com tamanho ajustável e botão para apagar.
+- Menu para descarregar o mapa de países inteiros, com o tamanho à frente — **feito até
+  meio**, ver a secção própria.
 
 **Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
 ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
-bicicleta, e os resultados da Overpass. Compila e os tipos estão verificados, mas não foi
-experimentado — não digas que "funciona" sem ter sido visto a funcionar.
+bicicleta, os resultados da Overpass, o tema escuro e a imagem de satélite. Compila e os
+tipos estão verificados, mas não foi tudo experimentado — não digas que "funciona" sem ter
+sido visto a funcionar.
 
 Também não foi possível testar as consultas à Overpass contra o serviço real, porque o
 ambiente de desenvolvimento usado bloqueia o acesso. Se os negócios não aparecerem, é o
 primeiro sítio onde procurar.
 
 O `eas.json` já está escrito, com três perfis de compilação (`development`, `preview` e
-`production`) — ver "Instalar no telemóvel". Há também um workflow do GitHub Actions
-(`.github/workflows/build-apk.yml`) que compila o APK e o publica numa Release, sem ser
-preciso computador nem conta Expo.
+`production`) — ver "Instalar no telemóvel". Há também dois workflows do GitHub Actions:
+um que compila o APK e o publica numa Release, e outro que gera os mapas offline. Nenhum
+precisa de computador nem de conta Expo.
 
 **Ressalva sobre a navegação:** o motor é simples de propósito. A posição é encaixada no
 ponto mais próximo da linha do percurso, em vez de projetada sobre o troço — com o
@@ -70,13 +97,17 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Termo | O que é |
 | --- | --- |
 | **OpenStreetMap (OSM)** | Um mapa mundial feito de forma colaborativa e livre, o equivalente aberto ao mapa do Google. |
-| **Tiles** | Os quadradinhos de imagem que, juntos, formam o mapa que se vê no ecrã. |
+| **Tiles** | Os quadradinhos que, juntos, formam o mapa que se vê no ecrã. Podem ser imagens já desenhadas ou geometria por desenhar. |
 | **Nominatim** | Serviço que transforma uma morada escrita ("Rua Augusta, Lisboa") em coordenadas de latitude e longitude. É o motor de pesquisa do OpenStreetMap. |
 | **OSRM** | Serviço que calcula o caminho entre dois pontos e devolve o percurso e a distância. |
 | **Overpass** | Serviço que permite perguntar ao OpenStreetMap "que restaurantes há aqui à volta?". É o que está por trás dos negócios. |
 | **Expo** | Conjunto de ferramentas que simplifica muito criar e testar aplicações em React Native. |
 | **APK** | O ficheiro que se instala diretamente num telemóvel Android, sem passar pela Play Store. |
 | **API** | A forma como um programa pede informação a um serviço na Internet. |
+| **PMTiles** | Um mapa inteiro dentro de um único ficheiro. Serve para guardar países no telemóvel sem descarregar milhares de imagens. |
+| **Tiles vetoriais** | Tiles que trazem a geometria (esta linha é uma estrada, este polígono é água) em vez da imagem pronta. Ocupam muito menos, mas é preciso dizer-lhes as cores. |
+| **Estilo** | O ficheiro que diz como desenhar os tiles vetoriais: que cor tem a água, que espessura tem cada estrada, que tamanho tem cada nome. |
+| **Glifos** | Os tipos de letra, num formato que o mapa consegue usar para escrever os nomes das ruas. |
 
 ## Tecnologias
 
@@ -86,10 +117,13 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Linguagem | TypeScript |
 | Componente do mapa | `@maplibre/maplibre-react-native` — ver "Decisão importante" |
 | Localização (GPS) | `expo-location` |
+| Guardar no telemóvel | `@react-native-async-storage/async-storage` e `expo-file-system` |
+| Voz | `expo-speech` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
 | Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
 | Cálculo de percursos | OSRM (`https://router.project-osrm.org`) |
+| Mapas offline | Protomaps (PMTiles), recortados do mapa mundial |
 
 A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
 ficheiro de instalação descritas aqui são específicas do Android.
@@ -149,16 +183,38 @@ npx expo run:android        # Compilar e correr num emulador ou telemóvel Andro
 npx tsc --noEmit
 ```
 
+**Correr sempre isto antes de dar trabalho por terminado.** É a única verificação
+automática que o projeto tem, e como grande parte do código não pode ser experimentada no
+ambiente de desenvolvimento (ver a seguir), é o que apanha os erros antes de irem parar ao
+telemóvel.
+
 Não está definida nenhuma ferramenta de testes nem de formatação automática. Para um
 projeto pessoal deste tamanho, não é preciso — mas se acrescentares alguma, documenta-a
 aqui.
 
+### O que não dá para testar aqui
+
+O ambiente de desenvolvimento não tem acesso livre à Internet. Estes serviços estão
+bloqueados e **não vale a pena tentar**:
+
+- `overpass-api.de` — os negócios nunca podem ser testados aqui
+- `router.project-osrm.org` — os percursos também não
+- `build.protomaps.com` — o mapa mundial só se recorta no GitHub Actions
+- `api.expo.dev`, `dl.google.com` — compilar localmente não é possível
+
+Tudo o que precise destes serviços vai para um workflow do GitHub Actions. É por isso que
+os dois workflows existem: não é gosto por automatização, é a única forma.
+
 ## Instalar no telemóvel
 
-Não é preciso Android Studio nem publicar na Play Store: o EAS compila na nuvem e devolve
-um APK para instalar diretamente. Só é preciso uma conta Expo, que é gratuita.
+Não é preciso Android Studio nem publicar na Play Store: o workflow do GitHub compila o APK
+e publica-o numa Release. Basta ir ao separador "Actions", escolher o workflow de compilar
+o APK e carregar em "Run workflow".
 
-Os perfis de compilação estão em `eas.json`. Há dois que interessam:
+**O autor pediu que só se compile quando ele disser.** Não lançar o workflow por iniciativa
+própria, mesmo depois de mudanças grandes.
+
+Em alternativa, com uma conta Expo (gratuita), os perfis de compilação estão em `eas.json`:
 
 | Perfil | Para quê |
 | --- | --- |
@@ -170,19 +226,18 @@ atual. Incluir as quatro arquiteturas triplicava o tamanho sem proveito nenhum, 
 ficheiro enorme é mais fácil de chegar truncado — que é o que dá o erro "ocorreu um
 problema ao analisar o pacote" ao instalar.
 
+Cada compilação recebe um `versionCode` próprio, tirado do número da execução do workflow.
+Sem isso, o Android recusa-se a instalar por cima de uma versão com o mesmo número.
+
 O workflow verifica o APK antes de o publicar: integridade do arquivo, identificação
 (pacote, `minSdk`, arquiteturas) e esquemas de assinatura. Assim um ficheiro estragado é
 apanhado na compilação e não só no telemóvel.
 
 ```bash
-# Entrar na conta Expo (só na primeira vez)
+# Com a conta Expo, em alternativa ao workflow
 npx eas-cli login
-
-# Gerar o APK. Na primeira vez pergunta se pode ligar o projeto à conta — dizer que sim.
 npx eas-cli build -p android --profile preview
 ```
-
-No fim aparece um endereço e um QR code. Abrir no telemóvel, descarregar o APK e instalar.
 
 Notas para instalar em Android:
 
@@ -191,15 +246,9 @@ Notas para instalar em Android:
 - Em telemóveis Xiaomi/POCO (HyperOS ou MIUI) costuma aparecer um aviso extra de segurança.
   Se a instalação for bloqueada, desligar a verificação automática de aplicações nas
   definições de segurança.
-- A aplicação precisa de Internet para os tiles do mapa e para o Nominatim e o OSRM. Não
-  funciona offline.
-
-Em alternativa, compilar no próprio computador (exige o Android Studio instalado):
-
-```bash
-npx expo run:android                    # versão de desenvolvimento
-npx expo run:android --variant release  # versão final
-```
+- A aplicação precisa de Internet para os tiles do mapa e para o Nominatim e o OSRM. Sem
+  rede, só funcionam as zonas já vistas e os favoritos — e, quando essa parte estiver
+  pronta, os países descarregados.
 
 (Isto serve para a aplicação de telemóvel. Para o ecrã do carro o APK não chegaria — foi
 uma das razões para o Android Auto ficar pausado.)
@@ -216,12 +265,13 @@ uma das razões para o Android Auto ficar pausado.)
 ├── src/
 │   ├── components/         # Peças de interface
 │   │   ├── MapView.tsx     # Mapa, pinos dos negócios, percurso e destino
-│   │   ├── SearchBar.tsx   # Barra de pesquisa (usa o Nominatim)
+│   │   ├── SearchBar.tsx   # Barra de pesquisa (Nominatim e favoritos)
 │   │   ├── CategoryBar.tsx # Botões "Restaurantes", "Farmácias", …
 │   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
 │   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
+│   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -231,7 +281,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── nominatim.ts    # Pesquisa por nome
 │   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
 │   │   ├── osrm.ts         # Cálculo de percursos e instruções
-│   │   └── tiles.ts        # Estilos do mapa (claro/escuro) e User-Agent dos tiles
+│   │   ├── offlineMap.ts   # Descarregar e apagar os mapas de países
+│   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
 │   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
@@ -249,8 +300,10 @@ uma das razões para o Android Auto ficar pausado.)
 ├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── eas.json                # Perfis de compilação para gerar o APK
+├── map-regions.json        # Que países se recortam para offline, e com que detalhe
 ├── .github/workflows/
-│   └── build-apk.yml       # Compila o APK no GitHub e publica-o numa Release
+│   ├── build-apk.yml       # Compila o APK e publica-o numa Release
+│   └── build-map.yml       # Recorta os mapas dos países e publica-os numa Release
 ├── package.json
 └── tsconfig.json
 ```
@@ -307,9 +360,18 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 - As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
   guardado no telemóvel com o `AsyncStorage`.
-- São seis: **aspeto** (automático/claro/escuro), **meio de transporte**
-  (carro/a pé/bicicleta), **correção do tempo estimado**, **tamanho do mapa guardado**,
-  **mostrar negócios no mapa** e **ler instruções em voz alta**.
+- São sete:
+
+  | Definição | O que faz |
+  | --- | --- |
+  | `appearance` | Aspeto: automático, claro ou escuro |
+  | `travelMode` | Meio de transporte: carro, a pé ou bicicleta |
+  | `timeAdjustment` | Correção do tempo estimado: 1×, 1,25×, 1,5× ou 2× |
+  | `cacheSize` | Tamanho do mapa guardado: 100 MB, 250 MB, 500 MB ou 1 GB |
+  | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
+  | `voiceGuidance` | Ler as instruções em voz alta durante a navegação |
+  | `mapType` | Mapa desenhado ou imagem de satélite |
+
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
@@ -358,15 +420,22 @@ serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
 
 ### 7. Offline — o que é permitido e o que não é
 
-**Descarregar uma área do mapa para usar sem rede é proibido** pelas regras do
-OpenStreetMap. Está lá escrito com todas as letras: funcionalidades do tipo "descarregar
+Esta secção é sobre a regra. A parte prática dos países está na secção seguinte.
+
+**Descarregar uma área de tiles do OpenStreetMap para usar sem rede é proibido** pelas
+regras deles. Está lá escrito com todas as letras: funcionalidades do tipo "descarregar
 esta cidade para uso offline" dependem de ir buscar tiles à frente, e isso é considerado
 descarregamento em massa. Quem o faz é bloqueado sem aviso.
 
 Por isso **não se usa o `OfflineManager.createPack()`** com os tiles do OpenStreetMap nem
 do CARTO. Não é uma limitação técnica — é uma regra que este projeto respeita.
 
-O que se faz em vez disso, e é legítimo:
+A distinção que interessa, e que se deve manter sempre que se mexer nisto:
+
+> **Guardar o que a pessoa viu é cache, e é legítimo. Ir buscar à frente o que ela ainda
+> não viu é descarregamento em massa, e não se faz.**
+
+O que se faz, e é legítimo:
 
 - **Teto de zoom nos tiles.** O estilo pede tiles até ao nível 17 (`MAX_TILE_ZOOM`); acima
   disso o MapLibre amplia os que já tem. Isto resolve metade do problema do offline: os
@@ -374,25 +443,95 @@ O que se faz em vez disso, e é legítimo:
   partir dos que já estão guardados. De caminho, tira cerca de dezasseis vezes o peso posto
   no servidor do OpenStreetMap, porque cada nível a mais quadruplica o número de tiles.
 - **Cache do que já se viu.** O MapLibre guarda os tiles que a pessoa chegou mesmo a ver.
-  Isso é cache normal, não é ir buscar à frente. O tamanho é uma definição (100 MB a 1 GB),
-  aplicada por `setMapCacheSize()`, e há um botão para apagar.
-  **Não há como definir validade** — a API do MapLibre só aceita tamanho, não tempo. Na
-  prática é o tamanho que manda: quando enche, esquece primeiro o que há mais tempo não se
-  vê. Se alguém pedir "guardar durante um mês", é isto que se explica.
+  O tamanho é uma definição (100 MB a 1 GB), aplicada por `setMapCacheSize()`, e há um
+  botão para apagar. **Não há como definir validade** — a API do MapLibre só aceita
+  tamanho, não tempo. Na prática é o tamanho que manda: quando enche, esquece primeiro o
+  que há mais tempo não se vê. Se alguém pedir "guardar durante um mês", é isto que se
+  explica.
+- **Mapas de países em PMTiles.** É a via legítima para ter mesmo um país inteiro sem
+  rede — ver a secção seguinte.
 - **Favoritos guardados no telemóvel.** Ficam no `AsyncStorage`, por isso estão sempre
   disponíveis. A pesquisa mostra-os enquanto não se escreve nada.
 
-**A limitação que fica:** a cache só tem os níveis de zoom por onde se passou. Percorrer a
-ilha afastado não guarda o que é preciso para navegar aproximado. O teto de zoom acima
-reduz isto a um só nível útil (o 17), mas não o elimina — quem quiser uma zona utilizável
-sem rede tem de a ter visto ao zoom a que a vai usar.
+**A limitação da cache:** só tem os níveis de zoom por onde se passou. Percorrer a ilha
+afastado não guarda o que é preciso para navegar aproximado. O teto de zoom acima reduz
+isto a um só nível útil (o 17), mas não o elimina — quem quiser uma zona utilizável sem
+rede tem de a ter visto ao zoom a que a vai usar. É precisamente esta limitação que os
+mapas de países vêm resolver.
 
-Se um dia se quiser mesmo o mapa todo offline, o caminho é outra fonte de tiles que o
-permita — o formato PMTiles, do Protomaps, é feito para isto e é livre. Implica trocar os
-tiles de imagem por tiles vetoriais, com tipos de letra e ícones próprios. É um trabalho
-considerável e não se deve começar sem ser pedido.
+### 8. Mapas de países (PMTiles) — o que falta
 
-### 8. Navegação em tempo real
+**Esta é a parte a meio.** Ler isto todo antes de lhe pegar.
+
+#### A ideia
+
+Em vez de milhares de imagens, um país inteiro cabe num **único ficheiro** com a geometria
+do mapa. O Protomaps publica o planeta inteiro em PMTiles, todos os dias, **precisamente
+para ser recortado assim** — por isso não há aqui nenhum problema de regras, ao contrário
+dos tiles do OpenStreetMap. O `pmtiles extract` lê só os pedaços de que precisa: são
+dezenas de pedidos, não milhares.
+
+A diferença de tamanho é enorme, porque é geometria em vez de imagens: São Tomé e Príncipe
+inteiro ocupa **2 MB**, quando em tiles de imagem daria uns 240 MB.
+
+#### O que já funciona
+
+- **`map-regions.json`** — a lista de países, com a área a recortar e o detalhe. Para
+  acrescentar um país, junta-se uma linha aqui.
+- **`.github/workflows/build-map.yml`** — recorta os países e publica-os numa Release, com
+  um `mapas.json` que traz o tamanho real de cada um. Corre a pedido, no separador
+  "Actions".
+- **`src/services/offlineMap.ts`** — lê a lista, descarrega e apaga. Descarrega para um
+  nome temporário e só no fim lhe dá o nome definitivo, para que uma ligação que caia a
+  meio não deixe um ficheiro incompleto a fazer-se passar por bom.
+- **`src/components/OfflineMaps.tsx`** — a lista nas definições, com o tamanho à frente.
+
+Tamanhos reais já medidos (zoom 14):
+
+| País | Tamanho |
+| --- | --- |
+| São Tomé e Príncipe | 2,0 MB |
+| Madeira | 5,1 MB |
+| Cabo Verde | 8,4 MB |
+| Açores | 11,7 MB |
+| Guiné-Bissau | 23,8 MB |
+| Portugal continental | 324,6 MB |
+
+Angola e Moçambique estão em `map-regions.json` com zoom mais baixo (12), por serem muito
+maiores. Ainda não foram gerados.
+
+#### O que falta, por ordem
+
+1. **Voltar a correr o workflow.** Os ficheiros atuais estão na etiqueta `mapa-3`, mas a
+   aplicação procura-os em `mapas`. A versão atual do workflow já publica na etiqueta
+   certa — é só correr outra vez.
+2. **Escrever o estilo vetorial.** É o trabalho a sério. Com tiles de imagem o mapa vinha
+   pronto; com geometria somos nós que dizemos que a água é azul, que uma autoestrada é
+   mais grossa do que um caminho, e a partir de que zoom aparece cada coisa. O esquema de
+   camadas do Protomaps (`earth`, `water`, `roads`, `places`, `buildings`…) está
+   documentado no site deles, e há estilos de exemplo livres que servem de base. Tem de
+   haver uma versão clara e uma escura, para acompanhar o tema.
+3. **Resolver os glifos.** Para escrever os nomes das ruas é preciso um tipo de letra num
+   formato próprio. Normalmente vai-se buscar a um servidor — o que estragaria o offline.
+   A solução é meter os glifos dentro do APK e apontar o estilo para eles. Um alfabeto
+   latino básico chega e é pequeno.
+4. **Ligar ao ecrã.** Quando um país está descarregado e a pessoa está lá dentro, usar o
+   ficheiro local em vez dos tiles da Internet. O endereço já está pronto em
+   `localStyleSource()`.
+
+#### O risco, dito com franqueza
+
+**Não está confirmado que o MapLibre em React Native consiga ler um ficheiro PMTiles
+guardado no telemóvel.** O suporte a `pmtiles://` existe na biblioteca nativa de Android e
+funciona com ficheiros na Internet; com um ficheiro local nunca foi experimentado neste
+projeto, e não há forma de o experimentar no ambiente de desenvolvimento.
+
+**Confirmar isto antes de escrever o estilo todo.** Um mapa mínimo — só o mar e a terra,
+duas camadas — chega para saber se o ficheiro é lido. Se não for, o estilo escrito antes
+disso foi trabalho deitado fora, e o caminho passa a ser outro (servir o ficheiro por um
+servidor local dentro da aplicação, ou trocar de biblioteca).
+
+### 9. Navegação em tempo real
 
 - Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
   cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
@@ -406,7 +545,7 @@ considerável e não se deve começar sem ser pedido.
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
 
-### 9. Margens do ecrã (câmara, barras do sistema)
+### 10. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -420,7 +559,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 10. Tema claro e escuro
+### 11. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -431,11 +570,11 @@ elementos por cima do mapa.
 - O `app.json` tem `userInterfaceStyle` a `"automatic"` — é isso que faz a aplicação seguir
   a definição do telemóvel. Sem o `expo-system-ui` instalado, isto não funciona no Android.
 - O mapa também muda: tiles do OpenStreetMap em claro, do CARTO em escuro (ver
-  `src/services/tiles.ts`). Há ainda a imagem de satélite, que é igual nos dois temas. O OpenStreetMap não tem versão escura dos seus tiles, por isso
-  é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
-  continua sem chaves de API.
+  `src/services/tiles.ts`). Há ainda a imagem de satélite, que é igual nos dois temas. O
+  OpenStreetMap não tem versão escura dos seus tiles, por isso é preciso outra fonte — o
+  CARTO é gratuito para uso não comercial, com atribuição, e continua sem chaves de API.
 
-### 11. Estado da aplicação
+### 12. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 
@@ -584,6 +723,16 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
 - O percurso é pedido com `steps=true`, que traz as manobras uma a uma. A tradução para
   português está em `src/utils/maneuvers.ts`.
 
+### Protomaps — mapas offline
+
+- O planeta em PMTiles é publicado **para ser usado assim**, incluindo recortado. Não há
+  limite de pedidos a respeitar nem User-Agent obrigatório.
+- As compilações são diárias e ficam num endereço com a data. A de hoje pode ainda não
+  estar pronta à hora a que o workflow corre — por isso ele recua até dez dias à procura de
+  uma que exista.
+- Os dados continuam a ser do OpenStreetMap, por isso **a atribuição mantém-se obrigatória**
+  quando o mapa vetorial for desenhado.
+
 O endereço base, o `User-Agent`, o intervalo entre pedidos e o tempo de espera da pesquisa
 estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado pelo código.
 
@@ -599,14 +748,48 @@ estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado 
   `node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/`.
 - Comentários e nomes de variáveis: o código em inglês, como é hábito; os comentários podem
   ser em português.
+- Ao instalar um pacote do Expo, tirar a versão de
+  `node_modules/expo/bundledNativeModules.json` em vez de usar a mais recente do npm. As
+  versões do npm não acompanham o SDK e instalam coisas incompatíveis.
 
 ## Trabalhar com o Git
 
-- O desenvolvimento desta tarefa acontece no branch `claude/claude-md-documentation-k64ki9`.
-  O branch principal é o `main`.
-- Nunca guardar chaves de API nem ficheiros `.env` no repositório.
+- O branch principal é o `main`. O desenvolvimento desta tarefa acontece no branch
+  `claude/claude-md-documentation-k64ki9`.
+- **O repositório é público.** Foi uma decisão pensada e não é por descuido: os mapas dos
+  países são descarregados de uma Release por um endereço sem autenticação, e num
+  repositório privado isso dá erro. A alternativa seria meter uma credencial dentro do
+  APK, o que não se faz. Se um dia se quiser voltar a fechar o repositório, é preciso mudar
+  primeiro a forma de distribuir os mapas.
+- **Nunca guardar chaves de API nem ficheiros `.env` no repositório.** Vale sempre, e
+  agora com mais razão.
 - O `.gitignore` vem do Expo e já cobre `node_modules/`, `.expo/`, as pastas `android/` e
   `ios/` geradas na compilação, e os ficheiros de assinatura (`*.jks`, `*.p12`).
 - O `package-lock.json` fica no repositório — é o que garante que uma instalação futura usa
   exatamente as mesmas versões.
-- Não abrir um Pull Request sem ser explicitamente pedido.
+- **Não abrir um Pull Request sem ser explicitamente pedido.**
+- **Não lançar compilações sem ser pedido.** O autor pediu isto expressamente.
+
+## O que se aprendeu por tentativa e erro
+
+Erros já cometidos neste projeto, para não se repetirem.
+
+- **O `SafeAreaView` do `react-native` não faz nada no Android.** Foi assim que a barra de
+  pesquisa foi parar por baixo da câmara do telemóvel. Usar sempre o
+  `react-native-safe-area-context`.
+- **"Ocorreu um problema ao analisar o pacote"** ao instalar o APK não era ficheiro
+  truncado — a primeira suspeita estava errada. As causas reais eram o `versionCode`
+  repetido e o tamanho de incluir quatro arquiteturas.
+- **O tempo errado nas estradas de terra não é falta de dados.** As estradas já estão
+  marcadas como não alcatroadas; é o OSRM que assume 40 km/h onde se anda a 20. Verificar
+  antes de propor "melhorar os dados no OpenStreetMap".
+- **Os filtros de categoria devem procurar na área visível, não à volta do GPS.** Com o
+  mapa noutra zona, os resultados vinham fora do ecrã e parecia que o botão estava avariado.
+- **Uma camada de texto precisa de glifos.** Uma tentativa de mostrar os nomes dos negócios
+  no mapa falhou por o estilo não ter servidor de tipos de letra. Vale também para o estilo
+  vetorial que falta escrever.
+- **O `gh release create` precisa de `-R`** quando o workflow não faz checkout do
+  repositório, senão procura-o na pasta atual e falha.
+- **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
+  à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
+  funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.
