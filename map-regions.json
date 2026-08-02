@@ -1,0 +1,66 @@
+{
+  "_comentario": [
+    "Regiões que o workflow 'Gerar mapa offline' recorta do mapa mundial.",
+    "bbox é a área a recortar, pela ordem: oeste, sul, este, norte.",
+    "maxzoom é o detalhe. 14 é o máximo do Protomaps e serve para conduzir.",
+    "Países grandes levam menos, senão o ficheiro fica com vários gigabytes —",
+    "e sendo geometria, um zoom mais baixo amplia sem ficar borratado.",
+    "Para acrescentar um país: juntar uma linha aqui e correr o workflow."
+  ],
+  "regioes": [
+    {
+      "id": "saotome",
+      "nome": "São Tomé e Príncipe",
+      "bbox": "6.35,-0.10,7.55,1.80",
+      "maxzoom": 14
+    },
+    {
+      "id": "caboverde",
+      "nome": "Cabo Verde",
+      "bbox": "-25.60,14.70,-22.60,17.30",
+      "maxzoom": 14
+    },
+    {
+      "id": "guinebissau",
+      "nome": "Guiné-Bissau",
+      "bbox": "-16.80,10.80,-13.60,12.75",
+      "maxzoom": 14
+    },
+    {
+      "id": "portugal",
+      "nome": "Portugal continental",
+      "bbox": "-9.60,36.90,-6.10,42.20",
+      "maxzoom": 14
+    },
+    {
+      "id": "madeira",
+      "nome": "Madeira",
+      "bbox": "-17.30,32.35,-16.20,33.15",
+      "maxzoom": 14
+    },
+    {
+      "id": "acores",
+      "nome": "Açores",
+      "bbox": "-31.40,36.85,-24.70,39.80",
+      "maxzoom": 14
+    },
+    {
+      "id": "gabao",
+      "nome": "Gabão",
+      "bbox": "8.60,-4.00,14.60,2.40",
+      "maxzoom": 13
+    },
+    {
+      "id": "angola",
+      "nome": "Angola",
+      "bbox": "11.60,-18.10,24.20,-4.30",
+      "maxzoom": 12
+    },
+    {
+      "id": "mocambique",
+      "nome": "Moçambique",
+      "bbox": "30.20,-27.00,41.00,-10.40",
+      "maxzoom": 12
+    }
+  ]
+}

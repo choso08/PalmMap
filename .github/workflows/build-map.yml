@@ -1,34 +1,36 @@
 name: Gerar mapa offline
 
-# Recorta São Tomé e Príncipe do mapa mundial do Protomaps e publica o ficheiro
-# numa Release, para a aplicação o poder descarregar uma vez e usar sem rede.
+# Recorta países inteiros do mapa mundial do Protomaps e publica os ficheiros
+# numa Release, para a aplicação os poder descarregar e usar sem rede.
+#
+# As regiões estão em map-regions.json, na raiz do repositório. Para acrescentar
+# um país, junta-se uma linha lá e corre-se isto outra vez.
 #
 # Porque é que isto é legítimo, ao contrário de descarregar tiles do
 # OpenStreetMap: o Protomaps publica o planeta inteiro precisamente para ser
-# recortado e usado assim. O `pmtiles extract` lê só os pedaços de que precisa,
-# em vez de percorrer o mapa tile a tile.
+# recortado assim, e o `pmtiles extract` lê só os pedaços de que precisa. São
+# dezenas de pedidos, em vez dos milhares que seriam tile a tile.
 #
 # Como usar: separador "Actions" > "Gerar mapa offline" > "Run workflow".
 
 on:
   workflow_dispatch:
+    inputs:
+      regioes:
+        description: 'Que regiões gerar (ids separados por espaços, ou "todas")'
+        default: 'todas'
+        required: false
 
 permissions:
   contents: write
-
-env:
-  # São Tomé e Príncipe, com folga à volta das duas ilhas.
-  # Ordem: oeste, sul, este, norte.
-  BBOX: "6.35,-0.10,7.55,1.80"
-  # O Protomaps constrói até ao 15. O 14 chega: sendo geometria e não imagens,
-  # amplia sem perder nitidez, ao contrário dos tiles do mapa atual.
-  MAXZOOM: "14"
 
 jobs:
   extract:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Instalar o pmtiles
         run: |
           VERSION=$(curl -sSL https://api.github.com/repos/protomaps/go-pmtiles/releases/latest \
@@ -58,29 +60,51 @@ jobs:
           echo "Nenhuma compilação encontrada nos últimos 10 dias."
           exit 1
 
-      - name: Recortar São Tomé e Príncipe
+      - name: Recortar as regiões
+        env:
+          PEDIDAS: ${{ inputs.regioes }}
         run: |
-          ./pmtiles extract "$PLANET" saotome.pmtiles \
-            --bbox="$BBOX" \
-            --maxzoom="$MAXZOOM"
+          mkdir -p mapas
+          # O manifesto é o que a aplicação lê para saber o que há e que tamanho tem.
+          echo '{"regioes":[' > manifesto.tmp
+          PRIMEIRA=1
 
-      - name: Verificar o resultado
-        run: |
-          ls -lh saotome.pmtiles
-          ./pmtiles show saotome.pmtiles
+          for ID in $(jq -r '.regioes[].id' map-regions.json); do
+            if [ "$PEDIDAS" != "todas" ] && ! echo " $PEDIDAS " | grep -q " $ID "; then
+              echo "A saltar $ID"
+              continue
+            fi
+
+            NOME=$(jq -r ".regioes[] | select(.id==\"$ID\") | .nome" map-regions.json)
+            BBOX=$(jq -r ".regioes[] | select(.id==\"$ID\") | .bbox" map-regions.json)
+            MAXZOOM=$(jq -r ".regioes[] | select(.id==\"$ID\") | .maxzoom" map-regions.json)
+
+            echo "::group::$NOME ($BBOX, zoom $MAXZOOM)"
+            ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
+              --bbox="$BBOX" --maxzoom="$MAXZOOM"
+
+            BYTES=$(stat -c%s "mapas/${ID}.pmtiles")
+            echo "$NOME: $(numfmt --to=iec "$BYTES")"
+            echo "::endgroup::"
+
+            [ $PRIMEIRA -eq 0 ] && echo ',' >> manifesto.tmp
+            PRIMEIRA=0
+            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s}' \
+              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" >> manifesto.tmp
+          done
+
+          echo ']}' >> manifesto.tmp
+          jq . manifesto.tmp > mapas/mapas.json
+          cat mapas/mapas.json
 
       - name: Publicar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          SIZE=$(du -h saotome.pmtiles | cut -f1)
-          # -R é preciso porque este workflow não faz checkout do repositório:
-          # sem ele, o gh procura o repositório na pasta e não o encontra.
-          gh release create "mapa-${{ github.run_number }}" saotome.pmtiles \
+          # -R é preciso mesmo com checkout, para não depender da pasta atual.
+          gh release create "mapa-${{ github.run_number }}" mapas/* \
             -R "${{ github.repository }}" \
-            --title "Mapa offline de São Tomé e Príncipe" \
-            --notes "Mapa vetorial do país, para usar sem rede.
+            --title "Mapas offline ${{ github.run_number }}" \
+            --notes "Mapas vetoriais para usar sem rede, gerados a partir do mapa mundial do Protomaps.
 
-          Tamanho: $SIZE · zoom máximo: ${MAXZOOM} · área: ${BBOX}
-
-          Gerado a partir do mapa mundial do Protomaps, que é publicado para ser usado assim."
+          $(jq -r '.regioes[] | "- \(.nome): \(.bytes/1048576 | floor) MB (zoom \(.maxzoom))"' mapas/mapas.json)"
