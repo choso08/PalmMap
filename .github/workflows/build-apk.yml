@@ -31,6 +31,19 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # Cada compilação fica com um número de versão próprio. Sem isto todas
+      # saíam com versionCode 1, e o Android não as distingue umas das outras.
+      - name: Numerar esta versão
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            app.expo.android.versionCode = Number(process.env.RUN_NUMBER);
+            fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+          "
+
       # A pasta android/ não está no repositório — é o Expo que a gera.
       - name: Gerar o projeto Android
         run: npx expo prebuild --platform android --no-install
