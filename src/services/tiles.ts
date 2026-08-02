@@ -59,7 +59,11 @@ export async function clearMapCache(): Promise<void> {
  */
 const MAX_TILE_ZOOM = 17;
 
-function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
+function rasterStyle(
+  tiles: string[],
+  attribution: string,
+  maxzoom = MAX_TILE_ZOOM,
+): StyleSpecification {
   return {
     version: 8,
     sources: {
@@ -67,7 +71,7 @@ function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
         type: 'raster',
         tiles,
         tileSize: 256,
-        maxzoom: MAX_TILE_ZOOM,
+        maxzoom,
         attribution,
       },
     },
@@ -108,7 +112,33 @@ const DARK_STYLE = rasterStyle(
   '© OpenStreetMap © CARTO',
 );
 
-/** Devolve o estilo do mapa conforme o tema do telemóvel. */
-export function mapStyleFor(dark: boolean): StyleSpecification {
+/**
+ * Imagem de satélite: Sentinel-2 cloudless, da EOX.
+ *
+ * É um mosaico do satélite Sentinel-2, do programa Copernicus da União
+ * Europeia, com as nuvens removidas. É livre, sem chaves de API, com licença
+ * Creative Commons — encaixa nas regras do projeto.
+ *
+ * **O detalhe tem um limite.** O Sentinel-2 vê a Terra a 10 metros por pixel,
+ * o que corresponde mais ou menos ao zoom 14. Vê-se a costa, a floresta, as
+ * roças e os terrenos abertos; não se veem casas uma a uma. Imagem de satélite
+ * ao pormenor é produto pago em todo o lado — não existe alternativa livre.
+ *
+ * O `maxzoom` fica no 14 de propósito: acima disso o MapLibre amplia o que já
+ * tem, em vez de pedir tiles que não trazem mais informação nenhuma.
+ *
+ * A atribuição é exigida pela licença e tem de aparecer tal como está aqui.
+ */
+const SATELLITE_STYLE = rasterStyle(
+  ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg'],
+  'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2024)',
+  14,
+);
+
+/** Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel. */
+export function mapStyleFor(dark: boolean, satellite: boolean): StyleSpecification {
+  if (satellite) {
+    return SATELLITE_STYLE;
+  }
   return dark ? DARK_STYLE : LIGHT_STYLE;
 }

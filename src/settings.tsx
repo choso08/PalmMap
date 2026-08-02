@@ -35,6 +35,9 @@ export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 /** Quanto do mapa já visto se guarda no telemóvel. */
 export type CacheSize = 'small' | 'medium' | 'large' | 'huge';
 
+/** Mapa desenhado ou imagem de satélite. */
+export type MapType = 'map' | 'satellite';
+
 export interface Settings {
   appearance: AppearanceMode;
   travelMode: TravelMode;
@@ -46,6 +49,8 @@ export interface Settings {
   timeAdjustment: TimeAdjustment;
   /** Quanto do mapa já visto fica guardado. */
   cacheSize: CacheSize;
+  /** Mapa desenhado ou imagem de satélite. */
+  mapType: MapType;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -55,6 +60,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voiceGuidance: true,
   timeAdjustment: 'none',
   cacheSize: 'medium',
+  mapType: 'map',
 };
 
 export const CACHE_SIZES: {

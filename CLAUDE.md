@@ -27,7 +27,8 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 **A v1 foi confirmada a funcionar num telemóvel Android real.** O que está feito:
 
 - Projeto Expo (SDK 57) com TypeScript.
-- Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro.
+- Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro, e
+  imagem de satélite Sentinel-2 (EOX), com botão para trocar.
 - Pesquisa de moradas e negócios pelo Nominatim, com as regras de utilização cumpridas.
 - Negócios pela Overpass: botões por categoria e pinos automáticos na área visível.
 - Toque longo no mapa larga um pino em qualquer ponto, com a morada obtida por pesquisa
@@ -340,7 +341,22 @@ Há duas formas de corrigir, e não se excluem:
 O fator é aplicado **onde o tempo é mostrado** (`useTimeFactor()`), e não dentro do
 serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
 
-### 6. Offline — o que é permitido e o que não é
+### 6. Imagem de satélite
+
+- A fonte é o **Sentinel-2 cloudless da EOX**: um mosaico do satélite Sentinel-2, do
+  programa Copernicus, com as nuvens removidas. É livre, sem chaves de API, com licença
+  Creative Commons e gratuito para uso não comercial — encaixa nas regras do projeto.
+- **A atribuição é obrigatória** e está no `attribution` do estilo. Não a tirar.
+- **O detalhe tem um limite físico:** o Sentinel-2 vê a Terra a 10 metros por pixel, o que
+  corresponde ao zoom 14. Daí o `maxzoom: 14` — acima disso o MapLibre amplia o que tem,
+  em vez de pedir tiles que não trazem mais nada. Vê-se a costa, a floresta, as roças e os
+  terrenos abertos; não se veem casas uma a uma. **Satélite ao pormenor é produto pago em
+  todo o lado**; não há alternativa livre, por isso não vale a pena procurar.
+- A imagem de satélite **não traz nomes nem estradas desenhadas** — é só fotografia. O
+  percurso e os pinos continuam a aparecer, porque são camadas nossas. Um modo híbrido a
+  sério (satélite com as ruas por cima) só é possível com o mapa vetorial.
+
+### 7. Offline — o que é permitido e o que não é
 
 **Descarregar uma área do mapa para usar sem rede é proibido** pelas regras do
 OpenStreetMap. Está lá escrito com todas as letras: funcionalidades do tipo "descarregar
@@ -376,7 +392,7 @@ permita — o formato PMTiles, do Protomaps, é feito para isto e é livre. Impl
 tiles de imagem por tiles vetoriais, com tipos de letra e ícones próprios. É um trabalho
 considerável e não se deve começar sem ser pedido.
 
-### 7. Navegação em tempo real
+### 8. Navegação em tempo real
 
 - Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
   cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
@@ -390,7 +406,7 @@ considerável e não se deve começar sem ser pedido.
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
 
-### 8. Margens do ecrã (câmara, barras do sistema)
+### 9. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -404,7 +420,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 9. Tema claro e escuro
+### 10. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -415,11 +431,11 @@ elementos por cima do mapa.
 - O `app.json` tem `userInterfaceStyle` a `"automatic"` — é isso que faz a aplicação seguir
   a definição do telemóvel. Sem o `expo-system-ui` instalado, isto não funciona no Android.
 - O mapa também muda: tiles do OpenStreetMap em claro, do CARTO em escuro (ver
-  `src/services/tiles.ts`). O OpenStreetMap não tem versão escura dos seus tiles, por isso
+  `src/services/tiles.ts`). Há ainda a imagem de satélite, que é igual nos dois temas. O OpenStreetMap não tem versão escura dos seus tiles, por isso
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 10. Estado da aplicação
+### 11. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

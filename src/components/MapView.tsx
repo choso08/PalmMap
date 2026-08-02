@@ -13,7 +13,7 @@ import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'r
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { mapStyleFor } from '../services/tiles';
-import { useTheme } from '../settings';
+import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 
 interface MapViewProps {
@@ -62,6 +62,7 @@ export function MapView({
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
   const theme = useTheme();
+  const { settings } = useSettings();
 
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
@@ -132,7 +133,7 @@ export function MapView({
   return (
     <Map
       style={styles.map}
-      mapStyle={mapStyleFor(theme.dark)}
+      mapStyle={mapStyleFor(theme.dark, settings.mapType === 'satellite')}
       attribution
       logo={false}
       onRegionDidChange={handleRegionDidChange}

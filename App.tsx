@@ -59,7 +59,7 @@ function PalmMap() {
   // navegação. No Android é preciso pedi-las — o mapa desenha por baixo delas.
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -583,6 +583,20 @@ function PalmMap() {
         </View>
       ) : null}
 
+      {/* Trocar entre mapa desenhado e imagem de satélite. */}
+      {!navigating ? (
+        <Pressable
+          style={[styles.layersButton, selectedPlace || destination ? styles.layersRaised : null]}
+          onPress={() => update('mapType', settings.mapType === 'map' ? 'satellite' : 'map')}
+        >
+          <MaterialCommunityIcons
+            name={settings.mapType === 'satellite' ? 'map-outline' : 'satellite-variant'}
+            size={22}
+            color={theme.accent}
+          />
+        </Pressable>
+      ) : null}
+
       {/* Botão de voltar à posição atual, como no Maps. */}
       {userLocation && !navigating ? (
         <Pressable
@@ -658,6 +672,26 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.overlay,
       color: theme.onOverlay,
       fontSize: 12,
+    },
+    layersButton: {
+      position: 'absolute',
+      right: 16,
+      // Mesmo tamanho e alinhamento do botão de recentrar, mas por cima dele.
+      bottom: insets.bottom + 90,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+    },
+    layersRaised: {
+      bottom: insets.bottom + 322,
     },
     locateButton: {
       position: 'absolute',
