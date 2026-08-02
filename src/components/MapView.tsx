@@ -39,6 +39,8 @@ interface MapViewProps {
   droppedPin: Coordinates | null;
   /** Chamado num toque longo em qualquer ponto do mapa. */
   onDropPin: (coordinates: Coordinates) => void;
+  /** Chamado num toque simples no mapa, fora de qualquer pino. */
+  onTapEmpty: () => void;
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
@@ -68,6 +70,7 @@ export function MapView({
   onPlacePress,
   droppedPin,
   onDropPin,
+  onTapEmpty,
   following,
   offlineRegions,
   ref,
@@ -190,6 +193,7 @@ export function MapView({
       logo={false}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
+      onPress={onTapEmpty}
       onLongPress={handleLongPress}
     >
       <Camera

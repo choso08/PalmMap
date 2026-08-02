@@ -110,6 +110,16 @@ function PalmMap() {
   const announced = useRef(new Set<string>());
   const [placesError, setPlacesError] = useState<string | null>(null);
 
+  /**
+   * Mostra a dica de como marcar um ponto, durante uns segundos.
+   *
+   * Aparece só quando a pessoa toca no mapa e não acontece nada — que é
+   * precisamente quando faz falta saber que o toque tem de ser longo. Estar
+   * sempre no ecrã só tapava o mapa a quem já sabe.
+   */
+  const [hintVisible, setHintVisible] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -492,6 +502,21 @@ function PalmMap() {
    */
   const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
 
+  const handleTapEmpty = useCallback(() => {
+    setHintVisible(true);
+    if (hintTimer.current) {
+      clearTimeout(hintTimer.current);
+    }
+    hintTimer.current = setTimeout(() => setHintVisible(false), 3500);
+  }, []);
+
+  // Sem isto, sair do ecrã com a dica a contar deixava um temporizador solto.
+  useEffect(() => () => {
+    if (hintTimer.current) {
+      clearTimeout(hintTimer.current);
+    }
+  }, []);
+
   const handleStartNavigation = useCallback(() => {
     announced.current.clear();
     offRouteStrikes.current = 0;
@@ -612,6 +637,7 @@ function PalmMap() {
         onPlacePress={handlePlacePress}
         droppedPin={droppedPin}
         onDropPin={handleDropPin}
+        onTapEmpty={handleTapEmpty}
         following={navigating}
         offlineRegions={offlineRegions}
       />
@@ -635,7 +661,7 @@ function PalmMap() {
 
         {placesError ? <Text style={styles.notice}>{placesError}</Text> : null}
 
-        {!destination && !selectedPlace && !locationDenied && !placesError ? (
+        {hintVisible && !destination && !selectedPlace && !locationDenied && !placesError ? (
           <Text style={styles.hint}>
             Toque sem largar no mapa para marcar um ponto e ir até lá.
           </Text>
