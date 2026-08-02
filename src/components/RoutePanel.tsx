@@ -17,6 +17,8 @@ interface RoutePanelProps {
   onClear: () => void;
   onShowSteps: () => void;
   onStart: () => void;
+  favourite: boolean;
+  onToggleFavourite: () => void;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -28,6 +30,8 @@ export function RoutePanel({
   onClear,
   onShowSteps,
   onStart,
+  favourite,
+  onToggleFavourite,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -47,6 +51,13 @@ export function RoutePanel({
             {destination.address}
           </Text>
         </View>
+        <Pressable onPress={onToggleFavourite} hitSlop={12} style={styles.closeButton}>
+          <MaterialCommunityIcons
+            name={favourite ? 'star' : 'star-outline'}
+            size={20}
+            color={favourite ? theme.poi : theme.textMuted}
+          />
+        </Pressable>
         <Pressable onPress={onClear} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>

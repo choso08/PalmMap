@@ -10,6 +10,8 @@ import type { Place } from '../types/geo';
 
 interface PlaceSheetProps {
   place: Place;
+  favourite: boolean;
+  onToggleFavourite: () => void;
   onRoute: () => void;
   onClose: () => void;
 }
@@ -44,7 +46,13 @@ function DetailRow({
  * Ficha de um negócio: nome, tipo, morada e o que o OpenStreetMap souber sobre
  * horário, telefone e sítio na Internet. Daqui traça-se o percurso.
  */
-export function PlaceSheet({ place, onRoute, onClose }: PlaceSheetProps) {
+export function PlaceSheet({
+  place,
+  favourite,
+  onToggleFavourite,
+  onRoute,
+  onClose,
+}: PlaceSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -66,6 +74,13 @@ export function PlaceSheet({ place, onRoute, onClose }: PlaceSheetProps) {
             </View>
           ) : null}
         </View>
+        <Pressable onPress={onToggleFavourite} hitSlop={12} style={styles.closeButton}>
+          <MaterialCommunityIcons
+            name={favourite ? 'star' : 'star-outline'}
+            size={20}
+            color={favourite ? theme.poi : theme.textMuted}
+          />
+        </Pressable>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>

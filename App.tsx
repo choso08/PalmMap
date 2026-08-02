@@ -25,6 +25,7 @@ import {
   OFF_ROUTE_METERS,
   OFF_ROUTE_STRIKES,
 } from './src/services/config';
+import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
 import { getCurrentPosition, watchPosition } from './src/services/location';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
@@ -79,6 +80,9 @@ function PalmMap() {
   /** Ponto largado no mapa com um toque longo, ainda sem percurso traçado. */
   const [droppedPin, setDroppedPin] = useState<Coordinates | null>(null);
 
+  /** Sítios guardados, lidos do telemóvel ao arrancar. */
+  const [favourites, setFavourites] = useState<Place[]>([]);
+
   /** Navegação a decorrer: segue a posição e anuncia as manobras. */
   const [navigating, setNavigating] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
@@ -96,6 +100,28 @@ function PalmMap() {
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
   const latestPlaces = useRef(0);
+
+  // Sítios guardados, lidos uma vez ao arrancar.
+  useEffect(() => {
+    void loadFavourites().then(setFavourites);
+  }, []);
+
+  const toggleFavourite = useCallback((place: Place) => {
+    setFavourites((current) => {
+      const already = current.some((saved) => isSamePlace(saved, place));
+      const next = already
+        ? current.filter((saved) => !isSamePlace(saved, place))
+        : [place, ...current];
+      void saveFavourites(next);
+      return next;
+    });
+  }, []);
+
+  const isFavourite = useCallback(
+    (place: Place | null) =>
+      place ? favourites.some((saved) => isSamePlace(saved, place)) : false,
+    [favourites],
+  );
 
   // Posição atual, pedida uma vez ao arrancar.
   useEffect(() => {
@@ -501,6 +527,7 @@ function PalmMap() {
         <SearchBar
           onSelect={handleSearchSelect}
           onOpenSettings={() => setSettingsVisible(true)}
+          favourites={favourites}
         />
 
         <CategoryBar selected={category} onSelect={setCategory} />
@@ -526,6 +553,8 @@ function PalmMap() {
         <View style={styles.bottom}>
           <PlaceSheet
             place={selectedPlace}
+            favourite={isFavourite(selectedPlace)}
+            onToggleFavourite={() => toggleFavourite(selectedPlace)}
             onRoute={handleRouteToSelected}
             onClose={() => {
               setSelectedPlace(null);
@@ -543,6 +572,8 @@ function PalmMap() {
             onClear={handleClearRoute}
             onShowSteps={() => setStepsVisible(true)}
             onStart={handleStartNavigation}
+            favourite={isFavourite(destination)}
+            onToggleFavourite={() => toggleFavourite(destination)}
           />
         </View>
       ) : null}

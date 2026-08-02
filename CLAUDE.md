@@ -38,6 +38,7 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
 - Ecrã de definições: aspeto, transporte, correção do tempo, pinos automáticos e voz.
+- Sítios guardados (favoritos), no telemóvel — aparecem na pesquisa e funcionam sem rede.
 
 **Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
 ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
@@ -224,6 +225,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
 │   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
+│   │   ├── favourites.ts   # Sítios guardados no telemóvel
 │   │   ├── location.ts     # Gere o GPS do telemóvel
 │   │   ├── nominatim.ts    # Pesquisa por nome
 │   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
@@ -336,7 +338,30 @@ Há duas formas de corrigir, e não se excluem:
 O fator é aplicado **onde o tempo é mostrado** (`useTimeFactor()`), e não dentro do
 serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
 
-### 6. Navegação em tempo real
+### 6. Offline — o que é permitido e o que não é
+
+**Descarregar uma área do mapa para usar sem rede é proibido** pelas regras do
+OpenStreetMap. Está lá escrito com todas as letras: funcionalidades do tipo "descarregar
+esta cidade para uso offline" dependem de ir buscar tiles à frente, e isso é considerado
+descarregamento em massa. Quem o faz é bloqueado sem aviso.
+
+Por isso **não se usa o `OfflineManager.createPack()`** com os tiles do OpenStreetMap nem
+do CARTO. Não é uma limitação técnica — é uma regra que este projeto respeita.
+
+O que se faz em vez disso, e é legítimo:
+
+- **Cache do que já se viu.** O MapLibre guarda os tiles que a pessoa chegou mesmo a ver.
+  Isso é cache normal, não é ir buscar à frente. O tamanho está aumentado para 250 MB em
+  `configureTileRequests()`, para as zonas por onde se passa continuarem a aparecer sem rede.
+- **Favoritos guardados no telemóvel.** Ficam no `AsyncStorage`, por isso estão sempre
+  disponíveis. A pesquisa mostra-os enquanto não se escreve nada.
+
+Se um dia se quiser mesmo o mapa todo offline, o caminho é outra fonte de tiles que o
+permita — o formato PMTiles, do Protomaps, é feito para isto e é livre. Implica trocar os
+tiles de imagem por tiles vetoriais, com tipos de letra e ícones próprios. É um trabalho
+considerável e não se deve começar sem ser pedido.
+
+### 7. Navegação em tempo real
 
 - Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
   cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
@@ -350,7 +375,7 @@ serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
 
-### 7. Margens do ecrã (câmara, barras do sistema)
+### 8. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -364,7 +389,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 8. Tema claro e escuro
+### 9. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -379,7 +404,7 @@ elementos por cima do mapa.
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 9. Estado da aplicação
+### 10. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

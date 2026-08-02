@@ -1,4 +1,4 @@
-import { TransformRequestManager } from '@maplibre/maplibre-react-native';
+import { OfflineManager, TransformRequestManager } from '@maplibre/maplibre-react-native';
 import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 import { USER_AGENT } from './config';
@@ -17,6 +17,12 @@ export function configureTileRequests(): void {
     name: 'User-Agent',
     value: USER_AGENT,
   });
+
+  // Guarda mais do mapa já visto, para as zonas por onde se passa continuarem
+  // a aparecer sem rede. Isto é cache normal — só fica o que se chegou mesmo a
+  // ver. **Não é o mesmo que descarregar uma área**: as regras do OpenStreetMap
+  // proíbem expressamente descarregar tiles à frente para uso offline.
+  void OfflineManager.setMaximumAmbientCacheSize(250 * 1024 * 1024).catch(() => undefined);
 }
 
 function rasterStyle(tiles: string[], attribution: string): StyleSpecification {

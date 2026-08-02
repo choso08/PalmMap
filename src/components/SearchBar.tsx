@@ -20,6 +20,8 @@ import type { Place } from '../types/geo';
 interface SearchBarProps {
   onSelect: (place: Place) => void;
   onOpenSettings: () => void;
+  /** Sítios guardados, mostrados enquanto não se escreve nada. */
+  favourites: Place[];
 }
 
 /**
@@ -29,11 +31,13 @@ interface SearchBarProps {
  * escrever (SEARCH_DEBOUNCE_MS) ou que carregue em Enter — é uma exigência das
  * regras de utilização do Nominatim, não uma preferência de interface.
  */
-export function SearchBar({ onSelect, onOpenSettings }: SearchBarProps) {
+export function SearchBar({ onSelect, onOpenSettings, favourites }: SearchBarProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [query, setQuery] = useState('');
+  /** Verdadeiro enquanto a caixa está em uso, para mostrar os favoritos. */
+  const [focused, setFocused] = useState(false);
   const [results, setResults] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,9 +88,15 @@ export function SearchBar({ onSelect, onOpenSettings }: SearchBarProps) {
   const handleSelect = (place: Place) => {
     setQuery(place.name);
     setResults([]);
+    setFocused(false);
     Keyboard.dismiss();
     onSelect(place);
   };
+
+  // Sem nada escrito, a lista mostra os sítios guardados. É o que dá jeito
+  // quando não há rede: os favoritos estão no telemóvel e a pesquisa não.
+  const showingFavourites = query.trim().length === 0 && focused && favourites.length > 0;
+  const list = showingFavourites ? favourites : results;
 
   return (
     <View style={styles.container}>
@@ -100,6 +110,7 @@ export function SearchBar({ onSelect, onOpenSettings }: SearchBarProps) {
           placeholder="Pesquisar aqui"
           placeholderTextColor={theme.placeholder}
           returnKeyType="search"
+          onFocus={() => setFocused(true)}
           onSubmitEditing={() => void runSearch(query)}
         />
 
@@ -119,15 +130,18 @@ export function SearchBar({ onSelect, onOpenSettings }: SearchBarProps) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {results.length > 0 ? (
+      {list.length > 0 ? (
         <FlatList
           style={styles.results}
-          data={results}
+          data={list}
           keyExtractor={(item) => String(item.id)}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <Pressable style={styles.result} onPress={() => handleSelect(item)}>
               <View style={styles.resultHeader}>
+                {showingFavourites ? (
+                  <MaterialCommunityIcons name="star" size={15} color={theme.poi} />
+                ) : null}
                 <Text style={styles.resultName} numberOfLines={1}>
                   {item.name}
                 </Text>
