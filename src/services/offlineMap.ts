@@ -5,29 +5,28 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
 
 /**
- * Mapas de países guardados no telemóvel.
+ * Mapas de países, descarregados a pedido e guardados no telemóvel.
  *
- * Há dois caminhos para um mapa chegar aqui, e depois de chegar são tratados
- * exatamente da mesma maneira:
+ * A pessoa escolhe o país nas definições e o ficheiro fica lá até o apagar. A
+ * partir daí esse país funciona sem rede nenhuma, a qualquer zoom e em sítios
+ * onde nunca esteve — que é o que a cache do mapa não consegue dar.
  *
- * 1. **Vem dentro da aplicação.** São Tomé e Príncipe ocupa 2 MB, por isso
- *    viaja dentro do próprio APK. Está lá desde o primeiro arranque, sem
- *    descarregar nada e sem precisar de rede alguma vez.
- * 2. **Descarrega-se.** Os outros países são grandes de mais para irem dentro
- *    da aplicação (só Portugal continental são 325 MB) e vão buscar-se a uma
- *    Release quando a pessoa os pedir.
- *
- * Os dois acabam na mesma pasta, com um ficheiro de identificação ao lado. A
- * partir daí o resto do código não sabe nem precisa de saber de onde vieram.
+ * Cada país é um ficheiro só. Ao lado dele fica um pequeno ficheiro de
+ * identificação com o nome e a área que cobre: é o que permite saber, sem rede,
+ * se a posição atual está dentro de um mapa guardado.
  *
  * **Isto não é o mesmo que descarregar tiles do OpenStreetMap.** Cada ficheiro
  * é um recorte do mapa mundial do Protomaps, que é publicado precisamente para
  * ser usado assim.
+ *
+ * Os **tipos de letra** são o único que vem dentro da aplicação. São 410 KB e
+ * não podiam ser de outra maneira: sem eles o mapa desenha-se mas fica sem nome
+ * nenhum, e ir busca-los a um servidor estragava o offline.
  */
 
 const BASE_URL = 'https://github.com/choso08/PalmMap/releases/download/mapas';
 
-/** Onde ficam os mapas e os tipos de letra que o mapa usa para escrever. */
+/** Onde ficam os mapas e os tipos de letra com que o mapa escreve. */
 const MAPS = new Directory(Paths.document, 'mapas');
 const GLYPHS = new Directory(Paths.document, 'glifos');
 
@@ -40,8 +39,6 @@ export interface OfflineRegion {
   maxzoom: number;
   /** Área abrangida: oeste, sul, este, norte. */
   bbox: [number, number, number, number];
-  /** Verdadeiro se vem dentro da aplicação, em vez de se descarregar. */
-  incluido?: boolean;
 }
 
 interface Manifest {
@@ -51,25 +48,7 @@ interface Manifest {
 /** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
 export class OfflineMapError extends Error {}
 
-// --- O que vem dentro da aplicação -------------------------------------------
-
-/**
- * São Tomé e Príncipe, incluído no APK.
- *
- * Os valores estão aqui à mão de propósito: como o ficheiro viaja connosco, não
- * há manifesto nenhum para consultar, e ao arrancar sem rede é preciso saber
- * isto na mesma. Se o ficheiro em `assets/mapas/` for substituído, atualizar
- * também o `bytes`.
- */
-const BUNDLED: OfflineRegion = {
-  id: 'saotome',
-  nome: 'São Tomé e Príncipe',
-  ficheiro: 'saotome.pmtiles',
-  bytes: 2057948,
-  maxzoom: 14,
-  bbox: [6.35, -0.1, 7.55, 1.8],
-  incluido: true,
-};
+// --- Os tipos de letra ------------------------------------------------------
 
 /**
  * Os tipos de letra com que o mapa escreve os nomes.
@@ -86,28 +65,18 @@ const FONTS = [
   { stack: 'Noto Sans Medium', range: '256-511', asset: require('../../assets/glifos/Noto_Sans_Medium_256-511.pbf') },
 ];
 
-const BUNDLED_MAP = require('../../assets/mapas/saotome.pmtiles');
-
 /**
- * Põe o mapa incluído e os tipos de letra no sítio onde o mapa os vai procurar.
+ * Põe os tipos de letra no sítio onde o mapa os vai procurar.
  *
  * Dentro do APK os ficheiros não têm um caminho normal que o MapLibre consiga
- * abrir, por isso copiam-se uma vez para a pasta da aplicação. São 2,4 MB e só
+ * abrir, por isso copiam-se uma vez para a pasta da aplicação. São 410 KB e só
  * acontece no primeiro arranque — depois já lá estão e a função não faz nada.
  *
- * Chamar no arranque, antes de desenhar o mapa. Falhar aqui não deve impedir a
- * aplicação de abrir: sem isto perde-se o mapa offline, não o resto.
+ * Chamar no arranque. Falhar aqui não deve impedir a aplicação de abrir: sem
+ * isto perdem-se os nomes no mapa offline, não o resto.
  */
 export async function installBundledAssets(): Promise<void> {
   ensureFolder(MAPS);
-
-  const destino = new File(MAPS, BUNDLED.ficheiro);
-  if (!destino.exists) {
-    await copyAsset(BUNDLED_MAP, destino);
-  }
-  // Escreve-se sempre: é barato e apanha o caso de uma versão nova da aplicação
-  // trazer um mapa com outra área ou outro tamanho.
-  writeMetadata(BUNDLED);
 
   for (const font of FONTS) {
     const pasta = new Directory(GLYPHS, font.stack);
@@ -217,11 +186,10 @@ export async function listRegions(): Promise<OfflineRegion[]> {
       timeout: REQUEST_TIMEOUT_MS,
       headers: { 'User-Agent': USER_AGENT },
     });
-    const remotas = (response.data.regioes ?? []).filter((r) => r.id !== BUNDLED.id);
-    return [BUNDLED, ...remotas];
+    return response.data.regioes ?? [];
   } catch {
-    // Sem rede, mostra-se pelo menos o que já está no telemóvel. Um menu vazio
-    // daria a entender que se perdeu o mapa incluído, e não se perdeu.
+    // Sem rede, mostra-se pelo menos o que já está guardado. Um menu vazio
+    // daria a entender que se perderam os mapas descarregados, e não se perderam.
     const guardadas = installedRegions();
     if (guardadas.length > 0) {
       return guardadas;
@@ -240,9 +208,6 @@ export async function listRegions(): Promise<OfflineRegion[]> {
  * bom.
  */
 export async function downloadRegion(region: OfflineRegion): Promise<void> {
-  if (region.incluido) {
-    return;
-  }
   ensureFolder(MAPS);
 
   const parcial = new File(MAPS, `${region.ficheiro}.parcial`);
@@ -267,12 +232,8 @@ export async function downloadRegion(region: OfflineRegion): Promise<void> {
   }
 }
 
-/** Apaga o mapa guardado de uma região. O incluído na aplicação não se apaga. */
+/** Apaga o mapa guardado de uma região. */
 export function removeRegion(region: OfflineRegion): void {
-  if (region.incluido) {
-    return;
-  }
-
   const ficheiro = localFile(region);
   if (ficheiro.exists) {
     ficheiro.delete();

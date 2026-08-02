@@ -5,27 +5,9 @@
     "maxzoom é o detalhe. 14 é o máximo do Protomaps e serve para conduzir.",
     "Países grandes levam menos, senão o ficheiro fica com vários gigabytes —",
     "e sendo geometria, um zoom mais baixo amplia sem ficar borratado.",
-    "Para acrescentar um país: juntar uma linha aqui e correr o workflow."
+    "A ordem aqui e a ordem em que aparecem na aplicacao: Portugal primeiro."
   ],
   "regioes": [
-    {
-      "id": "saotome",
-      "nome": "São Tomé e Príncipe",
-      "bbox": "6.35,-0.10,7.55,1.80",
-      "maxzoom": 14
-    },
-    {
-      "id": "caboverde",
-      "nome": "Cabo Verde",
-      "bbox": "-25.60,14.70,-22.60,17.30",
-      "maxzoom": 14
-    },
-    {
-      "id": "guinebissau",
-      "nome": "Guiné-Bissau",
-      "bbox": "-16.80,10.80,-13.60,12.75",
-      "maxzoom": 14
-    },
     {
       "id": "portugal",
       "nome": "Portugal continental",
@@ -56,6 +38,24 @@
       "id": "acores",
       "nome": "Açores",
       "bbox": "-31.40,36.85,-24.70,39.80",
+      "maxzoom": 14
+    },
+    {
+      "id": "saotome",
+      "nome": "São Tomé e Príncipe",
+      "bbox": "6.35,-0.10,7.55,1.80",
+      "maxzoom": 14
+    },
+    {
+      "id": "caboverde",
+      "nome": "Cabo Verde",
+      "bbox": "-25.60,14.70,-22.60,17.30",
+      "maxzoom": 14
+    },
+    {
+      "id": "guinebissau",
+      "nome": "Guiné-Bissau",
+      "bbox": "-16.80,10.80,-13.60,12.75",
       "maxzoom": 14
     },
     {
