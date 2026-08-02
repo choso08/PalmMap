@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import {
   downloadRegion,
@@ -41,6 +41,9 @@ export function OfflineMaps() {
   const [progress, setProgress] = useState(0);
   /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
   const [revision, setRevision] = useState(0);
+  /** Texto para filtrar a lista. Com dezenas de países, procurar é mais rápido
+   * do que percorrer. */
+  const [filtro, setFiltro] = useState('');
 
   useEffect(() => {
     void (async () => {
@@ -83,6 +86,18 @@ export function OfflineMaps() {
     );
   }
 
+  // Sem acentos e sem maiúsculas: procurar "acores" tem de encontrar "Açores".
+  const simplificar = (texto: string) =>
+    texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+  const procurado = simplificar(filtro.trim());
+  const visiveis = procurado
+    ? regions.filter((r) => simplificar(r.nome).includes(procurado))
+    : regions;
+
   return (
     <View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -93,7 +108,32 @@ export function OfflineMaps() {
         </Text>
       ) : null}
 
-      {regions.map((region) => {
+      {/* A caixa de procura só aparece quando a lista é grande ao ponto de
+          fazer falta. Com meia dúzia de países, seria só mais uma coisa no ecrã. */}
+      {regions.length > 8 ? (
+        <View style={styles.search}>
+          <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={filtro}
+            onChangeText={setFiltro}
+            placeholder={`Procurar entre ${regions.length} países`}
+            placeholderTextColor={theme.placeholder}
+            autoCorrect={false}
+          />
+          {filtro.length > 0 ? (
+            <Pressable onPress={() => setFiltro('')} hitSlop={10}>
+              <MaterialCommunityIcons name="close" size={18} color={theme.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {procurado && visiveis.length === 0 ? (
+        <Text style={styles.vazio}>Nenhum país com esse nome.</Text>
+      ) : null}
+
+      {visiveis.map((region) => {
         // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
         const guardado = revision >= 0 && isDownloaded(region);
         const ocupado = busy === region.id;
@@ -153,6 +193,28 @@ export function OfflineMaps() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    search: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 12,
+      paddingHorizontal: 14,
+      borderRadius: 18,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 10,
+      fontSize: 15,
+      color: theme.text,
+    },
+    vazio: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 14,
+    },
     loading: {
       flexDirection: 'row',
       alignItems: 'center',
