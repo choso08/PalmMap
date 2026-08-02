@@ -72,9 +72,14 @@ function rasterStyle(
   tiles: string[],
   attribution: string,
   maxzoom = MAX_TILE_ZOOM,
+  paint?: Record<string, number>,
 ): StyleSpecification {
   return {
     version: 8,
+    // Os estilos de imagem também declaram os tipos de letra. Sem isto, escrever
+    // o nome de um negócio por cima do mapa não desenhava nada — foi o que
+    // aconteceu da primeira vez que se tentou.
+    glyphs: glyphsTemplate(),
     sources: {
       base: {
         type: 'raster',
@@ -84,7 +89,7 @@ function rasterStyle(
         attribution,
       },
     },
-    layers: [{ id: 'base', type: 'raster', source: 'base' }],
+    layers: [{ id: 'base', type: 'raster', source: 'base', ...(paint ? { paint } : {}) }],
   };
 }
 
@@ -119,6 +124,12 @@ const DARK_STYLE = rasterStyle(
     'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
   ],
   '© OpenStreetMap © CARTO',
+  MAX_TILE_ZOOM,
+  // O "dark matter" do CARTO é escuro de propósito, mas de noite ao volante os
+  // nomes das ruas quase não se liam. Levantar os pretos e abrir o contraste
+  // torna-os legíveis sem estragar o tema — não se mexe mais do que isto, senão
+  // deixa de ser um mapa escuro.
+  { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 },
 );
 
 /**
@@ -179,6 +190,7 @@ const DGT_ORTOS =
  */
 const SATELLITE_DETAILED_STYLE: StyleSpecification = {
   version: 8,
+  glyphs: glyphsTemplate(),
   sources: {
     base: {
       type: 'raster',

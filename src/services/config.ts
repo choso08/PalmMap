@@ -51,7 +51,7 @@ export const MAP_PINS_DEBOUNCE_MS = 1200;
  * Mais afastado do que isto, a área é enorme e o pedido seria pesadíssimo
  * para devolver pinos que nem se distinguiriam no ecrã.
  */
-export const MAP_PINS_MIN_ZOOM = 15;
+export const MAP_PINS_MIN_ZOOM = 14;
 
 /** Número máximo de negócios pedidos de cada vez. */
 export const MAP_PINS_LIMIT = 80;

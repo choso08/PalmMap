@@ -128,6 +128,8 @@ function PalmMap() {
   const latestPlaces = useRef(0);
   /** Mapas de países guardados, para o mapa poder funcionar sem rede. */
   const [offlineRegions, setOfflineRegions] = useState<OfflineRegion[]>([]);
+  /** Passa a verdadeiro quando os tipos de letra do mapa já estão no sítio. */
+  const [labelsReady, setLabelsReady] = useState(false);
 
   // O tamanho do mapa guardado, sempre que a definição muda.
   useEffect(() => {
@@ -145,6 +147,7 @@ function PalmMap() {
   // não se interrompe o arranque por causa disso.
   useEffect(() => {
     void installBundledAssets()
+      .then(() => setLabelsReady(true))
       .catch(() => undefined)
       .then(() => setOfflineRegions(installedRegions()));
   }, []);
@@ -641,6 +644,7 @@ function PalmMap() {
         onTapEmpty={handleTapEmpty}
         following={navigating}
         offlineRegions={offlineRegions}
+        labelsReady={labelsReady}
       />
 
       {!navigating ? (

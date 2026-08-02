@@ -45,6 +45,13 @@ interface MapViewProps {
   following?: boolean;
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
+  /**
+   * Se os tipos de letra já estão instalados.
+   *
+   * Sem eles, uma camada de texto não desenha nada e não dá erro — foi assim que
+   * uma tentativa anterior de escrever os nomes falhou sem se perceber porquê.
+   */
+  labelsReady: boolean;
   ref?: Ref<MapViewRef>;
 }
 
@@ -73,6 +80,7 @@ export function MapView({
   onTapEmpty,
   following,
   offlineRegions,
+  labelsReady,
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
@@ -245,12 +253,6 @@ export function MapView({
             }
           }}
         >
-          {/*
-            Só um círculo, sem texto. Escrever o nome no mapa exigiria um
-            servidor de tipos de letra (glyphs) que este estilo não tem, e os
-            nomes já vêm desenhados nos tiles do OpenStreetMap. O nome completo
-            aparece ao tocar no pino.
-          */}
           <Layer
             id="places-circle"
             type="circle"
@@ -261,6 +263,37 @@ export function MapView({
               'circle-stroke-color': theme.poiOutline,
             }}
           />
+
+          {/*
+            O nome ao lado do pino. Faz falta em três sítios: no tema escuro,
+            onde o mapa por baixo quase não se lê; na imagem de satélite, que não
+            traz letra nenhuma; e no mapa guardado. Os tipos de letra vão dentro
+            da aplicação, por isso isto também funciona sem rede.
+
+            `text-optional` deixa o pino ficar mesmo quando não há espaço para o
+            nome — mais vale saber que ali há alguma coisa do que perder o pino.
+          */}
+          {labelsReady ? (
+            <Layer
+              id="places-label"
+              type="symbol"
+              minzoom={15}
+              layout={{
+                'text-field': ['get', 'name'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 12,
+                'text-anchor': 'top',
+                'text-offset': [0, 0.9],
+                'text-max-width': 9,
+                'text-optional': true,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.8,
+              }}
+            />
+          ) : null}
         </GeoJSONSource>
       ) : null}
 
