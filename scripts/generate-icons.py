@@ -3,7 +3,8 @@
 Gera os ícones do PalmMap para a pasta assets/.
 
 O logo é um pin de mapa branco com uma palmeira recortada lá dentro — junta o
-"Map" e o "Palm" do nome. Sobre fundo azul, a mesma cor de destaque da aplicação.
+"Map" e o "Palm" do nome. O fundo é a água funda da paleta "Ilha", a mesma que o
+mar tem no mapa (ver src/theme.ts).
 
 Correr a partir da raiz do projeto:
 
@@ -19,20 +20,22 @@ from PIL import Image, ImageDraw
 SCALE = 4
 SIZE = 1024
 
-BLUE_TOP = (37, 99, 235)
-BLUE_BOTTOM = (29, 64, 175)
+# Água funda, do claro para o escuro. Vem da paleta em src/theme.ts — ao mudar
+# uma, mudar a outra, senão o ícone deixa de pertencer à aplicação.
+WATER_TOP = (18, 122, 124)
+WATER_BOTTOM = (10, 68, 76)
 WHITE = (255, 255, 255, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
 
 def gradient_background(size: int) -> Image.Image:
-    """Fundo azul com um degradê suave de cima para baixo."""
+    """Fundo cor de água funda, com um degradê suave de cima para baixo."""
     image = Image.new("RGB", (1, size))
     pixels = image.load()
     for y in range(size):
         t = y / max(size - 1, 1)
         pixels[0, y] = tuple(
-            round(BLUE_TOP[i] + (BLUE_BOTTOM[i] - BLUE_TOP[i]) * t) for i in range(3)
+            round(WATER_TOP[i] + (WATER_BOTTOM[i] - WATER_TOP[i]) * t) for i in range(3)
         )
     return image.resize((size, size))
 
@@ -159,7 +162,7 @@ def save(image: Image.Image, path: str, size: int) -> None:
 def main() -> None:
     big = SIZE * SCALE
 
-    # Ícone principal: fundo azul com cantos redondos e o pin por cima.
+    # Ícone principal: fundo de água com cantos redondos e o pin por cima.
     background = gradient_background(big).convert("RGBA")
     background.putalpha(rounded_mask(big))
 

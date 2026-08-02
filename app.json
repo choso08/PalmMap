@@ -12,7 +12,7 @@
     "android": {
       "package": "com.palmmap.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A444C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -32,6 +32,18 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "O PalmMap usa a sua localização para mostrar onde está no mapa e calcular percursos."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0A444C",
+          "dark": {
+            "backgroundColor": "#0B1319"
+          }
         }
       ]
     ]

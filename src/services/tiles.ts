@@ -64,9 +64,15 @@ export async function clearMapCache(): Promise<void> {
  *   Cortar dois níveis tira cerca de dezasseis vezes o peso posto no servidor do
  *   OpenStreetMap, que é mantido por donativos.
  *
- * Para voltar à nitidez máxima, pôr 19 — mas percebendo o que se está a trocar.
+ * **Porque é que está no 18 e não mais baixo.** Ao 17 as letras dos tiles ficavam
+ * enormes e moles assim que se aproximava um pouco mais: os nomes vêm desenhados
+ * dentro da imagem, por isso ampliar o mapa amplia-os também. O 18 corta essa
+ * ampliação a metade e é o compromisso que se aguenta a olhar.
+ *
+ * Isto não acontece nos mapas guardados: aí o texto é desenhado por nós, ao
+ * tamanho certo, seja qual for o zoom. É mais uma razão para descarregar o país.
  */
-const MAX_TILE_ZOOM = 17;
+const MAX_TILE_ZOOM = 18;
 
 function rasterStyle(
   tiles: string[],
