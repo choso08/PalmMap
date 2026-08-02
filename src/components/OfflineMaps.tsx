@@ -37,6 +37,8 @@ export function OfflineMaps() {
   const [error, setError] = useState<string | null>(null);
   /** Que região está a ser descarregada ou apagada neste momento. */
   const [busy, setBusy] = useState<string | null>(null);
+  /** Quanto já vai do descarregamento a decorrer, de 0 a 1. */
+  const [progress, setProgress] = useState(0);
   /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
   const [revision, setRevision] = useState(0);
 
@@ -55,18 +57,20 @@ export function OfflineMaps() {
 
   const handleToggle = useCallback(async (region: OfflineRegion) => {
     setBusy(region.id);
+    setProgress(0);
     setError(null);
     try {
       if (isDownloaded(region)) {
         removeRegion(region);
       } else {
-        await downloadRegion(region);
+        await downloadRegion(region, setProgress);
       }
       setRevision((n) => n + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível.');
     } finally {
       setBusy(null);
+      setProgress(0);
     }
   }, []);
 
@@ -93,6 +97,7 @@ export function OfflineMaps() {
         // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
         const guardado = revision >= 0 && isDownloaded(region);
         const ocupado = busy === region.id;
+        const aDescarregar = ocupado && !guardado;
 
         return (
           <Pressable
@@ -111,8 +116,23 @@ export function OfflineMaps() {
               <Text style={styles.name}>{region.nome}</Text>
               <Text style={styles.size}>
                 {formatBytes(region.bytes)}
-                {guardado ? ' · guardado' : ''}
+                {aDescarregar
+                  ? ` · ${Math.round(progress * 100)}%`
+                  : guardado
+                    ? ' · guardado'
+                    : ''}
               </Text>
+
+              {/*
+                A barra só aparece durante o descarregamento. Num ficheiro de
+                centenas de megabytes é o que distingue "está a andar" de
+                "bloqueou" — sem ela só se via um indicador a rodar.
+              */}
+              {aDescarregar ? (
+                <View style={styles.track}>
+                  <View style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
+                </View>
+              ) : null}
             </View>
 
             {ocupado ? (
@@ -169,6 +189,18 @@ function makeStyles(theme: Theme) {
       fontSize: 12,
       color: theme.textMuted,
       marginTop: 2,
+    },
+    track: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+      marginTop: 8,
+      overflow: 'hidden',
+    },
+    fill: {
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: theme.accent,
     },
   });
 }

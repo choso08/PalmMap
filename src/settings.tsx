@@ -32,8 +32,8 @@ export type TravelMode = 'driving' | 'walking' | 'cycling';
  */
 export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 
-/** Quanto do mapa já visto se guarda no telemóvel. */
-export type CacheSize = 'small' | 'medium' | 'large' | 'huge';
+/** Quanto do mapa já visto se guarda no telemóvel. `off` desliga a cache. */
+export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 
 /** Mapa desenhado ou imagem de satélite. */
 export type MapType = 'map' | 'satellite';
@@ -69,6 +69,7 @@ export const CACHE_SIZES: {
   icon: string;
   megabytes: number;
 }[] = [
+  { id: 'off', label: 'Nada', icon: 'close-circle-outline', megabytes: 0 },
   { id: 'small', label: '100 MB', icon: 'sd', megabytes: 100 },
   { id: 'medium', label: '250 MB', icon: 'database-outline', megabytes: 250 },
   { id: 'large', label: '500 MB', icon: 'database', megabytes: 500 },

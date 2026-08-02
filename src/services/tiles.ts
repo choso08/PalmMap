@@ -38,6 +38,12 @@ export function setMapCacheSize(megabytes: number): void {
   void OfflineManager.setMaximumAmbientCacheSize(megabytes * 1024 * 1024).catch(
     () => undefined,
   );
+
+  // Com o tamanho a zero, o que já lá estava continuaria guardado. Quem desliga
+  // isto quer o espaço de volta, por isso esvazia-se de caminho.
+  if (megabytes === 0) {
+    void OfflineManager.clearAmbientCache().catch(() => undefined);
+  }
 }
 
 /** Esquece o mapa guardado. Usar quando se quer libertar espaço. */

@@ -207,7 +207,10 @@ export async function listRegions(): Promise<OfflineRegion[]> {
  * ligação cair a meio, não fica um ficheiro incompleto a fazer-se passar por
  * bom.
  */
-export async function downloadRegion(region: OfflineRegion): Promise<void> {
+export async function downloadRegion(
+  region: OfflineRegion,
+  onProgress?: (fracao: number) => void,
+): Promise<void> {
   ensureFolder(MAPS);
 
   const parcial = new File(MAPS, `${region.ficheiro}.parcial`);
@@ -216,7 +219,20 @@ export async function downloadRegion(region: OfflineRegion): Promise<void> {
   }
 
   try {
-    const descarregado = await File.downloadFileAsync(`${BASE_URL}/${region.ficheiro}`, parcial);
+    const descarregado = await File.downloadFileAsync(
+      `${BASE_URL}/${region.ficheiro}`,
+      parcial,
+      {
+        onProgress: ({ bytesWritten, totalBytes }) => {
+          // O servidor nem sempre diz o tamanho à partida — nesse caso vem -1 e
+          // usa-se o do manifesto, que é o valor real medido ao gerar o ficheiro.
+          const total = totalBytes > 0 ? totalBytes : region.bytes;
+          if (total > 0) {
+            onProgress?.(Math.min(1, bytesWritten / total));
+          }
+        },
+      },
+    );
 
     const destino = localFile(region);
     if (destino.exists) {
@@ -224,11 +240,17 @@ export async function downloadRegion(region: OfflineRegion): Promise<void> {
     }
     await descarregado.move(destino);
     writeMetadata(region);
-  } catch {
+  } catch (erro) {
     if (parcial.exists) {
       parcial.delete();
     }
-    throw new OfflineMapError(`Não foi possível descarregar o mapa de ${region.nome}.`);
+    // A mensagem do sistema vai junto. Sem ela ficava-se sem saber se foi a
+    // rede, o espaço em disco ou o servidor — e num ficheiro de centenas de
+    // megabytes é quase sempre a rede a cair a meio.
+    const detalhe = erro instanceof Error ? erro.message : String(erro);
+    throw new OfflineMapError(
+      `Não foi possível descarregar o mapa de ${region.nome}. ${detalhe}`.trim(),
+    );
   }
 }
 

@@ -173,7 +173,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
 
           <Text style={styles.sectionTitle}>Mapa guardado</Text>
           <Text style={styles.sectionHint}>
-            Quanto do mapa já visto fica no telemóvel, para funcionar sem rede.
+            As zonas por onde passa ficam guardadas e voltam a aparecer sem rede.
           </Text>
           <ChoiceRow
             options={CACHE_SIZES}
@@ -183,10 +183,9 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             theme={theme}
           />
           <Text style={styles.note}>
-            Guarda-se só o que chegou a ver, à medida que o vê — não se descarrega nada por
-            antecipação, que as regras do OpenStreetMap não permitem. Não há forma de dizer
-            "guardar um mês": é o tamanho que manda. Quando enche, esquece primeiro o que há
-            mais tempo não vê, por isso quanto maior, mais tempo as suas zonas se aguentam.
+            {settings.cacheSize === 'off'
+              ? 'Desligado: o mapa é pedido de novo de cada vez, e sem rede não aparece.'
+              : 'Quando enche, esquece primeiro o que há mais tempo não vê.'}
           </Text>
 
           <Pressable
@@ -202,13 +201,12 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
 
           <Text style={styles.sectionTitle}>Mapas de países</Text>
           <Text style={styles.sectionHint}>
-            Guardar o mapa de um país inteiro no telemóvel, para funcionar sem rede.
+            Guarda o país inteiro de uma vez. Funciona sem rede a qualquer zoom, mesmo em
+            sítios onde nunca esteve.
           </Text>
           <OfflineMaps />
           <Text style={styles.note}>
-            Isto é diferente do "mapa guardado" acima. Ali fica só o que já viu; aqui fica o
-            país todo, a qualquer zoom, mesmo em sítios onde nunca esteve. São mapas
-            vetoriais do Protomaps, publicados precisamente para serem usados assim.
+            Descarregue por Wi-Fi: os países maiores têm centenas de megabytes.
           </Text>
 
           <Text style={styles.sectionTitle}>Navegação</Text>

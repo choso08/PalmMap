@@ -489,8 +489,27 @@ function PalmMap() {
     offRouteStrikes.current = 0;
     setSelectedPlace(null);
     setStepsVisible(false);
+
+    // Calcula-se já o que falta, com a posição que se tem. Sem isto o painel
+    // arrancava a zero e só se corrigia na primeira leitura do GPS — que, com a
+    // pessoa parada à espera de arrancar, podia nunca chegar. Era o que fazia
+    // aparecer "1 min · 0 m" num percurso de quilómetros.
+    if (route && route.coordinates.length > 0) {
+      const aqui = userLocationRef.current;
+      const inicio = aqui ? locateOnRoute(route.coordinates, aqui).index : 0;
+      const faltam = distanceAlong(route.coordinates, inicio, route.coordinates.length - 1);
+
+      setRemaining({
+        meters: faltam,
+        seconds:
+          route.distanceMeters > 0
+            ? route.durationSeconds * (faltam / route.distanceMeters)
+            : route.durationSeconds,
+      });
+    }
+
     setNavigating(true);
-  }, []);
+  }, [route]);
 
   const handleStopNavigation = useCallback(() => {
     setNavigating(false);

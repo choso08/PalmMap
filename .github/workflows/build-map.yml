@@ -1,25 +1,31 @@
 name: Gerar mapa offline
 
-# Recorta países inteiros do mapa mundial do Protomaps e publica os ficheiros
-# numa Release, para a aplicação os poder descarregar e usar sem rede.
+# Recorta países do mapa mundial do Protomaps e publica os ficheiros numa
+# Release, para a aplicação os poder descarregar e usar sem rede.
 #
 # As regiões estão em map-regions.json, na raiz do repositório. Para acrescentar
-# um país, junta-se uma linha lá e corre-se isto outra vez.
+# um país, junta-se uma linha lá e corre-se isto com o id dele.
 #
 # Porque é que isto é legítimo, ao contrário de descarregar tiles do
 # OpenStreetMap: o Protomaps publica o planeta inteiro precisamente para ser
 # recortado assim, e o `pmtiles extract` lê só os pedaços de que precisa. São
 # dezenas de pedidos, em vez dos milhares que seriam tile a tile.
 #
-# Como usar: separador "Actions" > "Gerar mapa offline" > "Run workflow".
+# **Gera-se por lotes, não tudo de uma vez.** O catálogo tem o mundo inteiro e
+# dá muitos gigabytes; uma corrida que tentasse fazer tudo esgotava o disco do
+# servidor e o limite de seis horas. Por isso indicam-se os ids que se quer, e
+# cada corrida **acrescenta** ao que já lá está em vez de substituir.
+#
+# Como usar: separador "Actions" > "Gerar mapa offline" > "Run workflow", e
+# escrever os ids separados por espaços. Por exemplo: `franca espanha italia`.
 
 on:
   workflow_dispatch:
     inputs:
       regioes:
-        description: 'Que regiões gerar (ids separados por espaços, ou "todas")'
-        default: 'todas'
-        required: false
+        description: 'Ids separados por espaços (ver map-regions.json). "todas" só se souber o que está a fazer.'
+        default: 'portugal'
+        required: true
 
 permissions:
   contents: write
@@ -60,18 +66,29 @@ jobs:
           echo "Nenhuma compilação encontrada nos últimos 10 dias."
           exit 1
 
-      - name: Recortar as regiões
+      # Cada região é recortada, enviada e apagada logo a seguir. Sem isso, um
+      # lote grande enchia o disco do servidor a meio e perdia-se o trabalho
+      # todo — são só uns 20 GB livres, e há países que dão mais de 1 GB cada.
+      - name: Recortar e enviar
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PEDIDAS: ${{ inputs.regioes }}
         run: |
+          set -o pipefail
           mkdir -p mapas
-          # O manifesto é o que a aplicação lê para saber o que há e que tamanho tem.
+
+          # A Release tem de existir antes de se lhe enviar seja o que for.
+          if ! gh release view mapas -R "$REPO" > /dev/null 2>&1; then
+            gh release create mapas -R "$REPO" --title "Mapas offline" --notes "A gerar…"
+          fi
+
           echo '{"regioes":[' > manifesto.tmp
           PRIMEIRA=1
+          FALHADAS=""
 
           for ID in $(jq -r '.regioes[].id' map-regions.json); do
             if [ "$PEDIDAS" != "todas" ] && ! echo " $PEDIDAS " | grep -q " $ID "; then
-              echo "A saltar $ID"
               continue
             fi
 
@@ -80,36 +97,77 @@ jobs:
             MAXZOOM=$(jq -r ".regioes[] | select(.id==\"$ID\") | .maxzoom" map-regions.json)
 
             echo "::group::$NOME ($BBOX, zoom $MAXZOOM)"
-            ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
-              --bbox="$BBOX" --maxzoom="$MAXZOOM"
+
+            # Uma região que falhe não deve levar o lote inteiro atrás.
+            if ! ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
+                 --bbox="$BBOX" --maxzoom="$MAXZOOM"; then
+              echo "FALHOU: $NOME"
+              FALHADAS="$FALHADAS $ID"
+              rm -f "mapas/${ID}.pmtiles"
+              echo "::endgroup::"
+              continue
+            fi
 
             BYTES=$(stat -c%s "mapas/${ID}.pmtiles")
             echo "$NOME: $(numfmt --to=iec "$BYTES")"
-            echo "::endgroup::"
+
+            # O GitHub recusa ficheiros acima de 2 GB numa Release.
+            if [ "$BYTES" -gt 2000000000 ]; then
+              echo "GRANDE DEMAIS para uma Release. Baixar o maxzoom em map-regions.json."
+              FALHADAS="$FALHADAS $ID(grande)"
+              rm -f "mapas/${ID}.pmtiles"
+              echo "::endgroup::"
+              continue
+            fi
+
+            gh release upload mapas "mapas/${ID}.pmtiles" -R "$REPO" --clobber
+            rm -f "mapas/${ID}.pmtiles"
 
             [ $PRIMEIRA -eq 0 ] && echo ',' >> manifesto.tmp
             PRIMEIRA=0
             # O bbox vai no manifesto porque a aplicação precisa dele para saber
-            # se está dentro de um país guardado — e precisa de o saber sem rede.
+            # se está dentro de um país guardado — e sem rede.
             printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s]}' \
               "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" >> manifesto.tmp
+
+            echo "::endgroup::"
           done
 
           echo ']}' >> manifesto.tmp
-          jq . manifesto.tmp > mapas/mapas.json
-          cat mapas/mapas.json
+          jq . manifesto.tmp > lote.json
 
-      # Publica-se sempre na mesma etiqueta, 'mapas'. Assim a aplicação sabe o
-      # endereço de cor e não tem de andar à procura da Release mais recente.
-      - name: Publicar
+          if [ -n "$FALHADAS" ]; then
+            echo "::warning::Regiões que não saíram:$FALHADAS"
+          fi
+
+      # O manifesto é a lista que a aplicação lê. Junta-se o que já lá estava
+      # com o deste lote, senão gerar França apagaria Portugal da lista.
+      - name: Atualizar a lista
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          # -R é preciso mesmo com checkout, para não depender da pasta atual.
-          gh release delete mapas -R "${{ github.repository }}" --yes --cleanup-tag || true
-          gh release create "mapas" mapas/* \
-            -R "${{ github.repository }}" \
-            --title "Mapas offline" \
-            --notes "Mapas vetoriais para usar sem rede, gerados a partir do mapa mundial do Protomaps.
+          if gh release download mapas -R "$REPO" -p mapas.json -O anterior.json 2>/dev/null; then
+            echo "Já lá estavam: $(jq '.regioes | length' anterior.json) região(ões)."
+          else
+            echo '{"regioes":[]}' > anterior.json
+          fi
 
-          $(jq -r '.regioes[] | "- \(.nome): \(.bytes/1048576 | floor) MB (zoom \(.maxzoom))"' mapas/mapas.json)"
+          # Em caso de repetido, fica o deste lote: um mapa regerado tem tamanho novo.
+          jq -s '{regioes: (.[0].regioes + .[1].regioes)
+                    | group_by(.id)
+                    | map(.[-1])
+                    | sort_by(.nome)}' anterior.json lote.json > mapas.json
+
+          echo "Ficam: $(jq '.regioes | length' mapas.json) região(ões)."
+          jq -r '.regioes[] | "  \(.nome): \(.bytes/1048576 | floor) MB"' mapas.json
+
+          gh release upload mapas mapas.json -R "$REPO" --clobber
+
+          gh release edit mapas -R "$REPO" \
+            --title "Mapas offline" \
+            --notes "Mapas vetoriais para usar sem rede, recortados do mapa mundial do Protomaps.
+
+          Cada país é um ficheiro só. A aplicação descarrega-os nas definições, em \"Mapas de países\".
+
+          $(jq -r '.regioes[] | "- \(.nome): \(.bytes/1048576 | floor) MB (zoom \(.maxzoom))"' mapas.json)"

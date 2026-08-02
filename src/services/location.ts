@@ -28,9 +28,11 @@ export async function watchPosition(
   const subscription = await Location.watchPositionAsync(
     {
       accuracy: Location.Accuracy.BestForNavigation,
-      // Uma leitura por segundo, ou a cada 5 metros percorridos.
       timeInterval: 1000,
-      distanceInterval: 5,
+      // Zero de propósito: com um mínimo de metros, o Android cala-se enquanto a
+      // pessoa está parada — e então o painel fica preso no que dizia. Parado
+      // num semáforo, o tempo que falta tem de continuar a acertar.
+      distanceInterval: 0,
     },
     (position) => {
       onChange({
