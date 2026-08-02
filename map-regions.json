@@ -1,66 +1,555 @@
 {
   "_comentario": [
-    "Regiões que o workflow 'Gerar mapa offline' recorta do mapa mundial.",
+    "Catálogo de regiões que o workflow 'Gerar mapa offline' pode recortar.",
+    "Estar aqui não quer dizer que já esteja gerado: a lista que a aplicação",
+    "mostra é a das que já foram geradas, que vem do mapas.json da Release.",
     "bbox é a área a recortar, pela ordem: oeste, sul, este, norte.",
-    "maxzoom é o detalhe. 14 é o máximo do Protomaps e serve para conduzir.",
-    "Países grandes levam menos, senão o ficheiro fica com vários gigabytes —",
-    "e sendo geometria, um zoom mais baixo amplia sem ficar borratado.",
-    "A ordem aqui e a ordem em que aparecem na aplicacao: Portugal primeiro."
+    "maxzoom é o detalhe: 14 dá as ruas todas e cada nível abaixo corta o",
+    "ficheiro para cerca de metade. Países grandes levam menos, senão passavam",
+    "o limite de 2 GB por ficheiro que o GitHub impõe — o workflow avisa se",
+    "acontecer, e aí baixa-se o maxzoom desse país.",
+    "A ordem aqui é a ordem em que aparecem na aplicação: Portugal primeiro."
   ],
   "regioes": [
     {
       "id": "portugal",
       "nome": "Portugal continental",
-      "bbox": "-9.60,36.90,-6.10,42.20",
+      "bbox": "-9.6,36.9,-6.1,42.2",
       "maxzoom": 14
     },
     {
       "id": "madeira",
       "nome": "Madeira",
-      "bbox": "-17.30,32.35,-16.20,33.15",
+      "bbox": "-17.3,32.35,-16.2,33.15",
       "maxzoom": 14
     },
     {
       "id": "acores",
       "nome": "Açores",
-      "bbox": "-31.40,36.85,-24.70,39.80",
+      "bbox": "-31.4,36.85,-24.7,39.8",
       "maxzoom": 14
     },
     {
       "id": "saotome",
       "nome": "São Tomé e Príncipe",
-      "bbox": "6.35,-0.10,7.55,1.80",
+      "bbox": "6.35,-0.1,7.55,1.8",
       "maxzoom": 14
     },
     {
       "id": "caboverde",
       "nome": "Cabo Verde",
-      "bbox": "-25.60,14.70,-22.60,17.30",
+      "bbox": "-25.6,14.7,-22.6,17.3",
       "maxzoom": 14
     },
     {
       "id": "guinebissau",
       "nome": "Guiné-Bissau",
-      "bbox": "-16.80,10.80,-13.60,12.75",
+      "bbox": "-16.8,10.8,-13.6,12.75",
       "maxzoom": 14
-    },
-    {
-      "id": "gabao",
-      "nome": "Gabão",
-      "bbox": "8.60,-4.00,14.60,2.40",
-      "maxzoom": 13
     },
     {
       "id": "angola",
       "nome": "Angola",
-      "bbox": "11.60,-18.10,24.20,-4.30",
+      "bbox": "11.6,-18.1,24.2,-4.3",
       "maxzoom": 12
     },
     {
       "id": "mocambique",
       "nome": "Moçambique",
-      "bbox": "30.20,-27.00,41.00,-10.40",
+      "bbox": "30.2,-27.0,41.0,-10.4",
       "maxzoom": 12
+    },
+    {
+      "id": "brasil",
+      "nome": "Brasil",
+      "bbox": "-74.0,-33.8,-34.7,5.3",
+      "maxzoom": 11
+    },
+    {
+      "id": "timorleste",
+      "nome": "Timor-Leste",
+      "bbox": "124.0,-9.55,127.35,-8.1",
+      "maxzoom": 14
+    },
+    {
+      "id": "espanha",
+      "nome": "Espanha",
+      "bbox": "-9.4,35.9,3.4,43.9",
+      "maxzoom": 13
+    },
+    {
+      "id": "franca",
+      "nome": "França",
+      "bbox": "-5.2,41.3,9.6,51.15",
+      "maxzoom": 13
+    },
+    {
+      "id": "italia",
+      "nome": "Itália",
+      "bbox": "6.6,35.4,18.6,47.1",
+      "maxzoom": 13
+    },
+    {
+      "id": "alemanha",
+      "nome": "Alemanha",
+      "bbox": "5.85,47.25,15.05,55.1",
+      "maxzoom": 13
+    },
+    {
+      "id": "reinounido",
+      "nome": "Reino Unido",
+      "bbox": "-8.7,49.85,1.8,60.9",
+      "maxzoom": 13
+    },
+    {
+      "id": "irlanda",
+      "nome": "Irlanda",
+      "bbox": "-10.6,51.4,-5.9,55.45",
+      "maxzoom": 14
+    },
+    {
+      "id": "paisesbaixos",
+      "nome": "Países Baixos",
+      "bbox": "3.3,50.7,7.25,53.6",
+      "maxzoom": 14
+    },
+    {
+      "id": "belgica",
+      "nome": "Bélgica",
+      "bbox": "2.5,49.48,6.42,51.52",
+      "maxzoom": 14
+    },
+    {
+      "id": "luxemburgo",
+      "nome": "Luxemburgo",
+      "bbox": "5.72,49.44,6.54,50.19",
+      "maxzoom": 14
+    },
+    {
+      "id": "suica",
+      "nome": "Suíça",
+      "bbox": "5.95,45.8,10.5,47.82",
+      "maxzoom": 14
+    },
+    {
+      "id": "austria",
+      "nome": "Áustria",
+      "bbox": "9.52,46.36,17.18,49.03",
+      "maxzoom": 14
+    },
+    {
+      "id": "polonia",
+      "nome": "Polónia",
+      "bbox": "14.11,48.99,24.16,54.85",
+      "maxzoom": 13
+    },
+    {
+      "id": "chequia",
+      "nome": "Chéquia",
+      "bbox": "12.08,48.54,18.87,51.07",
+      "maxzoom": 14
+    },
+    {
+      "id": "eslovaquia",
+      "nome": "Eslováquia",
+      "bbox": "16.82,47.72,22.58,49.62",
+      "maxzoom": 14
+    },
+    {
+      "id": "hungria",
+      "nome": "Hungria",
+      "bbox": "16.1,45.73,22.91,48.6",
+      "maxzoom": 14
+    },
+    {
+      "id": "dinamarca",
+      "nome": "Dinamarca",
+      "bbox": "8.06,54.55,15.2,57.76",
+      "maxzoom": 14
+    },
+    {
+      "id": "noruega",
+      "nome": "Noruega",
+      "bbox": "4.05,57.9,31.3,71.2",
+      "maxzoom": 12
+    },
+    {
+      "id": "suecia",
+      "nome": "Suécia",
+      "bbox": "10.95,55.13,24.2,69.1",
+      "maxzoom": 12
+    },
+    {
+      "id": "finlandia",
+      "nome": "Finlândia",
+      "bbox": "20.5,59.7,31.6,70.1",
+      "maxzoom": 12
+    },
+    {
+      "id": "grecia",
+      "nome": "Grécia",
+      "bbox": "19.35,34.75,28.3,41.8",
+      "maxzoom": 13
+    },
+    {
+      "id": "croacia",
+      "nome": "Croácia",
+      "bbox": "13.48,42.34,19.46,46.56",
+      "maxzoom": 14
+    },
+    {
+      "id": "eslovenia",
+      "nome": "Eslovénia",
+      "bbox": "13.37,45.41,16.62,46.89",
+      "maxzoom": 14
+    },
+    {
+      "id": "romenia",
+      "nome": "Roménia",
+      "bbox": "20.25,43.61,29.72,48.28",
+      "maxzoom": 13
+    },
+    {
+      "id": "bulgaria",
+      "nome": "Bulgária",
+      "bbox": "22.33,41.22,28.62,44.24",
+      "maxzoom": 14
+    },
+    {
+      "id": "servia",
+      "nome": "Sérvia",
+      "bbox": "18.8,42.22,23.02,46.2",
+      "maxzoom": 14
+    },
+    {
+      "id": "bosnia",
+      "nome": "Bósnia e Herzegovina",
+      "bbox": "15.71,42.54,19.63,45.29",
+      "maxzoom": 14
+    },
+    {
+      "id": "albania",
+      "nome": "Albânia",
+      "bbox": "19.25,39.63,21.07,42.67",
+      "maxzoom": 14
+    },
+    {
+      "id": "macedonia",
+      "nome": "Macedónia do Norte",
+      "bbox": "20.44,40.84,23.04,42.38",
+      "maxzoom": 14
+    },
+    {
+      "id": "montenegro",
+      "nome": "Montenegro",
+      "bbox": "18.42,41.84,20.37,43.57",
+      "maxzoom": 14
+    },
+    {
+      "id": "estonia",
+      "nome": "Estónia",
+      "bbox": "21.75,57.5,28.22,59.7",
+      "maxzoom": 14
+    },
+    {
+      "id": "letonia",
+      "nome": "Letónia",
+      "bbox": "20.96,55.66,28.25,58.1",
+      "maxzoom": 14
+    },
+    {
+      "id": "lituania",
+      "nome": "Lituânia",
+      "bbox": "20.93,53.89,26.85,56.46",
+      "maxzoom": 14
+    },
+    {
+      "id": "islandia",
+      "nome": "Islândia",
+      "bbox": "-24.6,63.35,-13.45,66.6",
+      "maxzoom": 13
+    },
+    {
+      "id": "malta",
+      "nome": "Malta",
+      "bbox": "14.17,35.78,14.59,36.1",
+      "maxzoom": 14
+    },
+    {
+      "id": "chipre",
+      "nome": "Chipre",
+      "bbox": "32.26,34.55,34.61,35.72",
+      "maxzoom": 14
+    },
+    {
+      "id": "ucrania",
+      "nome": "Ucrânia",
+      "bbox": "22.13,44.38,40.23,52.38",
+      "maxzoom": 12
+    },
+    {
+      "id": "marrocos",
+      "nome": "Marrocos",
+      "bbox": "-13.2,27.6,-0.95,35.95",
+      "maxzoom": 13
+    },
+    {
+      "id": "tunisia",
+      "nome": "Tunísia",
+      "bbox": "7.5,30.2,11.6,37.55",
+      "maxzoom": 13
+    },
+    {
+      "id": "argelia",
+      "nome": "Argélia",
+      "bbox": "-8.7,18.95,12.0,37.1",
+      "maxzoom": 11
+    },
+    {
+      "id": "egito",
+      "nome": "Egito",
+      "bbox": "24.7,21.98,36.9,31.7",
+      "maxzoom": 12
+    },
+    {
+      "id": "senegal",
+      "nome": "Senegal",
+      "bbox": "-17.55,12.3,-11.35,16.7",
+      "maxzoom": 13
+    },
+    {
+      "id": "gana",
+      "nome": "Gana",
+      "bbox": "-3.26,4.71,1.2,11.18",
+      "maxzoom": 13
+    },
+    {
+      "id": "nigeria",
+      "nome": "Nigéria",
+      "bbox": "2.65,4.24,14.68,13.87",
+      "maxzoom": 12
+    },
+    {
+      "id": "gabao",
+      "nome": "Gabão",
+      "bbox": "8.6,-4.0,14.6,2.4",
+      "maxzoom": 13
+    },
+    {
+      "id": "quenia",
+      "nome": "Quénia",
+      "bbox": "33.9,-4.72,41.92,5.03",
+      "maxzoom": 12
+    },
+    {
+      "id": "tanzania",
+      "nome": "Tanzânia",
+      "bbox": "29.32,-11.75,40.45,-0.98",
+      "maxzoom": 12
+    },
+    {
+      "id": "namibia",
+      "nome": "Namíbia",
+      "bbox": "11.72,-28.97,25.26,-16.95",
+      "maxzoom": 12
+    },
+    {
+      "id": "africadosul",
+      "nome": "África do Sul",
+      "bbox": "16.45,-34.85,32.95,-22.1",
+      "maxzoom": 12
+    },
+    {
+      "id": "eua-oeste",
+      "nome": "Estados Unidos (oeste)",
+      "bbox": "-125.0,31.3,-102.0,49.1",
+      "maxzoom": 12
+    },
+    {
+      "id": "eua-central",
+      "nome": "Estados Unidos (centro)",
+      "bbox": "-102.0,25.8,-87.0,49.4",
+      "maxzoom": 12
+    },
+    {
+      "id": "eua-leste",
+      "nome": "Estados Unidos (este)",
+      "bbox": "-87.0,24.5,-66.9,47.5",
+      "maxzoom": 12
+    },
+    {
+      "id": "canada",
+      "nome": "Canadá",
+      "bbox": "-141.0,41.6,-52.6,70.0",
+      "maxzoom": 11
+    },
+    {
+      "id": "mexico",
+      "nome": "México",
+      "bbox": "-118.4,14.5,-86.7,32.72",
+      "maxzoom": 12
+    },
+    {
+      "id": "argentina",
+      "nome": "Argentina",
+      "bbox": "-73.6,-55.1,-53.6,-21.78",
+      "maxzoom": 11
+    },
+    {
+      "id": "chile",
+      "nome": "Chile",
+      "bbox": "-75.7,-56.0,-66.4,-17.5",
+      "maxzoom": 12
+    },
+    {
+      "id": "colombia",
+      "nome": "Colômbia",
+      "bbox": "-79.0,-4.23,-66.87,12.46",
+      "maxzoom": 12
+    },
+    {
+      "id": "peru",
+      "nome": "Peru",
+      "bbox": "-81.35,-18.35,-68.65,-0.04",
+      "maxzoom": 12
+    },
+    {
+      "id": "bolivia",
+      "nome": "Bolívia",
+      "bbox": "-69.65,-22.9,-57.45,-9.68",
+      "maxzoom": 12
+    },
+    {
+      "id": "venezuela",
+      "nome": "Venezuela",
+      "bbox": "-73.35,0.65,-59.8,12.2",
+      "maxzoom": 12
+    },
+    {
+      "id": "uruguai",
+      "nome": "Uruguai",
+      "bbox": "-58.45,-35.0,-53.1,-30.09",
+      "maxzoom": 13
+    },
+    {
+      "id": "equador",
+      "nome": "Equador",
+      "bbox": "-81.1,-5.02,-75.19,1.45",
+      "maxzoom": 13
+    },
+    {
+      "id": "costarica",
+      "nome": "Costa Rica",
+      "bbox": "-85.95,8.03,-82.55,11.22",
+      "maxzoom": 13
+    },
+    {
+      "id": "cuba",
+      "nome": "Cuba",
+      "bbox": "-85.0,19.8,-74.1,23.3",
+      "maxzoom": 13
+    },
+    {
+      "id": "turquia",
+      "nome": "Turquia",
+      "bbox": "25.66,35.81,44.82,42.11",
+      "maxzoom": 12
+    },
+    {
+      "id": "israel",
+      "nome": "Israel",
+      "bbox": "34.27,29.49,35.9,33.34",
+      "maxzoom": 14
+    },
+    {
+      "id": "emirados",
+      "nome": "Emirados Árabes Unidos",
+      "bbox": "51.5,22.6,56.4,26.1",
+      "maxzoom": 14
+    },
+    {
+      "id": "qatar",
+      "nome": "Catar",
+      "bbox": "50.75,24.47,51.62,26.16",
+      "maxzoom": 14
+    },
+    {
+      "id": "arabiasaudita",
+      "nome": "Arábia Saudita",
+      "bbox": "34.5,16.35,55.67,32.16",
+      "maxzoom": 11
+    },
+    {
+      "id": "india",
+      "nome": "Índia",
+      "bbox": "68.1,6.75,97.4,35.5",
+      "maxzoom": 11
+    },
+    {
+      "id": "china",
+      "nome": "China",
+      "bbox": "73.5,18.15,134.8,53.56",
+      "maxzoom": 11
+    },
+    {
+      "id": "japao",
+      "nome": "Japão",
+      "bbox": "129.4,31.0,146.0,45.55",
+      "maxzoom": 13
+    },
+    {
+      "id": "coreiadosul",
+      "nome": "Coreia do Sul",
+      "bbox": "125.9,33.1,129.6,38.62",
+      "maxzoom": 14
+    },
+    {
+      "id": "tailandia",
+      "nome": "Tailândia",
+      "bbox": "97.34,5.61,105.64,20.46",
+      "maxzoom": 13
+    },
+    {
+      "id": "vietname",
+      "nome": "Vietname",
+      "bbox": "102.14,8.18,109.47,23.39",
+      "maxzoom": 13
+    },
+    {
+      "id": "malasia",
+      "nome": "Malásia",
+      "bbox": "99.64,0.85,119.28,7.36",
+      "maxzoom": 12
+    },
+    {
+      "id": "singapura",
+      "nome": "Singapura",
+      "bbox": "103.59,1.15,104.1,1.48",
+      "maxzoom": 14
+    },
+    {
+      "id": "filipinas",
+      "nome": "Filipinas",
+      "bbox": "116.93,4.64,126.6,21.12",
+      "maxzoom": 12
+    },
+    {
+      "id": "indonesia",
+      "nome": "Indonésia",
+      "bbox": "95.0,-11.0,141.02,6.08",
+      "maxzoom": 11
+    },
+    {
+      "id": "australia",
+      "nome": "Austrália",
+      "bbox": "112.9,-43.75,153.65,-10.05",
+      "maxzoom": 11
+    },
+    {
+      "id": "novazelandia",
+      "nome": "Nova Zelândia",
+      "bbox": "166.3,-47.3,178.6,-34.35",
+      "maxzoom": 13
     }
   ]
 }

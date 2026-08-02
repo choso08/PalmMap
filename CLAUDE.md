@@ -513,9 +513,13 @@ copiados uma vez para a pasta da aplicação, no primeiro arranque
   que região cobre uma dada posição (`regionAt`).
 - **`src/components/OfflineMaps.tsx`** — a lista nas definições. São Tomé aparece como
   "vem com a aplicação" e não se pode apagar.
-- **`map-regions.json`** e **`.github/workflows/build-map.yml`** — geram os países
-  descarregáveis. Para acrescentar um país, junta-se uma linha ao primeiro e corre-se o
-  segundo.
+- **`map-regions.json`** — o **catálogo**: 90 regiões, do mundo todo. Estar aqui não quer
+  dizer que já esteja gerado; a lista que a aplicação mostra é a do `mapas.json` da
+  Release, ou seja só o que já foi gerado.
+- **`.github/workflows/build-map.yml`** — gera as regiões que se lhe indicar. **Acrescenta,
+  não substitui:** cada corrida junta-se ao que já lá está, senão gerar França apagava
+  Portugal. Cada região é enviada e apagada do disco logo a seguir, porque o servidor tem
+  uns 20 GB e há países que dão mais de 1 GB cada.
 
 #### Como se liga sozinho
 
@@ -542,8 +546,11 @@ Tamanhos reais já medidos (zoom 14):
 | Guiné-Bissau | 23,8 MB |
 | Portugal continental | 324,6 MB |
 
-Angola e Moçambique estão em `map-regions.json` com zoom mais baixo (12), por serem muito
-maiores. Ainda não foram gerados.
+**O planeta inteiro ao detalhe de Portugal são cerca de 120 GB**, e o GitHub não aceita
+ficheiros acima de 2 GB numa Release. Por isso o catálogo existe mas não se gera de uma
+vez: escolhe-se o país e corre-se o workflow. O zoom de cada região sai do tamanho — 14 dá
+as ruas todas e cada nível abaixo corta o ficheiro para cerca de metade. Se um país passar
+os 2 GB, o workflow avisa e salta-o, para se baixar o `maxzoom` dessa entrada.
 
 #### O estilo, e a avaria difícil de encontrar
 
