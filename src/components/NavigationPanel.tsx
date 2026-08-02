@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '../settings';
+import { useTheme, useTimeFactor } from '../settings';
 import type { Theme } from '../theme';
 import type { RouteStep } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -36,6 +36,7 @@ export function NavigationPanel({
   onStop,
 }: NavigationPanelProps) {
   const theme = useTheme();
+  const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -69,7 +70,7 @@ export function NavigationPanel({
       <View style={styles.footer}>
         <View>
           <Text style={styles.remaining}>
-            {formatDuration(remainingSeconds)} · {formatDistance(remainingMeters)}
+            {formatDuration(remainingSeconds * timeFactor)} · {formatDistance(remainingMeters)}
           </Text>
           <Text style={styles.remainingLabel}>até ao destino</Text>
         </View>

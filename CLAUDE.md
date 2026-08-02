@@ -37,7 +37,7 @@ começar trabalho nessa direção sem o autor voltar a pedir.
   lê-a em voz alta e recalcula o percurso se se sair dele.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
-- Ecrã de definições: aspeto, meio de transporte, pinos automáticos e voz.
+- Ecrã de definições: aspeto, transporte, correção do tempo, pinos automáticos e voz.
 
 **Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
 ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
@@ -304,8 +304,9 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 - As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
   guardado no telemóvel com o `AsyncStorage`.
-- São quatro: **aspeto** (automático/claro/escuro), **meio de transporte**
-  (carro/a pé/bicicleta), **mostrar negócios no mapa** e **ler instruções em voz alta**.
+- São cinco: **aspeto** (automático/claro/escuro), **meio de transporte**
+  (carro/a pé/bicicleta), **correção do tempo estimado**, **mostrar negócios no mapa** e
+  **ler instruções em voz alta**.
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
@@ -313,7 +314,29 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   servidor público de demonstração pode ter só o de carro instalado e devolver na mesma o
   percurso de carro. Não foi possível confirmar — o ecrã de definições avisa disso.
 
-### 5. Navegação em tempo real
+### 5. O tempo estimado e o piso das estradas
+
+O OSRM calcula o tempo a partir do tipo de estrada e da etiqueta `surface` do
+OpenStreetMap. O perfil de carro limita a velocidade conforme o piso — `surface=unpaved`
+fica travado a 40 km/h, e a terra batida a menos ainda.
+
+**O problema:** onde a etiqueta `surface` não está preenchida, o OSRM assume piso bom e
+fica optimista de mais. Numa estrada de terra batida o tempo real pode ser o dobro. Foi o
+que aconteceu em São Tomé, onde grande parte das estradas não tem a etiqueta.
+
+Há duas formas de corrigir, e não se excluem:
+
+1. **Preencher a etiqueta no OpenStreetMap** (`surface=ground`, `unpaved`, `compacted`…).
+   É a correção certa: passa a valer para o OSRM e para toda a gente, e não é preciso
+   mexer na aplicação. Exige conta no OpenStreetMap e conhecimento local.
+2. **A correção manual nas definições** (`timeAdjustment`), que multiplica o tempo por
+   1, 1,25, 1,5 ou 2. É grosseira — aplica-se a todos os percursos por igual — mas
+   funciona já e sem depender de dados que podem nunca ser preenchidos.
+
+O fator é aplicado **onde o tempo é mostrado** (`useTimeFactor()`), e não dentro do
+serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
+
+### 6. Navegação em tempo real
 
 - Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
   cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
@@ -327,7 +350,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
 
-### 6. Margens do ecrã (câmara, barras do sistema)
+### 7. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -341,7 +364,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 7. Tema claro e escuro
+### 8. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -356,7 +379,7 @@ elementos por cima do mapa.
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 8. Estado da aplicação
+### 9. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

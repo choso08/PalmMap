@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '../settings';
+import { useTheme, useTimeFactor } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -30,6 +30,7 @@ export function RoutePanel({
   onStart,
 }: RoutePanelProps) {
   const theme = useTheme();
+  const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -69,7 +70,7 @@ export function RoutePanel({
         <>
           <View style={styles.metrics}>
             <View style={styles.metric}>
-              <Text style={styles.metricValue}>{formatDuration(route.durationSeconds)}</Text>
+              <Text style={styles.metricValue}>{formatDuration(route.durationSeconds * timeFactor)}</Text>
               <Text style={styles.metricLabel}>tempo estimado</Text>
             </View>
             <View style={styles.separator} />

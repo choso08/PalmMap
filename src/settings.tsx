@@ -23,6 +23,15 @@ export type AppearanceMode = 'system' | 'light' | 'dark';
 /** Meio de transporte usado para calcular o percurso. */
 export type TravelMode = 'driving' | 'walking' | 'cycling';
 
+/**
+ * Correção do tempo estimado.
+ *
+ * O OSRM calcula o tempo a partir do tipo de estrada e da etiqueta `surface` do
+ * OpenStreetMap. Onde essa etiqueta falta — e falta em muitos sítios — ele
+ * assume piso bom e fica optimista demais. Isto permite corrigir à mão.
+ */
+export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
+
 export interface Settings {
   appearance: AppearanceMode;
   travelMode: TravelMode;
@@ -30,6 +39,8 @@ export interface Settings {
   showPlacesOnMap: boolean;
   /** Ler as instruções em voz alta durante a navegação. */
   voiceGuidance: boolean;
+  /** Correção aplicada ao tempo estimado. */
+  timeAdjustment: TimeAdjustment;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -37,7 +48,20 @@ export const DEFAULT_SETTINGS: Settings = {
   travelMode: 'driving',
   showPlacesOnMap: true,
   voiceGuidance: true,
+  timeAdjustment: 'none',
 };
+
+export const TIME_ADJUSTMENTS: {
+  id: TimeAdjustment;
+  label: string;
+  icon: string;
+  factor: number;
+}[] = [
+  { id: 'none', label: 'Normal', icon: 'speedometer', factor: 1 },
+  { id: 'slow', label: '+25%', icon: 'speedometer-medium', factor: 1.25 },
+  { id: 'slower', label: '+50%', icon: 'speedometer-slow', factor: 1.5 },
+  { id: 'slowest', label: '+100%', icon: 'road-variant', factor: 2 },
+];
 
 export const TRAVEL_MODES: { id: TravelMode; label: string; icon: string }[] = [
   { id: 'driving', label: 'Carro', icon: 'car' },
@@ -114,6 +138,17 @@ function useSettingsContext(): SettingsContextValue {
 export function useSettings() {
   const { settings, update } = useSettingsContext();
   return { settings, update };
+}
+
+/**
+ * Quanto multiplicar o tempo que o OSRM devolve, conforme a correção escolhida.
+ * Devolve 1 quando não há correção nenhuma.
+ */
+export function useTimeFactor(): number {
+  const { settings } = useSettingsContext();
+  return (
+    TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1
+  );
 }
 
 /**

@@ -5,6 +5,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import {
   APPEARANCE_MODES,
+  TIME_ADJUSTMENTS,
   TRAVEL_MODES,
   useSettings,
   useTheme,
@@ -96,6 +97,23 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
           <Text style={styles.note}>
             O servidor público do OSRM é de demonstração e pode ter apenas o perfil de
             carro. Se os percursos a pé e de bicicleta vierem iguais aos de carro, é isso.
+          </Text>
+
+          <Text style={styles.sectionTitle}>Tempo estimado</Text>
+          <Text style={styles.sectionHint}>
+            Se as estradas da sua zona forem mais lentas do que o mapa julga.
+          </Text>
+          <ChoiceRow
+            options={TIME_ADJUSTMENTS}
+            value={settings.timeAdjustment}
+            onChange={(id) => update('timeAdjustment', id)}
+            styles={styles}
+            theme={theme}
+          />
+          <Text style={styles.note}>
+            O tempo vem do tipo de estrada e do piso registado no OpenStreetMap. Onde o piso
+            não está registado, assume-se estrada alcatroada — e numa estrada de terra
+            batida o tempo real pode ser o dobro.
           </Text>
 
           <Text style={styles.sectionTitle}>Aspeto</Text>

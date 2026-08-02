@@ -4,7 +4,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '../settings';
+import { useTheme, useTimeFactor } from '../settings';
 import type { Theme } from '../theme';
 import type { Route } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -23,6 +23,7 @@ interface StepsListProps {
  */
 export function StepsList({ visible, route, onClose }: StepsListProps) {
   const theme = useTheme();
+  const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -45,7 +46,7 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
             <Text style={styles.title}>Instruções</Text>
             {route ? (
               <Text style={styles.subtitle}>
-                {formatDistance(route.distanceMeters)} · {formatDuration(route.durationSeconds)}
+                {formatDistance(route.distanceMeters)} · {formatDuration(route.durationSeconds * timeFactor)}
               </Text>
             ) : null}
           </View>
