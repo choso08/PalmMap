@@ -12,25 +12,24 @@ ficheiro explica o porquê de cada coisa.
 **O que está feito e confirmado no telemóvel:** a aplicação de mapas funciona. Mapa,
 pesquisa, negócios, percursos, navegação, definições, favoritos, satélite.
 
-**O que está escrito mas por confirmar no telemóvel:** o **mapa offline**. São Tomé e
-Príncipe vem dentro da aplicação e o estilo vetorial está escrito. Compila, os tipos estão
-verificados e o estilo passa no validador oficial do MapLibre — mas **nunca foi visto a
-desenhar num telemóvel**. Ver "Mapas de países (PMTiles)".
+**O que está escrito mas por confirmar no telemóvel:** o **mapa offline**. Os países
+descarregam-se nas definições e o estilo vetorial está escrito. Compila, os tipos estão
+verificados, o estilo passa no validador oficial do MapLibre e os tipos de letra foram
+confirmados dentro do APK — mas **nunca foi visto a desenhar num telemóvel**. Ver "Mapas
+de países (PMTiles)".
 
 **Três coisas a saber antes de mexer:**
 
-1. **A última compilação do APK é a 7.** Há várias alterações por compilar desde então,
-   incluindo o mapa offline todo. O autor pediu: **compilar só quando ele disser.** Não
-   lançar o workflow sem pedido.
-2. **Os mapas descarregáveis estão na etiqueta errada.** A aplicação procura-os em
-   `releases/download/mapas`, mas o último workflow publicou-os em `mapa-3`, porque correu
-   com uma versão anterior do ficheiro. **Basta voltar a correr o workflow "Gerar mapa
-   offline"** — a versão atual já publica na etiqueta certa e já inclui o `bbox`, que a
-   anterior não punha. Isto **não afeta São Tomé**, que vem dentro da aplicação.
-3. **A primeira coisa a verificar quando houver telemóvel** é se o mapa guardado desenha.
-   Se não desenhar, a aplicação recua sozinha para os tiles da Internet e parece que está
-   tudo bem — por isso é preciso ir a São Tomé no mapa, desligar os dados e ver se o mapa
-   continua lá.
+1. **A última compilação é a APK 8, versão 6.2.0**, e é a primeira que leva o mapa
+   offline. O autor pediu: **compilar só quando ele disser.** Não lançar o workflow sem
+   pedido.
+2. **Os mapas estão publicados e a etiqueta está certa** (`mapas`), com Portugal
+   continental, Madeira, Açores, São Tomé e Príncipe, Cabo Verde e Guiné-Bissau. O
+   manifesto já traz o `bbox`, que é o que permite saber sem rede se a posição está dentro
+   de um país guardado.
+3. **A primeira coisa a verificar** é se o mapa guardado desenha. Se não desenhar, a
+   aplicação recua sozinha para os tiles da Internet e parece que está tudo bem — por isso
+   é preciso descarregar um país, **desligar os dados** e ver se o mapa continua lá.
 
 ## Objetivo do projeto
 
