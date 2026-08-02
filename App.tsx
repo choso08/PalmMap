@@ -484,6 +484,14 @@ function PalmMap() {
     };
   }, [navigating, route, destination, stepIndices, settings.voiceGuidance, settings.travelMode]);
 
+  /**
+   * A área visível, para a pesquisa preferir o que está por perto.
+   *
+   * Estável de propósito: lê de uma `ref`, por isso nunca muda de identidade. Se
+   * fosse criada em cada desenho, a `SearchBar` repetia a pesquisa sem parar.
+   */
+  const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
+
   const handleStartNavigation = useCallback(() => {
     announced.current.clear();
     offRouteStrikes.current = 0;
@@ -614,6 +622,7 @@ function PalmMap() {
           onSelect={handleSearchSelect}
           onOpenSettings={() => setSettingsVisible(true)}
           favourites={favourites}
+          getBounds={getMapBounds}
         />
 
         <CategoryBar selected={category} onSelect={setCategory} />

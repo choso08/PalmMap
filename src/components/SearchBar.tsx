@@ -15,10 +15,17 @@ import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchPlaces } from '../services/nominatim';
 import { useTheme } from '../settings';
 import type { Theme } from '../theme';
-import type { Place } from '../types/geo';
+import type { Bounds, Place } from '../types/geo';
 
 interface SearchBarProps {
   onSelect: (place: Place) => void;
+  /**
+   * A área que o mapa está a mostrar, para a pesquisa preferir o que está perto.
+   *
+   * Vem como função e não como valor porque só interessa no momento em que se
+   * pesquisa — se fosse um valor, cada arrastar do mapa redesenhava isto tudo.
+   */
+  getBounds: () => Bounds | null;
   onOpenSettings: () => void;
   /** Sítios guardados, mostrados enquanto não se escreve nada. */
   favourites: Place[];
@@ -31,7 +38,12 @@ interface SearchBarProps {
  * escrever (SEARCH_DEBOUNCE_MS) ou que carregue em Enter — é uma exigência das
  * regras de utilização do Nominatim, não uma preferência de interface.
  */
-export function SearchBar({ onSelect, onOpenSettings, favourites }: SearchBarProps) {
+export function SearchBar({
+  onSelect,
+  onOpenSettings,
+  favourites,
+  getBounds,
+}: SearchBarProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -59,7 +71,7 @@ export function SearchBar({ onSelect, onOpenSettings, favourites }: SearchBarPro
     setError(null);
 
     try {
-      const places = await searchPlaces(term);
+      const places = await searchPlaces(term, 8, getBounds());
       // Se entretanto já houve outra pesquisa, esta resposta não interessa.
       if (searchId === latestSearch.current) {
         setResults(places);
@@ -74,7 +86,7 @@ export function SearchBar({ onSelect, onOpenSettings, favourites }: SearchBarPro
         setLoading(false);
       }
     }
-  }, []);
+  }, [getBounds]);
 
   // O atraso que evita pesquisar a cada tecla escrita.
   useEffect(() => {

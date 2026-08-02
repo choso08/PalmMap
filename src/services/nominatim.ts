@@ -12,7 +12,7 @@ import type {
   NominatimSearchResponse,
   NominatimSearchResult,
 } from '../types/nominatim';
-import type { Coordinates, Place } from '../types/geo';
+import type { Bounds, Coordinates, Place } from '../types/geo';
 import { categoryLabel } from '../utils/categories';
 
 const client = axios.create({
@@ -56,18 +56,35 @@ function toPlace(raw: NominatimSearchResult): Place {
 }
 
 /**
- * Procura locais a partir de texto escrito ("Rua Augusta, Lisboa").
+ * Procura locais a partir de texto escrito ("Rua Augusta" ou "Hotel Miramar").
+ *
+ * O `near` é a área que se está a ver no mapa, e faz toda a diferença ao
+ * procurar negócios: sem ela, o Nominatim procura no mundo inteiro e ordena
+ * pelo que é mais conhecido — escrever o nome de um café da esquina trazia um
+ * homónimo do outro lado do planeta. Com ela, o que está à vista vem primeiro.
+ *
+ * Não é um limite, é uma preferência (`bounded=0`): quem procurar uma cidade
+ * noutro país continua a encontrá-la.
  *
  * Não chamar isto a cada tecla escrita — usar sempre com o atraso definido em
  * SEARCH_DEBOUNCE_MS, ou só quando a pessoa confirmar a pesquisa.
  */
-export async function searchPlaces(query: string, limit = 8): Promise<Place[]> {
+export async function searchPlaces(
+  query: string,
+  limit = 8,
+  near?: Bounds | null,
+): Promise<Place[]> {
   const term = query.trim();
   if (term.length === 0) {
     return [];
   }
 
-  const cacheKey = `${term.toLowerCase()}|${limit}`;
+  // A área entra na chave arredondada: sem isso, cada pequeno arrastar do mapa
+  // fazia a mesma pesquisa contar como nova.
+  const caixa = near
+    ? `${near.west.toFixed(1)},${near.north.toFixed(1)},${near.east.toFixed(1)},${near.south.toFixed(1)}`
+    : '';
+  const cacheKey = `${term.toLowerCase()}|${limit}|${caixa}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     return cached;
@@ -76,7 +93,15 @@ export async function searchPlaces(query: string, limit = 8): Promise<Place[]> {
   const response = await schedule(() =>
     client.get<NominatimSearchResponse>('/search', {
       // `extratags=1` traz o telefone, o horário e o sítio na Internet.
-      params: { q: term, format: 'jsonv2', limit, addressdetails: 0, extratags: 1 },
+      params: {
+        q: term,
+        format: 'jsonv2',
+        limit,
+        addressdetails: 0,
+        extratags: 1,
+        // Ordem exigida pelo Nominatim: oeste, norte, este, sul.
+        ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
+      },
     }),
   );
 
