@@ -588,7 +588,36 @@ Se falhar, a primeira coisa a tentar é a outra forma de escrever o mesmo endere
 das duas. Está anotado em `localStyleSource()`. Se nenhuma funcionar, o caminho passa a ser
 servir o ficheiro por um servidor local dentro da aplicação.
 
-### 9. Navegação em tempo real
+### 9. A posição, e usar a aplicação sem rede nenhuma
+
+O GPS **não precisa de Internet**. Recebe dos satélites e funciona em modo de
+voo, desde que a localização do telemóvel esteja ligada e haja céu à vista. O que precisa
+de rede é o resto: os tiles, a pesquisa e os percursos. Com um país descarregado, a
+aplicação continua a mostrar onde se está e o mapa à volta — num avião, num barco ou no
+meio da serra.
+
+Duas coisas no código servem precisamente para isso, e não se devem desfazer sem perceber:
+
+- **`Accuracy.High` e não `Balanced`.** O `Balanced` do Android responde a partir das redes
+  Wi-Fi e das antenas de telemóvel à volta. É rápido numa cidade e **completamente inútil
+  sem rede** — que é exatamente quando mais faz falta.
+- **A primeira posição sem rede demora.** O telemóvel costuma pedir à Internet uma ajuda
+  com a lista de satélites à vista (é o chamado A-GPS); sem ela tem de a ouvir do próprio
+  sinal, o que leva de trinta segundos a dois minutos. Por isso devolve-se primeiro a
+  última posição conhecida, para haver logo alguma coisa no ecrã, e o seguimento contínuo
+  corrige-a quando o GPS apanha sinal.
+
+Fora da navegação a posição é seguida devagar (`watchPositionIdle`, dez em dez segundos ou
+cinquenta metros), para o ponto azul acompanhar quem anda. Durante a navegação essa
+subscrição desliga-se e passa a valer a do motor de navegação, a cada segundo — ter as duas
+ligadas era gastar bateria a dobrar.
+
+**Armadilha:** o cálculo do percurso **não pode depender da posição em estado**. Se
+depender, cada leitura do GPS manda um pedido novo ao OSRM enquanto houver um destino
+escolhido. Por isso a posição é lida de uma `ref` e o efeito depende de `hasLocation` — um
+booleano que só muda na primeira leitura.
+
+### 10. Navegação em tempo real
 
 - Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
   cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
@@ -602,7 +631,7 @@ servir o ficheiro por um servidor local dentro da aplicação.
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
 
-### 10. Margens do ecrã (câmara, barras do sistema)
+### 11. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -616,7 +645,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 11. Tema claro e escuro
+### 12. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -631,7 +660,7 @@ elementos por cima do mapa.
   OpenStreetMap não tem versão escura dos seus tiles, por isso é preciso outra fonte — o
   CARTO é gratuito para uso não comercial, com atribuição, e continua sem chaves de API.
 
-### 12. Estado da aplicação
+### 13. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 

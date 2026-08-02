@@ -26,7 +26,7 @@ import {
   OFF_ROUTE_STRIKES,
 } from './src/services/config';
 import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
-import { getCurrentPosition, watchPosition } from './src/services/location';
+import { getCurrentPosition, watchPosition, watchPositionIdle } from './src/services/location';
 import {
   installBundledAssets,
   installedRegions,
@@ -71,6 +71,16 @@ function PalmMap() {
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
+  /**
+   * A última posição, fora do ciclo de desenho.
+   *
+   * O percurso lê-a daqui em vez de depender do estado. Se dependesse, cada
+   * leitura do GPS — de dez em dez segundos — mandava um pedido novo ao OSRM
+   * enquanto houvesse um destino escolhido.
+   */
+  const userLocationRef = useRef<Coordinates | null>(null);
+  /** Passa a verdadeiro na primeira posição. É o que destranca o percurso. */
+  const [hasLocation, setHasLocation] = useState(false);
 
   const [destination, setDestination] = useState<Place | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
@@ -149,10 +159,43 @@ function PalmMap() {
   useEffect(() => {
     void (async () => {
       const position = await getCurrentPosition();
+      userLocationRef.current = position;
       setUserLocation(position);
+      setHasLocation(position !== null);
       setLocationDenied(position === null);
     })();
   }, []);
+
+  // Fora da navegação, continua a seguir a posição devagar, para o ponto azul
+  // acompanhar quem anda em vez de ficar preso onde estava ao abrir. Durante a
+  // navegação desliga-se, porque aí quem segue o GPS é o motor de navegação e
+  // ter os dois ligados era gastar bateria a dobrar.
+  useEffect(() => {
+    if (navigating) {
+      return;
+    }
+
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+
+    void watchPositionIdle((position) => {
+      userLocationRef.current = position;
+      setUserLocation(position);
+      setHasLocation(true);
+      setLocationDenied(false);
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        stop = fn;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [navigating]);
 
   // Calcula o percurso quando há origem e destino.
   useEffect(() => {
@@ -169,7 +212,8 @@ function PalmMap() {
       return;
     }
 
-    if (!userLocation) {
+    const origem = userLocationRef.current;
+    if (!origem) {
       setRoute(null);
       setRouteError('Sem a sua localização não é possível calcular o percurso.');
       return;
@@ -181,11 +225,7 @@ function PalmMap() {
 
     void (async () => {
       try {
-        const result = await getRoute(
-          userLocation,
-          destination.coordinates,
-          settings.travelMode,
-        );
+        const result = await getRoute(origem, destination.coordinates, settings.travelMode);
         if (!cancelled) {
           setRoute(result);
         }
@@ -208,7 +248,11 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-  }, [destination, userLocation, settings.travelMode, navigating]);
+    // A posição entra aqui como `hasLocation` e não como coordenadas: o percurso
+    // traça-se quando se escolhe o destino (ou quando chega a primeira posição),
+    // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
+    // navegação, que tem o seu próprio recálculo.
+  }, [destination, hasLocation, settings.travelMode, navigating]);
 
   /**
    * Procura negócios para mostrar no mapa.
