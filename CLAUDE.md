@@ -12,20 +12,25 @@ ficheiro explica o porquê de cada coisa.
 **O que está feito e confirmado no telemóvel:** a aplicação de mapas funciona. Mapa,
 pesquisa, negócios, percursos, navegação, definições, favoritos, satélite.
 
-**O que está a meio:** os **mapas de países para usar sem rede** (formato PMTiles). Os
-ficheiros já se geram e já se descarregam para o telemóvel, mas **ainda não são
-desenhados** — falta o estilo vetorial. É o trabalho seguinte e está descrito ao pormenor
-em "Mapas de países (PMTiles) — o que falta".
+**O que está escrito mas por confirmar no telemóvel:** o **mapa offline**. São Tomé e
+Príncipe vem dentro da aplicação e o estilo vetorial está escrito. Compila, os tipos estão
+verificados e o estilo passa no validador oficial do MapLibre — mas **nunca foi visto a
+desenhar num telemóvel**. Ver "Mapas de países (PMTiles)".
 
-**Duas coisas a saber antes de mexer:**
+**Três coisas a saber antes de mexer:**
 
-1. **A última compilação do APK é a 7.** Há várias alterações por compilar desde então. O
-   autor pediu: **compilar só quando ele disser.** Não lançar o workflow sem pedido.
-2. **Os mapas gerados estão na etiqueta errada.** A aplicação procura-os em
+1. **A última compilação do APK é a 7.** Há várias alterações por compilar desde então,
+   incluindo o mapa offline todo. O autor pediu: **compilar só quando ele disser.** Não
+   lançar o workflow sem pedido.
+2. **Os mapas descarregáveis estão na etiqueta errada.** A aplicação procura-os em
    `releases/download/mapas`, mas o último workflow publicou-os em `mapa-3`, porque correu
    com uma versão anterior do ficheiro. **Basta voltar a correr o workflow "Gerar mapa
-   offline"** — a versão atual já publica na etiqueta certa. Sem isso, o menu diz "não foi
-   possível obter a lista".
+   offline"** — a versão atual já publica na etiqueta certa e já inclui o `bbox`, que a
+   anterior não punha. Isto **não afeta São Tomé**, que vem dentro da aplicação.
+3. **A primeira coisa a verificar quando houver telemóvel** é se o mapa guardado desenha.
+   Se não desenhar, a aplicação recua sozinha para os tiles da Internet e parece que está
+   tudo bem — por isso é preciso ir a São Tomé no mapa, desligar os dados e ver se o mapa
+   continua lá.
 
 ## Objetivo do projeto
 
@@ -64,8 +69,9 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Ecrã de definições com sete opções — ver "Definições".
 - Sítios guardados (favoritos), no telemóvel — aparecem na pesquisa e funcionam sem rede.
 - Cache do mapa com tamanho ajustável e botão para apagar.
-- Menu para descarregar o mapa de países inteiros, com o tamanho à frente — **feito até
-  meio**, ver a secção própria.
+- Mapa offline: São Tomé e Príncipe vem dentro da aplicação e os outros países
+  descarregam-se a pedido — **escrito mas ainda não visto a funcionar**, ver a secção
+  própria.
 
 **Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
 ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
@@ -118,6 +124,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Componente do mapa | `@maplibre/maplibre-react-native` — ver "Decisão importante" |
 | Localização (GPS) | `expo-location` |
 | Guardar no telemóvel | `@react-native-async-storage/async-storage` e `expo-file-system` |
+| Ficheiros dentro do APK | `expo-asset` |
 | Voz | `expo-speech` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
@@ -257,7 +264,10 @@ uma das razões para o Android Auto ficar pausado.)
 
 ```text
 /
-├── assets/                 # Ícones e imagem de arranque (gerados por script)
+├── assets/
+│   ├── (ícones e imagem de arranque, gerados por script)
+│   ├── mapas/saotome.pmtiles   # O mapa que viaja dentro da aplicação
+│   └── glifos/*.pbf            # Tipos de letra com que o mapa escreve
 ├── scripts/
 │   └── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
 ├── docs/
@@ -281,7 +291,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── nominatim.ts    # Pesquisa por nome
 │   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
 │   │   ├── osrm.ts         # Cálculo de percursos e instruções
-│   │   ├── offlineMap.ts   # Descarregar e apagar os mapas de países
+│   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
+│   │   ├── vectorStyle.ts  # Como se desenha um mapa guardado: cores e espessuras
 │   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
@@ -301,6 +312,7 @@ uma das razões para o Android Auto ficar pausado.)
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── eas.json                # Perfis de compilação para gerar o APK
 ├── map-regions.json        # Que países se recortam para offline, e com que detalhe
+├── metro.config.js         # Faz o empacotador reconhecer .pmtiles e .pbf
 ├── .github/workflows/
 │   ├── build-apk.yml       # Compila o APK e publica-o numa Release
 │   └── build-map.yml       # Recorta os mapas dos países e publica-os numa Release
@@ -459,9 +471,7 @@ isto a um só nível útil (o 17), mas não o elimina — quem quiser uma zona u
 rede tem de a ter visto ao zoom a que a vai usar. É precisamente esta limitação que os
 mapas de países vêm resolver.
 
-### 8. Mapas de países (PMTiles) — o que falta
-
-**Esta é a parte a meio.** Ler isto todo antes de lhe pegar.
+### 8. Mapas de países (PMTiles)
 
 #### A ideia
 
@@ -474,17 +484,53 @@ dezenas de pedidos, não milhares.
 A diferença de tamanho é enorme, porque é geometria em vez de imagens: São Tomé e Príncipe
 inteiro ocupa **2 MB**, quando em tiles de imagem daria uns 240 MB.
 
-#### O que já funciona
+#### São Tomé vem dentro da aplicação
 
-- **`map-regions.json`** — a lista de países, com a área a recortar e o detalhe. Para
-  acrescentar um país, junta-se uma linha aqui.
-- **`.github/workflows/build-map.yml`** — recorta os países e publica-os numa Release, com
-  um `mapas.json` que traz o tamanho real de cada um. Corre a pedido, no separador
-  "Actions".
-- **`src/services/offlineMap.ts`** — lê a lista, descarrega e apaga. Descarrega para um
-  nome temporário e só no fim lhe dá o nome definitivo, para que uma ligação que caia a
-  meio não deixe um ficheiro incompleto a fazer-se passar por bom.
-- **`src/components/OfflineMaps.tsx`** — a lista nas definições, com o tamanho à frente.
+Com 2 MB, o país inteiro cabe no APK. **Está lá desde o primeiro arranque**: não é preciso
+descarregar nada, não é preciso rede nenhuma, e não há passo nenhum a dar. Foi isto que o
+autor pediu — o mapa "já lá", não um mapa que se vai buscar.
+
+Os outros países são grandes de mais para isso (só Portugal continental são 325 MB) e
+continuam a descarregar-se a pedido. Os dois caminhos acabam na mesma pasta com um ficheiro
+de identificação ao lado, e a partir daí **o resto do código não sabe de onde vieram**.
+
+Dentro do APK os ficheiros não têm um caminho que o MapLibre consiga abrir, por isso são
+copiados uma vez para a pasta da aplicação, no primeiro arranque
+(`installBundledAssets()`). São 2,4 MB com os tipos de letra e só acontece uma vez.
+
+#### As peças
+
+- **`assets/mapas/saotome.pmtiles`** — o mapa que viaja dentro da aplicação. Ao substituí-lo,
+  atualizar o `bytes` da constante `BUNDLED`, que está escrito à mão de propósito: sem rede
+  não há manifesto para consultar.
+- **`assets/glifos/*.pbf`** — os tipos de letra, em Noto Sans normal e médio. Dois blocos
+  de 256 caracteres cada, que é quanto o português precisa. Vieram do
+  `protomaps/basemaps-assets`, com licença SIL Open Font.
+- **`metro.config.js`** — sem ele, o empacotador não reconhece `.pmtiles` nem `.pbf` e a
+  compilação falha.
+- **`src/services/vectorStyle.ts`** — o estilo: as cores, as espessuras e os zooms. Ver
+  abaixo.
+- **`src/services/offlineMap.ts`** — instala o que vem incluído, descarrega o resto, e diz
+  que região cobre uma dada posição (`regionAt`).
+- **`src/components/OfflineMaps.tsx`** — a lista nas definições. São Tomé aparece como
+  "vem com a aplicação" e não se pode apagar.
+- **`map-regions.json`** e **`.github/workflows/build-map.yml`** — geram os países
+  descarregáveis. Para acrescentar um país, junta-se uma linha ao primeiro e corre-se o
+  segundo.
+
+#### Como se liga sozinho
+
+Não há definição nenhuma para isto, de propósito. Quando o centro do mapa entra num país
+cujo mapa está guardado, passa-se a usar o ficheiro; quando sai, voltam os tiles da
+Internet. A comparação é pelo `id` da região, para o estilo só ser trocado quando muda
+mesmo de país — trocar de estilo recarrega o mapa, e fazê-lo a cada arrastar do dedo seria
+insuportável.
+
+A imagem de satélite manda sempre: é a única coisa que não tem substituto guardado.
+
+**Se o mapa guardado não abrir, a aplicação recua para os tiles da Internet**
+(`onDidFailLoadingMap`). É o que evita um ecrã em branco — mas também é o que faz uma
+avaria passar despercebida, daí o aviso lá em cima sobre testar com os dados desligados.
 
 Tamanhos reais já medidos (zoom 14):
 
@@ -500,36 +546,48 @@ Tamanhos reais já medidos (zoom 14):
 Angola e Moçambique estão em `map-regions.json` com zoom mais baixo (12), por serem muito
 maiores. Ainda não foram gerados.
 
-#### O que falta, por ordem
+#### O estilo, e a avaria difícil de encontrar
 
-1. **Voltar a correr o workflow.** Os ficheiros atuais estão na etiqueta `mapa-3`, mas a
-   aplicação procura-os em `mapas`. A versão atual do workflow já publica na etiqueta
-   certa — é só correr outra vez.
-2. **Escrever o estilo vetorial.** É o trabalho a sério. Com tiles de imagem o mapa vinha
-   pronto; com geometria somos nós que dizemos que a água é azul, que uma autoestrada é
-   mais grossa do que um caminho, e a partir de que zoom aparece cada coisa. O esquema de
-   camadas do Protomaps (`earth`, `water`, `roads`, `places`, `buildings`…) está
-   documentado no site deles, e há estilos de exemplo livres que servem de base. Tem de
-   haver uma versão clara e uma escura, para acompanhar o tema.
-3. **Resolver os glifos.** Para escrever os nomes das ruas é preciso um tipo de letra num
-   formato próprio. Normalmente vai-se buscar a um servidor — o que estragaria o offline.
-   A solução é meter os glifos dentro do APK e apontar o estilo para eles. Um alfabeto
-   latino básico chega e é pequeno.
-4. **Ligar ao ecrã.** Quando um país está descarregado e a pessoa está lá dentro, usar o
-   ficheiro local em vez dos tiles da Internet. O endereço já está pronto em
-   `localStyleSource()`.
+Com tiles de imagem o mapa vinha pronto. Com geometria somos nós que dizemos que a água é
+azul, que uma autoestrada é mais grossa do que um caminho e a partir de que zoom aparece
+cada coisa. São 25 camadas, em versão clara e escura.
 
-#### O risco, dito com franqueza
+**As camadas e os valores dos filtros não foram adivinhados:** saíram da leitura do próprio
+ficheiro de São Tomé. É o esquema **Protomaps Basemap v4.15.1**, com `earth`, `landcover`,
+`landuse`, `water`, `roads`, `buildings`, `boundaries` e `places`. A camada `pois` existe no
+ficheiro e não se usa de propósito — os negócios já são pinos nossos, vindos da Overpass.
 
-**Não está confirmado que o MapLibre em React Native consiga ler um ficheiro PMTiles
-guardado no telemóvel.** O suporte a `pmtiles://` existe na biblioteca nativa de Android e
-funciona com ficheiros na Internet; com um ficheiro local nunca foi experimentado neste
-projeto, e não há forma de o experimentar no ambiente de desenvolvimento.
+**A avaria a temer:** se um nome de camada ou um valor de filtro deixar de bater certo, essa
+camada desaparece do ecrã **sem dar erro nenhum**. Ao mudar de versão do mapa, confirmar os
+nomes antes de assumir que está tudo bem.
 
-**Confirmar isto antes de escrever o estilo todo.** Um mapa mínimo — só o mar e a terra,
-duas camadas — chega para saber se o ficheiro é lido. Se não for, o estilo escrito antes
-disso foi trabalho deitado fora, e o caminho passa a ser outro (servir o ficheiro por um
-servidor local dentro da aplicação, ou trocar de biblioteca).
+Duas verificações que se podem correr sem telemóvel, e que se devem repetir depois de mexer
+no estilo:
+
+```bash
+# 1. O estilo respeita a especificação do MapLibre?
+npx tsc src/services/vectorStyle.ts --ignoreConfig --outDir /tmp/vs \
+  --module commonjs --target es2020 --skipLibCheck --esModuleInterop
+node -e "const {buildVectorStyle}=require('/tmp/vs/vectorStyle.js');
+const {validateStyleMin}=require('@maplibre/maplibre-gl-style-spec');
+console.log(validateStyleMin(buildVectorStyle('pmtiles://x','y/{fontstack}/{range}.pbf',false)))"
+```
+
+A segunda é comparar as camadas que o estilo pede com as que o ficheiro tem mesmo. O
+`@maplibre/maplibre-gl-style-spec` já vem instalado como dependência do MapLibre, não é
+preciso instalar nada.
+
+#### O risco que fica, dito com franqueza
+
+**Não está confirmado que o MapLibre em React Native leia um ficheiro PMTiles guardado no
+telemóvel.** O suporte a `pmtiles://` existe na biblioteca nativa de Android (aqui na versão
+13.2.0) e funciona com ficheiros na Internet; com um ficheiro local nunca foi experimentado
+neste projeto, e não há forma de o experimentar no ambiente de desenvolvimento.
+
+Se falhar, a primeira coisa a tentar é a outra forma de escrever o mesmo endereço:
+`pmtiles:///caminho/absoluto`, sem o `file://` pelo meio — há bibliotecas que só aceitam uma
+das duas. Está anotado em `localStyleSource()`. Se nenhuma funcionar, o caminho passa a ser
+servir o ficheiro por um servidor local dentro da aplicação.
 
 ### 9. Navegação em tempo real
 
@@ -786,8 +844,11 @@ Erros já cometidos neste projeto, para não se repetirem.
 - **Os filtros de categoria devem procurar na área visível, não à volta do GPS.** Com o
   mapa noutra zona, os resultados vinham fora do ecrã e parecia que o botão estava avariado.
 - **Uma camada de texto precisa de glifos.** Uma tentativa de mostrar os nomes dos negócios
-  no mapa falhou por o estilo não ter servidor de tipos de letra. Vale também para o estilo
-  vetorial que falta escrever.
+  no mapa falhou por o estilo não ter servidor de tipos de letra. Foi por isso que os
+  glifos passaram a ir dentro do APK.
+- **Ler o ficheiro antes de escrever o estilo.** As camadas e os valores dos filtros do
+  mapa vetorial saíram de decifrar o próprio `.pmtiles`, não da documentação. Um filtro
+  errado não dá erro — dá uma camada invisível, que é muito pior de encontrar.
 - **O `gh release create` precisa de `-R`** quando o workflow não faz checkout do
   repositório, senão procura-o na pasta atual e falha.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação

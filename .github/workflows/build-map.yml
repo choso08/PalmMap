@@ -89,8 +89,10 @@ jobs:
 
             [ $PRIMEIRA -eq 0 ] && echo ',' >> manifesto.tmp
             PRIMEIRA=0
-            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s}' \
-              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" >> manifesto.tmp
+            # O bbox vai no manifesto porque a aplicação precisa dele para saber
+            # se está dentro de um país guardado — e precisa de o saber sem rede.
+            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s]}' \
+              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" >> manifesto.tmp
           done
 
           echo ']}' >> manifesto.tmp

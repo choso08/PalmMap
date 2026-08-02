@@ -2,6 +2,8 @@ import { OfflineManager, TransformRequestManager } from '@maplibre/maplibre-reac
 import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 import { USER_AGENT } from './config';
+import { glyphsTemplate, localStyleSource, type OfflineRegion } from './offlineMap';
+import { buildVectorStyle } from './vectorStyle';
 
 /**
  * Configuração dos tiles do mapa (as imagens que formam o mapa no ecrã).
@@ -135,10 +137,24 @@ const SATELLITE_STYLE = rasterStyle(
   14,
 );
 
-/** Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel. */
-export function mapStyleFor(dark: boolean, satellite: boolean): StyleSpecification {
+/**
+ * Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel.
+ *
+ * O `offline` é o mapa guardado que cobre a zona onde a pessoa está, se houver
+ * algum. Quando há, ganha aos tiles da Internet: é mais rápido, não gasta dados
+ * e continua a funcionar sem rede. A imagem de satélite é a única coisa que não
+ * tem substituto guardado, por isso essa escolha manda sempre.
+ */
+export function mapStyleFor(
+  dark: boolean,
+  satellite: boolean,
+  offline?: OfflineRegion | null,
+): StyleSpecification {
   if (satellite) {
     return SATELLITE_STYLE;
+  }
+  if (offline) {
+    return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark);
   }
   return dark ? DARK_STYLE : LIGHT_STYLE;
 }

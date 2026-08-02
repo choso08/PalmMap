@@ -27,6 +27,11 @@ import {
 } from './src/services/config';
 import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
 import { getCurrentPosition, watchPosition } from './src/services/location';
+import {
+  installBundledAssets,
+  installedRegions,
+  type OfflineRegion,
+} from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
@@ -100,6 +105,8 @@ function PalmMap() {
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
   const latestPlaces = useRef(0);
+  /** Mapas de países guardados, para o mapa poder funcionar sem rede. */
+  const [offlineRegions, setOfflineRegions] = useState<OfflineRegion[]>([]);
 
   // O tamanho do mapa guardado, sempre que a definição muda.
   useEffect(() => {
@@ -109,6 +116,16 @@ function PalmMap() {
   // Sítios guardados, lidos uma vez ao arrancar.
   useEffect(() => {
     void loadFavourites().then(setFavourites);
+  }, []);
+
+  // O mapa que vem dentro da aplicação e os tipos de letra têm de ser postos na
+  // pasta da aplicação antes de o mapa os ir procurar. Só faz alguma coisa no
+  // primeiro arranque. Se falhar, perde-se o mapa offline e mais nada, por isso
+  // não se interrompe o arranque por causa disso.
+  useEffect(() => {
+    void installBundledAssets()
+      .catch(() => undefined)
+      .then(() => setOfflineRegions(installedRegions()));
   }, []);
 
   const toggleFavourite = useCallback((place: Place) => {
@@ -525,6 +542,7 @@ function PalmMap() {
         droppedPin={droppedPin}
         onDropPin={handleDropPin}
         following={navigating}
+        offlineRegions={offlineRegions}
       />
 
       {!navigating ? (
@@ -618,7 +636,14 @@ function PalmMap() {
         />
       ) : null}
 
-      <SettingsSheet visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
+      <SettingsSheet
+        visible={settingsVisible}
+        onClose={() => {
+          setSettingsVisible(false);
+          // Pode ter-se descarregado ou apagado um país lá dentro.
+          setOfflineRegions(installedRegions());
+        }}
+      />
 
       <StepsList
         visible={stepsVisible}

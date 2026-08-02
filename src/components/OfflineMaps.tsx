@@ -54,6 +54,10 @@ export function OfflineMaps() {
   }, []);
 
   const handleToggle = useCallback(async (region: OfflineRegion) => {
+    // O mapa que vem dentro da aplicação não se descarrega nem se apaga.
+    if (region.incluido) {
+      return;
+    }
     setBusy(region.id);
     setError(null);
     try {
@@ -98,26 +102,26 @@ export function OfflineMaps() {
           <Pressable
             key={region.id}
             style={styles.row}
-            disabled={ocupado}
+            disabled={ocupado || region.incluido}
             onPress={() => void handleToggle(region)}
           >
             <MaterialCommunityIcons
-              name={guardado ? 'check-circle' : 'download'}
+              name={region.incluido ? 'cellphone-check' : guardado ? 'check-circle' : 'download'}
               size={22}
-              color={guardado ? theme.accent : theme.textMuted}
+              color={guardado || region.incluido ? theme.accent : theme.textMuted}
             />
 
             <View style={styles.rowText}>
               <Text style={styles.name}>{region.nome}</Text>
               <Text style={styles.size}>
                 {formatBytes(region.bytes)}
-                {guardado ? ' · guardado' : ''}
+                {region.incluido ? ' · vem com a aplicação' : guardado ? ' · guardado' : ''}
               </Text>
             </View>
 
             {ocupado ? (
               <ActivityIndicator size="small" color={theme.accent} />
-            ) : guardado ? (
+            ) : guardado && !region.incluido ? (
               <MaterialCommunityIcons
                 name="delete-outline"
                 size={20}

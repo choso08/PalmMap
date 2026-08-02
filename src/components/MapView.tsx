@@ -9,9 +9,18 @@ import {
   UserLocation,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
-import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from 'react';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
+import { regionAt, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
@@ -32,6 +41,8 @@ interface MapViewProps {
   onDropPin: (coordinates: Coordinates) => void;
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
+  /** Mapas de países guardados no telemóvel, para usar sem rede. */
+  offlineRegions: OfflineRegion[];
   ref?: Ref<MapViewRef>;
 }
 
@@ -58,11 +69,17 @@ export function MapView({
   droppedPin,
   onDropPin,
   following,
+  offlineRegions,
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
   const theme = useTheme();
   const { settings } = useSettings();
+
+  /** O mapa guardado que cobre a zona que se está a ver, se houver algum. */
+  const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
+  /** Liga-se quando um mapa guardado não abre, para não se insistir nele. */
+  const [offlineFailed, setOfflineFailed] = useState(false);
 
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
@@ -126,16 +143,51 @@ export function MapView({
       const { bounds, zoom } = event.nativeEvent;
       const [west, south, east, north] = bounds;
       onViewportChange({ south, west, north, east }, zoom);
+
+      // Ao entrar num país cujo mapa está guardado, passa-se a usá-lo. Compara-se
+      // pelo id para o estilo só ser trocado quando muda mesmo de região — trocar
+      // de estilo recarrega o mapa, e a cada arrastar do dedo seria insuportável.
+      const seguinte = regionAt((west + east) / 2, (south + north) / 2, offlineRegions);
+      setOfflineRegion((atual) => (atual?.id === seguinte?.id ? atual : seguinte));
     },
-    [onViewportChange],
+    [onViewportChange, offlineRegions],
+  );
+
+  /**
+   * Se o mapa guardado não abrir, volta-se aos tiles da Internet.
+   *
+   * Vale a pena ter isto: o mapa guardado é a parte mais recente e a que menos
+   * garantias tem. Sem este recuo, uma falha dava ecrã em branco em vez de um
+   * mapa normal — e ninguém perceberia porquê.
+   */
+  const handleFailure = useCallback(() => {
+    setOfflineRegion((atual) => {
+      if (atual) {
+        setOfflineFailed(true);
+      }
+      return null;
+    });
+  }, []);
+
+  // O estilo só se recalcula quando algo que o define muda. Se fosse criado a
+  // cada desenho, o mapa recarregava sozinho de cada vez.
+  const mapStyle = useMemo(
+    () =>
+      mapStyleFor(
+        theme.dark,
+        settings.mapType === 'satellite',
+        offlineFailed ? null : offlineRegion,
+      ),
+    [theme.dark, settings.mapType, offlineRegion, offlineFailed],
   );
 
   return (
     <Map
       style={styles.map}
-      mapStyle={mapStyleFor(theme.dark, settings.mapType === 'satellite')}
+      mapStyle={mapStyle}
       attribution
       logo={false}
+      onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
       onLongPress={handleLongPress}
     >
