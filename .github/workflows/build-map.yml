@@ -74,7 +74,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           SIZE=$(du -h saotome.pmtiles | cut -f1)
+          # -R é preciso porque este workflow não faz checkout do repositório:
+          # sem ele, o gh procura o repositório na pasta e não o encontra.
           gh release create "mapa-${{ github.run_number }}" saotome.pmtiles \
+            -R "${{ github.repository }}" \
             --title "Mapa offline de São Tomé e Príncipe" \
             --notes "Mapa vetorial do país, para usar sem rede.
 
