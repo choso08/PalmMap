@@ -1,0 +1,83 @@
+name: Gerar mapa offline
+
+# Recorta São Tomé e Príncipe do mapa mundial do Protomaps e publica o ficheiro
+# numa Release, para a aplicação o poder descarregar uma vez e usar sem rede.
+#
+# Porque é que isto é legítimo, ao contrário de descarregar tiles do
+# OpenStreetMap: o Protomaps publica o planeta inteiro precisamente para ser
+# recortado e usado assim. O `pmtiles extract` lê só os pedaços de que precisa,
+# em vez de percorrer o mapa tile a tile.
+#
+# Como usar: separador "Actions" > "Gerar mapa offline" > "Run workflow".
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # São Tomé e Príncipe, com folga à volta das duas ilhas.
+  # Ordem: oeste, sul, este, norte.
+  BBOX: "6.35,-0.10,7.55,1.80"
+  # O Protomaps constrói até ao 15. O 14 chega: sendo geometria e não imagens,
+  # amplia sem perder nitidez, ao contrário dos tiles do mapa atual.
+  MAXZOOM: "14"
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar o pmtiles
+        run: |
+          VERSION=$(curl -sSL https://api.github.com/repos/protomaps/go-pmtiles/releases/latest \
+            | grep -oP '"tag_name": "v\K[^"]+')
+          echo "pmtiles $VERSION"
+          curl -sSL -o pmtiles.tar.gz \
+            "https://github.com/protomaps/go-pmtiles/releases/download/v${VERSION}/go-pmtiles_${VERSION}_Linux_x86_64.tar.gz"
+          tar xzf pmtiles.tar.gz pmtiles
+          chmod +x pmtiles
+          ./pmtiles version
+
+      # As compilações do Protomaps são diárias e ficam num endereço com a data.
+      # Recua-se até encontrar uma que exista, porque a de hoje pode ainda não
+      # estar pronta à hora a que isto corre.
+      - name: Descobrir a compilação mais recente do planeta
+        run: |
+          for i in $(seq 0 10); do
+            DAY=$(date -u -d "-$i day" +%Y%m%d)
+            URL="https://build.protomaps.com/${DAY}.pmtiles"
+            if curl -sSI -o /dev/null -w '%{http_code}' "$URL" | grep -q '^200$'; then
+              echo "PLANET=$URL" >> "$GITHUB_ENV"
+              echo "Encontrada: $URL"
+              exit 0
+            fi
+            echo "Não existe: $URL"
+          done
+          echo "Nenhuma compilação encontrada nos últimos 10 dias."
+          exit 1
+
+      - name: Recortar São Tomé e Príncipe
+        run: |
+          ./pmtiles extract "$PLANET" saotome.pmtiles \
+            --bbox="$BBOX" \
+            --maxzoom="$MAXZOOM"
+
+      - name: Verificar o resultado
+        run: |
+          ls -lh saotome.pmtiles
+          ./pmtiles show saotome.pmtiles
+
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SIZE=$(du -h saotome.pmtiles | cut -f1)
+          gh release create "mapa-${{ github.run_number }}" saotome.pmtiles \
+            --title "Mapa offline de São Tomé e Príncipe" \
+            --notes "Mapa vetorial do país, para usar sem rede.
+
+          Tamanho: $SIZE · zoom máximo: ${MAXZOOM} · área: ${BBOX}
+
+          Gerado a partir do mapa mundial do Protomaps, que é publicado para ser usado assim."
