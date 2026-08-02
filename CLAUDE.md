@@ -306,9 +306,9 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 - As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
   guardado no telemóvel com o `AsyncStorage`.
-- São cinco: **aspeto** (automático/claro/escuro), **meio de transporte**
-  (carro/a pé/bicicleta), **correção do tempo estimado**, **mostrar negócios no mapa** e
-  **ler instruções em voz alta**.
+- São seis: **aspeto** (automático/claro/escuro), **meio de transporte**
+  (carro/a pé/bicicleta), **correção do tempo estimado**, **tamanho do mapa guardado**,
+  **mostrar negócios no mapa** e **ler instruções em voz alta**.
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
@@ -322,18 +322,20 @@ O OSRM calcula o tempo a partir do tipo de estrada e da etiqueta `surface` do
 OpenStreetMap. O perfil de carro limita a velocidade conforme o piso — `surface=unpaved`
 fica travado a 40 km/h, e a terra batida a menos ainda.
 
-**O problema:** onde a etiqueta `surface` não está preenchida, o OSRM assume piso bom e
-fica optimista de mais. Numa estrada de terra batida o tempo real pode ser o dobro. Foi o
-que aconteceu em São Tomé, onde grande parte das estradas não tem a etiqueta.
+**O problema é maior do que parece.** Mesmo com a etiqueta preenchida, os 40 km/h que o
+OSRM assume para piso não alcatroado são rápidos de mais para as estradas de terra de São
+Tomé, onde na prática se anda a 20. Confirmou-se que essas estradas já aparecem marcadas
+como não alcatroadas no OpenStreetMap — o tracejado no mapa é isso mesmo — e ainda assim o
+tempo vem cerca de 60% abaixo do real. Ou seja, melhorar os dados **não chega**.
 
 Há duas formas de corrigir, e não se excluem:
 
-1. **Preencher a etiqueta no OpenStreetMap** (`surface=ground`, `unpaved`, `compacted`…).
-   É a correção certa: passa a valer para o OSRM e para toda a gente, e não é preciso
-   mexer na aplicação. Exige conta no OpenStreetMap e conhecimento local.
-2. **A correção manual nas definições** (`timeAdjustment`), que multiplica o tempo por
-   1, 1,25, 1,5 ou 2. É grosseira — aplica-se a todos os percursos por igual — mas
-   funciona já e sem depender de dados que podem nunca ser preenchidos.
+1. **A correção manual nas definições** (`timeAdjustment`), que multiplica o tempo por
+   1, 1,25, 1,5 ou 2. É grosseira — aplica-se a todos os percursos por igual — mas é a
+   única que resolve o caso de São Tomé, onde nem os dados certos bastam.
+2. **Preencher a etiqueta no OpenStreetMap** onde faltar (`surface=ground`, `unpaved`…).
+   Ajuda noutros sítios e vale para toda a gente, mas não substitui a correção manual em
+   estradas muito más.
 
 O fator é aplicado **onde o tempo é mostrado** (`useTimeFactor()`), e não dentro do
 serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
@@ -351,8 +353,11 @@ do CARTO. Não é uma limitação técnica — é uma regra que este projeto res
 O que se faz em vez disso, e é legítimo:
 
 - **Cache do que já se viu.** O MapLibre guarda os tiles que a pessoa chegou mesmo a ver.
-  Isso é cache normal, não é ir buscar à frente. O tamanho está aumentado para 250 MB em
-  `configureTileRequests()`, para as zonas por onde se passa continuarem a aparecer sem rede.
+  Isso é cache normal, não é ir buscar à frente. O tamanho é uma definição (100 MB a 1 GB),
+  aplicada por `setMapCacheSize()`, e há um botão para apagar.
+  **Não há como definir validade** — a API do MapLibre só aceita tamanho, não tempo. Na
+  prática é o tamanho que manda: quando enche, esquece primeiro o que há mais tempo não se
+  vê. Se alguém pedir "guardar durante um mês", é isto que se explica.
 - **Favoritos guardados no telemóvel.** Ficam no `AsyncStorage`, por isso estão sempre
   disponíveis. A pesquisa mostra-os enquanto não se escreve nada.
 

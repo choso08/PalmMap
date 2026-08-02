@@ -1,10 +1,23 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  Alert,
+  Linking,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { clearMapCache } from '../services/tiles';
 import {
   APPEARANCE_MODES,
+  CACHE_SIZES,
   TIME_ADJUSTMENTS,
   TRAVEL_MODES,
   useSettings,
@@ -62,6 +75,19 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearCache = async () => {
+    setClearing(true);
+    try {
+      await clearMapCache();
+      Alert.alert('Mapa guardado apagado', 'As zonas voltam a ser obtidas quando houver rede.');
+    } catch {
+      Alert.alert('Não foi possível apagar', 'Tente novamente.');
+    } finally {
+      setClearing(false);
+    }
+  };
 
   return (
     <Modal
@@ -143,6 +169,35 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
               trackColor={{ true: theme.accent, false: theme.border }}
             />
           </View>
+
+          <Text style={styles.sectionTitle}>Mapa guardado</Text>
+          <Text style={styles.sectionHint}>
+            Quanto do mapa já visto fica no telemóvel, para funcionar sem rede.
+          </Text>
+          <ChoiceRow
+            options={CACHE_SIZES}
+            value={settings.cacheSize}
+            onChange={(id) => update('cacheSize', id)}
+            styles={styles}
+            theme={theme}
+          />
+          <Text style={styles.note}>
+            Guarda-se só o que chegou a ver, à medida que o vê — não se descarrega nada por
+            antecipação, que as regras do OpenStreetMap não permitem. Não há forma de dizer
+            "guardar um mês": é o tamanho que manda. Quando enche, esquece primeiro o que há
+            mais tempo não vê, por isso quanto maior, mais tempo as suas zonas se aguentam.
+          </Text>
+
+          <Pressable
+            style={styles.clearButton}
+            onPress={() => void handleClearCache()}
+            disabled={clearing}
+          >
+            <MaterialCommunityIcons name="delete-outline" size={18} color={theme.danger} />
+            <Text style={styles.clearText}>
+              {clearing ? 'A apagar…' : 'Apagar o mapa guardado'}
+            </Text>
+          </Pressable>
 
           <Text style={styles.sectionTitle}>Navegação</Text>
           <View style={styles.switchRow}>
@@ -268,6 +323,23 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     choiceLabelActive: {
       color: theme.onAccent,
+    },
+    clearButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 14,
+      borderRadius: 14,
+      paddingVertical: 13,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    clearText: {
+      color: theme.danger,
+      fontSize: 15,
+      fontWeight: '700',
     },
     note: {
       fontSize: 12,

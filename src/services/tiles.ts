@@ -18,11 +18,29 @@ export function configureTileRequests(): void {
     value: USER_AGENT,
   });
 
-  // Guarda mais do mapa já visto, para as zonas por onde se passa continuarem
-  // a aparecer sem rede. Isto é cache normal — só fica o que se chegou mesmo a
-  // ver. **Não é o mesmo que descarregar uma área**: as regras do OpenStreetMap
-  // proíbem expressamente descarregar tiles à frente para uso offline.
-  void OfflineManager.setMaximumAmbientCacheSize(250 * 1024 * 1024).catch(() => undefined);
+}
+
+/**
+ * Define quanto do mapa já visto se guarda no telemóvel.
+ *
+ * Isto é cache normal: só fica o que a pessoa chegou mesmo a ver, à medida que
+ * o vê. **Não é descarregar uma área** — as regras do OpenStreetMap proíbem
+ * expressamente ir buscar tiles à frente para uso offline.
+ *
+ * Não há forma de dizer "guarda durante um mês": a API do MapLibre só tem
+ * tamanho. Na prática é o tamanho que manda no tempo — quando enche, vai
+ * deitando fora o que há mais tempo não se vê. Quanto maior, mais tempo as
+ * zonas por onde se passou continuam disponíveis.
+ */
+export function setMapCacheSize(megabytes: number): void {
+  void OfflineManager.setMaximumAmbientCacheSize(megabytes * 1024 * 1024).catch(
+    () => undefined,
+  );
+}
+
+/** Esquece o mapa guardado. Usar quando se quer libertar espaço. */
+export async function clearMapCache(): Promise<void> {
+  await OfflineManager.clearAmbientCache();
 }
 
 function rasterStyle(tiles: string[], attribution: string): StyleSpecification {

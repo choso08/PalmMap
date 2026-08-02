@@ -30,8 +30,8 @@ import { getCurrentPosition, watchPosition } from './src/services/location';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
-import { configureTileRequests } from './src/services/tiles';
-import { SettingsProvider, useSettings, useTheme } from './src/settings';
+import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
+import { SettingsProvider, cacheMegabytesFor, useSettings, useTheme } from './src/settings';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
@@ -100,6 +100,11 @@ function PalmMap() {
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
   const latestPlaces = useRef(0);
+
+  // O tamanho do mapa guardado, sempre que a definição muda.
+  useEffect(() => {
+    setMapCacheSize(cacheMegabytesFor(settings.cacheSize));
+  }, [settings.cacheSize]);
 
   // Sítios guardados, lidos uma vez ao arrancar.
   useEffect(() => {

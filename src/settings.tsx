@@ -32,6 +32,9 @@ export type TravelMode = 'driving' | 'walking' | 'cycling';
  */
 export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 
+/** Quanto do mapa já visto se guarda no telemóvel. */
+export type CacheSize = 'small' | 'medium' | 'large' | 'huge';
+
 export interface Settings {
   appearance: AppearanceMode;
   travelMode: TravelMode;
@@ -41,6 +44,8 @@ export interface Settings {
   voiceGuidance: boolean;
   /** Correção aplicada ao tempo estimado. */
   timeAdjustment: TimeAdjustment;
+  /** Quanto do mapa já visto fica guardado. */
+  cacheSize: CacheSize;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -49,7 +54,20 @@ export const DEFAULT_SETTINGS: Settings = {
   showPlacesOnMap: true,
   voiceGuidance: true,
   timeAdjustment: 'none',
+  cacheSize: 'medium',
 };
+
+export const CACHE_SIZES: {
+  id: CacheSize;
+  label: string;
+  icon: string;
+  megabytes: number;
+}[] = [
+  { id: 'small', label: '100 MB', icon: 'sd', megabytes: 100 },
+  { id: 'medium', label: '250 MB', icon: 'database-outline', megabytes: 250 },
+  { id: 'large', label: '500 MB', icon: 'database', megabytes: 500 },
+  { id: 'huge', label: '1 GB', icon: 'harddisk', megabytes: 1024 },
+];
 
 export const TIME_ADJUSTMENTS: {
   id: TimeAdjustment;
@@ -144,6 +162,11 @@ export function useSettings() {
  * Quanto multiplicar o tempo que o OSRM devolve, conforme a correção escolhida.
  * Devolve 1 quando não há correção nenhuma.
  */
+/** Quantos megabytes guardar, conforme a definição escolhida. */
+export function cacheMegabytesFor(size: CacheSize): number {
+  return CACHE_SIZES.find((option) => option.id === size)?.megabytes ?? 250;
+}
+
 export function useTimeFactor(): number {
   const { settings } = useSettingsContext();
   return (
