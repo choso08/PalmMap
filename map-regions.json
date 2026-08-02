@@ -15,20 +15,6 @@
       "maxzoom": 14
     },
     {
-      "_nota": "Temporário: serve para medir quanto ocupa Portugal com menos detalhe, para decidir o que cabe dentro do APK.",
-      "id": "portugal13",
-      "nome": "Portugal continental (zoom 13)",
-      "bbox": "-9.60,36.90,-6.10,42.20",
-      "maxzoom": 13
-    },
-    {
-      "_nota": "Temporário, como o de cima.",
-      "id": "portugal12",
-      "nome": "Portugal continental (zoom 12)",
-      "bbox": "-9.60,36.90,-6.10,42.20",
-      "maxzoom": 12
-    },
-    {
       "id": "madeira",
       "nome": "Madeira",
       "bbox": "-17.30,32.35,-16.20,33.15",
