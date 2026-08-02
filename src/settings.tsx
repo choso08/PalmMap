@@ -28,12 +28,15 @@ export interface Settings {
   travelMode: TravelMode;
   /** Mostrar negócios sozinhos no mapa, à medida que se navega. */
   showPlacesOnMap: boolean;
+  /** Ler as instruções em voz alta durante a navegação. */
+  voiceGuidance: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   appearance: 'system',
   travelMode: 'driving',
   showPlacesOnMap: true,
+  voiceGuidance: true,
 };
 
 export const TRAVEL_MODES: { id: TravelMode; label: string; icon: string }[] = [

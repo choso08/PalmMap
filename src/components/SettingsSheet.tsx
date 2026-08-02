@@ -126,6 +126,22 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             />
           </View>
 
+          <Text style={styles.sectionTitle}>Navegação</Text>
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Ler as instruções em voz alta</Text>
+              <Text style={styles.switchHint}>
+                Durante a navegação, anuncia as manobras à medida que se aproximam. Usa a
+                voz portuguesa do telemóvel.
+              </Text>
+            </View>
+            <Switch
+              value={settings.voiceGuidance}
+              onValueChange={(next) => update('voiceGuidance', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+
           <Text style={styles.sectionTitle}>Acerca</Text>
           <Text style={styles.about}>
             O PalmMap usa apenas serviços abertos e gratuitos, sem Google e sem chaves de

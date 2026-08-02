@@ -33,13 +33,16 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Toque longo no mapa larga um pino em qualquer ponto, com a morada obtida por pesquisa
   inversa no Nominatim, e permite traçar o percurso até lá.
 - Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
+- Navegação em tempo real: segue a posição, mostra a manobra seguinte com a distância,
+  lê-a em voz alta e recalcula o percurso se se sair dele.
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
-- Ecrã de definições: aspeto, meio de transporte e pinos automáticos no mapa.
+- Ecrã de definições: aspeto, meio de transporte, pinos automáticos e voz.
 
-**O que ainda não foi confirmado no telemóvel:** tudo o que veio depois da v1 — os
-negócios, a lista de instruções e o tema escuro. Compila e os tipos estão verificados, mas
-não foi experimentado. Não digas que "funciona" sem ter sido visto a funcionar.
+**Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
+ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
+bicicleta, e os resultados da Overpass. Compila e os tipos estão verificados, mas não foi
+experimentado — não digas que "funciona" sem ter sido visto a funcionar.
 
 Também não foi possível testar as consultas à Overpass contra o serviço real, porque o
 ambiente de desenvolvimento usado bloqueia o acesso. Se os negócios não aparecerem, é o
@@ -50,9 +53,10 @@ O `eas.json` já está escrito, com três perfis de compilação (`development`,
 (`.github/workflows/build-apk.yml`) que compila o APK e o publica numa Release, sem ser
 preciso computador nem conta Expo.
 
-**O que falta, decidido mas por fazer:** a navegação passo-a-passo a sério — o ecrã que
-segue a posição, anuncia "daqui a 500 m vire à direita" e recalcula o percurso. Por agora
-só existe a lista de instruções, por escolha do autor.
+**Ressalva sobre a navegação:** o motor é simples de propósito. A posição é encaixada no
+ponto mais próximo da linha do percurso, em vez de projetada sobre o troço — com o
+`overview=full` do OSRM os pontos vêm de poucos em poucos metros, por isso a diferença não
+se nota. Não há indicações de faixa de rodagem nem estimativa com trânsito.
 
 O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
 convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
@@ -215,6 +219,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
+│   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -231,6 +236,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   └── osrm.ts         # Formato exato da resposta do OSRM
 │   ├── utils/
 │   │   ├── format.ts       # Distâncias e durações em texto legível
+│   │   ├── geometry.ts     # Distâncias no mapa e posição ao longo do percurso
+│   │   ├── voice.ts        # Leitura das instruções em voz alta
 │   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
 │   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
 │   ├── theme.ts            # Cores em versão clara e escura
@@ -297,8 +304,8 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 - As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
   guardado no telemóvel com o `AsyncStorage`.
-- São três: **aspeto** (automático/claro/escuro), **meio de transporte**
-  (carro/a pé/bicicleta) e **mostrar negócios no mapa** (ligado/desligado).
+- São quatro: **aspeto** (automático/claro/escuro), **meio de transporte**
+  (carro/a pé/bicicleta), **mostrar negócios no mapa** e **ler instruções em voz alta**.
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
@@ -306,7 +313,21 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   servidor público de demonstração pode ter só o de carro instalado e devolver na mesma o
   percurso de carro. Não foi possível confirmar — o ecrã de definições avisa disso.
 
-### 5. Margens do ecrã (câmara, barras do sistema)
+### 5. Navegação em tempo real
+
+- Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
+  cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
+  de navegação, e só ao fim de `OFF_ROUTE_STRIKES` leituras seguidas fora do percurso —
+  uma leitura isolada costuma ser apenas imprecisão do GPS.
+- O GPS só é seguido durante a navegação, e a subscrição é sempre cancelada ao sair. Se
+  ficar ligada, gasta bateria com o telemóvel no bolso.
+- As contas de distância estão em `src/utils/geometry.ts`. Os índices das manobras ao
+  longo da linha calculam-se uma vez por percurso, porque durante a navegação é preciso
+  responder a cada segundo.
+- A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
+  interromper a navegação.
+
+### 6. Margens do ecrã (câmara, barras do sistema)
 
 O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
 estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
@@ -320,7 +341,7 @@ elementos por cima do mapa.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
 
-### 6. Tema claro e escuro
+### 7. Tema claro e escuro
 
 - As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
   uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
@@ -335,7 +356,7 @@ elementos por cima do mapa.
   é preciso outra fonte — o CARTO é gratuito para uso não comercial, com atribuição, e
   continua sem chaves de API.
 
-### 7. Estado da aplicação
+### 8. Estado da aplicação
 
 A informação principal vive em `App.tsx`, com `useState`:
 
@@ -459,6 +480,11 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
 
 - Intervalo mínimo de 2 segundos entre pedidos. *No código:* `OVERPASS_MIN_INTERVAL_MS`,
   aplicado pela fila partilhada em `src/services/rateLimit.ts`.
+- Os botões de categoria procuram **na área visível do mapa**, não à volta do GPS. Ao
+  olhar para outra zona, procurar à volta do GPS punha os resultados fora do ecrã e
+  parecia que o botão não fazia nada. *No código:* `searchCategoryInBounds`, com aviso a
+  pedir para aproximar abaixo do zoom `CATEGORY_MIN_ZOOM` (12) — mais afastado, a área
+  seriam dezenas de quilómetros.
 - Os pinos automáticos no mapa são o maior risco de abuso — sem travões, seria um pedido
   por cada arrastar do dedo. *No código:* só se pede a partir do zoom `MAP_PINS_MIN_ZOOM`
   (15), e só `MAP_PINS_DEBOUNCE_MS` (1,2 s) depois de o mapa parar. **Não desligar isto.**

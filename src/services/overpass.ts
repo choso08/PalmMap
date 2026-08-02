@@ -130,6 +130,15 @@ export async function searchNearby(
   return runQuery(cacheKey, query);
 }
 
+function boundingBox(bounds: Bounds): string {
+  return [
+    bounds.south.toFixed(4),
+    bounds.west.toFixed(4),
+    bounds.north.toFixed(4),
+    bounds.east.toFixed(4),
+  ].join(',');
+}
+
 /**
  * Procura os negócios que estão dentro da área visível do mapa.
  *
@@ -137,12 +146,7 @@ export async function searchNearby(
  * em `config.ts` — sem isso, cada arrastar do dedo geraria um pedido novo.
  */
 export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
-  const box = [
-    bounds.south.toFixed(4),
-    bounds.west.toFixed(4),
-    bounds.north.toFixed(4),
-    bounds.east.toFixed(4),
-  ].join(',');
+  const box = boundingBox(bounds);
 
   const filters = MAP_PIN_TAGS.map(
     ({ key, values }) => `  nwr${tagFilter(key, values)}(${box});`,
@@ -151,4 +155,27 @@ export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
   const query = `[out:json][timeout:25];\n(\n${filters}\n);\nout center ${MAP_PINS_LIMIT};`;
 
   return runQuery(`bounds|${box}`, query);
+}
+
+/**
+ * Procura negócios de uma categoria dentro da área visível do mapa.
+ *
+ * É o que está por trás dos botões "Restaurantes", "Farmácias", etc. Procura no
+ * que se está a ver, e não à volta do GPS: de outra forma, ao olhar para outra
+ * zona do mapa os resultados apareciam longe dali e parecia que o botão não
+ * fazia nada.
+ */
+export async function searchCategoryInBounds(
+  category: SearchCategory,
+  bounds: Bounds,
+): Promise<Place[]> {
+  const box = boundingBox(bounds);
+
+  const filters = category.tags
+    .map(({ key, values }) => `  nwr${tagFilter(key, values)}(${box});`)
+    .join('\n');
+
+  const query = `[out:json][timeout:25];\n(\n${filters}\n);\nout center ${MAP_PINS_LIMIT};`;
+
+  return runQuery(`category|${category.id}|${box}`, query);
 }

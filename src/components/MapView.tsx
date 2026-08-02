@@ -30,6 +30,8 @@ interface MapViewProps {
   droppedPin: Coordinates | null;
   /** Chamado num toque longo em qualquer ponto do mapa. */
   onDropPin: (coordinates: Coordinates) => void;
+  /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
+  following?: boolean;
   ref?: Ref<MapViewRef>;
 }
 
@@ -55,6 +57,7 @@ export function MapView({
   onPlacePress,
   droppedPin,
   onDropPin,
+  following,
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
@@ -72,7 +75,7 @@ export function MapView({
 
   // Sempre que há um percurso novo, enquadra-o todo no ecrã.
   useEffect(() => {
-    if (!route || route.coordinates.length === 0) {
+    if (!route || route.coordinates.length === 0 || following) {
       return;
     }
 
@@ -94,7 +97,7 @@ export function MapView({
         duration: 600,
       },
     );
-  }, [route]);
+  }, [route, following]);
 
   // Sem percurso, mas com destino: centra no destino.
   useEffect(() => {
@@ -137,6 +140,9 @@ export function MapView({
     >
       <Camera
         ref={cameraRef}
+        // 'course' aponta o mapa no sentido em que se segue, como na navegação
+        // do Maps. Fora da navegação, a câmara fica livre.
+        trackUserLocation={following ? 'course' : undefined}
         initialViewState={{
           center: userLocation
             ? [userLocation.longitude, userLocation.latitude]

@@ -10,24 +10,33 @@ import {
 
 import { CategoryBar } from './src/components/CategoryBar';
 import { MapView, type MapViewRef } from './src/components/MapView';
+import { NavigationPanel } from './src/components/NavigationPanel';
 import { PlaceSheet } from './src/components/PlaceSheet';
 import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { StepsList } from './src/components/StepsList';
 import {
+  ANNOUNCE_AT_METERS,
+  ARRIVAL_METERS,
+  CATEGORY_MIN_ZOOM,
   MAP_PINS_DEBOUNCE_MS,
   MAP_PINS_MIN_ZOOM,
+  OFF_ROUTE_METERS,
+  OFF_ROUTE_STRIKES,
 } from './src/services/config';
-import { getCurrentPosition } from './src/services/location';
+import { getCurrentPosition, watchPosition } from './src/services/location';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
-import { searchInBounds, searchNearby } from './src/services/overpass';
+import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests } from './src/services/tiles';
 import { SettingsProvider, useSettings, useTheme } from './src/settings';
 import type { Theme } from './src/theme';
-import type { Bounds, Coordinates, Place, Route } from './src/types/geo';
+import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
+import { formatDistance } from './src/utils/format';
+import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
+import { speak, stopSpeaking } from './src/utils/voice';
 
 // Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
 configureTileRequests();
@@ -69,6 +78,17 @@ function PalmMap() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   /** Ponto largado no mapa com um toque longo, ainda sem percurso traçado. */
   const [droppedPin, setDroppedPin] = useState<Coordinates | null>(null);
+
+  /** Navegação a decorrer: segue a posição e anuncia as manobras. */
+  const [navigating, setNavigating] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [nextStep, setNextStep] = useState<RouteStep | null>(null);
+  const [distanceToStep, setDistanceToStep] = useState(0);
+  const [remaining, setRemaining] = useState({ meters: 0, seconds: 0 });
+  /** Quantas leituras seguidas fora do percurso já se viram. */
+  const offRouteStrikes = useRef(0);
+  /** Manobras já anunciadas, para não repetir a mesma vezes sem conta. */
+  const announced = useRef(new Set<string>());
   const [placesError, setPlacesError] = useState<string | null>(null);
 
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
@@ -88,6 +108,13 @@ function PalmMap() {
 
   // Calcula o percurso quando há origem e destino.
   useEffect(() => {
+    // Durante a navegação a posição muda a cada segundo. Recalcular aqui faria
+    // um pedido por segundo ao OSRM — quem recalcula é o motor de navegação,
+    // e só quando se sai mesmo do percurso.
+    if (navigating) {
+      return;
+    }
+
     if (!destination) {
       setRoute(null);
       setRouteError(null);
@@ -133,89 +160,97 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-  }, [destination, userLocation, settings.travelMode]);
-
-  /** Procura os negócios da categoria escolhida, à volta de onde a pessoa está. */
-  useEffect(() => {
-    if (!category) {
-      return;
-    }
-
-    const center = userLocation ?? null;
-    if (!center) {
-      setPlacesError('Sem a sua localização não é possível procurar aqui à volta.');
-      return;
-    }
-
-    const requestId = ++latestPlaces.current;
-    setPlacesError(null);
-
-    void (async () => {
-      try {
-        const found = await searchNearby(category, center);
-        if (requestId === latestPlaces.current) {
-          setPlaces(found);
-          if (found.length === 0) {
-            setPlacesError('Não foi encontrado nada desta categoria por perto.');
-          }
-        }
-      } catch (error) {
-        if (requestId === latestPlaces.current) {
-          setPlaces([]);
-          setPlacesError(error instanceof Error ? error.message : 'Não foi possível procurar.');
-        }
-      }
-    })();
-  }, [category, userLocation]);
+  }, [destination, userLocation, settings.travelMode, navigating]);
 
   /**
-   * Vai buscar os negócios que estão à vista, quando o mapa para de se mexer.
+   * Procura negócios para mostrar no mapa.
    *
-   * Só corre com o mapa suficientemente aproximado e depois de uma pausa — a
-   * Overpass é mantida por voluntários e um pedido por cada arrastar do dedo
-   * seria abusivo.
+   * Com uma categoria escolhida, procura-a **na área que se está a ver** — não à
+   * volta do GPS. De outra forma, ao olhar para outra zona os resultados
+   * apareciam longe dali e parecia que o botão não fazia nada.
+   */
+  const searchPlacesIn = useCallback(
+    async (bounds: Bounds, zoom: number, chosen: SearchCategory | null) => {
+      const requestId = ++latestPlaces.current;
+
+      if (chosen) {
+        if (zoom < CATEGORY_MIN_ZOOM) {
+          setPlaces([]);
+          setPlacesError('Aproxime o mapa para procurar nesta zona.');
+          return;
+        }
+
+        setPlacesError(null);
+        try {
+          const found = await searchCategoryInBounds(chosen, bounds);
+          if (requestId === latestPlaces.current) {
+            setPlaces(found);
+            setPlacesError(
+              found.length === 0 ? `Não há ${chosen.label.toLowerCase()} nesta zona.` : null,
+            );
+          }
+        } catch (error) {
+          if (requestId === latestPlaces.current) {
+            setPlaces([]);
+            setPlacesError(
+              error instanceof Error ? error.message : 'Não foi possível procurar.',
+            );
+          }
+        }
+        return;
+      }
+
+      // Sem categoria: os pinos automáticos, que só aparecem bem aproximado.
+      if (!settings.showPlacesOnMap || zoom < MAP_PINS_MIN_ZOOM) {
+        setPlaces([]);
+        return;
+      }
+
+      try {
+        const found = await searchInBounds(bounds);
+        if (requestId === latestPlaces.current) {
+          setPlaces(found);
+          setPlacesError(null);
+        }
+      } catch {
+        // Falhar a ir buscar os pinos não é motivo para incomodar a pessoa:
+        // o mapa continua a servir. Deixa-se ficar o que já estava.
+      }
+    },
+    [settings.showPlacesOnMap],
+  );
+
+  // Ao escolher uma categoria, procura já na zona que está à vista.
+  useEffect(() => {
+    const current = viewport.current;
+    if (!current) {
+      return;
+    }
+    if (!category) {
+      setPlacesError(null);
+    }
+    void searchPlacesIn(current.bounds, current.zoom, category);
+  }, [category, searchPlacesIn]);
+
+  /**
+   * Quando o mapa para de se mexer, atualiza os negócios à vista.
+   *
+   * Só depois de uma pausa — a Overpass é mantida por voluntários e um pedido
+   * por cada arrastar do dedo seria abusivo.
    */
   const handleViewportChange = useCallback(
     (bounds: Bounds, zoom: number) => {
       viewport.current = { bounds, zoom };
 
-      // Com uma categoria ativa, os pinos são os dela — não se mexe.
-      if (category) {
-        return;
-      }
-
-      if (!settings.showPlacesOnMap) {
-        setPlaces([]);
-        return;
-      }
-
       if (pinsTimer.current) {
         clearTimeout(pinsTimer.current);
       }
 
-      if (zoom < MAP_PINS_MIN_ZOOM) {
-        setPlaces([]);
-        return;
-      }
-
       pinsTimer.current = setTimeout(() => {
-        const requestId = ++latestPlaces.current;
-
-        void (async () => {
-          try {
-            const found = await searchInBounds(bounds);
-            if (requestId === latestPlaces.current) {
-              setPlaces(found);
-              setPlacesError(null);
-            }
-          } catch {
-            // Falhar a ir buscar os pinos não é motivo para incomodar a pessoa:
-            // o mapa continua a servir. Deixa-se ficar o que já estava.
-          }
-        })();
+        void searchPlacesIn(bounds, zoom, category);
       }, MAP_PINS_DEBOUNCE_MS);
     },
-    [category, settings.showPlacesOnMap],
+    [category, searchPlacesIn],
   );
 
   useEffect(() => {
@@ -224,6 +259,152 @@ function PalmMap() {
         clearTimeout(pinsTimer.current);
       }
     };
+  }, []);
+
+  /**
+   * Onde cada manobra fica ao longo da linha do percurso.
+   *
+   * Calcula-se uma vez por percurso, porque é uma conta pesada e durante a
+   * navegação é preciso responder a cada segundo.
+   */
+  const stepIndices = useMemo(() => {
+    if (!route) {
+      return [];
+    }
+    return route.steps.map((step) => nearestIndex(route.coordinates, step.location));
+  }, [route]);
+
+  /** Impede que se peça um recálculo novo enquanto o anterior não respondeu. */
+  const recalculating_ = useRef(false);
+
+  /** Segue a posição enquanto a navegação decorre. */
+  useEffect(() => {
+    if (!navigating || !route || !destination) {
+      return;
+    }
+
+    let stopWatching: (() => void) | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      const stop = await watchPosition((position) => {
+        setUserLocation(position);
+
+        const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
+        const remainingMeters = distanceAlong(
+          route.coordinates,
+          index,
+          route.coordinates.length - 1,
+        );
+
+        // Chegada.
+        if (remainingMeters < ARRIVAL_METERS) {
+          if (settings.voiceGuidance) {
+            speak('Chegou ao destino.');
+          }
+          setNavigating(false);
+          return;
+        }
+
+        // Saiu do percurso? Só se confirma ao fim de algumas leituras seguidas,
+        // porque uma isolada pode ser apenas imprecisão do GPS.
+        if (offRouteMeters > OFF_ROUTE_METERS) {
+          offRouteStrikes.current += 1;
+        } else {
+          offRouteStrikes.current = 0;
+        }
+
+        if (offRouteStrikes.current >= OFF_ROUTE_STRIKES && !recalculating_.current) {
+          offRouteStrikes.current = 0;
+          recalculating_.current = true;
+          setRecalculating(true);
+          if (settings.voiceGuidance) {
+            speak('A recalcular o percurso.');
+          }
+
+          void (async () => {
+            try {
+              const fresh = await getRoute(
+                position,
+                destination.coordinates,
+                settings.travelMode,
+              );
+              setRoute(fresh);
+              announced.current.clear();
+            } catch {
+              // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
+            } finally {
+              setRecalculating(false);
+              recalculating_.current = false;
+            }
+          })();
+          return;
+        }
+
+        // A próxima manobra é a primeira que ainda está à frente.
+        const ahead = stepIndices.findIndex((stepIndex) => stepIndex > index);
+        const step = ahead >= 0 ? route.steps[ahead] : route.steps[route.steps.length - 1];
+        const toStep =
+          ahead >= 0
+            ? distanceAlong(route.coordinates, index, stepIndices[ahead])
+            : remainingMeters;
+
+        setNextStep(step ?? null);
+        setDistanceToStep(toStep);
+        setRemaining({
+          meters: remainingMeters,
+          seconds:
+            route.distanceMeters > 0
+              ? route.durationSeconds * (remainingMeters / route.distanceMeters)
+              : 0,
+        });
+
+        // Anúncios em voz, uma vez por manobra e por distância.
+        if (settings.voiceGuidance && step) {
+          for (const threshold of ANNOUNCE_AT_METERS) {
+            const key = `${ahead}|${threshold}`;
+            if (toStep <= threshold && !announced.current.has(key)) {
+              announced.current.add(key);
+              const instruction =
+                step.instruction.charAt(0).toLowerCase() + step.instruction.slice(1);
+              speak(
+                threshold >= 200
+                  ? `Daqui a ${formatDistance(threshold)}, ${instruction}.`
+                  : `${step.instruction}.`,
+              );
+              break;
+            }
+          }
+        }
+      });
+
+      if (cancelled) {
+        stop();
+      } else {
+        stopWatching = stop;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      stopWatching?.();
+      stopSpeaking();
+    };
+  }, [navigating, route, destination, stepIndices, settings.voiceGuidance, settings.travelMode]);
+
+  const handleStartNavigation = useCallback(() => {
+    announced.current.clear();
+    offRouteStrikes.current = 0;
+    setSelectedPlace(null);
+    setStepsVisible(false);
+    setNavigating(true);
+  }, []);
+
+  const handleStopNavigation = useCallback(() => {
+    setNavigating(false);
+    setNextStep(null);
+    setRecalculating(false);
+    stopSpeaking();
   }, []);
 
   const placesById = useMemo(() => {
@@ -312,8 +493,10 @@ function PalmMap() {
         onPlacePress={handlePlacePress}
         droppedPin={droppedPin}
         onDropPin={handleDropPin}
+        following={navigating}
       />
 
+      {!navigating ? (
       <View style={styles.top} pointerEvents="box-none">
         <SearchBar
           onSelect={handleSearchSelect}
@@ -336,9 +519,10 @@ function PalmMap() {
           </Text>
         ) : null}
       </View>
+      ) : null}
 
       {/* A ficha do negócio tem prioridade sobre o painel do percurso. */}
-      {selectedPlace ? (
+      {navigating ? null : selectedPlace ? (
         <View style={styles.bottom}>
           <PlaceSheet
             place={selectedPlace}
@@ -358,18 +542,30 @@ function PalmMap() {
             error={routeError}
             onClear={handleClearRoute}
             onShowSteps={() => setStepsVisible(true)}
+            onStart={handleStartNavigation}
           />
         </View>
       ) : null}
 
       {/* Botão de voltar à posição atual, como no Maps. */}
-      {userLocation ? (
+      {userLocation && !navigating ? (
         <Pressable
           style={[styles.locateButton, selectedPlace || destination ? styles.locateRaised : null]}
           onPress={() => mapRef.current?.recenter(userLocation)}
         >
           <MaterialCommunityIcons name="crosshairs-gps" size={24} color={theme.accent} />
         </Pressable>
+      ) : null}
+
+      {navigating ? (
+        <NavigationPanel
+          step={nextStep}
+          distanceToStep={distanceToStep}
+          remainingMeters={remaining.meters}
+          remainingSeconds={remaining.seconds}
+          recalculating={recalculating}
+          onStop={handleStopNavigation}
+        />
       ) : null}
 
       <SettingsSheet visible={settingsVisible} onClose={() => setSettingsVisible(false)} />

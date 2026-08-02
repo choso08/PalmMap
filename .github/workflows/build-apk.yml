@@ -84,4 +84,4 @@ jobs:
 
           Tamanho: $SIZE · início do SHA-256: \`$SHA\`
 
-          Se der \"erro ao analisar o pacote\", o ficheiro chegou incompleto — descarregue outra vez."
+          Se a instalação falhar, desinstale a versão anterior e instale de novo."

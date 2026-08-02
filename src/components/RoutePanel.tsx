@@ -16,6 +16,7 @@ interface RoutePanelProps {
   error: string | null;
   onClear: () => void;
   onShowSteps: () => void;
+  onStart: () => void;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -26,6 +27,7 @@ export function RoutePanel({
   error,
   onClear,
   onShowSteps,
+  onStart,
 }: RoutePanelProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -77,10 +79,15 @@ export function RoutePanel({
             </View>
           </View>
 
+          <Pressable style={styles.button} onPress={onStart}>
+            <MaterialCommunityIcons name="navigation-variant" size={19} color={theme.onAccent} />
+            <Text style={styles.buttonText}>Iniciar navegação</Text>
+          </Pressable>
+
           {route.steps.length > 0 ? (
-            <Pressable style={styles.button} onPress={onShowSteps}>
-              <MaterialCommunityIcons name="routes" size={19} color={theme.onAccent} />
-              <Text style={styles.buttonText}>Ver instruções</Text>
+            <Pressable style={styles.secondaryButton} onPress={onShowSteps}>
+              <MaterialCommunityIcons name="routes" size={18} color={theme.accent} />
+              <Text style={styles.secondaryText}>Ver instruções</Text>
               <View style={styles.count}>
                 <Text style={styles.countText}>{route.steps.length}</Text>
               </View>
@@ -195,14 +202,31 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 16,
       fontWeight: '700',
     },
+    secondaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 10,
+      borderRadius: 14,
+      paddingVertical: 13,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    secondaryText: {
+      color: theme.accent,
+      fontSize: 15,
+      fontWeight: '700',
+    },
     count: {
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: 10,
-      backgroundColor: theme.dark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.25)',
+      backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
     },
     countText: {
-      color: theme.onAccent,
+      color: theme.accent,
       fontSize: 12,
       fontWeight: '700',
     },

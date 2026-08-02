@@ -60,6 +60,31 @@ export const MAP_PINS_LIMIT = 80;
 export const CATEGORY_SEARCH_RADIUS_M = 1500;
 
 /**
+ * Zoom mínimo para os botões de categoria funcionarem.
+ *
+ * Mais afastado do que isto, a área visível é de dezenas de quilómetros: a
+ * consulta seria pesadíssima e devolveria milhares de resultados que nem se
+ * distinguiriam no ecrã. Abaixo deste zoom mostra-se um aviso a pedir para
+ * aproximar, em vez de fazer o pedido.
+ */
+export const CATEGORY_MIN_ZOOM = 12;
+
+/** Distância a que se considera que a pessoa saiu do percurso, em metros. */
+export const OFF_ROUTE_METERS = 60;
+
+/**
+ * Quantas leituras seguidas fora do percurso antes de recalcular.
+ * Uma leitura isolada pode ser só imprecisão do GPS.
+ */
+export const OFF_ROUTE_STRIKES = 3;
+
+/** Distância ao destino a partir da qual se considera que se chegou. */
+export const ARRIVAL_METERS = 35;
+
+/** Distâncias a que se anuncia a próxima manobra, em metros. */
+export const ANNOUNCE_AT_METERS = [400, 80];
+
+/**
  * Quanto tempo esperar depois de a pessoa parar de escrever, antes de pesquisar.
  * O Nominatim proíbe pesquisar a cada tecla escrita, por isso este valor não deve
  * ser reduzido sem se perceber bem o que se está a fazer.
