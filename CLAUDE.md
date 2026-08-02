@@ -352,6 +352,11 @@ do CARTO. Não é uma limitação técnica — é uma regra que este projeto res
 
 O que se faz em vez disso, e é legítimo:
 
+- **Teto de zoom nos tiles.** O estilo pede tiles até ao nível 17 (`MAX_TILE_ZOOM`); acima
+  disso o MapLibre amplia os que já tem. Isto resolve metade do problema do offline: os
+  níveis mais aproximados deixam de precisar de tiles próprios, e passam a funcionar a
+  partir dos que já estão guardados. De caminho, tira cerca de dezasseis vezes o peso posto
+  no servidor do OpenStreetMap, porque cada nível a mais quadruplica o número de tiles.
 - **Cache do que já se viu.** O MapLibre guarda os tiles que a pessoa chegou mesmo a ver.
   Isso é cache normal, não é ir buscar à frente. O tamanho é uma definição (100 MB a 1 GB),
   aplicada por `setMapCacheSize()`, e há um botão para apagar.
@@ -360,6 +365,11 @@ O que se faz em vez disso, e é legítimo:
   vê. Se alguém pedir "guardar durante um mês", é isto que se explica.
 - **Favoritos guardados no telemóvel.** Ficam no `AsyncStorage`, por isso estão sempre
   disponíveis. A pesquisa mostra-os enquanto não se escreve nada.
+
+**A limitação que fica:** a cache só tem os níveis de zoom por onde se passou. Percorrer a
+ilha afastado não guarda o que é preciso para navegar aproximado. O teto de zoom acima
+reduz isto a um só nível útil (o 17), mas não o elimina — quem quiser uma zona utilizável
+sem rede tem de a ter visto ao zoom a que a vai usar.
 
 Se um dia se quiser mesmo o mapa todo offline, o caminho é outra fonte de tiles que o
 permita — o formato PMTiles, do Protomaps, é feito para isto e é livre. Implica trocar os

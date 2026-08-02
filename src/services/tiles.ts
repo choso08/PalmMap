@@ -43,6 +43,22 @@ export async function clearMapCache(): Promise<void> {
   await OfflineManager.clearAmbientCache();
 }
 
+/**
+ * Último nível de zoom que se vai mesmo buscar ao servidor.
+ *
+ * Acima disto o MapLibre amplia os tiles deste nível em vez de pedir novos. Fica
+ * um pouco menos nítido quando se aproxima muito, mas há duas vantagens grandes:
+ *
+ * - **Offline:** os níveis 18 e 19 passam a funcionar a partir dos tiles do 17,
+ *   que já estão guardados. Sem isto, aproximar-se sem rede dava mapa em branco.
+ * - **Menos pedidos:** cada nível de zoom a mais quadruplica o número de tiles.
+ *   Cortar dois níveis tira cerca de dezasseis vezes o peso posto no servidor do
+ *   OpenStreetMap, que é mantido por donativos.
+ *
+ * Para voltar à nitidez máxima, pôr 19 — mas percebendo o que se está a trocar.
+ */
+const MAX_TILE_ZOOM = 17;
+
 function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
   return {
     version: 8,
@@ -51,7 +67,7 @@ function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
         type: 'raster',
         tiles,
         tileSize: 256,
-        maxzoom: 19,
+        maxzoom: MAX_TILE_ZOOM,
         attribution,
       },
     },
