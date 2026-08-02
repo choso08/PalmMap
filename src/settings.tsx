@@ -38,6 +38,15 @@ export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 /** Mapa desenhado ou imagem de satélite. */
 export type MapType = 'map' | 'satellite';
 
+/**
+ * Quanto detalhe se pede à imagem de satélite.
+ *
+ * `normal` é o Sentinel-2, que cobre o mundo mas vê a 10 metros por pixel.
+ * `alta` acrescenta-lhe por cima as ortofotos oficiais, que vêem a menos de um
+ * metro — mas só existem para Portugal, e gastam muito mais dados.
+ */
+export type SatelliteDetail = 'normal' | 'alta';
+
 export interface Settings {
   appearance: AppearanceMode;
   travelMode: TravelMode;
@@ -51,6 +60,8 @@ export interface Settings {
   cacheSize: CacheSize;
   /** Mapa desenhado ou imagem de satélite. */
   mapType: MapType;
+  /** Quanto detalhe se pede à imagem de satélite. */
+  satelliteDetail: SatelliteDetail;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -61,7 +72,13 @@ export const DEFAULT_SETTINGS: Settings = {
   timeAdjustment: 'none',
   cacheSize: 'medium',
   mapType: 'map',
+  satelliteDetail: 'normal',
 };
+
+export const SATELLITE_DETAILS: { id: SatelliteDetail; label: string; icon: string }[] = [
+  { id: 'normal', label: 'Normal', icon: 'earth' },
+  { id: 'alta', label: 'Alta', icon: 'magnify-plus-outline' },
+];
 
 export const CACHE_SIZES: {
   id: CacheSize;

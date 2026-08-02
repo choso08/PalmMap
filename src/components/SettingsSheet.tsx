@@ -19,6 +19,7 @@ import { OfflineMaps } from './OfflineMaps';
 import {
   APPEARANCE_MODES,
   CACHE_SIZES,
+  SATELLITE_DETAILS,
   TIME_ADJUSTMENTS,
   TRAVEL_MODES,
   useSettings,
@@ -154,6 +155,23 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             styles={styles}
             theme={theme}
           />
+
+          <Text style={styles.sectionTitle}>Detalhe do satélite</Text>
+          <Text style={styles.sectionHint}>
+            Quanto se aproxima a imagem antes de ficar desfocada.
+          </Text>
+          <ChoiceRow
+            options={SATELLITE_DETAILS}
+            value={settings.satelliteDetail}
+            onChange={(id) => update('satelliteDetail', id)}
+            styles={styles}
+            theme={theme}
+          />
+          <Text style={styles.note}>
+            {settings.satelliteDetail === 'alta'
+              ? 'Acrescenta as ortofotos oficiais do Estado por cima: vê-se casa a casa, mas só em Portugal e gastando bastantes mais dados. Fora de Portugal fica igual ao normal.'
+              : 'Sentinel-2, do programa europeu Copernicus. Cobre o mundo todo e vê a dez metros por pixel — dá a costa, a floresta e os terrenos, não casas uma a uma.'}
+          </Text>
 
           <Text style={styles.sectionTitle}>Mapa</Text>
           <View style={styles.switchRow}>

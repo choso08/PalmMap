@@ -3,6 +3,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 import { USER_AGENT } from './config';
 import { glyphsTemplate, localStyleSource, type OfflineRegion } from './offlineMap';
+import type { SatelliteDetail } from '../settings';
 import { buildVectorStyle } from './vectorStyle';
 
 /**
@@ -127,10 +128,11 @@ const DARK_STYLE = rasterStyle(
  * Europeia, com as nuvens removidas. É livre, sem chaves de API, com licença
  * Creative Commons — encaixa nas regras do projeto.
  *
- * **O detalhe tem um limite.** O Sentinel-2 vê a Terra a 10 metros por pixel,
- * o que corresponde mais ou menos ao zoom 14. Vê-se a costa, a floresta, as
- * roças e os terrenos abertos; não se veem casas uma a uma. Imagem de satélite
- * ao pormenor é produto pago em todo o lado — não existe alternativa livre.
+ * **O detalhe tem um limite físico.** O Sentinel-2 vê a Terra a 10 metros por
+ * pixel, o que corresponde mais ou menos ao zoom 14. Vê-se a costa, a floresta,
+ * as roças e os terrenos abertos; não se veem casas uma a uma. Isto não é uma
+ * limitação do código: é o que o satélite consegue ver, e não há nenhuma fonte
+ * livre e mundial que veja melhor.
  *
  * O `maxzoom` fica no 14 de propósito: acima disso o MapLibre amplia o que já
  * tem, em vez de pedir tiles que não trazem mais informação nenhuma.
@@ -144,6 +146,67 @@ const SATELLITE_STYLE = rasterStyle(
 );
 
 /**
+ * Ortofotos oficiais da Direção-Geral do Território, **só de Portugal**.
+ *
+ * O Sentinel-2 vê a 10 metros por pixel. Estas são fotografias tiradas de avião,
+ * publicadas pelo Estado como dados abertos, e vêem a menos de um metro — dá
+ * para distinguir casas, carros e as marcas da estrada. É a única forma de ter
+ * mais detalhe sem pagar e sem chaves de API.
+ *
+ * **Vai por cima do Sentinel-2, não em vez dele.** Isso resolve duas coisas ao
+ * mesmo tempo: fora de Portugal continua a ver-se o mundo todo, e se este
+ * serviço estiver em baixo ou mudar de endereço, o que aparece é a imagem de
+ * sempre em vez de um ecrã vazio.
+ *
+ * **Por confirmar:** não foi possível contactar este serviço a partir do
+ * ambiente de desenvolvimento, onde o acesso à Internet é limitado. Se o detalhe
+ * não aparecer em Portugal, o mais provável é o nome da camada (`LAYERS`) estar
+ * errado. Confirma-se abrindo no navegador o endereço com
+ * `REQUEST=GetCapabilities` e lendo os nomes que ele devolve.
+ */
+const DGT_ORTOS =
+  'https://ortos.dgterritorio.gov.pt/wms/ortosat2023' +
+  '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
+  '&LAYERS=ortoSat2023&STYLES=' +
+  '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
+  '&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&TRANSPARENT=false';
+
+/**
+ * Satélite com o detalhe das ortofotos onde as houver.
+ *
+ * O teto de zoom 18 é por educação: cada nível a mais quadruplica os pedidos
+ * feitos a um serviço público, e ao 18 já se distingue o que é preciso.
+ */
+const SATELLITE_DETAILED_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    base: {
+      type: 'raster',
+      tiles: [
+        'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
+      ],
+      tileSize: 256,
+      maxzoom: 14,
+      attribution:
+        'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2024)',
+    },
+    ortos: {
+      type: 'raster',
+      tiles: [DGT_ORTOS],
+      tileSize: 256,
+      maxzoom: 18,
+      attribution: 'Ortofotos © Direção-Geral do Território',
+    },
+  },
+  layers: [
+    { id: 'base', type: 'raster', source: 'base' },
+    // Só se pede a partir do 12: mais longe do que isso o Sentinel-2 chega, e
+    // não vale a pena incomodar o serviço das ortofotos.
+    { id: 'ortos', type: 'raster', source: 'ortos', minzoom: 12 },
+  ],
+};
+
+/**
  * Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel.
  *
  * O `offline` é o mapa guardado que cobre a zona onde a pessoa está, se houver
@@ -155,9 +218,10 @@ export function mapStyleFor(
   dark: boolean,
   satellite: boolean,
   offline?: OfflineRegion | null,
+  satelliteDetail: SatelliteDetail = 'normal',
 ): StyleSpecification {
   if (satellite) {
-    return SATELLITE_STYLE;
+    return satelliteDetail === 'alta' ? SATELLITE_DETAILED_STYLE : SATELLITE_STYLE;
   }
   if (offline) {
     return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark);

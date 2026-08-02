@@ -177,8 +177,9 @@ export function MapView({
         theme.dark,
         settings.mapType === 'satellite',
         offlineFailed ? null : offlineRegion,
+        settings.satelliteDetail,
       ),
-    [theme.dark, settings.mapType, offlineRegion, offlineFailed],
+    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, offlineFailed],
   );
 
   return (
