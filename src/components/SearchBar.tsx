@@ -174,6 +174,8 @@ export function SearchBar({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: {
+      // Igual dos dois lados: é o que faz a barra ficar ao meio do ecrã.
+      marginHorizontal: 14,
       backgroundColor: theme.surface,
       // Cápsula bem arredondada, como a barra de pesquisa do Maps.
       borderRadius: 28,

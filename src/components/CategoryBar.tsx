@@ -58,6 +58,8 @@ function makeStyles(theme: Theme) {
     content: {
       gap: 8,
       paddingVertical: 10,
+      // Começa alinhado com a barra de pesquisa e sai pela direita ao rolar.
+      paddingLeft: 14,
       paddingRight: 14,
     },
     chip: {

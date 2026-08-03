@@ -20,7 +20,7 @@ import {
 } from 'react';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
-import { regionAt, type OfflineRegion } from '../services/offlineMap';
+import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
@@ -158,7 +158,7 @@ export function MapView({
       // Ao entrar num país cujo mapa está guardado, passa-se a usá-lo. Compara-se
       // pelo id para o estilo só ser trocado quando muda mesmo de região — trocar
       // de estilo recarrega o mapa, e a cada arrastar do dedo seria insuportável.
-      const seguinte = regionAt((west + east) / 2, (south + north) / 2, offlineRegions);
+      const seguinte = regionForView({ west, south, east, north }, offlineRegions);
       setOfflineRegion((atual) => (atual?.id === seguinte?.id ? atual : seguinte));
     },
     [onViewportChange, offlineRegions],

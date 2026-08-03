@@ -780,8 +780,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       top: 0,
       left: 0,
       right: 0,
-      paddingLeft: 14,
-      // Abaixo da barra de estado e da câmara, mais uma folga para respirar.
+      // Sem margem lateral aqui de propósito. A barra de pesquisa quer margem
+      // dos dois lados; os botões de categoria querem começar alinhados com ela
+      // mas poder sair pela direita, para se perceber que há mais para o lado.
+      // Cada um trata da sua.
       paddingTop: insets.top + 12,
     },
     notice: {

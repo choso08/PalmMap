@@ -154,29 +154,63 @@ export function installedRegions(): OfflineRegion[] {
   return regioes;
 }
 
+/** Uma região só entra em conta se souber que área cobre. */
+function temArea(r: OfflineRegion): boolean {
+  return Array.isArray(r.bbox) && r.bbox.length === 4;
+}
+
 /**
- * A região guardada que cobre uma posição, se houver alguma.
+ * A região guardada que serve para o que se está a ver.
  *
- * É isto que faz o mapa passar a offline sozinho quando se entra num país
- * descarregado, sem a pessoa ter de escolher nada.
+ * Escolhe-se em dois tempos, e o segundo existe por uma razão prática:
+ *
+ * 1. **A que cobre o centro do ecrã.** É o caso normal — está-se dentro do país.
+ * 2. **Senão, qualquer uma que apareça no ecrã.** Ao afastar o mapa, o centro
+ *    sai facilmente de um país pequeno e cai no mar. Com só a primeira regra, a
+ *    aplicação largava o mapa guardado e voltava aos tiles da Internet — que em
+ *    modo de avião não existem, e o ecrã ficava preto. Enquanto o país guardado
+ *    estiver à vista, continua a ser ele a desenhar.
+ *
+ * Havendo várias à vista, ganha a mais próxima do centro do ecrã, que é a que a
+ * pessoa está a olhar.
  */
-export function regionAt(
-  longitude: number,
-  latitude: number,
+export function regionForView(
+  bounds: { west: number; south: number; east: number; north: number },
   regioes = installedRegions(),
 ): OfflineRegion | null {
-  for (const r of regioes) {
-    // Um manifesto antigo pode não trazer a área. Nesse caso salta-se a região
-    // em vez de rebentar — perde-se o offline dessa, não o mapa todo.
-    if (!Array.isArray(r.bbox) || r.bbox.length !== 4) {
-      continue;
-    }
+  const disponiveis = regioes.filter(temArea);
+  const centroLon = (bounds.west + bounds.east) / 2;
+  const centroLat = (bounds.south + bounds.north) / 2;
+
+  for (const r of disponiveis) {
     const [oeste, sul, este, norte] = r.bbox;
-    if (longitude >= oeste && longitude <= este && latitude >= sul && latitude <= norte) {
+    if (centroLon >= oeste && centroLon <= este && centroLat >= sul && centroLat <= norte) {
       return r;
     }
   }
-  return null;
+
+  let melhor: OfflineRegion | null = null;
+  let maisPerto = Infinity;
+
+  for (const r of disponiveis) {
+    const [oeste, sul, este, norte] = r.bbox;
+    const separados =
+      este < bounds.west || oeste > bounds.east || norte < bounds.south || sul > bounds.north;
+    if (separados) {
+      continue;
+    }
+
+    // Distância em graus, que chega de sobra para escolher entre duas regiões.
+    const dLon = (oeste + este) / 2 - centroLon;
+    const dLat = (sul + norte) / 2 - centroLat;
+    const distancia = dLon * dLon + dLat * dLat;
+    if (distancia < maisPerto) {
+      maisPerto = distancia;
+      melhor = r;
+    }
+  }
+
+  return melhor;
 }
 
 /** Vai buscar a lista de mapas disponíveis para descarregar. */
