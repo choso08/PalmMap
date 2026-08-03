@@ -74,9 +74,16 @@ export const OFF_ROUTE_METERS = 60;
 
 /**
  * Quantas leituras seguidas fora do percurso antes de recalcular.
- * Uma leitura isolada pode ser só imprecisão do GPS.
+ *
+ * Durante a navegação lê-se uma vez por segundo, por isso isto são oito
+ * segundos seguidos a andar longe da linha. Já foi três, e recalculava sozinho
+ * a meio de uma viagem: três segundos de mau sinal — um túnel curto, um viaduto,
+ * uma rua estreita entre prédios — chegavam.
+ *
+ * A precisão que o GPS declara também conta, em `App.tsx`: uma leitura que se
+ * assume imprecisa não serve para afirmar que se saiu do caminho.
  */
-export const OFF_ROUTE_STRIKES = 3;
+export const OFF_ROUTE_STRIKES = 8;
 
 /** Distância ao destino a partir da qual se considera que se chegou. */
 export const ARRIVAL_METERS = 35;

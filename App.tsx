@@ -395,7 +395,7 @@ function PalmMap() {
     let cancelled = false;
 
     void (async () => {
-      const stop = await watchPosition((position) => {
+      const stop = await watchPosition((position, accuracyMeters) => {
         setUserLocation(position);
 
         const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
@@ -417,7 +417,12 @@ function PalmMap() {
 
         // Saiu do percurso? Só se confirma ao fim de algumas leituras seguidas,
         // porque uma isolada pode ser apenas imprecisão do GPS.
-        if (offRouteMeters > OFF_ROUTE_METERS) {
+        // Só se conta como "fora do percurso" o que a leitura consegue mesmo
+        // afirmar. Entre prédios, o GPS dá facilmente cinquenta metros de erro;
+        // sem esta margem, estar parado num semáforo bastava para a aplicação
+        // julgar que se tinha saído do caminho e recalcular do nada.
+        const margem = OFF_ROUTE_METERS + Math.min(accuracyMeters, 100);
+        if (offRouteMeters > margem) {
           offRouteStrikes.current += 1;
         } else {
           offRouteStrikes.current = 0;
@@ -471,8 +476,9 @@ function PalmMap() {
               : 0,
         });
 
-        // Anúncios em voz, uma vez por manobra e por distância.
-        if (settings.voiceGuidance && step) {
+        // Anúncios em voz, uma vez por manobra e por distância. As manobras que
+        // não obrigam a decidir nada ficam de fora — ver `worthAnnouncing`.
+        if (settings.voiceGuidance && step?.announce) {
           for (const threshold of ANNOUNCE_AT_METERS) {
             const key = `${ahead}|${threshold}`;
             if (toStep <= threshold && !announced.current.has(key)) {

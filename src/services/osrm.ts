@@ -15,6 +15,22 @@ const client = axios.create({
 export class RouteError extends Error {}
 
 /** Converte uma manobra do OSRM numa instrução pronta a mostrar. */
+/**
+ * Se uma manobra merece ser dita em voz alta.
+ *
+ * Fica de fora tudo o que não obriga a decidir nada:
+ *
+ * - `continue` — segue-se pela mesma estrada, mesmo que ela descreva uma curva.
+ *   É a causa de se ouvir a voz a cada curva de uma autoestrada.
+ * - `new name` — a estrada muda de nome e vai-se em frente na mesma.
+ * - `depart` — já se está a partir; dizê-lo não acrescenta nada.
+ * - `notification` — o OSRM usa isto para avisos, não para manobras.
+ */
+function worthAnnouncing(step: OsrmStep): boolean {
+  const { type } = step.maneuver;
+  return type !== 'continue' && type !== 'new name' && type !== 'depart' && type !== 'notification';
+}
+
 function toRouteStep(step: OsrmStep): RouteStep {
   const [longitude, latitude] = step.maneuver.location;
 
@@ -24,6 +40,7 @@ function toRouteStep(step: OsrmStep): RouteStep {
     streetName: step.name || undefined,
     distanceMeters: step.distance,
     location: { latitude, longitude },
+    announce: worthAnnouncing(step),
   };
 }
 

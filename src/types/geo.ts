@@ -50,6 +50,14 @@ export interface RouteStep {
   distanceMeters: number;
   /** Onde acontece a manobra — serve para centrar o mapa nela. */
   location: Coordinates;
+  /**
+   * Se vale a pena dizer isto em voz alta.
+   *
+   * O OSRM marca uma manobra sempre que a estrada muda de nome ou faz uma curva,
+   * mesmo quando não há nada a decidir. Lidas todas, a voz não se cala numa
+   * autoestrada. Continuam todas na lista escrita — só não se anunciam.
+   */
+  announce: boolean;
 }
 
 /** Um percurso já tratado, pronto a desenhar no mapa. */

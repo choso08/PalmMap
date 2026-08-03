@@ -18,7 +18,7 @@ export async function requestPermission(): Promise<boolean> {
  * navegação, senão o GPS fica ligado a gastar bateria.
  */
 export async function watchPosition(
-  onChange: (coordinates: Coordinates) => void,
+  onChange: (coordinates: Coordinates, accuracyMeters: number) => void,
 ): Promise<() => void> {
   const granted = await requestPermission();
   if (!granted) {
@@ -35,10 +35,15 @@ export async function watchPosition(
       distanceInterval: 0,
     },
     (position) => {
-      onChange({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+      onChange(
+        {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+        // O Android diz a que raio de confiança corresponde esta leitura. Sem
+        // isso, uma leitura má é indistinguível de ter mesmo saído do percurso.
+        position.coords.accuracy ?? 0,
+      );
     },
   );
 
