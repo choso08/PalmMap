@@ -43,6 +43,13 @@ interface MapViewProps {
   onTapEmpty: () => void;
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
+  /**
+   * Até que ponto do percurso já se andou, durante a navegação.
+   *
+   * O que fica para trás desenha-se apagado, para o que falta se distinguir
+   * de relance — a conduzir não há tempo para procurar onde ia a linha.
+   */
+  progressIndex?: number;
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -58,6 +65,8 @@ interface MapViewProps {
 export interface MapViewRef {
   /** Leva a câmara de volta à posição atual. */
   recenter: (coordinates: Coordinates) => void;
+  /** Volta a prender a câmara ao carro, durante a navegação. */
+  followAgain: () => void;
 }
 
 /** Ponto de partida da câmara quando ainda não se sabe onde a pessoa está. */
@@ -79,6 +88,7 @@ export function MapView({
   onDropPin,
   onTapEmpty,
   following,
+  progressIndex = 0,
   offlineRegions,
   labelsReady,
   ref,
@@ -91,6 +101,17 @@ export function MapView({
   const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
   /** Liga-se quando um mapa guardado não abre, para não se insistir nele. */
   const [offlineFailed, setOfflineFailed] = useState(false);
+  /**
+   * Muda sempre que se pede para voltar ao carro durante a navegação.
+   *
+   * Serve de `key` à câmara. Assim que a pessoa arrasta o mapa, o MapLibre
+   * larga o seguimento — e voltar a pedi-lo não adianta, porque a propriedade
+   * não mudou. Recriar a câmara volta a prendê-la à posição.
+   */
+  const [followNonce, setFollowNonce] = useState(0);
+
+  /** Quantos pontos do percurso já ficaram para trás. */
+  const andado = following ? progressIndex : 0;
 
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
@@ -100,6 +121,7 @@ export function MapView({
         duration: 700,
       });
     },
+    followAgain: () => setFollowNonce((n) => n + 1),
   }));
 
   // Sempre que há um percurso novo, enquadra-o todo no ecrã.
@@ -211,6 +233,9 @@ export function MapView({
       onLongPress={handleLongPress}
     >
       <Camera
+        // Recriar a câmara é o que volta a prendê-la à posição depois de a
+        // pessoa ter arrastado o mapa. Ver `followNonce`.
+        key={`camera-${followNonce}`}
         ref={cameraRef}
         // 'course' aponta o mapa no sentido em que se segue, como na navegação
         // do Maps. Fora da navegação, a câmara fica livre.
@@ -338,21 +363,52 @@ export function MapView({
         <GeoJSONSource
           id="route"
           data={{
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              // O GeoJSON quer [longitude, latitude], por esta ordem.
-              coordinates: route.coordinates.map((point) => [
-                point.longitude,
-                point.latitude,
-              ]),
-            },
+            type: 'FeatureCollection',
+            features: [
+              // Duas linhas em vez de uma: o que já ficou para trás e o que
+              // falta. Fora da navegação `andado` é zero e a primeira fica
+              // vazia, por isso o desenho é o de sempre.
+              {
+                type: 'Feature',
+                properties: { andado: true },
+                geometry: {
+                  type: 'LineString',
+                  // O GeoJSON quer [longitude, latitude], por esta ordem.
+                  coordinates: route.coordinates
+                    .slice(0, Math.max(0, andado))
+                    .map((p) => [p.longitude, p.latitude]),
+                },
+              },
+              {
+                type: 'Feature',
+                properties: { andado: false },
+                geometry: {
+                  type: 'LineString',
+                  // Sobrepõem-se num ponto, senão ficava uma falha entre as duas.
+                  coordinates: route.coordinates
+                    .slice(Math.max(0, andado - 1))
+                    .map((p) => [p.longitude, p.latitude]),
+                },
+              },
+            ],
           }}
         >
           <Layer
+            id="route-done"
+            type="line"
+            filter={['==', ['get', 'andado'], true]}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': theme.textMuted,
+              'line-width': 5,
+              'line-opacity': 0.35,
+              'line-dasharray': [1, 1.6],
+            }}
+          />
+          <Layer
             id="route-line"
             type="line"
+            filter={['==', ['get', 'andado'], false]}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': theme.accent, 'line-width': 5, 'line-opacity': 0.85 }}
           />

@@ -105,6 +105,8 @@ function PalmMap() {
   const [nextStep, setNextStep] = useState<RouteStep | null>(null);
   const [distanceToStep, setDistanceToStep] = useState(0);
   const [remaining, setRemaining] = useState({ meters: 0, seconds: 0 });
+  /** Até que ponto do percurso já se andou. O mapa apaga o que fica para trás. */
+  const [progressIndex, setProgressIndex] = useState(0);
   /** Quantas leituras seguidas fora do percurso já se viram. */
   const offRouteStrikes = useRef(0);
   /** Manobras já anunciadas, para não repetir a mesma vezes sem conta. */
@@ -397,6 +399,7 @@ function PalmMap() {
         setUserLocation(position);
 
         const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
+        setProgressIndex(index);
         const remainingMeters = distanceAlong(
           route.coordinates,
           index,
@@ -437,6 +440,9 @@ function PalmMap() {
               );
               setRoute(fresh);
               announced.current.clear();
+              // Percurso novo, contagem nova: sem isto, a linha aparecia
+              // apagada até onde ia o percurso antigo.
+              setProgressIndex(0);
             } catch {
               // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
             } finally {
@@ -526,6 +532,7 @@ function PalmMap() {
     offRouteStrikes.current = 0;
     setSelectedPlace(null);
     setStepsVisible(false);
+    setProgressIndex(0);
 
     // Calcula-se já o que falta, com a posição que se tem. Sem isto o painel
     // arrancava a zero e só se corrigia na primeira leitura do GPS — que, com a
@@ -643,6 +650,7 @@ function PalmMap() {
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}
         following={navigating}
+        progressIndex={progressIndex}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />
@@ -723,17 +731,35 @@ function PalmMap() {
         </Pressable>
       ) : null}
 
-      {/* Botão de voltar à posição atual, como no Maps. */}
-      {userLocation && !navigating ? (
+      {/*
+        Botão de voltar à posição atual.
+
+        Durante a navegação faz falta na mesma: basta arrastar o mapa uma vez
+        para ver o que vem a seguir e a câmara larga o carro. Aí o que se quer é
+        voltar a prendê-la, não só centrar uma vez — daí serem dois caminhos.
+      */}
+      {userLocation ? (
         <Pressable
           style={({ pressed }) => [
             styles.locateButton,
-            selectedPlace || destination ? styles.locateRaised : null,
+            navigating
+              ? styles.locateNavigating
+              : selectedPlace || destination
+                ? styles.locateRaised
+                : null,
             pressed && styles.buttonPressed,
           ]}
-          onPress={() => mapRef.current?.recenter(userLocation)}
+          onPress={() =>
+            navigating
+              ? mapRef.current?.followAgain()
+              : mapRef.current?.recenter(userLocation)
+          }
         >
-          <MaterialCommunityIcons name="crosshairs-gps" size={24} color={theme.accent} />
+          <MaterialCommunityIcons
+            name="crosshairs-gps"
+            size={24}
+            color={theme.accent}
+          />
         </Pressable>
       ) : null}
 
@@ -862,6 +888,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     locateRaised: {
       bottom: insets.bottom + 260,
+    },
+    /** Acima do painel de navegação, que é mais baixo do que os outros. */
+    locateNavigating: {
+      bottom: insets.bottom + 130,
     },
   });
 }
