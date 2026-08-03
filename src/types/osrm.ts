@@ -55,10 +55,27 @@ export interface OsrmRoute {
   duration: number;
 }
 
+/**
+ * Onde o OSRM encostou cada ponto que lhe pedimos.
+ *
+ * O serviço só sabe andar por estradas, por isso encosta a origem e o destino à
+ * estrada mais próxima. O `distance` diz a quantos metros ficou do sítio pedido
+ * — e é isso que permite avisar quem está longe de qualquer estrada.
+ */
+export interface OsrmWaypoint {
+  /** Ponto encostado à estrada, em [longitude, latitude]. */
+  location: [number, number];
+  /** A que distância ficou do ponto pedido, em metros. */
+  distance: number;
+  name: string;
+}
+
 export interface OsrmRouteResponse {
   /** 'Ok' quando correu bem. Qualquer outro valor é um erro. */
   code: string;
   /** Mensagem de erro, só presente quando `code` não é 'Ok'. */
   message?: string;
   routes: OsrmRoute[];
+  /** A origem e o destino, já encostados à estrada mais próxima. */
+  waypoints?: OsrmWaypoint[];
 }

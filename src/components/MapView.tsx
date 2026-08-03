@@ -227,6 +227,43 @@ export function MapView({
       {userLocation ? <UserLocation /> : null}
 
       {/*
+        O troço entre onde a pessoa está e onde o percurso começa mesmo.
+
+        O serviço de percursos só anda por estradas: num aeroporto ou no meio do
+        campo, encosta o início à estrada mais próxima, que pode ficar a
+        centenas de metros. Sem isto, a linha parecia começar noutro sítio sem
+        explicação. A tracejado, porque esse bocado é por conta de quem anda —
+        não é um caminho que alguém tenha calculado.
+      */}
+      {userLocation && route?.startsAt && route.startAwayMeters > 40 ? (
+        <GeoJSONSource
+          id="route-gap"
+          data={{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [userLocation.longitude, userLocation.latitude],
+                [route.startsAt.longitude, route.startsAt.latitude],
+              ],
+            },
+          }}
+        >
+          <Layer
+            id="route-gap-line"
+            type="line"
+            layout={{ 'line-cap': 'round' }}
+            paint={{
+              'line-color': theme.textMuted,
+              'line-width': 3,
+              'line-dasharray': [1, 2],
+            }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
         Os negócios vão todos numa única camada, em vez de um componente por
         pino. Com dezenas de pinos, a diferença de fluidez é grande.
       */}

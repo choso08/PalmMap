@@ -56,12 +56,13 @@ export async function getRoute(
     throw new RouteError('Não foi possível contactar o serviço de percursos.');
   }
 
-  const { code, routes, message } = response.data;
+  const { code, routes, message, waypoints } = response.data;
   if (code !== 'Ok' || routes.length === 0) {
     throw new RouteError(message ?? 'Não foi encontrado nenhum percurso entre estes pontos.');
   }
 
   const route = routes[0];
+  const origem = waypoints?.[0];
 
   return {
     // O GeoJSON vem em [longitude, latitude] — aqui inverte-se para o formato da aplicação.
@@ -74,5 +75,9 @@ export async function getRoute(
     // Um percurso sem paragens intermédias tem uma só "leg", mas juntam-se
     // todas para o caso de um dia se acrescentarem pontos de passagem.
     steps: route.legs.flatMap((leg) => leg.steps.map(toRouteStep)),
+    startAwayMeters: origem?.distance ?? 0,
+    startsAt: origem
+      ? { longitude: origem.location[0], latitude: origem.location[1] }
+      : null,
   };
 }

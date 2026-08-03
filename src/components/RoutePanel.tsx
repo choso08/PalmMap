@@ -91,6 +91,27 @@ export function RoutePanel({
             </View>
           </View>
 
+          {/*
+            O percurso só pode começar numa estrada. Quem o pede de dentro de um
+            aeroporto, de um centro comercial ou do meio do campo fica com o
+            inicio a alguma distância — e às vezes do outro lado de uma vedação.
+            Mais vale dizê-lo do que deixar a pessoa a olhar para um vazio entre
+            ela e a linha.
+          */}
+          {route.startAwayMeters > 40 ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons
+                name="map-marker-distance"
+                size={16}
+                color={theme.textMuted}
+              />
+              <Text style={styles.avisoTexto}>
+                O percurso começa a {formatDistance(route.startAwayMeters)} de si, na estrada
+                mais próxima. Esse bocado é a tracejado no mapa e fica por sua conta.
+              </Text>
+            </View>
+          ) : null}
+
           <Pressable style={styles.button} onPress={onStart}>
             <MaterialCommunityIcons name="navigation-variant" size={19} color={theme.onAccent} />
             <Text style={styles.buttonText}>Iniciar navegação</Text>
@@ -173,6 +194,22 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       fontSize: 14,
       color: theme.danger,
+    },
+    aviso: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceMuted,
+    },
+    avisoTexto: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.textMuted,
     },
     metrics: {
       flexDirection: 'row',

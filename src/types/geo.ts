@@ -62,4 +62,16 @@ export interface Route {
   durationSeconds: number;
   /** As instruções, pela ordem em que se seguem. */
   steps: RouteStep[];
+  /**
+   * A que distância a origem ficou da estrada mais próxima, em metros.
+   *
+   * O serviço de percursos só anda por estradas. Dentro de um aeroporto, de um
+   * centro comercial ou no meio do campo, ele encosta o início do percurso à
+   * estrada mais próxima — que pode ficar longe, e por vezes do outro lado de
+   * uma vedação. Guardar isto permite dizê-lo em vez de desenhar a linha como se
+   * começasse aos pés de quem a pediu.
+   */
+  startAwayMeters: number;
+  /** Onde o percurso começa mesmo, já encostado à estrada. */
+  startsAt: Coordinates | null;
 }
