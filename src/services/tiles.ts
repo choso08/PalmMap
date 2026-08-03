@@ -4,7 +4,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 import { USER_AGENT } from './config';
 import { glyphsTemplate, localStyleSource, type OfflineRegion } from './offlineMap';
 import type { SatelliteDetail } from '../settings';
-import { buildVectorStyle } from './vectorStyle';
+import { buildVectorStyle, regionMinZoom } from './vectorStyle';
 
 /**
  * Configuração dos tiles do mapa (as imagens que formam o mapa no ecrã).
@@ -74,11 +74,22 @@ export async function clearMapCache(): Promise<void> {
  */
 const MAX_TILE_ZOOM = 18;
 
+/**
+ * A cor por baixo dos tiles, para quando eles não chegam.
+ *
+ * Sem isto, um tile que falta deixa ver o vazio, que o MapLibre desenha a preto.
+ * Foi o que deu o "fica tudo preto" ao afastar sem rede. Com uma cor por baixo,
+ * a falta de um tile parece um mapa por carregar em vez de uma avaria.
+ */
+const VAZIO_CLARO = '#EFE6D9';
+const VAZIO_ESCURO = '#0B1319';
+
 function rasterStyle(
   tiles: string[],
   attribution: string,
   maxzoom = MAX_TILE_ZOOM,
   paint?: Record<string, number>,
+  fundo = VAZIO_CLARO,
 ): StyleSpecification {
   return {
     version: 8,
@@ -95,9 +106,24 @@ function rasterStyle(
         attribution,
       },
     },
-    layers: [{ id: 'base', type: 'raster', source: 'base', ...(paint ? { paint } : {}) }],
+    layers: [
+      { id: 'fundo', type: 'background', paint: { 'background-color': fundo } },
+      { id: 'base', type: 'raster', source: 'base', ...(paint ? { paint } : {}) },
+    ],
   };
 }
+
+/** Os endereços dos tiles, à parte: o mapa guardado também os usa ao longe. */
+const OSM_TILES = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'];
+const CARTO_TILES = [
+  'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+];
+
+/** Ver a nota em `DARK_STYLE`: o "dark matter" do CARTO precisa de ser levantado. */
+const CARTO_PAINT = { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 };
 
 /**
  * Mapa claro: tiles do OpenStreetMap.
@@ -105,10 +131,7 @@ function rasterStyle(
  * Nota: usa-se `tile.openstreetmap.org` diretamente. A forma antiga com
  * subdomínios (`a.`, `b.`, `c.`) está desaconselhada pelo próprio OpenStreetMap.
  */
-const LIGHT_STYLE = rasterStyle(
-  ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-  '© OpenStreetMap',
-);
+const LIGHT_STYLE = rasterStyle(OSM_TILES, '© OpenStreetMap');
 
 /**
  * Mapa escuro: tiles "dark matter" do CARTO, que são feitos a partir dos dados
@@ -122,20 +145,16 @@ const LIGHT_STYLE = rasterStyle(
  * Os quatro endereços são o mesmo serviço: distribuir os pedidos por vários
  * subdomínios permite ao telemóvel descarregar mais tiles em paralelo.
  */
+// O "dark matter" do CARTO é escuro de propósito, mas de noite ao volante os
+// nomes das ruas quase não se liam. Levantar os pretos e abrir o contraste
+// torna-os legíveis sem estragar o tema — não se mexe mais do que isto, senão
+// deixa de ser um mapa escuro.
 const DARK_STYLE = rasterStyle(
-  [
-    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-    'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  ],
+  CARTO_TILES,
   '© OpenStreetMap © CARTO',
   MAX_TILE_ZOOM,
-  // O "dark matter" do CARTO é escuro de propósito, mas de noite ao volante os
-  // nomes das ruas quase não se liam. Levantar os pretos e abrir o contraste
-  // torna-os legíveis sem estragar o tema — não se mexe mais do que isto, senão
-  // deixa de ser um mapa escuro.
-  { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 },
+  CARTO_PAINT,
+  VAZIO_ESCURO,
 );
 
 /**
@@ -242,7 +261,16 @@ export function mapStyleFor(
     return satelliteDetail === 'alta' ? SATELLITE_DETAILED_STYLE : SATELLITE_STYLE;
   }
   if (offline) {
-    return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark);
+    // Ao afastar muito, o país guardado deixa de encher o ecrã e o resto ficava
+    // liso. Por baixo desse zoom mostram-se os tiles da Internet por cima do
+    // mapa guardado — quando não há rede não aparecem, e o que fica à vista é o
+    // país outra vez, que é o melhor que se consegue sem rede.
+    return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark, {
+      tiles: dark ? CARTO_TILES : OSM_TILES,
+      attribution: dark ? '© OpenStreetMap © CARTO' : '© OpenStreetMap',
+      maxzoom: regionMinZoom(offline.bbox),
+      ...(dark ? { paint: CARTO_PAINT } : {}),
+    });
   }
   return dark ? DARK_STYLE : LIGHT_STYLE;
 }

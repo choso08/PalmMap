@@ -122,32 +122,102 @@ const DARK: Palette = {
 const NAME: unknown = ['coalesce', ['get', 'name:pt'], ['get', 'name']];
 
 /**
+ * Os tiles da Internet a pôr por cima enquanto se está afastado de mais para o
+ * mapa guardado servir. Ver `buildVectorStyle`.
+ */
+export interface StyleOverlay {
+  tiles: string[];
+  attribution: string;
+  /** Zoom a partir do qual deixa de aparecer e o mapa guardado toma conta. */
+  maxzoom: number;
+  paint?: Record<string, number>;
+}
+
+/**
  * Monta o estilo completo.
  *
  * @param pmtilesUri  Endereço do ficheiro guardado, já com o prefixo `pmtiles://`.
  * @param glyphs      Modelo do endereço dos tipos de letra, com `{fontstack}` e `{range}`.
  * @param dark        Se se usa a paleta escura.
+ * @param overlay     Tiles da Internet para os zooms em que o país não chega.
  */
 export function buildVectorStyle(
   pmtilesUri: string,
   glyphs: string,
   dark: boolean,
+  overlay?: StyleOverlay | null,
 ): StyleSpecification {
   const c = dark ? DARK : LIGHT;
+
+  const sources: Record<string, unknown> = {
+    [VECTOR_SOURCE]: {
+      type: 'vector',
+      url: pmtilesUri,
+      maxzoom: MAX_DATA_ZOOM,
+      attribution: ATTRIBUTION,
+    },
+  };
+
+  const camadas = layers(c);
+
+  if (overlay) {
+    sources[OVERLAY_SOURCE] = {
+      type: 'raster',
+      tiles: overlay.tiles,
+      tileSize: 256,
+      maxzoom: overlay.maxzoom,
+      attribution: overlay.attribution,
+    };
+
+    camadas.push({
+      id: 'longe',
+      type: 'raster',
+      source: OVERLAY_SOURCE,
+      maxzoom: overlay.maxzoom,
+      ...(overlay.paint ? { paint: overlay.paint } : {}),
+    } as (typeof camadas)[number]);
+  }
 
   return {
     version: 8,
     glyphs,
-    sources: {
-      [VECTOR_SOURCE]: {
-        type: 'vector',
-        url: pmtilesUri,
-        maxzoom: MAX_DATA_ZOOM,
-        attribution: ATTRIBUTION,
-      },
-    },
-    layers: layers(c),
+    sources,
+    layers: camadas,
   } as StyleSpecification;
+}
+
+/** Nome da fonte dos tiles da Internet dentro do estilo do mapa guardado. */
+const OVERLAY_SOURCE = 'longe';
+
+/**
+ * A partir de que zoom é que o mapa de um país chega para encher o ecrã.
+ *
+ * **É o que impede as bordas em branco.** Um país guardado não traz o mundo:
+ * traz os tiles que tocam nas fronteiras dele, a todos os níveis. Ao afastar
+ * muito, o ecrã fica maior do que aquilo que o ficheiro tem e o resto aparece
+ * liso — foi exatamente o que se viu, com o Atlântico desenhado e o resto do
+ * ecrã em bege.
+ *
+ * Abaixo deste zoom deixa-se de valer a pena e passa-se aos tiles da Internet.
+ * A conta é simples: quanto menor é o país, mais perto é preciso estar.
+ */
+export function regionMinZoom(bbox?: [number, number, number, number]): number {
+  // Um manifesto antigo pode não trazer a área. Sem ela não há como saber, e o
+  // 6 é o meio-termo: serve para um país do tamanho de Portugal.
+  if (!Array.isArray(bbox) || bbox.length !== 4) {
+    return 6;
+  }
+
+  const [oeste, sul, este, norte] = bbox;
+  const largura = Math.max(este - oeste, norte - sul, 0.05);
+
+  // 240 = os 360° do mundo com uma folga de uma vez e meia, para o país não
+  // ficar a nadar no meio do ecrã antes de se trocar.
+  const z = Math.log2(240 / largura);
+
+  // Nunca abaixo de 3 (aí já se vê meio mundo) nem acima de 9 (aí já é uma
+  // cidade, e todos os países chegam).
+  return Math.min(9, Math.max(3, Math.round(z)));
 }
 
 function layers(c: Palette): StyleSpecification['layers'] {

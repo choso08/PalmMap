@@ -74,6 +74,15 @@ const DEFAULT_CENTER: [number, number] = [-9.1393, 38.7223]; // Lisboa
 const DEFAULT_ZOOM = 11;
 
 /**
+ * Abaixo deste zoom já não se muda de país guardado.
+ *
+ * O 5 é o nível a que se vê meia Europa: mais longe do que isto, nenhum país
+ * chega para encher o ecrã, por isso escolher entre eles não muda nada do que se
+ * vê — só faz o mapa recarregar, e era isso que dava os saltos.
+ */
+const OFFLINE_SWITCH_MIN_ZOOM = 5;
+
+/**
  * Desenha o mapa com os tiles do OpenStreetMap, a posição atual, os negócios,
  * o destino e a linha do percurso.
  */
@@ -176,6 +185,15 @@ export function MapView({
       const { bounds, zoom } = event.nativeEvent;
       const [west, south, east, north] = bounds;
       onViewportChange({ south, west, north, east }, zoom);
+
+      // Muito afastado, o ecrã toca em vários países ao mesmo tempo e a região
+      // escolhida mudava a cada arrastar do dedo. Como trocar de estilo recarrega
+      // o mapa inteiro, isso dava um salto atrás do outro. Daí este chão: ao
+      // longe fica-se com o que está, e é o próprio estilo que trata de mostrar
+      // os tiles da Internet por cima.
+      if (zoom < OFFLINE_SWITCH_MIN_ZOOM) {
+        return;
+      }
 
       // Ao entrar num país cujo mapa está guardado, passa-se a usá-lo. Compara-se
       // pelo id para o estilo só ser trocado quando muda mesmo de região — trocar

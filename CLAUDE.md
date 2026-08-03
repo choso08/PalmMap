@@ -531,6 +531,32 @@ insuportável.
 
 A imagem de satélite manda sempre: é a única coisa que não tem substituto guardado.
 
+#### Ao longe o país não chega — e isso já esteve à vista
+
+Um país guardado **não traz o mundo**. O `pmtiles extract` guarda os tiles que tocam nas
+fronteiras dele, a todos os níveis — por isso ao zoom 1 só lá está o quarto do planeta onde
+o país cai, e ao zoom 3 uns quantos quadrados à volta. Afastar o mapa para lá disso deixava
+o ecrã maior do que aquilo que o ficheiro tem: via-se o Atlântico desenhado e o resto do
+ecrã liso, em bege. Não era avaria nenhuma — era o ficheiro a acabar.
+
+Havia ainda um segundo efeito, pior de aturar: a essa distância o ecrã toca em vários países
+guardados ao mesmo tempo, e a região escolhida mudava a cada arrastar do dedo. Como trocar
+de região troca o estilo, e trocar o estilo recarrega o mapa, dava um salto atrás do outro.
+
+Duas coisas resolvem isto, e convém não desfazer nenhuma:
+
+- **Os tiles da Internet vão por cima do mapa guardado**, com um teto de zoom calculado a
+  partir do tamanho do país (`regionMinZoom`, em `vectorStyle.ts`). Acima desse zoom o país
+  chega para encher o ecrã e a camada desaparece; abaixo, tapa-o por completo e vê-se o
+  mundo como sempre. **Sem rede não aparecem** e o que fica à vista é o país outra vez —
+  que é o melhor possível nessa situação. Portugal dá zoom 6, São Tomé 7, a Madeira 8.
+- **Abaixo do zoom `OFFLINE_SWITCH_MIN_ZOOM` (5) deixa de se mudar de país.** Ao longe a
+  escolha não muda nada do que se vê, só faz o mapa recarregar.
+
+De caminho, os estilos de imagem passaram a ter uma camada de fundo com a cor do mapa. Um
+tile que falta deixava ver o vazio, que o MapLibre desenha a preto — era daí o "fica tudo
+preto" ao afastar sem rede.
+
 **Se o mapa guardado não abrir, a aplicação recua para os tiles da Internet**
 (`onDidFailLoadingMap`). É o que evita um ecrã em branco — mas também é o que faz uma
 avaria passar despercebida, daí o aviso lá em cima sobre testar com os dados desligados.
