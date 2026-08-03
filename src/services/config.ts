@@ -92,6 +92,14 @@ export const ARRIVAL_METERS = 35;
 export const ANNOUNCE_AT_METERS = [400, 80];
 
 /**
+ * Nome do pedido para o ecrã não se apagar durante a navegação.
+ *
+ * É preciso ser sempre o mesmo para ligar e desligar: o Android conta os pedidos
+ * por nome, e um que fique por levantar deixava o ecrã aceso para sempre.
+ */
+export const KEEP_AWAKE_TAG = 'palmmap-navegacao';
+
+/**
  * Quanto tempo esperar depois de a pessoa parar de escrever, antes de pesquisar.
  * O Nominatim proíbe pesquisar a cada tecla escrita, por isso este valor não deve
  * ser reduzido sem se perceber bem o que se está a fazer.

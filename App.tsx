@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -21,6 +22,7 @@ import {
   ANNOUNCE_AT_METERS,
   ARRIVAL_METERS,
   CATEGORY_MIN_ZOOM,
+  KEEP_AWAKE_TAG,
   MAP_PINS_DEBOUNCE_MS,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
@@ -385,6 +387,28 @@ function PalmMap() {
   /** Impede que se peça um recálculo novo enquanto o anterior não respondeu. */
   const recalculating_ = useRef(false);
 
+  /**
+   * Mantém o ecrã aceso enquanto se navega.
+   *
+   * Sem isto o telemóvel bloqueia ao fim de meio minuto — a pessoa não lhe está
+   * a tocar, está a conduzir. É a diferença entre uma aplicação de navegação e
+   * um mapa que se vê parado. Fora da navegação não se mexe: deixar o ecrã
+   * sempre aceso gastava bateria sem razão nenhuma.
+   *
+   * A voz continua a falar com o ecrã apagado, mas o mapa deixa de se ver e o
+   * Android acaba por travar a atualização da posição — daí não bastar o som.
+   */
+  useEffect(() => {
+    if (!navigating) {
+      return;
+    }
+
+    void activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
+    return () => {
+      void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
+    };
+  }, [navigating]);
+
   /** Segue a posição enquanto a navegação decorre. */
   useEffect(() => {
     if (!navigating || !route || !destination) {
@@ -642,6 +666,10 @@ function PalmMap() {
     setDroppedPin(null);
   }, []);
 
+  // Ver a nota junto aos painéis, mais abaixo.
+  const lastPlace = useLastValue(selectedPlace);
+  const lastDestination = useLastValue(destination);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -693,13 +721,20 @@ function PalmMap() {
       </View>
       ) : null}
 
-      {/* A ficha do negócio tem prioridade sobre o painel do percurso. */}
-      {navigating ? null : selectedPlace ? (
-        <Reveal style={styles.bottom}>
+      {/*
+        A ficha do negócio tem prioridade sobre o painel do percurso.
+
+        Os dois desenham-se a partir do último valor que tiveram, e não do atual:
+        assim que se fecha, o valor passa a nulo, e sem isto não havia nada para
+        animar — o painel desaparecia num instante. Quem trata de o tirar do ecrã
+        é o `visible`.
+      */}
+      {lastPlace ? (
+        <Reveal style={styles.bottom} visible={!navigating && !!selectedPlace}>
           <PlaceSheet
-            place={selectedPlace}
-            favourite={isFavourite(selectedPlace)}
-            onToggleFavourite={() => toggleFavourite(selectedPlace)}
+            place={lastPlace}
+            favourite={isFavourite(lastPlace)}
+            onToggleFavourite={() => toggleFavourite(lastPlace)}
             onRoute={handleRouteToSelected}
             onClose={() => {
               setSelectedPlace(null);
@@ -707,18 +742,23 @@ function PalmMap() {
             }}
           />
         </Reveal>
-      ) : destination ? (
-        <Reveal style={styles.bottom}>
+      ) : null}
+
+      {lastDestination ? (
+        <Reveal
+          style={styles.bottom}
+          visible={!navigating && !selectedPlace && !!destination}
+        >
           <RoutePanel
-            destination={destination}
+            destination={lastDestination}
             route={route}
             loading={routeLoading}
             error={routeError}
             onClear={handleClearRoute}
             onShowSteps={() => setStepsVisible(true)}
             onStart={handleStartNavigation}
-            favourite={isFavourite(destination)}
-            onToggleFavourite={() => toggleFavourite(destination)}
+            favourite={isFavourite(lastDestination)}
+            onToggleFavourite={() => toggleFavourite(lastDestination)}
           />
         </Reveal>
       ) : null}
@@ -799,6 +839,21 @@ function PalmMap() {
       <StatusBar style="auto" />
     </View>
   );
+}
+
+/**
+ * Guarda o último valor que não foi nulo.
+ *
+ * Serve para um painel poder sair do ecrã a desvanecer: no instante em que se
+ * fecha, aquilo que ele mostrava deixa de existir, e sem uma cópia não havia
+ * nada para desenhar durante a animação de saída.
+ */
+function useLastValue<T>(value: T | null): T | null {
+  const last = useRef<T | null>(value);
+  if (value) {
+    last.current = value;
+  }
+  return last.current;
 }
 
 function makeStyles(theme: Theme, insets: EdgeInsets) {

@@ -10,26 +10,26 @@ Se estás a pegar neste projeto agora, esta secção diz-te em que ponto ele est
 ficheiro explica o porquê de cada coisa.
 
 **O que está feito e confirmado no telemóvel:** a aplicação de mapas funciona. Mapa,
-pesquisa, negócios, percursos, navegação, definições, favoritos, satélite.
-
-**O que está escrito mas por confirmar no telemóvel:** o **mapa offline**. Os países
-descarregam-se nas definições e o estilo vetorial está escrito. Compila, os tipos estão
-verificados, o estilo passa no validador oficial do MapLibre e os tipos de letra foram
-confirmados dentro do APK — mas **nunca foi visto a desenhar num telemóvel**. Ver "Mapas
-de países (PMTiles)".
+pesquisa, negócios, percursos, navegação, definições, favoritos, satélite. E o **mapa
+offline também** — Portugal e São Tomé foram vistos a desenhar em modo de avião, com os
+nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
 
 **Três coisas a saber antes de mexer:**
 
-1. **A última compilação é a APK 8, versão 6.2.0**, e é a primeira que leva o mapa
-   offline. O autor pediu: **compilar só quando ele disser.** Não lançar o workflow sem
-   pedido.
-2. **Os mapas estão publicados e a etiqueta está certa** (`mapas`), com Portugal
-   continental, Madeira, Açores, São Tomé e Príncipe, Cabo Verde e Guiné-Bissau. O
-   manifesto já traz o `bbox`, que é o que permite saber sem rede se a posição está dentro
-   de um país guardado.
-3. **A primeira coisa a verificar** é se o mapa guardado desenha. Se não desenhar, a
-   aplicação recua sozinha para os tiles da Internet e parece que está tudo bem — por isso
-   é preciso descarregar um país, **desligar os dados** e ver se o mapa continua lá.
+1. **A última compilação é a APK 11, versão 6.5.0.** O autor pediu: **compilar só quando
+   ele disser.** Não lançar o workflow sem pedido.
+2. **Os mapas estão publicados na etiqueta `mapas`**: Portugal continental, Madeira,
+   Açores, São Tomé e Príncipe, Cabo Verde, Guiné-Bissau, Espanha, França (por gerar),
+   Itália, Alemanha, Reino Unido, Irlanda, Países Baixos, Bélgica, Luxemburgo, Suíça e
+   Áustria. **A França falhou** por passar os 2 GB que o GitHub aceita — para a ter, baixar
+   o `maxzoom` dela para 12 em `map-regions.json` e correr o workflow outra vez.
+3. **Ao mexer no mapa offline, testar sempre com os dados desligados.** Se o mapa guardado
+   não abrir, a aplicação recua sozinha para os tiles da Internet e parece que está tudo
+   bem — uma avaria passa despercebida com rede.
+
+**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação, os anúncios de
+voz depois do filtro das manobras, e o detalhe alto do satélite (as ortofotos da
+Direção-Geral do Território, cujo nome de camada não foi possível verificar daqui).
 
 ## Objetivo do projeto
 
@@ -125,6 +125,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Guardar no telemóvel | `@react-native-async-storage/async-storage` e `expo-file-system` |
 | Ficheiros dentro do APK | `expo-asset` |
 | Voz | `expo-speech` |
+| Ecrã aceso a conduzir | `expo-keep-awake` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
 | Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
@@ -279,7 +280,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
-│   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
+│   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
+  │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
@@ -663,6 +665,15 @@ booleano que só muda na primeira leitura.
   responder a cada segundo.
 - A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
   interromper a navegação.
+- **O ecrã fica aceso enquanto se navega** (`expo-keep-awake`, com o nome em
+  `KEEP_AWAKE_TAG`). Sem isto o telemóvel bloqueava ao fim de meio minuto — a pessoa não
+  lhe está a tocar, está a conduzir. Liga-se ao entrar em navegação e **desliga-se sempre
+  ao sair**: o Android conta os pedidos por nome, e um que fique por levantar deixava o
+  ecrã aceso para sempre. Fora da navegação não se mexe nisto.
+- **O que continua por resolver:** com a aplicação em segundo plano ou o ecrã apagado à
+  força, o Android acaba por travar a atualização da posição. Resolver isso a sério obriga
+  a um serviço em primeiro plano com notificação permanente, que é bastante mais trabalho.
+  Com o ecrã aceso o caso deixa de aparecer no uso normal.
 
 ### 11. Margens do ecrã (câmara, barras do sistema)
 
