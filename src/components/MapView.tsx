@@ -122,6 +122,19 @@ export function MapView({
   /** Quantos pontos do percurso já ficaram para trás. */
   const andado = following ? progressIndex : 0;
 
+  /**
+   * As duas metades do percurso, em [longitude, latitude] — que é a ordem que o
+   * GeoJSON quer. Sobrepõem-se num ponto, senão ficava uma falha entre elas.
+   */
+  const { andadoLine, faltaLine } = useMemo(() => {
+    const pontos = route?.coordinates ?? [];
+    const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
+    return {
+      andadoLine: pontos.slice(0, Math.max(0, andado)).map(par),
+      faltaLine: pontos.slice(Math.max(0, andado - 1)).map(par),
+    };
+  }, [route, andado]);
+
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
       cameraRef.current?.flyTo({
@@ -377,44 +390,29 @@ export function MapView({
         </GeoJSONSource>
       ) : null}
 
-      {route && route.coordinates.length > 0 ? (
+      {/*
+        O percurso vai em duas fontes separadas — o que já ficou para trás e o
+        que falta — e não numa só com um filtro a distinguir as duas.
+
+        **A razão é uma avaria já apanhada:** com as duas linhas na mesma fonte,
+        no arranque da navegação a primeira ainda não tinha ponto nenhum, e uma
+        linha sem pontos não é GeoJSON válido. O MapLibre deitava fora a fonte
+        inteira e o percurso **desaparecia todo** do mapa, sem dar erro nenhum.
+        Daí as duas verificações de comprimento aqui em baixo: uma linha precisa
+        de dois pontos para existir.
+      */}
+      {andadoLine.length >= 2 ? (
         <GeoJSONSource
-          id="route"
+          id="route-done"
           data={{
-            type: 'FeatureCollection',
-            features: [
-              // Duas linhas em vez de uma: o que já ficou para trás e o que
-              // falta. Fora da navegação `andado` é zero e a primeira fica
-              // vazia, por isso o desenho é o de sempre.
-              {
-                type: 'Feature',
-                properties: { andado: true },
-                geometry: {
-                  type: 'LineString',
-                  // O GeoJSON quer [longitude, latitude], por esta ordem.
-                  coordinates: route.coordinates
-                    .slice(0, Math.max(0, andado))
-                    .map((p) => [p.longitude, p.latitude]),
-                },
-              },
-              {
-                type: 'Feature',
-                properties: { andado: false },
-                geometry: {
-                  type: 'LineString',
-                  // Sobrepõem-se num ponto, senão ficava uma falha entre as duas.
-                  coordinates: route.coordinates
-                    .slice(Math.max(0, andado - 1))
-                    .map((p) => [p.longitude, p.latitude]),
-                },
-              },
-            ],
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: andadoLine },
           }}
         >
           <Layer
-            id="route-done"
+            id="route-done-line"
             type="line"
-            filter={['==', ['get', 'andado'], true]}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
               'line-color': theme.textMuted,
@@ -423,10 +421,21 @@ export function MapView({
               'line-dasharray': [1, 1.6],
             }}
           />
+        </GeoJSONSource>
+      ) : null}
+
+      {faltaLine.length >= 2 ? (
+        <GeoJSONSource
+          id="route"
+          data={{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: faltaLine },
+          }}
+        >
           <Layer
             id="route-line"
             type="line"
-            filter={['==', ['get', 'andado'], false]}
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': theme.accent, 'line-width': 5, 'line-opacity': 0.85 }}
           />

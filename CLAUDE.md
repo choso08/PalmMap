@@ -923,6 +923,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   errado não dá erro — dá uma camada invisível, que é muito pior de encontrar.
 - **O `gh release create` precisa de `-R`** quando o workflow não faz checkout do
   repositório, senão procura-o na pasta atual e falha.
+- **Uma linha sem pontos não é GeoJSON válido, e leva a fonte inteira atrás.** Ao dividir
+  o percurso em "já andado" e "falta", a primeira metade começa vazia — e o MapLibre
+  deitava fora a fonte toda, **sem dar erro nenhum**: o percurso desaparecia por completo
+  do mapa. Daí as duas metades irem hoje em fontes separadas, cada uma só desenhada a
+  partir de dois pontos. Ao mexer aqui, garantir sempre o mínimo de dois.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.
