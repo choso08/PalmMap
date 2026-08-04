@@ -281,6 +281,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
 │   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
+│   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
@@ -293,6 +294,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── osrm.ts         # Cálculo de percursos e instruções
 │   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
 │   │   ├── vectorStyle.ts  # Como se desenha um mapa guardado: cores e espessuras
+│   │   ├── transit.ts      # Paragens e horas de passagem (Carris Metropolitana)
 │   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
@@ -453,6 +455,33 @@ serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
   aberta em todo o lado. Não prometer horários.
 - Precisa de rede, tal como o satélite — não há substituto guardado. Por isso estes dois
   ganham sempre ao mapa offline em `mapStyleFor`.
+
+### 6-B. Horas de passagem dos transportes
+
+Isto é diferente do mapa dos transportes. O mapa mostra **por onde** as linhas passam, em
+qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados abertos.
+
+- A fonte é a **API aberta da Carris Metropolitana** (`src/services/transit.ts`), a mesma
+  que a aplicação oficial usa. Sem chave nenhuma. Endereço em `config.ts`.
+- **Cobre a Área Metropolitana de Lisboa**, quinze dos dezoito concelhos. Fora daí não há
+  nada — e isso não é descuido: **em Portugal não existe uma fonte aberta única com os
+  horários de todos os operadores**. Cada região teria de entrar uma a uma, cada uma com o
+  seu serviço, e algumas nem serviço têm. O painel diz isso à pessoa em vez de mostrar uma
+  lista vazia.
+- As paragens (`/stops`) são milhares e não mudam de sítio: pedem-se **uma vez por sessão**
+  e ficam em memória. É a única forma de saber quais estão perto, porque o serviço não tem
+  procura por proximidade.
+- As horas (`/arrivals/by_stop/:id`) vêm do dia inteiro, incluindo o que já passou — a
+  filtragem é nossa. **Prefere-se sempre `estimated_arrival` a `scheduled_arrival`**: a
+  primeira já leva o atraso real. O ponto verde no painel é o que distingue as duas, e a
+  diferença é toda.
+- **As horas do GTFS podem passar das 24.** `25:10:00` é a uma e dez da manhã seguinte,
+  ainda a contar como serviço do dia anterior. Não se pode comparar com a data diretamente
+  — ver `minutesOfDay` e a volta de 1440 minutos em `arrivalsAt`.
+- Enquanto uma paragem está aberta, os minutos atualizam-se de `ARRIVALS_REFRESH_MS` em
+  `ARRIVALS_REFRESH_MS` (30 s), e sem pôr o indicador a rodar — senão o painel piscava.
+- **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
+  isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
 
 ### 7. Offline — o que é permitido e o que não é
 
