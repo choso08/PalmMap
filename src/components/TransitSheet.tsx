@@ -28,6 +28,16 @@ interface TransitSheetProps {
   onClose: () => void;
   /** Traçar o percurso a pé até à paragem. */
   onGoToStop: (stop: TransitStop) => void;
+  /**
+   * Diz ao mapa que paragens marcar e qual está aberta.
+   *
+   * Sem os pinos, seis linhas de lista com nomes parecidos não dizem onde é que
+   * cada paragem fica — que é a primeira coisa que se quer saber.
+   */
+  onStopsChange: (stops: TransitStop[]) => void;
+  onSelectedStopChange: (stopId: string | null) => void;
+  /** A paragem escolhida no mapa, para a lista abrir a mesma. */
+  selectedStopId: string | null;
 }
 
 /** "agora" quando está a chegar, senão "4 min". */
@@ -42,7 +52,14 @@ function formatWait(minutes: number): string {
  * Fora dessa área não há horários abertos em Portugal — o painel diz isso em vez
  * de mostrar uma lista vazia.
  */
-export function TransitSheet({ origin, onClose, onGoToStop }: TransitSheetProps) {
+export function TransitSheet({
+  origin,
+  onClose,
+  onGoToStop,
+  onStopsChange,
+  onSelectedStopChange,
+  selectedStopId,
+}: TransitSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -53,8 +70,12 @@ export function TransitSheet({ origin, onClose, onGoToStop }: TransitSheetProps)
   /** Fora da área servida: não é erro, é falta de dados abertos. */
   const [outside, setOutside] = useState(false);
 
-  /** A paragem aberta, e as passagens dela. */
-  const [openStop, setOpenStop] = useState<string | null>(null);
+  /**
+   * A paragem aberta vive no `App`, e não aqui, porque também se abre tocando no
+   * pino do mapa. Ter duas cópias do mesmo estado dava-as a divergir.
+   */
+  const openStop = selectedStopId;
+  const setOpenStop = onSelectedStopChange;
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,8 +96,10 @@ export function TransitSheet({ origin, onClose, onGoToStop }: TransitSheetProps)
         }
         if (perto === null) {
           setOutside(true);
+          onStopsChange([]);
         } else {
           setStops(perto);
+          onStopsChange(perto);
         }
       } catch {
         if (!cancelled) {
@@ -92,7 +115,7 @@ export function TransitSheet({ origin, onClose, onGoToStop }: TransitSheetProps)
     return () => {
       cancelled = true;
     };
-  }, [origin]);
+  }, [origin, onStopsChange]);
 
   /**
    * As passagens da paragem aberta.

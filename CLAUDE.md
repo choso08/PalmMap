@@ -485,6 +485,17 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   — ver `minutesOfDay` e a volta de 1440 minutos em `arrivalsAt`.
 - Enquanto uma paragem está aberta, os minutos atualizam-se de `ARRIVALS_REFRESH_MS` em
   `ARRIVALS_REFRESH_MS` (30 s), e sem pôr o indicador a rodar — senão o painel piscava.
+- **Os nomes dos campos foram lidos do código do serviço**, que é aberto, e não adivinhados
+  — depois de a primeira tentativa os ter adivinhado todos mal. São `long_name` (não
+  `name`), `locality_name` (não `locality`) e `line_ids` (não `lines`). Com os nomes
+  errados, a lista aparecia toda com "Paragem" e sem mais nada, e **não dava erro nenhum**.
+- **Usam-se os campos `_unix`, não as horas em texto.** `estimated_arrival_unix` e
+  `scheduled_arrival_unix` são segundos desde 1970, já com a conta das 24 horas feita do
+  lado deles. Comparam-se diretamente com o relógio e poupam a aritmética que é onde este
+  género de código costuma falhar.
+- **As paragens são marcadas no mapa**, com o nome ao lado, enquanto o painel está aberto.
+  A paragem aberta vive no `App.tsx` e não no painel, porque também se abre tocando no pino
+  — duas cópias do mesmo estado acabariam por divergir.
 - **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
   isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
 
@@ -1052,6 +1063,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   carro. Não dava erro nenhum — devolvia um percurso perfeitamente válido, do meio de
   transporte errado. Ao usar um serviço partilhado, confirmar que ele tem mesmo o que se
   lhe está a pedir.
+- **Ler o código do serviço em vez de adivinhar os nomes dos campos.** Os da Carris
+  Metropolitana foram todos adivinhados mal à primeira: `name`, `locality` e `lines` não
+  existem — são `long_name`, `locality_name` e `line_ids`. A posição vinha certa, por isso
+  a lista aparecia com as distâncias todas boas e o nome "Paragem" repetido seis vezes.
+  Nenhum erro, nenhum aviso. O serviço é aberto no GitHub; bastava lê-lo.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

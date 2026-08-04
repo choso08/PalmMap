@@ -93,6 +93,10 @@ function PalmMap() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   /** Painel das paragens e horas de passagem. */
   const [transitVisible, setTransitVisible] = useState(false);
+  /** As paragens que o painel encontrou, para o mapa as marcar. */
+  const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
+  /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -832,6 +836,8 @@ function PalmMap() {
    */
   const handleGoToStop = useCallback((stop: TransitStop) => {
     setTransitVisible(false);
+    setTransitStops([]);
+    setSelectedStopId(null);
     setSelectedPlace(null);
     setDroppedPin(null);
     setDestination({
@@ -879,6 +885,9 @@ function PalmMap() {
         following={navigating}
         progressIndex={progressIndex}
         cameras={cameras}
+        transitStops={transitVisible ? transitStops : []}
+        selectedStopId={selectedStopId}
+        onStopPress={setSelectedStopId}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />
@@ -1093,8 +1102,15 @@ function PalmMap() {
         <Reveal style={styles.bottom}>
           <TransitSheet
             origin={userLocation}
-            onClose={() => setTransitVisible(false)}
+            onClose={() => {
+              setTransitVisible(false);
+              setTransitStops([]);
+              setSelectedStopId(null);
+            }}
             onGoToStop={handleGoToStop}
+            onStopsChange={setTransitStops}
+            onSelectedStopChange={setSelectedStopId}
+            selectedStopId={selectedStopId}
           />
         </Reveal>
       ) : null}

@@ -21,6 +21,7 @@ import {
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
+import type { TransitStop } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
@@ -58,6 +59,12 @@ interface MapViewProps {
    * não interessam a quem vai por outro lado.
    */
   cameras?: SpeedCamera[];
+  /** Paragens de transporte a marcar no mapa, com o painel aberto. */
+  transitStops?: TransitStop[];
+  /** A paragem aberta no painel, desenhada em destaque. */
+  selectedStopId?: string | null;
+  /** Chamado ao tocar num pino de paragem. */
+  onStopPress?: (stopId: string) => void;
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -107,6 +114,9 @@ export function MapView({
   following,
   progressIndex = 0,
   cameras = [],
+  transitStops = [],
+  selectedStopId = null,
+  onStopPress,
   offlineRegions,
   labelsReady,
   ref,
@@ -332,6 +342,77 @@ export function MapView({
         Os negócios vão todos numa única camada, em vez de um componente por
         pino. Com dezenas de pinos, a diferença de fluidez é grande.
       */}
+      {/*
+        As paragens de transporte, enquanto o painel delas está aberto.
+
+        Cada uma leva o nome ao lado, porque é isso que permite ligar a linha da
+        lista ao ponto no mapa — sem nome, seis pontos iguais não dizem nada. A
+        que está aberta fica maior e com a cor de destaque.
+      */}
+      {transitStops.length > 0 ? (
+        <GeoJSONSource
+          id="paragens"
+          onPress={(event) => {
+            // Igual ao dos negócios: as funcionalidades vêm em `nativeEvent`.
+            const id = event.nativeEvent.features[0]?.properties?.id;
+            if (typeof id === 'string') {
+              onStopPress?.(id);
+            }
+          }}
+          data={{
+            type: 'FeatureCollection',
+            features: transitStops.map((stop) => ({
+              type: 'Feature',
+              properties: {
+                id: stop.id,
+                nome: stop.name,
+                aberta: stop.id === selectedStopId ? 1 : 0,
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [stop.coordinates.longitude, stop.coordinates.latitude],
+              },
+            })),
+          }}
+        >
+          <Layer
+            id="paragens-circle"
+            type="circle"
+            paint={{
+              'circle-radius': ['case', ['==', ['get', 'aberta'], 1], 11, 8],
+              'circle-color': [
+                'case',
+                ['==', ['get', 'aberta'], 1],
+                theme.accent,
+                theme.destination,
+              ],
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="paragens-label"
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'nome'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 11,
+                'text-offset': [0, 1.4],
+                'text-anchor': 'top',
+                'text-max-width': 9,
+                'text-allow-overlap': false,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.6,
+              }}
+            />
+          ) : null}
+        </GeoJSONSource>
+      ) : null}
+
       {/*
         Os radares. Vão depois do percurso e antes dos negócios, para ficarem
         por cima da linha e por baixo dos pinos em que se toca.

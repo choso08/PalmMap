@@ -110,10 +110,12 @@ async function loadStops(): Promise<TransitStop[]> {
 
       stops.push({
         id: stop.id,
-        name: stop.name ?? stop.short_name ?? 'Paragem',
-        locality: stop.locality ?? stop.municipality_name ?? '',
+        // `long_name` e não `name`: ver a nota nos tipos. Com o nome errado, a
+        // lista aparecia toda com "Paragem" e nada mais.
+        name: stop.long_name ?? stop.short_name ?? `Paragem ${stop.id}`,
+        locality: stop.locality_name ?? stop.municipality_name ?? '',
         coordinates: { latitude, longitude },
-        lines: Array.isArray(stop.lines) ? stop.lines : [],
+        lines: Array.isArray(stop.line_ids) ? stop.line_ids : [],
         meters: 0,
       });
     }
@@ -162,46 +164,18 @@ export async function nearbyStops(
   return perto;
 }
 
-/**
- * Converte uma hora do GTFS em minutos desde a meia-noite.
- *
- * As horas podem passar das 24 (`25:10:00` é a uma e dez da manhã seguinte),
- * por isso não se pode usar a data diretamente.
- */
-function minutesOfDay(time: string | undefined): number | null {
-  if (!time) {
-    return null;
-  }
-  const [h, m] = time.split(':');
-  const hours = Number(h);
-  const mins = Number(m);
-  if (!Number.isFinite(hours) || !Number.isFinite(mins)) {
-    return null;
-  }
-  return hours * 60 + mins;
+/** `HH:MM` a partir de segundos desde 1970, no fuso do telemóvel. */
+function clockOf(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** `HH:MM` a partir de minutos desde a meia-noite, já com a volta às 24 horas. */
-function clockOf(minutes: number): string {
-  const m = ((minutes % 1440) + 1440) % 1440;
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-
-/**
- * As próximas passagens numa paragem.
- *
- * O serviço devolve o dia inteiro, incluindo o que já passou — daí a filtragem
- * aqui. Prefere-se sempre a hora prevista à do horário: é a que já leva o atraso
- * real do autocarro.
- */
 export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArrival[]> {
   const { data } = await schedule(() =>
     client.get<CarrisArrival[]>(`/arrivals/by_stop/${encodeURIComponent(stopId)}`),
   );
 
-  const agora = new Date();
-  const agoraMin = agora.getHours() * 60 + agora.getMinutes();
-
+  const agora = Date.now() / 1000;
   const proximas: TransitArrival[] = [];
 
   for (const arrival of Array.isArray(data) ? data : []) {
@@ -210,22 +184,20 @@ export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArri
       continue;
     }
 
-    const live = Boolean(arrival.estimated_arrival);
-    const quando = minutesOfDay(arrival.estimated_arrival ?? arrival.scheduled_arrival);
-    if (quando === null) {
+    // Prefere-se sempre a hora prevista: é a que já leva o atraso real.
+    const previsto = arrival.estimated_arrival_unix;
+    const live = typeof previsto === 'number' && previsto > 0;
+    const quando = live ? previsto : arrival.scheduled_arrival_unix;
+
+    if (typeof quando !== 'number' || quando <= 0) {
       continue;
     }
 
-    // Passagens depois da meia-noite vêm como 24 ou mais. Trazê-las para o
-    // relógio normal antes de comparar.
-    let faltam = quando - agoraMin;
-    if (faltam < -720) {
-      // Já passou para o dia seguinte: 25:10 contra as 00:30 de agora.
-      faltam += 1440;
-    }
+    const faltam = Math.round((quando - agora) / 60);
 
     // Um minuto de folga para trás: o autocarro que devia ter passado agora
-    // mesmo continua a interessar a quem está na paragem.
+    // mesmo continua a interessar a quem está na paragem. E nada para lá de
+    // duas horas, que já não é esperar — é consultar o horário.
     if (faltam < -1 || faltam > 120) {
       continue;
     }
