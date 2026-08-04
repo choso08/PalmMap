@@ -29,10 +29,35 @@ export const OSRM_BASE_URL = 'https://router.project-osrm.org';
 export const OVERPASS_BASE_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
+ * Horas de passagem dos transportes públicos.
+ *
+ * É a API aberta da Carris Metropolitana, a mesma que a aplicação oficial usa.
+ * Cobre a Área Metropolitana de Lisboa e não pede chave nenhuma. Fora dessa
+ * área não há equivalente aberto — ver `src/services/transit.ts`.
+ */
+export const CARRIS_BASE_URL = 'https://api.carrismetropolitana.pt/v2';
+
+/**
  * Intervalo mínimo entre pedidos ao Nominatim, em milissegundos.
  * O serviço público permite no máximo 1 pedido por segundo.
  */
 export const NOMINATIM_MIN_INTERVAL_MS = 1000;
+
+/**
+ * Intervalo mínimo entre pedidos à Carris Metropolitana.
+ *
+ * Não há limite publicado. Um segundo é ser bem-educado com um serviço que não
+ * nos pede nada em troca — e chega de sobra, porque só se pede quando a pessoa
+ * abre a lista ou a manda atualizar.
+ */
+export const CARRIS_MIN_INTERVAL_MS = 1000;
+
+/**
+ * De quanto em quanto tempo se voltam a pedir as horas de passagem, enquanto o
+ * painel está aberto. Trinta segundos chega para o número de minutos acertar
+ * sem se estar a pedir à toa.
+ */
+export const ARRIVALS_REFRESH_MS = 30000;
 
 /**
  * Intervalo mínimo entre pedidos à Overpass.

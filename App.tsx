@@ -18,6 +18,7 @@ import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { Reveal } from './src/components/Reveal';
 import { StepsList } from './src/components/StepsList';
+import { TransitSheet } from './src/components/TransitSheet';
 import {
   ANNOUNCE_AT_METERS,
   ARRIVAL_METERS,
@@ -39,6 +40,7 @@ import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
+import type { TransitStop } from './src/services/transit';
 import {
   MAP_TYPES,
   SettingsProvider,
@@ -79,6 +81,8 @@ function PalmMap() {
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  /** Painel das paragens e horas de passagem. */
+  const [transitVisible, setTransitVisible] = useState(false);
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -687,6 +691,26 @@ function PalmMap() {
     setDestination(place);
   }, []);
 
+  /**
+   * Traçar o caminho até uma paragem, a partir do painel dos transportes.
+   *
+   * O meio de transporte não se mexe aqui de propósito: quem vai apanhar o
+   * autocarro costuma ir a pé, mas pode ir de bicicleta ou deixar o carro lá
+   * perto. Trocar a definição por baixo do nariz da pessoa era decidir por ela.
+   */
+  const handleGoToStop = useCallback((stop: TransitStop) => {
+    setTransitVisible(false);
+    setSelectedPlace(null);
+    setDroppedPin(null);
+    setDestination({
+      id: -Date.now(),
+      name: stop.name,
+      address: stop.locality ? `Paragem · ${stop.locality}` : 'Paragem',
+      coordinates: stop.coordinates,
+      category: 'Paragem',
+    });
+  }, []);
+
   const handleRouteToSelected = useCallback(() => {
     if (selectedPlace) {
       setDestination(selectedPlace);
@@ -831,6 +855,23 @@ function PalmMap() {
         </Pressable>
       ) : null}
 
+      {/*
+        As horas de passagem. Só aparece no mapa dos transportes: fora daí seria
+        mais um botão a tapar o mapa a quem anda de carro.
+      */}
+      {!navigating && settings.mapType === 'transit' ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.transitButton,
+            selectedPlace || destination ? styles.transitRaised : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          onPress={() => setTransitVisible(true)}
+        >
+          <MaterialCommunityIcons name="clock-outline" size={22} color={theme.accent} />
+        </Pressable>
+      ) : null}
+
       {!navigating ? (
         <Reveal
           style={[
@@ -895,6 +936,21 @@ function PalmMap() {
           setOfflineRegions(installedRegions());
         }}
       />
+
+      {/*
+        As horas de passagem. Fica montado só enquanto está aberto: quando fecha,
+        o contador de trinta em trinta segundos que atualiza os minutos tem de
+        parar, e desmontar é a forma mais segura de garantir isso.
+      */}
+      {transitVisible ? (
+        <Reveal style={styles.bottom}>
+          <TransitSheet
+            origin={userLocation}
+            onClose={() => setTransitVisible(false)}
+            onGoToStop={handleGoToStop}
+          />
+        </Reveal>
+      ) : null}
 
       <StepsList
         visible={stepsVisible}
@@ -983,6 +1039,23 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
     },
+    transitButton: {
+      position: 'absolute',
+      right: 16,
+      // Por cima do botão dos tipos de mapa, que já está por cima do de centrar.
+      bottom: insets.bottom + 152,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
     mapTypeLabel: {
       position: 'absolute',
       right: 76,
@@ -1000,6 +1073,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     layersRaised: {
       bottom: insets.bottom + 322,
+    },
+    transitRaised: {
+      // Mesmo afastamento entre os dois botões de quando não há painel aberto.
+      bottom: insets.bottom + 384,
     },
     locateButton: {
       position: 'absolute',

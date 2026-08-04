@@ -17,6 +17,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # O histórico todo e as etiquetas: sem isto não há como saber o que
+          # mudou desde a compilação anterior, e a lista sairia vazia.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -71,6 +75,37 @@ jobs:
           echo "--- assinatura ---"
           "$TOOLS/apksigner" verify --print-certs -v "$APK"
 
+      # A lista do que mudou desde a compilação anterior, tirada dos commits.
+      #
+      # A etiqueta da compilação anterior descobre-se pela ordem em que o GitHub
+      # as devolve — `apk-9` e `apk-10` não se ordenam bem por texto, por isso
+      # ordena-se pelo número depois do travessão.
+      - name: Reunir o que mudou
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ANTERIOR=$(gh release list --limit 100 --json tagName \
+            --jq '.[].tagName | select(startswith("apk-"))' \
+            | sort -t- -k2 -n | tail -1)
+
+          if [ -n "$ANTERIOR" ] && git rev-parse "$ANTERIOR" > /dev/null 2>&1; then
+            echo "Desde $ANTERIOR:"
+            # Só o assunto de cada commit, sem os de manutenção nem os do próprio
+            # changelog. O `--no-merges` tira o ruído das juntas de branches.
+            git log --no-merges --pretty=format:'- %s' "$ANTERIOR..HEAD" \
+              | grep -viE '^- (merge|bump|wip|typo|formatar)' > MUDANCAS.md || true
+          else
+            echo "Sem compilação anterior identificável — primeira lista."
+            git log --no-merges --pretty=format:'- %s' -20 > MUDANCAS.md || true
+          fi
+
+          if [ ! -s MUDANCAS.md ]; then
+            echo "- Sem alterações de código desde a compilação anterior." > MUDANCAS.md
+          fi
+
+          echo "ANTERIOR=$ANTERIOR" >> "$GITHUB_ENV"
+          cat MUDANCAS.md
+
       - name: Publicar o APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,10 +113,26 @@ jobs:
           mv android/app/build/outputs/apk/release/app-release.apk PalmMap.apk
           SIZE=$(du -h PalmMap.apk | cut -f1)
           SHA=$(sha256sum PalmMap.apk | cut -c1-16)
+          VERSAO=$(jq -r '.expo.version' app.json)
+
+          {
+            echo "## O que mudou"
+            echo
+            cat MUDANCAS.md
+            echo
+            echo "## Instalar"
+            echo
+            echo "Descarregue o \`PalmMap.apk\` aqui em baixo e abra-o no telemóvel."
+            echo "É a aplicação completa: instala por cima da anterior sem perder as"
+            echo "definições, os favoritos nem os mapas já descarregados."
+            echo
+            echo "Versão $VERSAO · $SIZE · início do SHA-256: \`$SHA\`"
+            if [ -n "$ANTERIOR" ]; then
+              echo
+              echo "Alterações a detalhe: https://github.com/${{ github.repository }}/compare/$ANTERIOR...apk-${{ github.run_number }}"
+            fi
+          } > NOTAS.md
+
           gh release create "apk-${{ github.run_number }}" PalmMap.apk \
-            --title "PalmMap — APK ${{ github.run_number }}" \
-            --notes "APK para instalar no telemóvel, assinado com a chave de depuração.
-
-          Tamanho: $SIZE · início do SHA-256: \`$SHA\`
-
-          Se a instalação falhar, desinstale a versão anterior e instale de novo."
+            --title "PalmMap $VERSAO — APK ${{ github.run_number }}" \
+            --notes-file NOTAS.md
