@@ -1,15 +1,28 @@
 import axios from 'axios';
 
-import { OSRM_BASE_URL, REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
+import {
+  OSRM_ENDPOINTS,
+  OSRM_MIN_INTERVAL_MS,
+  OSRM_PROFILE_PATH,
+  REQUEST_TIMEOUT_MS,
+  USER_AGENT,
+} from './config';
+import { createRateLimiter } from './rateLimit';
 import type { Coordinates, Route, RouteStep } from '../types/geo';
 import type { OsrmRouteResponse, OsrmStep } from '../types/osrm';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
 
 const client = axios.create({
-  baseURL: OSRM_BASE_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: { 'User-Agent': USER_AGENT },
 });
+
+/**
+ * As condições de utilização da FOSSGIS pedem no máximo um pedido por segundo.
+ * Sem isto, escolher o destino e mudar logo de meio de transporte mandava dois
+ * pedidos quase ao mesmo tempo.
+ */
+const schedule = createRateLimiter(OSRM_MIN_INTERVAL_MS);
 
 /** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
 export class RouteError extends Error {}
@@ -50,10 +63,9 @@ function toRouteStep(step: OsrmStep): RouteStep {
  * O servidor público do OSRM é para demonstrações e pode estar em baixo — quem
  * chamar esta função deve tratar o erro e mostrar uma mensagem decente.
  *
- * Sobre o `profile`: o endereço aceita 'driving', 'walking' e 'cycling', mas o
- * servidor público de demonstração pode ter só o perfil de carro instalado e
- * devolver na mesma o percurso de carro. Não foi possível confirmar isto — ver
- * a nota no CLAUDE.md.
+ * Cada meio de transporte tem o seu servidor — ver `OSRM_ENDPOINTS`. É isso que
+ * faz um percurso a pé ignorar os sentidos únicos e contar o tempo a passo de
+ * pessoa, em vez de vir o percurso de carro com outro nome.
  */
 export async function getRoute(
   from: Coordinates,
@@ -81,9 +93,11 @@ export async function getRoute(
 
   let response;
   try {
-    response = await client.get<OsrmRouteResponse>(`/route/v1/${profile}/${path}`, {
-      params,
-    });
+    const base = OSRM_ENDPOINTS[profile];
+    const perfil = OSRM_PROFILE_PATH[profile];
+    response = await schedule(() =>
+      client.get<OsrmRouteResponse>(`${base}/route/v1/${perfil}/${path}`, { params }),
+    );
   } catch {
     throw new RouteError('Não foi possível contactar o serviço de percursos.');
   }

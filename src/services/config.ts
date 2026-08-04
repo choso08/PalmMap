@@ -17,10 +17,50 @@ export const USER_AGENT = 'PalmMap/1.0 (projeto pessoal; https://github.com/chos
 export const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 /**
- * Cálculo de percursos.
+ * Cálculo de percursos, um endereço por meio de transporte.
+ *
+ * **Porque é que não é o `router.project-osrm.org`.** Esse é o servidor de
+ * demonstração do OSRM e só tem o perfil de carro instalado. Pedir-lhe um
+ * percurso a pé devolvia na mesma o percurso de carro — com as ruas de sentido
+ * único respeitadas, o que a pé não faz sentido nenhum, e com o tempo calculado
+ * a velocidade de automóvel. Foi visto: 719 metros a pé davam "2 minutos".
+ *
+ * Estes são os servidores da FOSSGIS, os mesmos que o openstreetmap.org usa no
+ * seu próprio painel de direções. São três instalações separadas, cada uma com
+ * o seu perfil — e é por isso que o meio de transporte está no endereço e não
+ * só no caminho.
+ *
  * Tem de ser https:// — o Android bloqueia ligações não seguras desde a versão 9.
+ *
+ * As condições de utilização pedem no máximo um pedido por segundo, um
+ * `User-Agent` válido e a atribuição ao OpenStreetMap e ao OSRM. Está tudo
+ * cumprido: a fila em `osrm.ts`, o `USER_AGENT` aqui em cima e os créditos no
+ * ecrã de definições.
  */
-export const OSRM_BASE_URL = 'https://router.project-osrm.org';
+export const OSRM_ENDPOINTS = {
+  driving: 'https://routing.openstreetmap.de/routed-car',
+  walking: 'https://routing.openstreetmap.de/routed-foot',
+  cycling: 'https://routing.openstreetmap.de/routed-bike',
+} as const;
+
+/**
+ * O nome do perfil no caminho do pedido.
+ *
+ * Cada instalação só tem um perfil, por isso este nome é praticamente
+ * decorativo — mas tem de bater certo com o que lá está instalado, senão o
+ * servidor responde que não conhece o perfil.
+ */
+export const OSRM_PROFILE_PATH = {
+  driving: 'driving',
+  walking: 'foot',
+  cycling: 'bike',
+} as const;
+
+/**
+ * Intervalo mínimo entre pedidos de percurso, em milissegundos.
+ * As condições de utilização da FOSSGIS pedem no máximo um por segundo.
+ */
+export const OSRM_MIN_INTERVAL_MS = 1000;
 
 /**
  * Consulta de negócios e pontos de interesse.

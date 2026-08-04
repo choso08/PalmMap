@@ -955,6 +955,8 @@ function PalmMap() {
             favourite={isFavourite(lastDestination)}
             onToggleFavourite={() => toggleFavourite(lastDestination)}
             avoidTollsWanted={settings.avoidTolls}
+            travelMode={settings.travelMode}
+            onChangeTravelMode={(mode) => update('travelMode', mode)}
           />
         </Reveal>
       ) : null}

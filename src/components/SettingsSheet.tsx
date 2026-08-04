@@ -124,8 +124,9 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             theme={theme}
           />
           <Text style={styles.note}>
-            O servidor público do OSRM é de demonstração e pode ter apenas o perfil de
-            carro. Se os percursos a pé e de bicicleta vierem iguais aos de carro, é isso.
+            Cada meio tem o seu servidor, por isso a pé ignoram-se os sentidos únicos e o
+            tempo é contado a passo de pessoa. Também se pode trocar no painel do percurso,
+            sem vir aqui.
           </Text>
 
           <Text style={styles.sectionTitle}>Tempo estimado</Text>
@@ -321,6 +322,14 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
           >
             <Text style={styles.creditName}>OpenStreetMap</Text>
             <Text style={styles.creditRole}>dados do mapa, pesquisa e tiles</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.creditRow}
+            onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html')}
+          >
+            <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
+            <Text style={styles.creditRole}>cálculo dos percursos</Text>
           </Pressable>
 
           <Pressable

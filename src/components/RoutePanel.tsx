@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme, useTimeFactor } from '../settings';
+import { TRAVEL_MODES, useTheme, useTimeFactor, type TravelMode } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -21,6 +21,9 @@ interface RoutePanelProps {
   onToggleFavourite: () => void;
   /** Se a pessoa pediu para evitar portagens, nas definições. */
   avoidTollsWanted: boolean;
+  /** O meio de transporte em uso, e como o trocar. */
+  travelMode: TravelMode;
+  onChangeTravelMode: (mode: TravelMode) => void;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -35,6 +38,8 @@ export function RoutePanel({
   favourite,
   onToggleFavourite,
   avoidTollsWanted,
+  travelMode,
+  onChangeTravelMode,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -64,6 +69,35 @@ export function RoutePanel({
         <Pressable onPress={onClear} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
+      </View>
+
+      {/*
+        O meio de transporte, mesmo por cima do percurso.
+        
+        Está aqui e não só nas definições porque é aqui que a decisão se toma: a
+        pessoa escolhe o destino e só então pensa se vai a pé ou de carro.
+        Carregar recalcula na hora — e a escolha fica guardada para a próxima.
+      */}
+      <View style={styles.modos}>
+        {TRAVEL_MODES.map((modo) => {
+          const ativo = modo.id === travelMode;
+          return (
+            <Pressable
+              key={modo.id}
+              style={[styles.modo, ativo ? styles.modoAtivo : null]}
+              onPress={() => onChangeTravelMode(modo.id)}
+            >
+              <MaterialCommunityIcons
+                name={modo.icon as never}
+                size={17}
+                color={ativo ? theme.onAccent : theme.textMuted}
+              />
+              <Text style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}>
+                {modo.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {loading ? (
@@ -216,6 +250,35 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       fontSize: 14,
       color: theme.danger,
+    },
+    modos: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 14,
+    },
+    modo: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 9,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    modoAtivo: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    modoTexto: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    modoTextoAtivo: {
+      color: theme.onAccent,
     },
     aviso: {
       flexDirection: 'row',

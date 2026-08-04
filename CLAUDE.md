@@ -128,7 +128,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
 | Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
-| Cálculo de percursos | OSRM (`https://router.project-osrm.org`) |
+| Cálculo de percursos | OSRM da FOSSGIS (`https://routing.openstreetmap.de`), um servidor por meio de transporte |
 | Mapas offline | Protomaps (PMTiles), recortados do mapa mundial |
 
 A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
@@ -394,9 +394,9 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
-- **Ressalva do meio de transporte:** o endereço do OSRM aceita os três perfis, mas o
-  servidor público de demonstração pode ter só o de carro instalado e devolver na mesma o
-  percurso de carro. Não foi possível confirmar — o ecrã de definições avisa disso.
+- **O meio de transporte também se troca no painel do percurso**, com três botões por cima
+  da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
+  pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
 
 ### 5. O tempo estimado e o piso das estradas
 
@@ -948,10 +948,22 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
 - Usar **`https://`** e não `http://`. O documento original indicava o endereço com
   `http://`, mas o Android bloqueia ligações não seguras desde a versão 9, por isso os
   pedidos falhariam.
-- O servidor público é oficialmente destinado a demonstrações e desenvolvimento, sem
-  garantias de funcionamento. Para uso pessoal serve muito bem; convém apenas contar com a
-  possibilidade de estar em baixo de vez em quando e mostrar uma mensagem de erro decente
-  quando isso acontecer.
+- **Não se usa o `router.project-osrm.org`.** Esse é o servidor de demonstração do OSRM e
+  **só tem o perfil de carro instalado**: um pedido a pé devolvia na mesma o percurso de
+  carro, com os sentidos únicos respeitados e o tempo a velocidade de automóvel. Isto
+  esteve muito tempo escrito aqui como "por confirmar" — foi confirmado na rua, com 719
+  metros a pé a darem "2 minutos" e um desvio grande por causa de uma rua de sentido único.
+- Usam-se os **três servidores da FOSSGIS** (`routed-car`, `routed-foot`, `routed-bike`),
+  que são os mesmos que o openstreetmap.org usa no seu painel de direções. Cada um é uma
+  instalação separada com o seu perfil — daí o meio de transporte estar no endereço, em
+  `OSRM_ENDPOINTS`, e não só no caminho.
+- As condições de utilização deles pedem **no máximo um pedido por segundo**, um
+  `User-Agent` válido e a atribuição ao OpenStreetMap e ao OSRM. A fila está em `osrm.ts`
+  (`OSRM_MIN_INTERVAL_MS`) e o crédito no ecrã de definições. **Não desligar nem um nem
+  outro.**
+- São servidores comunitários, sem garantias de funcionamento. Para uso pessoal servem
+  muito bem; convém contar com a possibilidade de estarem em baixo e mostrar uma mensagem
+  de erro decente quando isso acontecer.
 - O percurso é pedido com `steps=true`, que traz as manobras uma a uma. A tradução para
   português está em `src/utils/maneuvers.ts`.
 
@@ -1035,6 +1047,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   `ortoSat2023` devolvia a segunda: imagem nítida, bem posicionada, e **todo o campo a
   vermelho vivo**, porque é infravermelho. Ao usar um WMS, ler os nomes das camadas em vez
   de assumir que o nome do serviço chega.
+- **Um servidor de demonstração pode ter só um perfil, e não o diz.** O percurso a pé vinha
+  do `router.project-osrm.org` com os sentidos únicos respeitados e o tempo a velocidade de
+  carro. Não dava erro nenhum — devolvia um percurso perfeitamente válido, do meio de
+  transporte errado. Ao usar um serviço partilhado, confirmar que ele tem mesmo o que se
+  lhe está a pedir.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.
