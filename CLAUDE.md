@@ -16,7 +16,7 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
 
 **Três coisas a saber antes de mexer:**
 
-1. **A última compilação é a APK 11, versão 6.5.0.** O autor pediu: **compilar só quando
+1. **A última compilação é a APK 12, versão 6.6.0.** O autor pediu: **compilar só quando
    ele disser.** Não lançar o workflow sem pedido.
 2. **Os mapas estão publicados na etiqueta `mapas`**: Portugal continental, Madeira,
    Açores, São Tomé e Príncipe, Cabo Verde, Guiné-Bissau, Espanha, França (por gerar),
