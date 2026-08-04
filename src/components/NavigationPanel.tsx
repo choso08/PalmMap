@@ -18,6 +18,8 @@ interface NavigationPanelProps {
   remainingSeconds: number;
   /** Verdadeiro enquanto se recalcula o percurso por se ter saído dele. */
   recalculating: boolean;
+  /** Radar à frente, quando já está perto o suficiente para avisar. */
+  camera: { label: string; icon: string; maxspeed: number | null; meters: number } | null;
   onStop: () => void;
 }
 
@@ -33,6 +35,7 @@ export function NavigationPanel({
   remainingMeters,
   remainingSeconds,
   recalculating,
+  camera,
   onStop,
 }: NavigationPanelProps) {
   const theme = useTheme();
@@ -66,6 +69,29 @@ export function NavigationPanel({
           <Text style={styles.instruction}>A seguir o percurso…</Text>
         )}
       </View>
+
+      {/*
+        O aviso do radar fica logo por baixo da manobra, e não em cima dela: o
+        que manda é sempre para onde se vira. Aparece só quando o radar já está
+        perto, e desaparece assim que se passa por ele.
+      */}
+      {camera ? (
+        <View style={styles.camera}>
+          <MaterialCommunityIcons
+            name={camera.icon as never}
+            size={22}
+            color={theme.onOverlay}
+          />
+          <Text style={styles.cameraText} numberOfLines={1}>
+            {camera.label} a {formatDistance(camera.meters)}
+          </Text>
+          {camera.maxspeed ? (
+            <View style={styles.limite}>
+              <Text style={styles.limiteText}>{camera.maxspeed}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.footer}>
         <View>
@@ -132,6 +158,42 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 17,
       fontWeight: '600',
       color: theme.onAccent,
+    },
+    camera: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      // Logo abaixo da barra da manobra, que ocupa o topo do ecrã.
+      top: insets.top + 132,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 14,
+      backgroundColor: theme.overlay,
+    },
+    cameraText: {
+      flex: 1,
+      color: theme.onOverlay,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    limite: {
+      minWidth: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#FFFFFF',
+      borderWidth: 3,
+      // O vermelho do sinal de limite de velocidade, que se lê num instante.
+      borderColor: '#D32F2F',
+    },
+    limiteText: {
+      color: '#111111',
+      fontSize: 14,
+      fontWeight: '800',
     },
     footer: {
       position: 'absolute',

@@ -19,6 +19,13 @@ export async function requestPermission(): Promise<boolean> {
  */
 export async function watchPosition(
   onChange: (coordinates: Coordinates, accuracyMeters: number) => void,
+  /**
+   * De quantos em quantos milissegundos se lê a posição.
+   *
+   * Um segundo é o normal. A poupança de bateria sobe este valor quando a
+   * manobra seguinte ainda vai longe — ver `BATTERY_SAVER_INTERVAL_MS`.
+   */
+  timeIntervalMs = 1000,
 ): Promise<() => void> {
   const granted = await requestPermission();
   if (!granted) {
@@ -27,8 +34,12 @@ export async function watchPosition(
 
   const subscription = await Location.watchPositionAsync(
     {
+      // Mesmo a poupar, a precisão mantém-se: o que muda é de quanto em quanto
+      // tempo se lê, não a qualidade da leitura. Baixar a precisão punha o
+      // Android a responder pelas antenas, e aí a posição deixava de servir
+      // para navegar.
       accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: 1000,
+      timeInterval: timeIntervalMs,
       // Zero de propósito: com um mínimo de metros, o Android cala-se enquanto a
       // pessoa está parada — e então o painel fica preso no que dizia. Parado
       // num semáforo, o tempo que falta tem de continuar a acertar.

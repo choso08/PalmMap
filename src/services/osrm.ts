@@ -59,18 +59,39 @@ export async function getRoute(
   from: Coordinates,
   to: Coordinates,
   profile: 'driving' | 'walking' | 'cycling' = 'driving',
+  avoidTolls = false,
 ): Promise<Route> {
   // O OSRM espera as coordenadas por esta ordem: longitude,latitude.
   const path = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
 
+  // `steps=true` é o que traz as manobras uma a uma.
+  const params: Record<string, string> = {
+    overview: 'full',
+    geometries: 'geojson',
+    steps: 'true',
+  };
+
+  if (avoidTolls && profile === 'driving') {
+    // O perfil de carro do OSRM marca as estradas com portagem como uma classe
+    // que se pode excluir. **Nem todos os servidores a têm ativada** — se este
+    // não tiver, responde com `InvalidValue` e tenta-se outra vez sem isto, que
+    // é melhor do que ficar sem percurso nenhum.
+    params.exclude = 'toll';
+  }
+
   let response;
   try {
     response = await client.get<OsrmRouteResponse>(`/route/v1/${profile}/${path}`, {
-      // `steps=true` é o que traz as manobras uma a uma.
-      params: { overview: 'full', geometries: 'geojson', steps: 'true' },
+      params,
     });
   } catch {
     throw new RouteError('Não foi possível contactar o serviço de percursos.');
+  }
+
+  if (params.exclude && response.data.code !== 'Ok') {
+    // Segunda tentativa sem a exclusão. Sai um percurso com portagens, que é o
+    // que há — e quem chamou fica a saber pelo `avoidedTolls`.
+    return getRoute(from, to, profile, false);
   }
 
   const { code, routes, message, waypoints } = response.data;
@@ -96,5 +117,8 @@ export async function getRoute(
     startsAt: origem
       ? { longitude: origem.location[0], latitude: origem.location[1] }
       : null,
+    // Verdadeiro só quando o servidor mesmo aceitou evitar as portagens. Serve
+    // para o painel poder dizer a verdade em vez de prometer o que não fez.
+    avoidedTolls: Boolean(params.exclude),
   };
 }

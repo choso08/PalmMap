@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { clearRecents } from '../services/recents';
 import { clearMapCache } from '../services/tiles';
 import { OfflineMaps } from './OfflineMaps';
 import {
@@ -243,6 +244,71 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
             />
           </View>
 
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Avisar de radares</Text>
+              <Text style={styles.switchHint}>
+                Avisa antes dos radares fixos, dos de semáforo e do controlo de velocidade
+                média que estiverem no percurso, com o limite quando ele é conhecido.
+              </Text>
+            </View>
+            <Switch
+              value={settings.speedCameraAlerts}
+              onValueChange={(next) => update('speedCameraAlerts', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+          <Text style={styles.note}>
+            Vem do OpenStreetMap, e só apanha o que lá está marcado. Radares móveis não
+            aparecem em mapa nenhum — mudam de sítio todos os dias. Isto é uma ajuda, não
+            é uma garantia: quem conduz é quem tem de ver os sinais.
+          </Text>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Evitar portagens</Text>
+              <Text style={styles.switchHint}>
+                Procura um caminho sem autoestradas com portagem. Costuma dar mais tempo de
+                viagem.
+              </Text>
+            </View>
+            <Switch
+              value={settings.avoidTolls}
+              onValueChange={(next) => update('avoidTolls', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+          <Text style={styles.note}>
+            O servidor público de percursos pode não ter esta opção instalada. Quando não
+            tem, o percurso sai à mesma — e o painel diz que não foi possível evitá-las.
+            Não há forma aberta de saber quanto custa cada portagem, por isso o preço não
+            é mostrado.
+          </Text>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Poupar bateria a navegar</Text>
+              <Text style={styles.switchHint}>
+                Numa reta longa, lê a posição de quatro em quatro segundos em vez de todos
+                os segundos. Perto de uma manobra volta ao ritmo normal.
+              </Text>
+            </View>
+            <Switch
+              value={settings.batterySaver}
+              onValueChange={(next) => update('batterySaver', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+
+          <Text style={styles.sectionTitle}>Últimos destinos</Text>
+          <Text style={styles.sectionHint}>
+            Aparecem na pesquisa antes de se escrever, a seguir aos guardados.
+          </Text>
+          <Pressable style={styles.forgetRow} onPress={() => void clearRecents()}>
+            <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
+            <Text style={styles.clearText}>Esquecer os últimos destinos</Text>
+          </Pressable>
+
           <Text style={styles.sectionTitle}>Acerca</Text>
           <Text style={styles.about}>
             O PalmMap usa apenas serviços abertos e gratuitos, sem Google e sem chaves de
@@ -374,6 +440,14 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.textMuted,
       marginTop: 10,
       lineHeight: 17,
+    },
+    forgetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 13,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
     },
     switchRow: {
       flexDirection: 'row',

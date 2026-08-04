@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
+import { isSamePlace } from '../services/favourites';
 import { searchPlaces } from '../services/nominatim';
 import { useTheme } from '../settings';
 import type { Theme } from '../theme';
@@ -29,6 +30,8 @@ interface SearchBarProps {
   onOpenSettings: () => void;
   /** Sítios guardados, mostrados enquanto não se escreve nada. */
   favourites: Place[];
+  /** Últimos destinos, mostrados a seguir aos guardados. */
+  recents: Place[];
 }
 
 /**
@@ -42,6 +45,7 @@ export function SearchBar({
   onSelect,
   onOpenSettings,
   favourites,
+  recents,
   getBounds,
 }: SearchBarProps) {
   const theme = useTheme();
@@ -105,10 +109,22 @@ export function SearchBar({
     onSelect(place);
   };
 
-  // Sem nada escrito, a lista mostra os sítios guardados. É o que dá jeito
-  // quando não há rede: os favoritos estão no telemóvel e a pesquisa não.
-  const showingFavourites = query.trim().length === 0 && focused && favourites.length > 0;
-  const list = showingFavourites ? favourites : results;
+  // Sem nada escrito, a lista mostra os sítios guardados e depois os últimos
+  // destinos. É o que dá jeito quando não há rede: ambos estão no telemóvel e a
+  // pesquisa não. Um sítio que seja as duas coisas aparece só uma vez, como
+  // guardado — que é a marca mais forte das duas.
+  const parado = query.trim().length === 0 && focused;
+  const sugestoes = parado
+    ? [
+        ...favourites.map((place) => ({ place, guardado: true })),
+        ...recents
+          .filter((r) => !favourites.some((f) => isSamePlace(f, r)))
+          .map((place) => ({ place, guardado: false })),
+      ]
+    : results.map((place) => ({ place, guardado: false }));
+
+  const showingSuggestions = parado && sugestoes.length > 0;
+  const list = showingSuggestions || !parado ? sugestoes : [];
 
   return (
     <View style={styles.container}>
@@ -146,22 +162,28 @@ export function SearchBar({
         <FlatList
           style={styles.results}
           data={list}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <Pressable style={styles.result} onPress={() => handleSelect(item)}>
+          renderItem={({ item: { place, guardado } }) => (
+            <Pressable style={styles.result} onPress={() => handleSelect(place)}>
               <View style={styles.resultHeader}>
-                {showingFavourites ? (
-                  <MaterialCommunityIcons name="star" size={15} color={theme.poi} />
+                {parado ? (
+                  <MaterialCommunityIcons
+                    name={guardado ? 'star' : 'history'}
+                    size={15}
+                    color={guardado ? theme.poi : theme.textMuted}
+                  />
                 ) : null}
                 <Text style={styles.resultName} numberOfLines={1}>
-                  {item.name}
+                  {place.name}
                 </Text>
                 {/* O tipo de negócio, quando o OpenStreetMap o sabe. */}
-                {item.category ? <Text style={styles.resultCategory}>{item.category}</Text> : null}
+                {place.category ? (
+                  <Text style={styles.resultCategory}>{place.category}</Text>
+                ) : null}
               </View>
               <Text style={styles.resultAddress} numberOfLines={1}>
-                {item.address}
+                {place.address}
               </Text>
             </Pressable>
           )}

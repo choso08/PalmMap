@@ -62,6 +62,12 @@ export interface Settings {
   mapType: MapType;
   /** Quanto detalhe se pede à imagem de satélite. */
   satelliteDetail: SatelliteDetail;
+  /** Avisar de radares e controlos de velocidade durante a navegação. */
+  speedCameraAlerts: boolean;
+  /** Pedir ao OSRM um percurso que evite estradas com portagem. */
+  avoidTolls: boolean;
+  /** Ler o GPS menos vezes quando a manobra seguinte ainda vai longe. */
+  batterySaver: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -73,6 +79,9 @@ export const DEFAULT_SETTINGS: Settings = {
   cacheSize: 'medium',
   mapType: 'map',
   satelliteDetail: 'normal',
+  speedCameraAlerts: true,
+  avoidTolls: false,
+  batterySaver: true,
 };
 
 /**

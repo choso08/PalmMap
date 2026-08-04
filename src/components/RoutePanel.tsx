@@ -19,6 +19,8 @@ interface RoutePanelProps {
   onStart: () => void;
   favourite: boolean;
   onToggleFavourite: () => void;
+  /** Se a pessoa pediu para evitar portagens, nas definições. */
+  avoidTollsWanted: boolean;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -32,6 +34,7 @@ export function RoutePanel({
   onStart,
   favourite,
   onToggleFavourite,
+  avoidTollsWanted,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -108,6 +111,25 @@ export function RoutePanel({
               <Text style={styles.avisoTexto}>
                 O percurso começa a {formatDistance(route.startAwayMeters)} de si, na estrada
                 mais próxima. Esse bocado é a tracejado no mapa e fica por sua conta.
+              </Text>
+            </View>
+          ) : null}
+
+          {/*
+            Quando a definição de evitar portagens está ligada mas o servidor não
+            a soube cumprir, diz-se. Prometer um caminho sem portagens e mandar a
+            pessoa por uma autoestrada paga era o pior dos dois mundos.
+          */}
+          {avoidTollsWanted && !route.avoidedTolls ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons
+                name="cash-remove"
+                size={16}
+                color={theme.textMuted}
+              />
+              <Text style={styles.avisoTexto}>
+                Não foi possível evitar as portagens: o serviço público de percursos não
+                tem essa opção. Este caminho pode passar por autoestradas pagas.
               </Text>
             </View>
           ) : null}

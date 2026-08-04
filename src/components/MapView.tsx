@@ -20,6 +20,7 @@ import {
 } from 'react';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
+import { type SpeedCamera } from '../services/cameras';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
@@ -50,6 +51,13 @@ interface MapViewProps {
    * de relance — a conduzir não há tempo para procurar onde ia a linha.
    */
   progressIndex?: number;
+  /**
+   * Radares em cima do percurso, para se verem antes de se lá chegar.
+   *
+   * São só os do percurso: marcar todos os da zona enchia o mapa de pontos que
+   * não interessam a quem vai por outro lado.
+   */
+  cameras?: SpeedCamera[];
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -98,6 +106,7 @@ export function MapView({
   onTapEmpty,
   following,
   progressIndex = 0,
+  cameras = [],
   offlineRegions,
   labelsReady,
   ref,
@@ -323,6 +332,58 @@ export function MapView({
         Os negócios vão todos numa única camada, em vez de um componente por
         pino. Com dezenas de pinos, a diferença de fluidez é grande.
       */}
+      {/*
+        Os radares. Vão depois do percurso e antes dos negócios, para ficarem
+        por cima da linha e por baixo dos pinos em que se toca.
+      */}
+      {cameras.length > 0 ? (
+        <GeoJSONSource
+          id="cameras"
+          data={{
+            type: 'FeatureCollection',
+            features: cameras.map((camera) => ({
+              type: 'Feature',
+              properties: { limite: camera.maxspeed ? String(camera.maxspeed) : '' },
+              geometry: {
+                type: 'Point',
+                coordinates: [camera.coordinates.longitude, camera.coordinates.latitude],
+              },
+            })),
+          }}
+        >
+          <Layer
+            id="cameras-circle"
+            type="circle"
+            paint={{
+              'circle-radius': 7,
+              'circle-color': theme.danger,
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="cameras-label"
+              type="symbol"
+              minzoom={13}
+              layout={{
+                'text-field': ['get', 'limite'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 11,
+                'text-offset': [0, 1.3],
+                'text-anchor': 'top',
+                'text-allow-overlap': false,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.5,
+              }}
+            />
+          ) : null}
+        </GeoJSONSource>
+      ) : null}
+
       {places.length > 0 ? (
         <GeoJSONSource
           id="places"

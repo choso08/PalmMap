@@ -22,6 +22,9 @@ import { TransitSheet } from './src/components/TransitSheet';
 import {
   ANNOUNCE_AT_METERS,
   ARRIVAL_METERS,
+  BATTERY_SAVER_INTERVAL_MS,
+  BATTERY_SAVER_MIN_METERS,
+  CAMERA_WARN_METERS,
   CATEGORY_MIN_ZOOM,
   KEEP_AWAKE_TAG,
   MAP_PINS_DEBOUNCE_MS,
@@ -29,7 +32,14 @@ import {
   OFF_ROUTE_METERS,
   OFF_ROUTE_STRIKES,
 } from './src/services/config';
+import {
+  cameraIcon,
+  cameraLabel,
+  camerasAlongRoute,
+  type SpeedCamera,
+} from './src/services/cameras';
 import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
+import { loadRecents, rememberRecent } from './src/services/recents';
 import { getCurrentPosition, watchPosition, watchPositionIdle } from './src/services/location';
 import {
   installBundledAssets,
@@ -112,6 +122,28 @@ function PalmMap() {
 
   /** Sítios guardados, lidos do telemóvel ao arrancar. */
   const [favourites, setFavourites] = useState<Place[]>([]);
+  /** Últimos destinos, para não se ter de escrever a mesma morada outra vez. */
+  const [recents, setRecents] = useState<Place[]>([]);
+
+  /** Radares em cima do percurso, pela ordem por que se passa por eles. */
+  const [cameras, setCameras] = useState<SpeedCamera[]>([]);
+  /** O radar de que se está a avisar neste momento, se houver algum. */
+  const [cameraAhead, setCameraAhead] = useState<{
+    camera: SpeedCamera;
+    meters: number;
+  } | null>(null);
+  /** Radares já anunciados, para não repetir o mesmo a cada leitura do GPS. */
+  const warnedCameras = useRef(new Set<number>());
+
+  /**
+   * Verdadeiro quando a manobra seguinte ainda vai longe e se pode ler o GPS
+   * menos vezes.
+   *
+   * Mudar isto volta a subscrever o GPS, por isso não pode andar a saltar: as
+   * duas distâncias são de propósito diferentes, para não ficar a ligar e a
+   * desligar em cima do limite.
+   */
+  const [slowGps, setSlowGps] = useState(false);
 
   /** Navegação a decorrer: segue a posição e anuncia as manobras. */
   const [navigating, setNavigating] = useState(false);
@@ -184,6 +216,7 @@ function PalmMap() {
   // Sítios guardados, lidos uma vez ao arrancar.
   useEffect(() => {
     void loadFavourites().then(setFavourites);
+    void loadRecents().then(setRecents);
   }, []);
 
   // O mapa que vem dentro da aplicação e os tipos de letra têm de ser postos na
@@ -284,9 +317,17 @@ function PalmMap() {
 
     void (async () => {
       try {
-        const result = await getRoute(origem, destination.coordinates, settings.travelMode);
+        const result = await getRoute(
+          origem,
+          destination.coordinates,
+          settings.travelMode,
+          settings.avoidTolls,
+        );
         if (!cancelled) {
           setRoute(result);
+          // A lista de recentes só se toca quando o percurso sai mesmo: um
+          // destino que não deu caminho nenhum não é sítio nenhum.
+          void rememberRecent(destination).then(setRecents);
         }
       } catch (error) {
         if (!cancelled) {
@@ -311,7 +352,7 @@ function PalmMap() {
     // traça-se quando se escolhe o destino (ou quando chega a primeira posição),
     // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
     // navegação, que tem o seu próprio recálculo.
-  }, [destination, hasLocation, settings.travelMode, navigating]);
+  }, [destination, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
 
   /**
    * Procura negócios para mostrar no mapa.
@@ -450,6 +491,42 @@ function PalmMap() {
     };
   }, [navigating]);
 
+  /**
+   * Vai buscar os radares que ficam em cima do percurso.
+   *
+   * Faz-se uma vez por percurso e não durante a condução: é um pedido à
+   * Overpass, que é pesada, e os radares não mudam de sítio a meio da viagem.
+   *
+   * Falhar aqui não pode estragar nada — fica-se sem avisos e navega-se na
+   * mesma, que é muito melhor do que não haver percurso.
+   */
+  useEffect(() => {
+    warnedCameras.current.clear();
+    setCameraAhead(null);
+
+    if (!route || !settings.speedCameraAlerts) {
+      setCameras([]);
+      return;
+    }
+
+    let cancelled = false;
+    void camerasAlongRoute(route.coordinates)
+      .then((found) => {
+        if (!cancelled) {
+          setCameras(found);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCameras([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [route, settings.speedCameraAlerts]);
+
   /** Segue a posição enquanto a navegação decorre. */
   useEffect(() => {
     if (!navigating || !route || !destination) {
@@ -507,6 +584,7 @@ function PalmMap() {
                 position,
                 destination.coordinates,
                 settings.travelMode,
+                settings.avoidTolls,
               );
               setRoute(fresh);
               announced.current.clear();
@@ -530,6 +608,48 @@ function PalmMap() {
           ahead >= 0
             ? distanceAlong(route.coordinates, index, stepIndices[ahead])
             : remainingMeters;
+
+        // --- Radares -------------------------------------------------------
+        //
+        // O radar seguinte é o primeiro que ainda está à frente na linha. Como a
+        // lista já vem ordenada, basta encontrar o primeiro cujo ponto do
+        // percurso é maior do que aquele onde se está.
+        if (settings.speedCameraAlerts && cameras.length > 0) {
+          const seguinte = cameras.find((c) => c.routeIndex > index);
+
+          if (seguinte) {
+            const ate = distanceAlong(route.coordinates, index, seguinte.routeIndex);
+            setCameraAhead(ate <= CAMERA_WARN_METERS ? { camera: seguinte, meters: ate } : null);
+
+            if (ate <= CAMERA_WARN_METERS && !warnedCameras.current.has(seguinte.id)) {
+              warnedCameras.current.add(seguinte.id);
+              if (settings.voiceGuidance) {
+                const limite = seguinte.maxspeed
+                  ? `, limite ${seguinte.maxspeed}`
+                  : '';
+                speak(
+                  `Atenção: ${cameraLabel(seguinte)} a ${formatDistance(ate)}${limite}.`,
+                );
+              }
+            }
+          } else {
+            setCameraAhead(null);
+          }
+        }
+
+        // --- Poupança de bateria -------------------------------------------
+        //
+        // Numa reta longa não é preciso ler a posição a cada segundo: o que
+        // falta continua a acertar e a manobra seguinte está a quilómetros.
+        // Perto da manobra volta-se ao ritmo normal, porque é aí que a posição
+        // decide se o aviso de virar sai a tempo.
+        if (settings.batterySaver) {
+          if (toStep > BATTERY_SAVER_MIN_METERS && !slowGps) {
+            setSlowGps(true);
+          } else if (toStep < BATTERY_SAVER_MIN_METERS * 0.66 && slowGps) {
+            setSlowGps(false);
+          }
+        }
 
         setNextStep(step ?? null);
         setDistanceToStep(toStep);
@@ -559,7 +679,7 @@ function PalmMap() {
             }
           }
         }
-      });
+      }, settings.batterySaver && slowGps ? BATTERY_SAVER_INTERVAL_MS : 1000);
 
       if (cancelled) {
         stop();
@@ -573,7 +693,19 @@ function PalmMap() {
       stopWatching?.();
       stopSpeaking();
     };
-  }, [navigating, route, destination, stepIndices, settings.voiceGuidance, settings.travelMode]);
+  }, [
+    navigating,
+    route,
+    destination,
+    stepIndices,
+    cameras,
+    slowGps,
+    settings.voiceGuidance,
+    settings.travelMode,
+    settings.avoidTolls,
+    settings.speedCameraAlerts,
+    settings.batterySaver,
+  ]);
 
   /**
    * A área visível, para a pesquisa preferir o que está por perto.
@@ -746,6 +878,7 @@ function PalmMap() {
         onTapEmpty={handleTapEmpty}
         following={navigating}
         progressIndex={progressIndex}
+        cameras={cameras}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />
@@ -756,6 +889,7 @@ function PalmMap() {
           onSelect={handleSearchSelect}
           onOpenSettings={() => setSettingsVisible(true)}
           favourites={favourites}
+          recents={recents}
           getBounds={getMapBounds}
         />
 
@@ -820,6 +954,7 @@ function PalmMap() {
             onStart={handleStartNavigation}
             favourite={isFavourite(lastDestination)}
             onToggleFavourite={() => toggleFavourite(lastDestination)}
+            avoidTollsWanted={settings.avoidTolls}
           />
         </Reveal>
       ) : null}
@@ -924,6 +1059,16 @@ function PalmMap() {
           remainingMeters={remaining.meters}
           remainingSeconds={remaining.seconds}
           recalculating={recalculating}
+          camera={
+            cameraAhead
+              ? {
+                  label: cameraLabel(cameraAhead.camera),
+                  icon: cameraIcon(cameraAhead.camera.kind),
+                  maxspeed: cameraAhead.camera.maxspeed,
+                  meters: cameraAhead.meters,
+                }
+              : null
+          }
           onStop={handleStopNavigation}
         />
       ) : null}

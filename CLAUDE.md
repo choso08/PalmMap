@@ -287,7 +287,9 @@ uma das razões para o Android Auto ficar pausado.)
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
 │   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
+│   │   ├── cameras.ts      # Radares no percurso, por tipo
 │   │   ├── favourites.ts   # Sítios guardados no telemóvel
+│   │   ├── recents.ts      # Últimos destinos
 │   │   ├── location.ts     # Gere o GPS do telemóvel
 │   │   ├── nominatim.ts    # Pesquisa por nome
 │   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
@@ -385,6 +387,9 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
   | `voiceGuidance` | Ler as instruções em voz alta durante a navegação |
   | `mapType` | Mapa desenhado, imagem de satélite ou rede de transportes |
+  | `speedCameraAlerts` | Avisar de radares que estejam no percurso |
+  | `avoidTolls` | Pedir um caminho sem portagens |
+  | `batterySaver` | Ler o GPS menos vezes longe das manobras |
 
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
@@ -482,6 +487,51 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   `ARRIVALS_REFRESH_MS` (30 s), e sem pôr o indicador a rodar — senão o painel piscava.
 - **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
   isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
+
+### 6-C. Radares
+
+- Vêm do OpenStreetMap, pela Overpass (`src/services/cameras.ts`). Apanham-se **todos os
+  tipos que lá estão marcados**, e não só o radar fixo: `highway=speed_camera`, e ainda os
+  pontos com `enforcement=*`, que é o que traz o **controlo de velocidade média** e os
+  **radares de semáforo** — esses muitas vezes não têm a etiqueta `speed_camera`.
+- **Filtram-se os que não são deste caminho.** A consulta traz tudo o que está no retângulo
+  do percurso, incluindo radares da autoestrada que passa ao lado. Só entram os que ficam a
+  menos de `CAMERA_CORRIDOR_M` (40 m) da linha. Sem isto, ao fim de dois avisos falsos
+  ninguém liga ao aviso — e aí ele deixa de servir para o que serve.
+- Pede-se **uma vez por percurso**, nunca durante a condução: é a Overpass, que é pesada, e
+  os radares não mudam de sítio a meio da viagem. Falhar aqui não estraga nada — fica-se
+  sem avisos e navega-se na mesma.
+- Avisa-se a `CAMERA_WARN_METERS` (300 m), uma vez por radar, com o limite quando ele está
+  marcado. O ecrã mostra-o por **baixo** da manobra: o que manda é sempre para onde se vira.
+- **Dizer sempre o que isto não é.** Radares móveis não existem em mapa nenhum — mudam de
+  sítio todos os dias, e o Waze só os tem porque são as pessoas a marcá-los ao passar. E o
+  OpenStreetMap não está completo. Isto é uma ajuda, não é uma garantia. Está escrito no
+  ecrã de definições e deve continuar lá.
+
+### 6-D. Portagens
+
+- Liga-se com `avoidTolls`, que acrescenta `exclude=toll` ao pedido do OSRM. Só se aplica ao
+  perfil de carro.
+- **O servidor público pode não ter essa exclusão instalada.** Quando não tem, responde com
+  erro — e nesse caso pede-se outra vez sem ela, porque um percurso com portagens é melhor
+  do que percurso nenhum. O `Route.avoidedTolls` diz o que aconteceu mesmo, e o painel
+  avisa quando não foi possível. **Não prometer o que não se fez.**
+- **O preço de cada lanço não é possível.** Em Portugal não há fonte aberta com os preços
+  das portagens: a Infraestruturas de Portugal publica-os em PDF, por concessão e por classe
+  de veículo, e mudam todos os anos. O OpenStreetMap tem `toll=yes` mas não o valor. Isto
+  foi pedido e não foi feito por isso — está dito no ecrã de definições.
+
+### 6-E. Poupança de bateria
+
+- Numa reta longa lê-se o GPS de `BATTERY_SAVER_INTERVAL_MS` em `BATTERY_SAVER_INTERVAL_MS`
+  (4 s) em vez de todos os segundos. Perto da manobra volta-se ao ritmo normal, porque é aí
+  que a posição decide se o aviso sai a tempo.
+- **A precisão nunca desce.** Continua `BestForNavigation`: o que muda é de quanto em quanto
+  tempo se lê, não a qualidade da leitura. Baixar a precisão punha o Android a responder
+  pelas antenas, e aí a posição deixava de servir para navegar.
+- As duas distâncias que ligam e desligam isto são **de propósito diferentes**
+  (`BATTERY_SAVER_MIN_METERS` e dois terços dele). Mudar de ritmo volta a subscrever o GPS,
+  por isso não pode andar a saltar em cima do limite.
 
 ### 7. Offline — o que é permitido e o que não é
 

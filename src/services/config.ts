@@ -113,6 +113,42 @@ export const OFF_ROUTE_STRIKES = 8;
 /** Distância ao destino a partir da qual se considera que se chegou. */
 export const ARRIVAL_METERS = 35;
 
+/**
+ * A que distância da linha do percurso um radar ainda conta como sendo "deste
+ * caminho".
+ *
+ * A consulta traz tudo o que está no retângulo do percurso, incluindo radares de
+ * estradas paralelas e da autoestrada que passa ao lado. Avisar por causa desses
+ * é pior do que não avisar: ao fim de duas vezes ninguém liga ao aviso.
+ */
+export const CAMERA_CORRIDOR_M = 40;
+
+/**
+ * A que distância se avisa de um radar, em metros.
+ *
+ * Trezentos metros a 90 km/h são doze segundos — dá para ver o velocímetro e
+ * abrandar sem travar de repente.
+ */
+export const CAMERA_WARN_METERS = 300;
+
+/**
+ * Poupança de bateria: de quantos em quantos segundos se lê o GPS quando a
+ * manobra seguinte ainda vai longe.
+ *
+ * A cada segundo, o GPS é a coisa que mais gasta numa viagem longa. Numa reta de
+ * autoestrada, ler quatro vezes menos não muda nada do que se vê no ecrã — o que
+ * falta continua a acertar e a manobra seguinte está a dez quilómetros.
+ */
+export const BATTERY_SAVER_INTERVAL_MS = 4000;
+
+/**
+ * A partir de que distância à manobra seguinte se pode abrandar as leituras.
+ *
+ * Abaixo disto volta-se ao segundo a segundo, porque é aí que a posição tem de
+ * estar certa: é o que decide se o aviso de virar sai a tempo.
+ */
+export const BATTERY_SAVER_MIN_METERS = 1500;
+
 /** Distâncias a que se anuncia a próxima manobra, em metros. */
 export const ANNOUNCE_AT_METERS = [400, 80];
 

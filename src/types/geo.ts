@@ -82,4 +82,12 @@ export interface Route {
   startAwayMeters: number;
   /** Onde o percurso começa mesmo, já encostado à estrada. */
   startsAt: Coordinates | null;
+  /**
+   * Se este percurso foi mesmo calculado a evitar portagens.
+   *
+   * É diferente de a definição estar ligada: o servidor público do OSRM pode não
+   * ter essa exclusão instalada, e nesse caso pede-se outra vez sem ela. Sem
+   * isto, o painel prometia uma coisa que não tinha sido feita.
+   */
+  avoidedTolls: boolean;
 }
