@@ -3,7 +3,7 @@ import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 import { USER_AGENT } from './config';
 import { glyphsTemplate, localStyleSource, type OfflineRegion } from './offlineMap';
-import type { SatelliteDetail } from '../settings';
+import type { MapType, SatelliteDetail } from '../settings';
 import { buildVectorStyle, regionMinZoom } from './vectorStyle';
 
 /**
@@ -213,7 +213,13 @@ const DGT_ORTOS =
   '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
   '&LAYERS=ortoSat2023-CorVerdadeira&STYLES=' +
   '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
-  '&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&TRANSPARENT=false';
+  // 512 pixéis para um quadrado que se desenha a 256: cada tile chega com o
+  // dobro da resolução em cada lado, ou seja quatro vezes mais pixéis. Num ecrã
+  // de telemóvel, que já é de dois ou três pontos por pixel, a diferença vê-se.
+  //
+  // Isto é melhor do que pedir mais um nível de zoom: dá o mesmo detalhe com um
+  // quarto dos pedidos feitos a um serviço público.
+  '&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false';
 
 /**
  * Satélite com o detalhe das ortofotos onde as houver.
@@ -252,21 +258,52 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
 };
 
 /**
+ * A rede de transportes públicos: a ÖPNVKarte.
+ *
+ * Desenha os **percursos** dos autocarros, comboios, metros, elétricos e barcos,
+ * cada linha com a sua cor, mais as paragens e as estações. É feita a partir dos
+ * dados do OpenStreetMap e é uma das camadas oficiais do openstreetmap.org.
+ *
+ * É um mapa completo, e não uma camada por cima: traz a sua própria base, mais
+ * apagada de propósito, para os percursos se destacarem. É por isso que entra
+ * como um tipo de mapa e não como um interruptor.
+ *
+ * Sem chaves de API, com licença aberta — encaixa nas regras do projeto. **A
+ * atribuição é exigida pela licença** e tem de aparecer tal como está aqui.
+ *
+ * Uma ressalva honesta: mostra por onde as linhas passam, não a que horas
+ * passam. Horários a sério obrigariam a dados GTFS de cada operador, que não
+ * existem num sítio só nem de forma aberta em todo o lado.
+ */
+const TRANSIT_STYLE = rasterStyle(
+  ['https://tileserver.memomaps.de/tilegen/{z}/{x}/{y}.png'],
+  'Mapa memomaps.de CC-BY-SA · dados © OpenStreetMap',
+  // A ÖPNVKarte não desenha acima do 18. Pedir mais era pedir o que não há.
+  18,
+);
+
+/**
  * Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel.
  *
  * O `offline` é o mapa guardado que cobre a zona onde a pessoa está, se houver
  * algum. Quando há, ganha aos tiles da Internet: é mais rápido, não gasta dados
- * e continua a funcionar sem rede. A imagem de satélite é a única coisa que não
- * tem substituto guardado, por isso essa escolha manda sempre.
+ * e continua a funcionar sem rede.
+ *
+ * **O satélite e os transportes mandam sempre**, porque são os dois únicos que
+ * não têm substituto guardado: um é fotografia, o outro traz informação que o
+ * mapa vetorial não tem. Escolher um deles é escolher precisar de rede.
  */
 export function mapStyleFor(
   dark: boolean,
-  satellite: boolean,
+  mapType: MapType,
   offline?: OfflineRegion | null,
   satelliteDetail: SatelliteDetail = 'normal',
 ): StyleSpecification {
-  if (satellite) {
+  if (mapType === 'satellite') {
     return satelliteDetail === 'alta' ? SATELLITE_DETAILED_STYLE : SATELLITE_STYLE;
+  }
+  if (mapType === 'transit') {
+    return TRANSIT_STYLE;
   }
   if (offline) {
     // Ao afastar muito, o país guardado deixa de encher o ecrã e o resto ficava

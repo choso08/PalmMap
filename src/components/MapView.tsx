@@ -239,7 +239,7 @@ export function MapView({
     () =>
       mapStyleFor(
         theme.dark,
-        settings.mapType === 'satellite',
+        settings.mapType,
         offlineFailed ? null : offlineRegion,
         settings.satelliteDetail,
       ),

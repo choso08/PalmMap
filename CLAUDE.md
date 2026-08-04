@@ -382,7 +382,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | `cacheSize` | Tamanho do mapa guardado: 100 MB, 250 MB, 500 MB ou 1 GB |
   | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
   | `voiceGuidance` | Ler as instruções em voz alta durante a navegação |
-  | `mapType` | Mapa desenhado ou imagem de satélite |
+  | `mapType` | Mapa desenhado, imagem de satélite ou rede de transportes |
 
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
@@ -426,9 +426,33 @@ serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
   em vez de pedir tiles que não trazem mais nada. Vê-se a costa, a floresta, as roças e os
   terrenos abertos; não se veem casas uma a uma. **Satélite ao pormenor é produto pago em
   todo o lado**; não há alternativa livre, por isso não vale a pena procurar.
+- **Cada tile das ortofotos é pedido a 512 pixéis e desenhado num quadrado de 256.** Chega
+  com quatro vezes mais pixéis, o que num ecrã de telemóvel — que já é de dois ou três
+  pontos por pixel — se nota. É melhor do que pedir mais um nível de zoom: dá o mesmo
+  detalhe com um quarto dos pedidos feitos a um serviço público.
 - A imagem de satélite **não traz nomes nem estradas desenhadas** — é só fotografia. O
   percurso e os pinos continuam a aparecer, porque são camadas nossas. Um modo híbrido a
   sério (satélite com as ruas por cima) só é possível com o mapa vetorial.
+
+### 6-A. Transportes públicos
+
+- A fonte é a **ÖPNVKarte**, do memomaps.de: desenha os **percursos** dos autocarros,
+  comboios, metros, elétricos e barcos, cada linha com a sua cor, mais as paragens e as
+  estações. É feita a partir do OpenStreetMap e é uma das camadas oficiais do
+  openstreetmap.org. Sem chaves de API.
+- **Entra como um tipo de mapa, não como uma camada por cima.** A ÖPNVKarte traz a sua
+  própria base, de propósito mais apagada, para os percursos se destacarem — sobrepô-la ao
+  nosso mapa dava duas bases uma em cima da outra.
+- O botão do canto passou a **percorrer os três tipos** (`nextMapType`, em `settings.tsx`) e
+  mostra o ícone do **seguinte**, não o do atual. Como com três já não se adivinha ao que se
+  vai, aparece o nome durante um segundo e meio.
+- **A atribuição é exigida pela licença** (CC-BY-SA para o mapa, ODbL para os dados) e está
+  no `attribution` do estilo. Não a tirar.
+- **O que isto não é:** mostra por onde as linhas passam, não a que horas passam. Horários a
+  sério obrigariam a dados GTFS de cada operador, que não existem num sítio só nem de forma
+  aberta em todo o lado. Não prometer horários.
+- Precisa de rede, tal como o satélite — não há substituto guardado. Por isso estes dois
+  ganham sempre ao mapa offline em `mapStyleFor`.
 
 ### 7. Offline — o que é permitido e o que não é
 

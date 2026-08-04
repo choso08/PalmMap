@@ -35,8 +35,8 @@ export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 /** Quanto do mapa já visto se guarda no telemóvel. `off` desliga a cache. */
 export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 
-/** Mapa desenhado ou imagem de satélite. */
-export type MapType = 'map' | 'satellite';
+/** Mapa desenhado, imagem de satélite ou rede de transportes públicos. */
+export type MapType = 'map' | 'satellite' | 'transit';
 
 /**
  * Quanto detalhe se pede à imagem de satélite.
@@ -74,6 +74,24 @@ export const DEFAULT_SETTINGS: Settings = {
   mapType: 'map',
   satelliteDetail: 'normal',
 };
+
+/**
+ * Os tipos de mapa, pela ordem por que o botão os percorre.
+ *
+ * O botão mostra sempre o ícone do **seguinte**, não o do atual: é o que se vai
+ * buscar ao carregar.
+ */
+export const MAP_TYPES: { id: MapType; label: string; icon: string }[] = [
+  { id: 'map', label: 'Mapa', icon: 'map-outline' },
+  { id: 'satellite', label: 'Satélite', icon: 'satellite-variant' },
+  { id: 'transit', label: 'Transportes', icon: 'bus' },
+];
+
+/** O tipo de mapa a seguir a este, para o botão do canto. */
+export function nextMapType(current: MapType): MapType {
+  const i = MAP_TYPES.findIndex((t) => t.id === current);
+  return MAP_TYPES[(i + 1) % MAP_TYPES.length].id;
+}
 
 export const SATELLITE_DETAILS: { id: SatelliteDetail; label: string; icon: string }[] = [
   { id: 'normal', label: 'Normal', icon: 'earth' },

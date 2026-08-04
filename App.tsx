@@ -39,7 +39,15 @@ import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoute } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
-import { SettingsProvider, cacheMegabytesFor, useSettings, useTheme } from './src/settings';
+import {
+  MAP_TYPES,
+  SettingsProvider,
+  cacheMegabytesFor,
+  nextMapType,
+  useSettings,
+  useTheme,
+  type MapType,
+} from './src/settings';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
@@ -124,6 +132,35 @@ function PalmMap() {
    */
   const [hintVisible, setHintVisible] = useState(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * O nome do tipo de mapa, logo depois de se trocar.
+   *
+   * Com três tipos, o ícone sozinho já não chega para se perceber ao que se vai
+   * — sobretudo entre o mapa normal e o dos transportes, que à primeira vista
+   * são os dois mapas desenhados.
+   */
+  const [mapTypeLabel, setMapTypeLabel] = useState<string | null>(null);
+  const mapTypeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mostrarTipoDeMapa = useCallback((tipo: MapType) => {
+    setMapTypeLabel(MAP_TYPES.find((t) => t.id === tipo)?.label ?? null);
+    if (mapTypeTimer.current) {
+      clearTimeout(mapTypeTimer.current);
+    }
+    mapTypeTimer.current = setTimeout(() => setMapTypeLabel(null), 1800);
+  }, []);
+
+  // O contador tem de ser cancelado ao sair, senão mexia no estado depois de a
+  // aplicação já ter fechado o ecrã.
+  useEffect(
+    () => () => {
+      if (mapTypeTimer.current) {
+        clearTimeout(mapTypeTimer.current);
+      }
+    },
+    [],
+  );
 
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -763,18 +800,48 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {/* Trocar entre mapa desenhado e imagem de satélite. */}
+      {/*
+        Percorre os tipos de mapa: desenhado, satélite e transportes.
+
+        O ícone é o do **seguinte**, não o do atual — é o que se vai buscar ao
+        carregar. E aparece o nome durante uns segundos, porque com três já não
+        se adivinha ao que se vai.
+      */}
       {!navigating ? (
         <Pressable
-          style={[styles.layersButton, selectedPlace || destination ? styles.layersRaised : null]}
-          onPress={() => update('mapType', settings.mapType === 'map' ? 'satellite' : 'map')}
+          style={({ pressed }) => [
+            styles.layersButton,
+            selectedPlace || destination ? styles.layersRaised : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          onPress={() => {
+            const seguinte = nextMapType(settings.mapType);
+            update('mapType', seguinte);
+            mostrarTipoDeMapa(seguinte);
+          }}
         >
           <MaterialCommunityIcons
-            name={settings.mapType === 'satellite' ? 'map-outline' : 'satellite-variant'}
+            name={
+              (MAP_TYPES.find((t) => t.id === nextMapType(settings.mapType))?.icon ??
+                'map-outline') as never
+            }
             size={22}
             color={theme.accent}
           />
         </Pressable>
+      ) : null}
+
+      {!navigating ? (
+        <Reveal
+          style={[
+            styles.mapTypeLabel,
+            selectedPlace || destination ? styles.layersRaised : null,
+          ]}
+          visible={!!mapTypeLabel}
+          from={0}
+        >
+          <Text style={styles.mapTypeLabelText}>{mapTypeLabel}</Text>
+        </Reveal>
       ) : null}
 
       {/*
@@ -915,6 +982,21 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOpacity: 0.14,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
+    },
+    mapTypeLabel: {
+      position: 'absolute',
+      right: 76,
+      // À altura do botão dos tipos de mapa, para se ler ao lado do ícone.
+      bottom: insets.bottom + 104,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 10,
+      backgroundColor: theme.overlay,
+    },
+    mapTypeLabelText: {
+      color: theme.onOverlay,
+      fontSize: 13,
+      fontWeight: '600',
     },
     layersRaised: {
       bottom: insets.bottom + 322,
