@@ -27,9 +27,8 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
    não abrir, a aplicação recua sozinha para os tiles da Internet e parece que está tudo
    bem — uma avaria passa despercebida com rede.
 
-**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação, os anúncios de
-voz depois do filtro das manobras, e o detalhe alto do satélite (as ortofotos da
-Direção-Geral do Território, cujo nome de camada não foi possível verificar daqui).
+**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação e os anúncios
+de voz depois do filtro das manobras.
 
 ## Objetivo do projeto
 
@@ -928,6 +927,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   deitava fora a fonte toda, **sem dar erro nenhum**: o percurso desaparecia por completo
   do mapa. Daí as duas metades irem hoje em fontes separadas, cada uma só desenhada a
   partir de dois pontos. Ao mexer aqui, garantir sempre o mínimo de dois.
+- **Um serviço WMS pode ter mais do que uma camada, e a errada não dá erro.** As ortofotos
+  da Direção-Geral do Território publicam `-CorVerdadeira` e `-FalsaCor`. Pedir só
+  `ortoSat2023` devolvia a segunda: imagem nítida, bem posicionada, e **todo o campo a
+  vermelho vivo**, porque é infravermelho. Ao usar um WMS, ler os nomes das camadas em vez
+  de assumir que o nome do serviço chega.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

@@ -194,16 +194,24 @@ const SATELLITE_STYLE = rasterStyle(
  * serviço estiver em baixo ou mudar de endereço, o que aparece é a imagem de
  * sempre em vez de um ecrã vazio.
  *
- * **Por confirmar:** não foi possível contactar este serviço a partir do
- * ambiente de desenvolvimento, onde o acesso à Internet é limitado. Se o detalhe
- * não aparecer em Portugal, o mais provável é o nome da camada (`LAYERS`) estar
- * errado. Confirma-se abrindo no navegador o endereço com
- * `REQUEST=GetCapabilities` e lendo os nomes que ele devolve.
+ * São imagens do satélite Pléiades-Neo de 2023, de muito alta resolução,
+ * publicadas pela Direção-Geral do Território para todo o Portugal continental.
+ *
+ * **Atenção ao nome da camada.** Este serviço publica duas, e a diferença não é
+ * cosmética:
+ *
+ * - `ortoSat2023-CorVerdadeira` — as cores como o olho as vê. **É esta.**
+ * - `ortoSat2023-FalsaCor` — infravermelho próximo no lugar do vermelho. Serve
+ *   para estudar vegetação, e **põe todo o campo e todas as árvores a vermelho
+ *   vivo**. Foi o que aconteceu à primeira: pedir só `ortoSat2023` dava esta.
+ *
+ * O nome não pôde ser lido daqui — o ambiente de desenvolvimento não chega a
+ * este servidor. Saiu da documentação da própria Direção-Geral do Território.
  */
 const DGT_ORTOS =
   'https://ortos.dgterritorio.gov.pt/wms/ortosat2023' +
   '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
-  '&LAYERS=ortoSat2023&STYLES=' +
+  '&LAYERS=ortoSat2023-CorVerdadeira&STYLES=' +
   '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
   '&WIDTH=256&HEIGHT=256&FORMAT=image/jpeg&TRANSPARENT=false';
 
