@@ -282,6 +282,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
 │   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
+│   │   ├── MeasureSheet.tsx # Fita métrica: distâncias e áreas no mapa
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
@@ -543,6 +544,24 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
 - As duas distâncias que ligam e desligam isto são **de propósito diferentes**
   (`BATTERY_SAVER_MIN_METERS` e dois terços dele). Mudar de ritmo volta a subscrever o GPS,
   por isso não pode andar a saltar em cima do limite.
+
+### 6-F. Fita métrica
+
+- Liga-se no botão da régua, do lado esquerdo. Enquanto está ligada, **um toque no mapa põe
+  um ponto** em vez de mostrar a dica do toque longo — é a única coisa na aplicação que
+  muda o que um toque faz, daí o botão ficar pintado quando está ativo.
+- Dois pontos dão distância; três ou mais fecham a forma e dão também **área**.
+- **A área não se calcula em graus.** Um grau de longitude vale 111 km no equador e quase
+  nada perto dos polos. Projeta-se primeiro para metros à volta do centro da forma (a
+  longitude encolhe pelo cosseno da latitude) e só depois se aplica a fórmula do sapateiro
+  — ver `polygonAreaM2`, em `geometry.ts`.
+- A área sai em **m², hectares ou km²** conforme o tamanho. O hectare está lá de propósito:
+  é a unidade em que se fala de terrenos em Portugal.
+- **Dizer o que isto não é:** a precisão é a do mapa e a do dedo. Serve para ter uma ideia,
+  não para marcar uma estrema. Está escrito no painel.
+- O polígono e a linha só se desenham a partir de três e de dois pontos. É a mesma
+  armadilha do percurso: uma geometria sem pontos suficientes não é GeoJSON válido e leva a
+  fonte inteira atrás, sem dar erro.
 
 ### 7. Offline — o que é permitido e o que não é
 

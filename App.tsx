@@ -17,6 +17,7 @@ import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { Reveal } from './src/components/Reveal';
+import { MeasureSheet } from './src/components/MeasureSheet';
 import { StepsList } from './src/components/StepsList';
 import { TransitSheet } from './src/components/TransitSheet';
 import {
@@ -93,6 +94,13 @@ function PalmMap() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   /** Painel das paragens e horas de passagem. */
   const [transitVisible, setTransitVisible] = useState(false);
+  /**
+   * Fita métrica: quando está ligada, cada toque no mapa põe um ponto em vez de
+   * mostrar a dica. É a única coisa que muda o que um toque faz, por isso vale a
+   * pena que se note bem que está ligada.
+   */
+  const [measuring, setMeasuring] = useState(false);
+  const [measurePoints, setMeasurePoints] = useState<Coordinates[]>([]);
   /** As paragens que o painel encontrou, para o mapa as marcar. */
   const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
@@ -719,13 +727,29 @@ function PalmMap() {
    */
   const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
 
-  const handleTapEmpty = useCallback(() => {
+  const handleTapEmpty = useCallback((coordinates: Coordinates) => {
+    // Com a fita métrica ligada, o toque põe um ponto e mais nada.
+    if (measuringRef.current) {
+      setMeasurePoints((atuais) => [...atuais, coordinates]);
+      return;
+    }
+
     setHintVisible(true);
     if (hintTimer.current) {
       clearTimeout(hintTimer.current);
     }
     hintTimer.current = setTimeout(() => setHintVisible(false), 3500);
   }, []);
+
+  /**
+   * A fita métrica lida de uma `ref` e não do estado.
+   *
+   * Se `handleTapEmpty` dependesse de `measuring`, mudava de identidade sempre
+   * que se ligasse ou desligasse — e o `MapView` voltava a desenhar-se por
+   * causa disso.
+   */
+  const measuringRef = useRef(false);
+  measuringRef.current = measuring;
 
   // Sem isto, sair do ecrã com a dica a contar deixava um temporizador solto.
   useEffect(() => () => {
@@ -885,6 +909,7 @@ function PalmMap() {
         following={navigating}
         progressIndex={progressIndex}
         cameras={cameras}
+        measurePoints={measuring ? measurePoints : []}
         transitStops={transitVisible ? transitStops : []}
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
@@ -966,6 +991,45 @@ function PalmMap() {
             avoidTollsWanted={settings.avoidTolls}
             travelMode={settings.travelMode}
             onChangeTravelMode={(mode) => update('travelMode', mode)}
+          />
+        </Reveal>
+      ) : null}
+
+      {/*
+        A fita métrica. Fica à esquerda de propósito: o lado direito já tem três
+        botões empilhados, e este liga um modo em vez de fazer uma coisa — vale a
+        pena estar noutro sítio.
+      */}
+      {!navigating ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.measureButton,
+            measuring ? styles.measureButtonOn : null,
+            pressed ? styles.buttonPressed : null,
+          ]}
+          onPress={() => {
+            setMeasuring((atual) => !atual);
+            setMeasurePoints([]);
+          }}
+        >
+          <MaterialCommunityIcons
+            name="ruler"
+            size={22}
+            color={measuring ? theme.onAccent : theme.accent}
+          />
+        </Pressable>
+      ) : null}
+
+      {measuring ? (
+        <Reveal style={styles.bottom}>
+          <MeasureSheet
+            points={measurePoints}
+            onUndo={() => setMeasurePoints((atuais) => atuais.slice(0, -1))}
+            onClear={() => setMeasurePoints([])}
+            onClose={() => {
+              setMeasuring(false);
+              setMeasurePoints([]);
+            }}
           />
         </Reveal>
       ) : null}
@@ -1201,6 +1265,25 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOpacity: 0.14,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
+    },
+    measureButton: {
+      position: 'absolute',
+      left: 16,
+      bottom: insets.bottom + 28,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    measureButtonOn: {
+      backgroundColor: theme.accent,
     },
     transitButton: {
       position: 'absolute',

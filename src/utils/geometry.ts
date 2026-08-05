@@ -83,3 +83,51 @@ export function nearestIndex(routeCoordinates: Coordinates[], target: Coordinate
 
   return index;
 }
+
+/**
+ * Área de um polígono desenhado no mapa, em metros quadrados.
+ *
+ * Serve a fita métrica: três ou mais pontos fecham uma forma, e a área é o que
+ * interessa a quem está a medir um terreno ou um telhado.
+ *
+ * **Como se faz.** A fórmula do sapateiro (shoelace) só funciona em coordenadas
+ * planas, e latitude e longitude não o são: um grau de longitude vale 111 km no
+ * equador e quase nada perto dos polos. Por isso projeta-se primeiro para metros
+ * à volta do centro da forma — a longitude encolhe pelo cosseno da latitude. Num
+ * terreno, ou mesmo num bairro, o erro dessa aproximação é desprezável.
+ *
+ * O polígono fecha-se sozinho: não é preciso repetir o primeiro ponto no fim.
+ */
+export function polygonAreaM2(points: Coordinates[]): number {
+  if (points.length < 3) {
+    return 0;
+  }
+
+  const latMedia =
+    points.reduce((soma, p) => soma + p.latitude, 0) / points.length;
+  const metrosPorGrauLat = (Math.PI / 180) * EARTH_RADIUS_M;
+  const metrosPorGrauLon = metrosPorGrauLat * Math.cos(toRadians(latMedia));
+
+  const planos = points.map((p) => ({
+    x: p.longitude * metrosPorGrauLon,
+    y: p.latitude * metrosPorGrauLat,
+  }));
+
+  let soma = 0;
+  for (let i = 0; i < planos.length; i += 1) {
+    const a = planos[i];
+    const b = planos[(i + 1) % planos.length];
+    soma += a.x * b.y - b.x * a.y;
+  }
+
+  return Math.abs(soma) / 2;
+}
+
+/** Comprimento total de uma linha desenhada ponto a ponto, em metros. */
+export function pathLengthMeters(points: Coordinates[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    total += distanceMeters(points[i - 1], points[i]);
+  }
+  return total;
+}

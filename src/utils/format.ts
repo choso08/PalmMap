@@ -28,3 +28,23 @@ export function formatDuration(seconds: number): string {
   }
   return `${hours} h ${minutes} min`;
 }
+
+/**
+ * Área em texto: 340 m², 1,2 ha, 4,5 km².
+ *
+ * O hectare entra de propósito no meio: é a unidade em que se fala de terrenos
+ * em Portugal, e "12 000 m²" não diz nada a ninguém que compre terra.
+ */
+export function formatArea(squareMeters: number): string {
+  if (squareMeters < 10000) {
+    return `${Math.round(squareMeters)} m²`;
+  }
+
+  if (squareMeters < 1000000) {
+    const ha = squareMeters / 10000;
+    return `${(ha < 10 ? ha.toFixed(2) : ha.toFixed(1)).replace('.', ',')} ha`;
+  }
+
+  const km2 = squareMeters / 1000000;
+  return `${(km2 < 10 ? km2.toFixed(2) : km2.toFixed(1)).replace('.', ',')} km²`;
+}

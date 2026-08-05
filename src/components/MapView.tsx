@@ -41,8 +41,15 @@ interface MapViewProps {
   droppedPin: Coordinates | null;
   /** Chamado num toque longo em qualquer ponto do mapa. */
   onDropPin: (coordinates: Coordinates) => void;
-  /** Chamado num toque simples no mapa, fora de qualquer pino. */
-  onTapEmpty: () => void;
+  /**
+   * Chamado num toque simples no mapa, fora de qualquer pino.
+   *
+   * Leva as coordenadas porque a fita métrica precisa delas — para os outros
+   * usos basta saber que houve um toque.
+   */
+  onTapEmpty: (coordinates: Coordinates) => void;
+  /** Pontos da fita métrica, pela ordem em que foram postos. */
+  measurePoints?: Coordinates[];
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
   /**
@@ -114,6 +121,7 @@ export function MapView({
   following,
   progressIndex = 0,
   cameras = [],
+  measurePoints = [],
   transitStops = [],
   selectedStopId = null,
   onStopPress,
@@ -279,7 +287,10 @@ export function MapView({
       compassPosition={{ bottom: 24, left: 16 }}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
-      onPress={onTapEmpty}
+      onPress={(event) => {
+        const [longitude, latitude] = event.nativeEvent.lngLat;
+        onTapEmpty({ latitude, longitude });
+      }}
       onLongPress={handleLongPress}
     >
       <Camera
@@ -342,6 +353,90 @@ export function MapView({
         Os negócios vão todos numa única camada, em vez de um componente por
         pino. Com dezenas de pinos, a diferença de fluidez é grande.
       */}
+      {/*
+        A fita métrica.
+
+        A forma fechada só se desenha a partir de três pontos, que é quando passa
+        a existir área. A linha precisa de dois — e com menos do que isso não se
+        desenha nada, porque uma linha sem pontos suficientes não é GeoJSON
+        válido e leva a fonte inteira atrás. Já aconteceu com o percurso.
+      */}
+      {measurePoints.length >= 3 ? (
+        <GeoJSONSource
+          id="medida-area"
+          data={{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'Polygon',
+              coordinates: [
+                [
+                  ...measurePoints.map((p) => [p.longitude, p.latitude]),
+                  // O GeoJSON exige que um polígono feche no ponto de partida.
+                  [measurePoints[0].longitude, measurePoints[0].latitude],
+                ],
+              ],
+            },
+          }}
+        >
+          <Layer
+            id="medida-area-fill"
+            type="fill"
+            paint={{ 'fill-color': theme.accent, 'fill-opacity': 0.15 }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
+      {measurePoints.length >= 2 ? (
+        <GeoJSONSource
+          id="medida-linha"
+          data={{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: measurePoints.map((p) => [p.longitude, p.latitude]),
+            },
+          }}
+        >
+          <Layer
+            id="medida-linha-line"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': theme.accent,
+              'line-width': 3,
+              'line-dasharray': [2, 1.4],
+            }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
+      {measurePoints.length > 0 ? (
+        <GeoJSONSource
+          id="medida-pontos"
+          data={{
+            type: 'FeatureCollection',
+            features: measurePoints.map((p, i) => ({
+              type: 'Feature',
+              properties: { ordem: String(i + 1) },
+              geometry: { type: 'Point', coordinates: [p.longitude, p.latitude] },
+            })),
+          }}
+        >
+          <Layer
+            id="medida-pontos-circle"
+            type="circle"
+            paint={{
+              'circle-radius': 6,
+              'circle-color': theme.surface,
+              'circle-stroke-width': 3,
+              'circle-stroke-color': theme.accent,
+            }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
       {/*
         As paragens de transporte, enquanto o painel delas está aberto.
 
