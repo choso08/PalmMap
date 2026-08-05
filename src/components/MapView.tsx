@@ -26,6 +26,8 @@ import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
+import { formatDistance } from '../utils/format';
+import { distanceMeters } from '../utils/geometry';
 
 interface MapViewProps {
   userLocation: Coordinates | null;
@@ -407,6 +409,53 @@ export function MapView({
               'line-color': theme.accent,
               'line-width': 3,
               'line-dasharray': [2, 1.4],
+            }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        A medida de cada troço, escrita a meio dele — como no Google Earth.
+
+        Sem isto via-se o total no painel mas não se sabia quanto valia cada
+        bocado, que é metade da utilidade de medir por partes.
+      */}
+      {measurePoints.length >= 2 && labelsReady ? (
+        <GeoJSONSource
+          id="medida-troços"
+          data={{
+            type: 'FeatureCollection',
+            features: measurePoints.slice(1).map((p, i) => {
+              const anterior = measurePoints[i];
+              return {
+                type: 'Feature',
+                properties: {
+                  medida: formatDistance(distanceMeters(anterior, p)),
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: [
+                    (anterior.longitude + p.longitude) / 2,
+                    (anterior.latitude + p.latitude) / 2,
+                  ],
+                },
+              };
+            }),
+          }}
+        >
+          <Layer
+            id="medida-troços-label"
+            type="symbol"
+            layout={{
+              'text-field': ['get', 'medida'],
+              'text-font': ['Noto Sans Medium'],
+              'text-size': 12,
+              'text-allow-overlap': true,
+            }}
+            paint={{
+              'text-color': theme.accent,
+              'text-halo-color': theme.surface,
+              'text-halo-width': 2,
             }}
           />
         </GeoJSONSource>

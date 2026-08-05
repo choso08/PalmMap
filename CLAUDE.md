@@ -551,6 +551,9 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   um ponto** em vez de mostrar a dica do toque longo — é a única coisa na aplicação que
   muda o que um toque faz, daí o botão ficar pintado quando está ativo.
 - Dois pontos dão distância; três ou mais fecham a forma e dão também **área**.
+- **Cada troço leva a sua medida escrita a meio dele**, como no Google Earth. Sem isso via-se
+  o total no painel mas não se sabia quanto valia cada bocado — que é metade da utilidade de
+  medir por partes. Precisa dos glifos (`labelsReady`), como qualquer camada de texto.
 - **A área não se calcula em graus.** Um grau de longitude vale 111 km no equador e quase
   nada perto dos polos. Projeta-se primeiro para metros à volta do centro da forma (a
   longitude encolhe pelo cosseno da latitude) e só depois se aplica a fórmula do sapateiro
