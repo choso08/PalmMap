@@ -7,10 +7,15 @@ import { useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates } from '../types/geo';
 import { formatArea, formatDistance } from '../utils/format';
-import { pathLengthMeters, polygonAreaM2 } from '../utils/geometry';
+import { pathLengthMeters, perimeterMeters, polygonAreaM2 } from '../utils/geometry';
+
+/** Medir ao longo de uma linha, ou medir uma forma fechada. */
+export type MeasureMode = 'linha' | 'area';
 
 interface MeasureSheetProps {
   points: Coordinates[];
+  mode: MeasureMode;
+  onChangeMode: (mode: MeasureMode) => void;
   onUndo: () => void;
   onClear: () => void;
   onClose: () => void;
@@ -27,13 +32,24 @@ interface MeasureSheetProps {
  * um zoom normal, vale alguns metros. Serve para ter uma ideia, não para marcar
  * uma estrema. Isso está dito no painel, para ninguém se enganar.
  */
-export function MeasureSheet({ points, onUndo, onClear, onClose }: MeasureSheetProps) {
+export function MeasureSheet({
+  points,
+  mode,
+  onChangeMode,
+  onUndo,
+  onClear,
+  onClose,
+}: MeasureSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
   const comprimento = useMemo(() => pathLengthMeters(points), [points]);
+  const perimetro = useMemo(() => perimeterMeters(points), [points]);
   const area = useMemo(() => polygonAreaM2(points), [points]);
+
+  /** A forma só existe a partir de três pontos. */
+  const fechada = mode === 'area' && points.length >= 3;
 
   return (
     <View style={styles.container}>
@@ -47,7 +63,9 @@ export function MeasureSheet({ points, onUndo, onClear, onClose }: MeasureSheetP
               ? 'Toque no mapa para pôr o primeiro ponto.'
               : points.length === 1
                 ? 'Toque outra vez para medir até lá.'
-                : `${points.length} pontos`}
+                : mode === 'area' && points.length === 2
+                  ? 'Falta um ponto para fechar a forma.'
+                  : `${points.length} pontos`}
           </Text>
         </View>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
@@ -55,21 +73,47 @@ export function MeasureSheet({ points, onUndo, onClear, onClose }: MeasureSheetP
         </Pressable>
       </View>
 
+      {/*
+        Linha ou área, como no Google Earth — e pela mesma razão: medir o caminho
+        de casa ao trabalho e medir um terreno são duas coisas diferentes, e a
+        primeira não se fecha. Fechar sozinho dava um número errado a quem estava
+        só a medir um percurso.
+      */}
+      <View style={styles.modos}>
+        {(['linha', 'area'] as const).map((m) => {
+          const ativo = m === mode;
+          return (
+            <Pressable
+              key={m}
+              style={[styles.modo, ativo ? styles.modoAtivo : null]}
+              onPress={() => onChangeMode(m)}
+            >
+              <MaterialCommunityIcons
+                name={m === 'linha' ? 'vector-polyline' : 'vector-square'}
+                size={17}
+                color={ativo ? theme.onAccent : theme.textMuted}
+              />
+              <Text style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}>
+                {m === 'linha' ? 'Distância' : 'Área'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.medidas}>
         <View style={styles.medida}>
           <Text style={styles.valor}>
-            {points.length >= 2 ? formatDistance(comprimento) : '—'}
+            {points.length >= 2 ? formatDistance(fechada ? perimetro : comprimento) : '—'}
           </Text>
-          <Text style={styles.etiqueta}>
-            {points.length > 2 ? 'perímetro aberto' : 'distância'}
-          </Text>
+          <Text style={styles.etiqueta}>{fechada ? 'perímetro' : 'distância'}</Text>
         </View>
 
         {/*
-          A área só aparece a partir de três pontos, porque é aí que passa a
-          existir. Com dois, mostrar "0 m²" era só ruído.
+          A área só existe a partir de três pontos. Com dois, mostrar "0 m²" era
+          só ruído.
         */}
-        {points.length >= 3 ? (
+        {fechada ? (
           <>
             <View style={styles.separador} />
             <View style={styles.medida}>
@@ -154,6 +198,35 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       padding: 4,
       borderRadius: 18,
       backgroundColor: theme.surfaceMuted,
+    },
+    modos: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 16,
+    },
+    modo: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 9,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    modoAtivo: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    modoTexto: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
+    },
+    modoTextoAtivo: {
+      color: theme.onAccent,
     },
     medidas: {
       flexDirection: 'row',

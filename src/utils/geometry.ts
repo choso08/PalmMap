@@ -131,3 +131,18 @@ export function pathLengthMeters(points: Coordinates[]): number {
   }
   return total;
 }
+
+/**
+ * Perímetro de uma forma fechada, em metros.
+ *
+ * **Não é o mesmo que o comprimento da linha.** Marcar os quatro cantos de um
+ * terreno dá quatro pontos e três troços desenhados; o quarto lado — o que volta
+ * ao princípio — existe na área mas não na linha. Sem o somar aqui, a aplicação
+ * dava a área certa e um perímetro a menos um lado.
+ */
+export function perimeterMeters(points: Coordinates[]): number {
+  if (points.length < 3) {
+    return pathLengthMeters(points);
+  }
+  return pathLengthMeters(points) + distanceMeters(points[points.length - 1], points[0]);
+}

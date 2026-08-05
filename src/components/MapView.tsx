@@ -52,6 +52,8 @@ interface MapViewProps {
   onTapEmpty: (coordinates: Coordinates) => void;
   /** Pontos da fita métrica, pela ordem em que foram postos. */
   measurePoints?: Coordinates[];
+  /** Se a fita está a medir uma forma fechada em vez de uma linha. */
+  measureClosed?: boolean;
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
   /**
@@ -124,6 +126,7 @@ export function MapView({
   progressIndex = 0,
   cameras = [],
   measurePoints = [],
+  measureClosed = false,
   transitStops = [],
   selectedStopId = null,
   onStopPress,
@@ -155,6 +158,30 @@ export function MapView({
    * As duas metades do percurso, em [longitude, latitude] — que é a ordem que o
    * GeoJSON quer. Sobrepõem-se num ponto, senão ficava uma falha entre elas.
    */
+  /**
+   * Os pontos da fita, já com o regresso ao princípio quando se está a medir uma
+   * área. Sem isto, a forma aparecia sombreada com um dos lados por desenhar — e
+   * o perímetro que o painel mostra não batia certo com o que se via.
+   */
+  const measureLine = useMemo(() => {
+    const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
+    const linha = measurePoints.map(par);
+    if (measureClosed && measurePoints.length >= 3) {
+      linha.push(par(measurePoints[0]));
+    }
+    return linha;
+  }, [measurePoints, measureClosed]);
+
+  /** Os troços a medir, já a contar com o que fecha a forma. */
+  const measureSegments = useMemo(() => {
+    const pontos =
+      measureClosed && measurePoints.length >= 3
+        ? [...measurePoints, measurePoints[0]]
+        : measurePoints;
+
+    return pontos.slice(1).map((p, i) => ({ de: pontos[i], ate: p }));
+  }, [measurePoints, measureClosed]);
+
   const { andadoLine, faltaLine } = useMemo(() => {
     const pontos = route?.coordinates ?? [];
     const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
@@ -363,7 +390,7 @@ export function MapView({
         desenha nada, porque uma linha sem pontos suficientes não é GeoJSON
         válido e leva a fonte inteira atrás. Já aconteceu com o percurso.
       */}
-      {measurePoints.length >= 3 ? (
+      {measureClosed && measurePoints.length >= 3 ? (
         <GeoJSONSource
           id="medida-area"
           data={{
@@ -389,16 +416,13 @@ export function MapView({
         </GeoJSONSource>
       ) : null}
 
-      {measurePoints.length >= 2 ? (
+      {measureLine.length >= 2 ? (
         <GeoJSONSource
           id="medida-linha"
           data={{
             type: 'Feature',
             properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: measurePoints.map((p) => [p.longitude, p.latitude]),
-            },
+            geometry: { type: 'LineString', coordinates: measureLine },
           }}
         >
           <Layer
@@ -420,27 +444,22 @@ export function MapView({
         Sem isto via-se o total no painel mas não se sabia quanto valia cada
         bocado, que é metade da utilidade de medir por partes.
       */}
-      {measurePoints.length >= 2 && labelsReady ? (
+      {measureSegments.length > 0 && labelsReady ? (
         <GeoJSONSource
           id="medida-troços"
           data={{
             type: 'FeatureCollection',
-            features: measurePoints.slice(1).map((p, i) => {
-              const anterior = measurePoints[i];
-              return {
-                type: 'Feature',
-                properties: {
-                  medida: formatDistance(distanceMeters(anterior, p)),
-                },
-                geometry: {
-                  type: 'Point',
-                  coordinates: [
-                    (anterior.longitude + p.longitude) / 2,
-                    (anterior.latitude + p.latitude) / 2,
-                  ],
-                },
-              };
-            }),
+            features: measureSegments.map(({ de, ate }) => ({
+              type: 'Feature',
+              properties: { medida: formatDistance(distanceMeters(de, ate)) },
+              geometry: {
+                type: 'Point',
+                coordinates: [
+                  (de.longitude + ate.longitude) / 2,
+                  (de.latitude + ate.latitude) / 2,
+                ],
+              },
+            })),
           }}
         >
           <Layer

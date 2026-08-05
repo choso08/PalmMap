@@ -17,7 +17,7 @@ import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
 import { Reveal } from './src/components/Reveal';
-import { MeasureSheet } from './src/components/MeasureSheet';
+import { MeasureSheet, type MeasureMode } from './src/components/MeasureSheet';
 import { StepsList } from './src/components/StepsList';
 import { TransitSheet } from './src/components/TransitSheet';
 import {
@@ -101,6 +101,13 @@ function PalmMap() {
    */
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<Coordinates[]>([]);
+  /**
+   * Medir ao longo de uma linha ou medir uma forma fechada.
+   *
+   * São duas coisas diferentes: o caminho de casa ao trabalho não se fecha, e
+   * fechá-lo sozinho dava um número errado a quem só queria a distância.
+   */
+  const [measureMode, setMeasureMode] = useState<MeasureMode>('linha');
   /** As paragens que o painel encontrou, para o mapa as marcar. */
   const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
@@ -910,6 +917,7 @@ function PalmMap() {
         progressIndex={progressIndex}
         cameras={cameras}
         measurePoints={measuring ? measurePoints : []}
+        measureClosed={measureMode === 'area'}
         transitStops={transitVisible ? transitStops : []}
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
@@ -1024,6 +1032,8 @@ function PalmMap() {
         <Reveal style={styles.bottom}>
           <MeasureSheet
             points={measurePoints}
+            mode={measureMode}
+            onChangeMode={setMeasureMode}
             onUndo={() => setMeasurePoints((atuais) => atuais.slice(0, -1))}
             onClear={() => setMeasurePoints([])}
             onClose={() => {

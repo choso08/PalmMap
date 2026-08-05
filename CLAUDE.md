@@ -550,7 +550,12 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
 - Liga-se no botão da régua, do lado esquerdo. Enquanto está ligada, **um toque no mapa põe
   um ponto** em vez de mostrar a dica do toque longo — é a única coisa na aplicação que
   muda o que um toque faz, daí o botão ficar pintado quando está ativo.
-- Dois pontos dão distância; três ou mais fecham a forma e dão também **área**.
+- Tem **dois modos**, como o Google Earth: *Distância* mede ao longo de uma linha aberta;
+  *Área* fecha a forma e dá **perímetro e área**. São coisas diferentes — o caminho de casa
+  ao trabalho não se fecha, e fechá-lo sozinho dava um número errado.
+- **O perímetro não é o comprimento da linha.** Marcar os quatro cantos de um terreno dá
+  quatro pontos e três troços desenhados; o quarto lado só existe ao fechar. A primeira
+  versão mostrava a área certa e um perímetro a menos um lado — ver `perimeterMeters`.
 - **Cada troço leva a sua medida escrita a meio dele**, como no Google Earth. Sem isso via-se
   o total no painel mas não se sabia quanto valia cada bocado — que é metade da utilidade de
   medir por partes. Precisa dos glifos (`labelsReady`), como qualquer camada de texto.
