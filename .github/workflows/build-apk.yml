@@ -35,8 +35,15 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      # Cada compilação fica com um número de versão próprio. Sem isto todas
-      # saíam com versionCode 1, e o Android não as distingue umas das outras.
+      # A versão sai daqui, não da mão de ninguém.
+      #
+      # O `app.json` guarda só a parte com significado — o 7.0 de "versão 7" —
+      # e o último número é o da compilação. Assim **nunca há duas com a mesma
+      # versão**, aconteça o que acontecer: já houve cinco seguidas todas a
+      # dizerem o mesmo, porque dependia de eu me lembrar de mexer no ficheiro.
+      #
+      # O `versionCode` é a mesma coisa para o Android: sem um número novo, ele
+      # recusa-se a instalar por cima de uma versão anterior.
       - name: Numerar esta versão
         env:
           RUN_NUMBER: ${{ github.run_number }}
@@ -44,8 +51,11 @@ jobs:
           node -e "
             const fs = require('fs');
             const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            const [maior, menor] = String(app.expo.version).split('.');
+            app.expo.version = maior + '.' + menor + '.' + process.env.RUN_NUMBER;
             app.expo.android.versionCode = Number(process.env.RUN_NUMBER);
             fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
+            console.log('Versão desta compilação: ' + app.expo.version);
           "
 
       # A pasta android/ não está no repositório — é o Expo que a gera.
@@ -134,5 +144,5 @@ jobs:
           } > NOTAS.md
 
           gh release create "apk-${{ github.run_number }}" PalmMap.apk \
-            --title "PalmMap $VERSAO — APK ${{ github.run_number }}" \
+            --title "PalmMap $VERSAO" \
             --notes-file NOTAS.md

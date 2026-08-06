@@ -16,7 +16,8 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
 
 **Três coisas a saber antes de mexer:**
 
-1. **A última compilação é a APK 12, versão 6.6.0.** O autor pediu: **compilar só quando
+1. **A versão sai sozinha do número da compilação** (`7.0.<nº>`) — ver "Instalar no
+   telemóvel". O autor pediu: **compilar só quando
    ele disser.** Não lançar o workflow sem pedido.
 2. **Os mapas estão publicados na etiqueta `mapas`**: Portugal continental, Madeira,
    Açores, São Tomé e Príncipe, Cabo Verde, Guiné-Bissau, Espanha, França (por gerar),
@@ -232,8 +233,14 @@ atual. Incluir as quatro arquiteturas triplicava o tamanho sem proveito nenhum, 
 ficheiro enorme é mais fácil de chegar truncado — que é o que dá o erro "ocorreu um
 problema ao analisar o pacote" ao instalar.
 
-Cada compilação recebe um `versionCode` próprio, tirado do número da execução do workflow.
-Sem isso, o Android recusa-se a instalar por cima de uma versão com o mesmo número.
+**A versão sai da compilação, não da mão de ninguém.** O `app.json` guarda só a parte com
+significado — o `7.0` de "versão 7" — e o workflow acrescenta-lhe o número da execução.
+A APK 12 fica `7.0.12`, a seguinte `7.0.13`, e **nunca há duas com a mesma versão**. Antes
+dependia de alguém se lembrar de mexer no ficheiro, e chegaram a sair cinco compilações
+seguidas todas a dizerem o mesmo. Ao mexer no `app.json`, mexer só no `7.0`.
+
+O mesmo número serve de `versionCode`. Sem um número novo, o Android recusa-se a instalar
+por cima de uma versão anterior.
 
 O workflow verifica o APK antes de o publicar: integridade do arquivo, identificação
 (pacote, `minSdk`, arquiteturas) e esquemas de assinatura. Assim um ficheiro estragado é
