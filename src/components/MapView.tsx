@@ -54,6 +54,10 @@ interface MapViewProps {
   measurePoints?: Coordinates[];
   /** Se a fita está a medir uma forma fechada em vez de uma linha. */
   measureClosed?: boolean;
+  /** Os caminhos que não foram escolhidos, desenhados apagados por baixo. */
+  alternativeRoutes?: Route[];
+  /** Paragens pelo caminho, marcadas ao longo do percurso. */
+  waypoints?: Coordinates[];
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
   /**
@@ -127,6 +131,8 @@ export function MapView({
   cameras = [],
   measurePoints = [],
   measureClosed = false,
+  alternativeRoutes = [],
+  waypoints = [],
   transitStops = [],
   selectedStopId = null,
   onStopPress,
@@ -155,10 +161,6 @@ export function MapView({
   const andado = following ? progressIndex : 0;
 
   /**
-   * As duas metades do percurso, em [longitude, latitude] — que é a ordem que o
-   * GeoJSON quer. Sobrepõem-se num ponto, senão ficava uma falha entre elas.
-   */
-  /**
    * Os pontos da fita, já com o regresso ao princípio quando se está a medir uma
    * área. Sem isto, a forma aparecia sombreada com um dos lados por desenhar — e
    * o perímetro que o painel mostra não batia certo com o que se via.
@@ -182,6 +184,10 @@ export function MapView({
     return pontos.slice(1).map((p, i) => ({ de: pontos[i], ate: p }));
   }, [measurePoints, measureClosed]);
 
+  /**
+   * As duas metades do percurso, em [longitude, latitude] — que é a ordem que o
+   * GeoJSON quer. Sobrepõem-se num ponto, senão ficava uma falha entre elas.
+   */
   const { andadoLine, faltaLine } = useMemo(() => {
     const pontos = route?.coordinates ?? [];
     const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
@@ -696,6 +702,41 @@ export function MapView({
       ) : null}
 
       {/*
+        Os caminhos que não foram escolhidos, apagados e por baixo do escolhido.
+
+        Desenham-se antes de propósito: no MapLibre a ordem em que as camadas
+        entram é a ordem em que se sobrepõem, e o caminho escolhido tem de ficar
+        por cima para se perceber qual é.
+      */}
+      {alternativeRoutes.map((alt, i) =>
+        alt.coordinates.length >= 2 ? (
+          <GeoJSONSource
+            key={`alt-${i}`}
+            id={`rota-alternativa-${i}`}
+            data={{
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: alt.coordinates.map((p) => [p.longitude, p.latitude]),
+              },
+            }}
+          >
+            <Layer
+              id={`rota-alternativa-${i}-line`}
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': theme.textMuted,
+                'line-width': 5,
+                'line-opacity': 0.4,
+              }}
+            />
+          </GeoJSONSource>
+        ) : null,
+      )}
+
+      {/*
         O percurso vai em duas fontes separadas — o que já ficou para trás e o
         que falta — e não numa só com um filtro a distinguir as duas.
 
@@ -744,6 +785,47 @@ export function MapView({
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{ 'line-color': theme.accent, 'line-width': 5, 'line-opacity': 0.85 }}
           />
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        As paragens do percurso, numeradas pela ordem por que se passa por elas.
+      */}
+      {waypoints.length > 0 ? (
+        <GeoJSONSource
+          id="paragens-percurso"
+          data={{
+            type: 'FeatureCollection',
+            features: waypoints.map((w, i) => ({
+              type: 'Feature',
+              properties: { ordem: String(i + 1) },
+              geometry: { type: 'Point', coordinates: [w.longitude, w.latitude] },
+            })),
+          }}
+        >
+          <Layer
+            id="paragens-percurso-circle"
+            type="circle"
+            paint={{
+              'circle-radius': 10,
+              'circle-color': theme.poi,
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="paragens-percurso-label"
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'ordem'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 12,
+                'text-allow-overlap': true,
+              }}
+              paint={{ 'text-color': theme.poiOutline }}
+            />
+          ) : null}
         </GeoJSONSource>
       ) : null}
 

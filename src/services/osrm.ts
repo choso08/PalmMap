@@ -73,8 +73,30 @@ export async function getRoute(
   profile: 'driving' | 'walking' | 'cycling' = 'driving',
   avoidTolls = false,
 ): Promise<Route> {
+  const [primeiro] = await getRoutes(from, [], to, profile, avoidTolls);
+  return primeiro;
+}
+
+/**
+ * Calcula o percurso, com paragens pelo caminho e caminhos alternativos.
+ *
+ * Devolve sempre pelo menos um percurso. Quando há mais do que um, o primeiro é
+ * o que o OSRM considera melhor — mas a escolha é de quem conduz.
+ *
+ * **Alternativas e paragens não andam juntas.** O OSRM só sabe procurar caminhos
+ * alternativos entre dois pontos; com paragens pelo meio responde que não está
+ * implementado. Por isso só se pedem alternativas quando não há paragens.
+ */
+export async function getRoutes(
+  from: Coordinates,
+  via: Coordinates[],
+  to: Coordinates,
+  profile: 'driving' | 'walking' | 'cycling' = 'driving',
+  avoidTolls = false,
+): Promise<Route[]> {
   // O OSRM espera as coordenadas por esta ordem: longitude,latitude.
-  const path = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
+  const pontos = [from, ...via, to];
+  const path = pontos.map((p) => `${p.longitude},${p.latitude}`).join(';');
 
   // `steps=true` é o que traz as manobras uma a uma.
   const params: Record<string, string> = {
@@ -83,11 +105,16 @@ export async function getRoute(
     steps: 'true',
   };
 
+  if (via.length === 0) {
+    // Três chegam: mais do que isso são variações de metros que só confundem.
+    params.alternatives = '3';
+  }
+
   if (avoidTolls && profile === 'driving') {
     // O perfil de carro do OSRM marca as estradas com portagem como uma classe
     // que se pode excluir. **Nem todos os servidores a têm ativada** — se este
-    // não tiver, responde com `InvalidValue` e tenta-se outra vez sem isto, que
-    // é melhor do que ficar sem percurso nenhum.
+    // não tiver, responde com erro e tenta-se outra vez sem isto, que é melhor
+    // do que ficar sem percurso nenhum.
     params.exclude = 'toll';
   }
 
@@ -105,7 +132,7 @@ export async function getRoute(
   if (params.exclude && response.data.code !== 'Ok') {
     // Segunda tentativa sem a exclusão. Sai um percurso com portagens, que é o
     // que há — e quem chamou fica a saber pelo `avoidedTolls`.
-    return getRoute(from, to, profile, false);
+    return getRoutes(from, via, to, profile, false);
   }
 
   const { code, routes, message, waypoints } = response.data;
@@ -113,10 +140,9 @@ export async function getRoute(
     throw new RouteError(message ?? 'Não foi encontrado nenhum percurso entre estes pontos.');
   }
 
-  const route = routes[0];
   const origem = waypoints?.[0];
 
-  return {
+  return routes.map((route) => ({
     // O GeoJSON vem em [longitude, latitude] — aqui inverte-se para o formato da aplicação.
     coordinates: route.geometry.coordinates.map(([longitude, latitude]) => ({
       latitude,
@@ -124,8 +150,8 @@ export async function getRoute(
     })),
     distanceMeters: route.distance,
     durationSeconds: route.duration,
-    // Um percurso sem paragens intermédias tem uma só "leg", mas juntam-se
-    // todas para o caso de um dia se acrescentarem pontos de passagem.
+    // Uma "leg" por cada troço entre paragens. Juntam-se todas: a navegação
+    // segue-as de seguida, como se fosse um percurso só.
     steps: route.legs.flatMap((leg) => leg.steps.map(toRouteStep)),
     startAwayMeters: origem?.distance ?? 0,
     startsAt: origem
@@ -134,5 +160,5 @@ export async function getRoute(
     // Verdadeiro só quando o servidor mesmo aceitou evitar as portagens. Serve
     // para o painel poder dizer a verdade em vez de prometer o que não fez.
     avoidedTolls: Boolean(params.exclude),
-  };
+  }));
 }

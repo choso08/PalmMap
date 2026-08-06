@@ -571,6 +571,25 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   armadilha do percurso: uma geometria sem pontos suficientes não é GeoJSON válido e leva a
   fonte inteira atrás, sem dar erro.
 
+### 6-G. Paragens pelo caminho e caminhos alternativos
+
+- **Paragens** (`waypoints`, no `App.tsx`) são pontos por onde o percurso tem de passar
+  antes do destino. Acrescentam-se pela ficha de um sítio, no botão "Passar por aqui a
+  caminho", que só aparece quando já há destino escolhido. Vão para o fim da lista: é a
+  ordem natural de quem vai juntando sítios.
+- **No recálculo durante a navegação, só entram as paragens que ainda faltam.** Sair do
+  caminho depois de já ter passado pela farmácia e pedir um percurso que passe outra vez
+  por ela dava meia-volta. Ver `waypointIndices` — é a mesma conta que se faz para os
+  radares e para as manobras.
+- **Alternativas e paragens não andam juntas.** O OSRM só sabe procurar caminhos
+  alternativos entre dois pontos; com paragens pelo meio responde que não está implementado.
+  Por isso o `alternatives=3` só entra no pedido quando não há paragens.
+- Os caminhos não escolhidos desenham-se **antes** do escolhido, e apagados. No MapLibre a
+  ordem por que as camadas entram é a ordem por que se sobrepõem — ao contrário, o
+  escolhido ficava por baixo e não se percebia qual era.
+- O percurso escolhido vive em `routeOptions[routeIndex]`. Trocar de alternativa é só mudar
+  o índice: não se pede nada outra vez ao serviço.
+
 ### 7. Offline — o que é permitido e o que não é
 
 Esta secção é sobre a regra. A parte prática dos países está na secção seguinte.

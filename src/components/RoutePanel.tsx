@@ -24,6 +24,13 @@ interface RoutePanelProps {
   /** O meio de transporte em uso, e como o trocar. */
   travelMode: TravelMode;
   onChangeTravelMode: (mode: TravelMode) => void;
+  /** Paragens pelo caminho, pela ordem por que se passa por elas. */
+  waypoints: Place[];
+  onRemoveWaypoint: (index: number) => void;
+  /** Caminhos alternativos, e qual está escolhido. */
+  options: Route[];
+  optionIndex: number;
+  onChooseOption: (index: number) => void;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -40,6 +47,11 @@ export function RoutePanel({
   avoidTollsWanted,
   travelMode,
   onChangeTravelMode,
+  waypoints,
+  onRemoveWaypoint,
+  options,
+  optionIndex,
+  onChooseOption,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -100,6 +112,31 @@ export function RoutePanel({
         })}
       </View>
 
+      {/*
+        As paragens pelo caminho. Aparecem pela ordem por que se passa por elas,
+        e cada uma sai com um toque — sem isto, uma paragem posta por engano
+        obrigava a começar o percurso de novo.
+      */}
+      {waypoints.length > 0 ? (
+        <View style={styles.paragens}>
+          {waypoints.map((w, i) => (
+            <View key={`${w.id}-${i}`} style={styles.paragem}>
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={16}
+                color={theme.textMuted}
+              />
+              <Text style={styles.paragemNome} numberOfLines={1}>
+                {w.name}
+              </Text>
+              <Pressable onPress={() => onRemoveWaypoint(i)} hitSlop={10}>
+                <MaterialCommunityIcons name="close" size={16} color={theme.textMuted} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {loading ? (
         <View style={styles.status}>
           <ActivityIndicator size="small" color={theme.accent} />
@@ -127,6 +164,45 @@ export function RoutePanel({
               <Text style={styles.metricLabel}>distância</Text>
             </View>
           </View>
+
+          {/*
+            Os caminhos alternativos. O OSRM devolve dois ou três para o mesmo
+            destino; o primeiro é o que ele prefere, mas quem conduz é que sabe.
+
+            Não aparecem com paragens pelo caminho: o serviço só sabe procurar
+            alternativas entre dois pontos.
+          */}
+          {options.length > 1 ? (
+            <View style={styles.alternativas}>
+              {options.map((op, i) => {
+                const ativo = i === optionIndex;
+                return (
+                  <Pressable
+                    key={i}
+                    style={[styles.alternativa, ativo ? styles.alternativaAtiva : null]}
+                    onPress={() => onChooseOption(i)}
+                  >
+                    <Text
+                      style={[
+                        styles.alternativaTempo,
+                        ativo ? styles.alternativaTextoAtivo : null,
+                      ]}
+                    >
+                      {formatDuration(op.durationSeconds * timeFactor)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.alternativaDistancia,
+                        ativo ? styles.alternativaTextoAtivo : null,
+                      ]}
+                    >
+                      {formatDistance(op.distanceMeters)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
 
           {/*
             O percurso só pode começar numa estrada. Quem o pede de dentro de um
@@ -250,6 +326,55 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       fontSize: 14,
       color: theme.danger,
+    },
+    paragens: {
+      marginTop: 12,
+      gap: 6,
+    },
+    paragem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceMuted,
+    },
+    paragemNome: {
+      flex: 1,
+      fontSize: 13,
+      color: theme.text,
+    },
+    alternativas: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 14,
+    },
+    alternativa: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 9,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    alternativaAtiva: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    alternativaTempo: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.text,
+    },
+    alternativaDistancia: {
+      fontSize: 11,
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    alternativaTextoAtivo: {
+      color: theme.onAccent,
     },
     modos: {
       flexDirection: 'row',

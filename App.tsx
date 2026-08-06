@@ -48,7 +48,7 @@ import {
   type OfflineRegion,
 } from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
-import { RouteError, getRoute } from './src/services/osrm';
+import { RouteError, getRoute, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import type { TransitStop } from './src/services/transit';
@@ -127,7 +127,28 @@ function PalmMap() {
   const [hasLocation, setHasLocation] = useState(false);
 
   const [destination, setDestination] = useState<Place | null>(null);
-  const [route, setRoute] = useState<Route | null>(null);
+  /**
+   * Paragens pelo caminho, pela ordem por que se passa por elas.
+   *
+   * "Passa pela farmácia e depois vai para casa" — o destino continua a ser o
+   * destino, estas são os pontos por onde o percurso tem de ir antes de lá
+   * chegar.
+   */
+  const [waypoints, setWaypoints] = useState<Place[]>([]);
+  /**
+   * Os caminhos que o serviço devolveu, e qual está escolhido.
+   *
+   * O OSRM sabe dar dois ou três caminhos diferentes para o mesmo destino. O
+   * primeiro é o que ele considera melhor, mas quem conduz é que sabe qual
+   * prefere — daí serem todos guardados e desenhados.
+   */
+  const [routeOptions, setRouteOptions] = useState<Route[]>([]);
+  const [routeIndex, setRouteIndex] = useState(0);
+  const route = routeOptions[routeIndex] ?? null;
+  const setRoute = useCallback((novo: Route | null) => {
+    setRouteOptions(novo ? [novo] : []);
+    setRouteIndex(0);
+  }, []);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [stepsVisible, setStepsVisible] = useState(false);
@@ -336,14 +357,16 @@ function PalmMap() {
 
     void (async () => {
       try {
-        const result = await getRoute(
+        const result = await getRoutes(
           origem,
+          waypoints.map((w) => w.coordinates),
           destination.coordinates,
           settings.travelMode,
           settings.avoidTolls,
         );
         if (!cancelled) {
-          setRoute(result);
+          setRouteOptions(result);
+          setRouteIndex(0);
           // A lista de recentes só se toca quando o percurso sai mesmo: um
           // destino que não deu caminho nenhum não é sítio nenhum.
           void rememberRecent(destination).then(setRecents);
@@ -371,7 +394,7 @@ function PalmMap() {
     // traça-se quando se escolhe o destino (ou quando chega a primeira posição),
     // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
     // navegação, que tem o seu próprio recálculo.
-  }, [destination, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
+  }, [destination, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
 
   /**
    * Procura negócios para mostrar no mapa.
@@ -484,6 +507,20 @@ function PalmMap() {
     }
     return route.steps.map((step) => nearestIndex(route.coordinates, step.location));
   }, [route]);
+
+  /**
+   * Onde ficam as paragens ao longo da linha do percurso.
+   *
+   * Serve ao recálculo: ao sair do caminho já depois da farmácia, mandar o
+   * serviço passar outra vez por ela dava meia-volta. Só entram as que ainda
+   * estão à frente.
+   */
+  const waypointIndices = useMemo(() => {
+    if (!route) {
+      return [];
+    }
+    return waypoints.map((w) => nearestIndex(route.coordinates, w.coordinates));
+  }, [route, waypoints]);
 
   /** Impede que se peça um recálculo novo enquanto o anterior não respondeu. */
   const recalculating_ = useRef(false);
@@ -599,8 +636,13 @@ function PalmMap() {
 
           void (async () => {
             try {
-              const fresh = await getRoute(
+              // Só as paragens que ainda faltam. As que já ficaram para trás
+              // mandariam o percurso dar meia-volta.
+              const emFalta = waypoints.filter((_, i) => waypointIndices[i] > index);
+
+              const [fresh] = await getRoutes(
                 position,
+                emFalta.map((w) => w.coordinates),
                 destination.coordinates,
                 settings.travelMode,
                 settings.avoidTolls,
@@ -718,6 +760,8 @@ function PalmMap() {
     destination,
     stepIndices,
     cameras,
+    waypoints,
+    waypointIndices,
     slowGps,
     settings.voiceGuidance,
     settings.travelMode,
@@ -855,7 +899,24 @@ function PalmMap() {
     setCategory(null);
     setSelectedPlace(null);
     setDroppedPin(null);
+    // Destino novo, viagem nova: as paragens do percurso anterior não têm nada
+    // que ver com este.
+    setWaypoints([]);
     setDestination(place);
+  }, []);
+
+  /**
+   * Acrescenta uma paragem ao percurso que já existe.
+   *
+   * Vai para o fim da lista, antes do destino: é a ordem natural de quem vai
+   * juntando sítios pelo caminho. Reordenar seria mais um ecrã para pouco uso.
+   */
+  const handleAddWaypoint = useCallback((place: Place) => {
+    setWaypoints((atuais) =>
+      atuais.some((w) => isSamePlace(w, place)) ? atuais : [...atuais, place],
+    );
+    setSelectedPlace(null);
+    setDroppedPin(null);
   }, []);
 
   /**
@@ -891,6 +952,7 @@ function PalmMap() {
 
   const handleClearRoute = useCallback(() => {
     setDestination(null);
+    setWaypoints([]);
     setRoute(null);
     setRouteError(null);
     setDroppedPin(null);
@@ -918,6 +980,8 @@ function PalmMap() {
         cameras={cameras}
         measurePoints={measuring ? measurePoints : []}
         measureClosed={measureMode === 'area'}
+        alternativeRoutes={navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)}
+        waypoints={waypoints.map((w) => w.coordinates)}
         transitStops={transitVisible ? transitStops : []}
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
@@ -973,6 +1037,7 @@ function PalmMap() {
             favourite={isFavourite(lastPlace)}
             onToggleFavourite={() => toggleFavourite(lastPlace)}
             onRoute={handleRouteToSelected}
+            onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
             onClose={() => {
               setSelectedPlace(null);
               setDroppedPin(null);
@@ -999,6 +1064,13 @@ function PalmMap() {
             avoidTollsWanted={settings.avoidTolls}
             travelMode={settings.travelMode}
             onChangeTravelMode={(mode) => update('travelMode', mode)}
+            waypoints={waypoints}
+            onRemoveWaypoint={(i) =>
+              setWaypoints((atuais) => atuais.filter((_, j) => j !== i))
+            }
+            options={routeOptions}
+            optionIndex={routeIndex}
+            onChooseOption={setRouteIndex}
           />
         </Reveal>
       ) : null}

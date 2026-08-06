@@ -13,6 +13,13 @@ interface PlaceSheetProps {
   favourite: boolean;
   onToggleFavourite: () => void;
   onRoute: () => void;
+  /**
+   * Acrescentar este sítio como paragem do percurso que já existe.
+   *
+   * Só aparece quando já há um destino escolhido — antes disso não há percurso
+   * nenhum a que juntar uma paragem, e o botão só confundia.
+   */
+  onAddStop?: () => void;
   onClose: () => void;
 }
 
@@ -51,6 +58,7 @@ export function PlaceSheet({
   favourite,
   onToggleFavourite,
   onRoute,
+  onAddStop,
   onClose,
 }: PlaceSheetProps) {
   const theme = useTheme();
@@ -126,6 +134,13 @@ export function PlaceSheet({
         <MaterialCommunityIcons name="directions" size={19} color={theme.onAccent} />
         <Text style={styles.buttonText}>Traçar percurso</Text>
       </Pressable>
+
+      {onAddStop ? (
+        <Pressable style={styles.secondary} onPress={onAddStop}>
+          <MaterialCommunityIcons name="map-marker-plus" size={18} color={theme.accent} />
+          <Text style={styles.secondaryText}>Passar por aqui a caminho</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -215,6 +230,23 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.accent,
       borderRadius: 18,
       paddingVertical: 15,
+    },
+    secondary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 10,
+      borderRadius: 18,
+      paddingVertical: 13,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    secondaryText: {
+      color: theme.accent,
+      fontSize: 15,
+      fontWeight: '700',
     },
     buttonText: {
       color: theme.onAccent,
