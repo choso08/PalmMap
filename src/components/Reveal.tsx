@@ -64,9 +64,13 @@ export function Reveal({ children, visible = true, from = 22, style }: RevealPro
 
   return (
     <Animated.View
-      // Enquanto está a desvanecer continua no ecrã; sem isto, apanhava toques
+      // `box-none`: o invólucro nunca apanha toques, só o que está lá dentro.
+      // É o que permite tocar no mapa por baixo quando o painel foi encolhido —
+      // a caixa deste elemento continua onde estava, mas deixa passar.
+      //
+      // Enquanto está a desvanecer não apanha nada; sem isto, apanhava toques
       // que já não são para ele.
-      pointerEvents={visible ? 'auto' : 'none'}
+      pointerEvents={visible ? 'box-none' : 'none'}
       style={[
         style,
         {

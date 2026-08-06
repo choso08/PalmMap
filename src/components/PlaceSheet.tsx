@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -9,6 +10,13 @@ import type { Theme } from '../theme';
 import type { Place } from '../types/geo';
 
 interface PlaceSheetProps {
+  /**
+   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
+   *
+   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
+   * painel inteiro.
+   */
+  dragHandlers?: GestureResponderHandlers;
   place: Place;
   favourite: boolean;
   onToggleFavourite: () => void;
@@ -60,6 +68,7 @@ export function PlaceSheet({
   onRoute,
   onAddStop,
   onClose,
+  dragHandlers,
 }: PlaceSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -69,7 +78,9 @@ export function PlaceSheet({
 
   return (
     <View style={styles.container}>
-      <View style={styles.handle} />
+      <View style={styles.handleZone} {...dragHandlers}>
+        <View style={styles.handle} />
+      </View>
 
       <View style={styles.header}>
         <View style={styles.headerText}>
@@ -160,6 +171,13 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOpacity: 0.14,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: -3 },
+    },
+    handleZone: {
+      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
+      // de altura e ninguém acerta nisso com o polegar.
+      alignItems: 'center',
+      paddingTop: 10,
+      marginTop: -10,
     },
     handle: {
       alignSelf: 'center',

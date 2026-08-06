@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { GestureResponderHandlers } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../settings';
@@ -13,6 +14,13 @@ import { pathLengthMeters, perimeterMeters, polygonAreaM2 } from '../utils/geome
 export type MeasureMode = 'linha' | 'area';
 
 interface MeasureSheetProps {
+  /**
+   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
+   *
+   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
+   * painel inteiro.
+   */
+  dragHandlers?: GestureResponderHandlers;
   points: Coordinates[];
   mode: MeasureMode;
   onChangeMode: (mode: MeasureMode) => void;
@@ -39,6 +47,7 @@ export function MeasureSheet({
   onUndo,
   onClear,
   onClose,
+  dragHandlers,
 }: MeasureSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -53,7 +62,9 @@ export function MeasureSheet({
 
   return (
     <View style={styles.container}>
-      <View style={styles.handle} />
+      <View style={styles.handleZone} {...dragHandlers}>
+        <View style={styles.handle} />
+      </View>
 
       <View style={styles.header}>
         <View style={styles.headerText}>
@@ -166,6 +177,13 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOpacity: 0.14,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: -3 },
+    },
+    handleZone: {
+      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
+      // de altura e ninguém acerta nisso com o polegar.
+      alignItems: 'center',
+      paddingTop: 10,
+      marginTop: -10,
     },
     handle: {
       alignSelf: 'center',

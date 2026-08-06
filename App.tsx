@@ -16,6 +16,7 @@ import { PlaceSheet } from './src/components/PlaceSheet';
 import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
+import { DraggableSheet } from './src/components/DraggableSheet';
 import { Reveal } from './src/components/Reveal';
 import { MeasureSheet, type MeasureMode } from './src/components/MeasureSheet';
 import { StepsList } from './src/components/StepsList';
@@ -1032,17 +1033,22 @@ function PalmMap() {
       */}
       {lastPlace ? (
         <Reveal style={styles.bottom} visible={!navigating && !!selectedPlace}>
-          <PlaceSheet
-            place={lastPlace}
-            favourite={isFavourite(lastPlace)}
-            onToggleFavourite={() => toggleFavourite(lastPlace)}
-            onRoute={handleRouteToSelected}
-            onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
-            onClose={() => {
-              setSelectedPlace(null);
-              setDroppedPin(null);
-            }}
-          />
+          <DraggableSheet>
+            {(drag) => (
+              <PlaceSheet
+                dragHandlers={drag}
+                place={lastPlace}
+                favourite={isFavourite(lastPlace)}
+                onToggleFavourite={() => toggleFavourite(lastPlace)}
+                onRoute={handleRouteToSelected}
+                onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
+                onClose={() => {
+                  setSelectedPlace(null);
+                  setDroppedPin(null);
+                }}
+              />
+            )}
+          </DraggableSheet>
         </Reveal>
       ) : null}
 
@@ -1051,27 +1057,32 @@ function PalmMap() {
           style={styles.bottom}
           visible={!navigating && !selectedPlace && !!destination}
         >
-          <RoutePanel
-            destination={lastDestination}
-            route={route}
-            loading={routeLoading}
-            error={routeError}
-            onClear={handleClearRoute}
-            onShowSteps={() => setStepsVisible(true)}
-            onStart={handleStartNavigation}
-            favourite={isFavourite(lastDestination)}
-            onToggleFavourite={() => toggleFavourite(lastDestination)}
-            avoidTollsWanted={settings.avoidTolls}
-            travelMode={settings.travelMode}
-            onChangeTravelMode={(mode) => update('travelMode', mode)}
-            waypoints={waypoints}
-            onRemoveWaypoint={(i) =>
-              setWaypoints((atuais) => atuais.filter((_, j) => j !== i))
-            }
-            options={routeOptions}
-            optionIndex={routeIndex}
-            onChooseOption={setRouteIndex}
-          />
+          <DraggableSheet>
+            {(drag) => (
+              <RoutePanel
+                dragHandlers={drag}
+                destination={lastDestination}
+                route={route}
+                loading={routeLoading}
+                error={routeError}
+                onClear={handleClearRoute}
+                onShowSteps={() => setStepsVisible(true)}
+                onStart={handleStartNavigation}
+                favourite={isFavourite(lastDestination)}
+                onToggleFavourite={() => toggleFavourite(lastDestination)}
+                avoidTollsWanted={settings.avoidTolls}
+                travelMode={settings.travelMode}
+                onChangeTravelMode={(mode) => update('travelMode', mode)}
+                waypoints={waypoints}
+                onRemoveWaypoint={(i) =>
+                  setWaypoints((atuais) => atuais.filter((_, j) => j !== i))
+                }
+                options={routeOptions}
+                optionIndex={routeIndex}
+                onChooseOption={setRouteIndex}
+              />
+            )}
+          </DraggableSheet>
         </Reveal>
       ) : null}
 
@@ -1102,17 +1113,22 @@ function PalmMap() {
 
       {measuring ? (
         <Reveal style={styles.bottom}>
-          <MeasureSheet
-            points={measurePoints}
-            mode={measureMode}
-            onChangeMode={setMeasureMode}
-            onUndo={() => setMeasurePoints((atuais) => atuais.slice(0, -1))}
-            onClear={() => setMeasurePoints([])}
-            onClose={() => {
-              setMeasuring(false);
-              setMeasurePoints([]);
-            }}
-          />
+          <DraggableSheet>
+            {(drag) => (
+              <MeasureSheet
+                dragHandlers={drag}
+                points={measurePoints}
+                mode={measureMode}
+                onChangeMode={setMeasureMode}
+                onUndo={() => setMeasurePoints((atuais) => atuais.slice(0, -1))}
+                onClear={() => setMeasurePoints([])}
+                onClose={() => {
+                  setMeasuring(false);
+                  setMeasurePoints([]);
+                }}
+              />
+            )}
+          </DraggableSheet>
         </Reveal>
       ) : null}
 
@@ -1246,18 +1262,23 @@ function PalmMap() {
       */}
       {transitVisible ? (
         <Reveal style={styles.bottom}>
-          <TransitSheet
-            origin={userLocation}
-            onClose={() => {
-              setTransitVisible(false);
-              setTransitStops([]);
-              setSelectedStopId(null);
-            }}
-            onGoToStop={handleGoToStop}
-            onStopsChange={setTransitStops}
-            onSelectedStopChange={setSelectedStopId}
-            selectedStopId={selectedStopId}
-          />
+          <DraggableSheet>
+            {(drag) => (
+              <TransitSheet
+                dragHandlers={drag}
+                origin={userLocation}
+                onClose={() => {
+                  setTransitVisible(false);
+                  setTransitStops([]);
+                  setSelectedStopId(null);
+                }}
+                onGoToStop={handleGoToStop}
+                onStopsChange={setTransitStops}
+                onSelectedStopChange={setSelectedStopId}
+                selectedStopId={selectedStopId}
+              />
+            )}
+          </DraggableSheet>
         </Reveal>
       ) : null}
 

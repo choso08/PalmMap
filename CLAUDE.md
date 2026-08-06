@@ -287,6 +287,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
 │   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
+│   │   ├── DraggableSheet.tsx # Painel de baixo que se arrasta para encolher
   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
 │   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
 │   │   ├── MeasureSheet.tsx # Fita métrica: distâncias e áreas no mapa
@@ -854,6 +855,22 @@ elementos por cima do mapa.
   câmara.
 - Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
   desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
+
+### 11-A. Painéis de baixo que se arrastam
+
+- Os quatro painéis com barrinha no topo — ficha de um sítio, percurso, transportes e fita
+  métrica — encolhem ao puxar a barra para baixo, e voltam ao puxar para cima. Um toque
+  simples na barra faz o mesmo. Serve para ver o mapa sem perder o que está aberto.
+- **O gesto fica só na barra, nunca no painel inteiro.** Se apanhasse o painel todo,
+  arrastar a lista das paragens puxava o painel para baixo em vez de deslizar a lista. É por
+  isso que o `DraggableSheet` entrega os gestos por uma função (`children(dragHandlers)`) —
+  só o painel sabe onde é que a barra dele está.
+- A área de toque à volta da barrinha é bastante maior do que ela: o alvo visível tem quatro
+  pontos de altura e ninguém acerta nisso com o polegar.
+- **O `Reveal` usa `pointerEvents="box-none"`.** A caixa do invólucro continua onde estava
+  mesmo com o painel encolhido; sem isso, tocar no mapa por baixo não chegava lá.
+- A animação corre do lado nativo (`useNativeDriver`), por isso não trava quando o
+  JavaScript está ocupado — que é precisamente o que acontece a navegar.
 
 ### 12. Tema claro e escuro
 
