@@ -246,10 +246,18 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       tiles: [DGT_ORTOS],
       tileSize: 256,
       maxzoom: 18,
+      // **Só Portugal continental.** Sem isto o MapLibre pedia estas imagens em
+      // todo o mundo, e como o serviço responde em JPEG opaco — sem
+      // transparência — o que voltava era um retângulo de fundo por cima da
+      // imagem de satélite, em vez de nada.
+      bounds: [-9.6, 36.9, -6.1, 42.2],
       attribution: 'Ortofotos © Direção-Geral do Território',
     },
   },
   layers: [
+    // A mesma cor por baixo que o `rasterStyle` põe: um tile em falta deixava
+    // ver o vazio, que o MapLibre desenha a preto.
+    { id: 'fundo', type: 'background', paint: { 'background-color': VAZIO_CLARO } },
     { id: 'base', type: 'raster', source: 'base' },
     // Só se pede a partir do 12: mais longe do que isso o Sentinel-2 chega, e
     // não vale a pena incomodar o serviço das ortofotos.

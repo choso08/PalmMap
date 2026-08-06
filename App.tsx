@@ -49,10 +49,10 @@ import {
   type OfflineRegion,
 } from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
-import { RouteError, getRoute, getRoutes } from './src/services/osrm';
+import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
-import type { TransitStop } from './src/services/transit';
+import { nearbyStops, type TransitStop } from './src/services/transit';
 import {
   MAP_TYPES,
   SettingsProvider,
@@ -109,8 +109,18 @@ function PalmMap() {
    * fechá-lo sozinho dava um número errado a quem só queria a distância.
    */
   const [measureMode, setMeasureMode] = useState<MeasureMode>('linha');
-  /** As paragens que o painel encontrou, para o mapa as marcar. */
+  /**
+   * As paragens perto de si, no mapa dos transportes.
+   *
+   * Vivem aqui e não no painel porque os pinos têm de aparecer no mapa **só por
+   * se estar no mapa dos transportes** — sem ser preciso abrir o painel das
+   * horas para os ver.
+   */
   const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
+  const [transitLoading, setTransitLoading] = useState(false);
+  const [transitError, setTransitError] = useState<string | null>(null);
+  /** Fora da Área Metropolitana de Lisboa, onde não há dados abertos. */
+  const [transitOutside, setTransitOutside] = useState(false);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
@@ -238,6 +248,59 @@ function PalmMap() {
     },
     [],
   );
+
+  /**
+   * As paragens perto, sempre que se está no mapa dos transportes.
+   *
+   * **Depende das coordenadas arredondadas, não do objeto da posição.** O GPS
+   * devolve um objeto novo de dez em dez segundos, e depender dele fazia isto
+   * correr outra vez a cada leitura — a lista reordenava-se debaixo do dedo e
+   * os pinos do mapa eram redesenhados sem nada ter mudado. Arredondado a três
+   * casas são uns cem metros, que é a escala a que a resposta muda mesmo.
+   */
+  const perto = userLocation
+    ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
+    : null;
+
+  useEffect(() => {
+    if (settings.mapType !== 'transit' || !perto) {
+      setTransitStops([]);
+      return;
+    }
+
+    const [lat, lon] = perto.split(',').map(Number);
+    let cancelled = false;
+
+    setTransitLoading(true);
+    void (async () => {
+      try {
+        const encontradas = await nearbyStops({ latitude: lat, longitude: lon });
+        if (cancelled) {
+          return;
+        }
+        // Os três estados repõem-se sempre, e não só quando correm mal: sem
+        // isso, abrir o painel fora de Lisboa e depois entrar na área deixava
+        // o aviso de "não há horários" por cima de uma lista cheia.
+        setTransitOutside(encontradas === null);
+        setTransitStops(encontradas ?? []);
+        setTransitError(null);
+      } catch {
+        if (!cancelled) {
+          setTransitStops([]);
+          setTransitOutside(false);
+          setTransitError('Não foi possível obter as paragens. Verifique a ligação.');
+        }
+      } finally {
+        if (!cancelled) {
+          setTransitLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.mapType, perto]);
 
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -561,8 +624,12 @@ function PalmMap() {
     warnedCameras.current.clear();
     setCameraAhead(null);
 
+    // Os índices dos radares são posições na linha do percurso **anterior**.
+    // Deixá-los enquanto o pedido novo não chega fazia anunciar radares a
+    // distâncias inventadas, medidas contra a linha errada.
+    setCameras([]);
+
     if (!route || !settings.speedCameraAlerts) {
-      setCameras([]);
       return;
     }
 
@@ -607,10 +674,14 @@ function PalmMap() {
 
         // Chegada.
         if (remainingMeters < ARRIVAL_METERS) {
-          if (settings.voiceGuidance) {
-            speak('Chegou ao destino.');
-          }
+          // A voz sai **depois** de a navegação fechar, e não antes: sair da
+          // navegação desfaz este efeito, e a limpeza dele chama `stopSpeaking`
+          // — que calava o "chegou ao destino" a meio da primeira sílaba.
+          const dizer = settings.voiceGuidance;
           setNavigating(false);
+          if (dizer) {
+            setTimeout(() => speak('Chegou ao destino.'), 250);
+          }
           return;
         }
 
@@ -650,6 +721,12 @@ function PalmMap() {
               );
               setRoute(fresh);
               announced.current.clear();
+    // Sem isto, voltar a navegar o mesmo percurso não voltava a avisar de
+    // nenhum radar por onde já se tinha passado.
+    warnedCameras.current.clear();
+    setCameraAhead(null);
+    // E começava com o GPS ao ritmo lento em que a viagem anterior acabou.
+    setSlowGps(false);
               // Percurso novo, contagem nova: sem isto, a linha aparecia
               // apagada até onde ia o percurso antigo.
               setProgressIndex(0);
@@ -929,8 +1006,10 @@ function PalmMap() {
    */
   const handleGoToStop = useCallback((stop: TransitStop) => {
     setTransitVisible(false);
-    setTransitStops([]);
     setSelectedStopId(null);
+    // Destino novo, viagem nova: as paragens do percurso anterior não têm nada
+    // que ver com este.
+    setWaypoints([]);
     setSelectedPlace(null);
     setDroppedPin(null);
     setDestination({
@@ -944,6 +1023,9 @@ function PalmMap() {
 
   const handleRouteToSelected = useCallback(() => {
     if (selectedPlace) {
+      // Como na pesquisa: destino novo, viagem nova. Sem isto, o percurso para
+      // o sítio novo continuava a ser forçado pela paragem do percurso antigo.
+      setWaypoints([]);
       setDestination(selectedPlace);
       setSelectedPlace(null);
       // O destino passa a ter marcador próprio, por isso o pino sai.
@@ -983,7 +1065,7 @@ function PalmMap() {
         measureClosed={measureMode === 'area'}
         alternativeRoutes={navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)}
         waypoints={waypoints.map((w) => w.coordinates)}
-        transitStops={transitVisible ? transitStops : []}
+        transitStops={transitStops}
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
         offlineRegions={offlineRegions}
@@ -1248,6 +1330,7 @@ function PalmMap() {
 
       <SettingsSheet
         visible={settingsVisible}
+        onRecentsCleared={() => setRecents([])}
         onClose={() => {
           setSettingsVisible(false);
           // Pode ter-se descarregado ou apagado um país lá dentro.
@@ -1266,14 +1349,16 @@ function PalmMap() {
             {(drag) => (
               <TransitSheet
                 dragHandlers={drag}
-                origin={userLocation}
+                stops={transitStops}
+                loading={transitLoading}
+                error={transitError}
+                outside={transitOutside}
+                semPosicao={!userLocation}
                 onClose={() => {
                   setTransitVisible(false);
-                  setTransitStops([]);
                   setSelectedStopId(null);
                 }}
                 onGoToStop={handleGoToStop}
-                onStopsChange={setTransitStops}
                 onSelectedStopChange={setSelectedStopId}
                 selectedStopId={selectedStopId}
               />

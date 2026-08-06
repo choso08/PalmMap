@@ -58,27 +58,14 @@ function toRouteStep(step: OsrmStep): RouteStep {
 }
 
 /**
- * Calcula o percurso entre dois pontos, com as instruções passo a passo.
- *
- * O servidor público do OSRM é para demonstrações e pode estar em baixo — quem
- * chamar esta função deve tratar o erro e mostrar uma mensagem decente.
+ * Calcula o percurso, com paragens pelo caminho e caminhos alternativos.
  *
  * Cada meio de transporte tem o seu servidor — ver `OSRM_ENDPOINTS`. É isso que
  * faz um percurso a pé ignorar os sentidos únicos e contar o tempo a passo de
  * pessoa, em vez de vir o percurso de carro com outro nome.
- */
-export async function getRoute(
-  from: Coordinates,
-  to: Coordinates,
-  profile: 'driving' | 'walking' | 'cycling' = 'driving',
-  avoidTolls = false,
-): Promise<Route> {
-  const [primeiro] = await getRoutes(from, [], to, profile, avoidTolls);
-  return primeiro;
-}
-
-/**
- * Calcula o percurso, com paragens pelo caminho e caminhos alternativos.
+ *
+ * São servidores comunitários e podem estar em baixo — quem chamar isto deve
+ * tratar o erro e mostrar uma mensagem decente.
  *
  * Devolve sempre pelo menos um percurso. Quando há mais do que um, o primeiro é
  * o que o OSRM considera melhor — mas a escolha é de quem conduz.
@@ -123,20 +110,30 @@ export async function getRoutes(
     const base = OSRM_ENDPOINTS[profile];
     const perfil = OSRM_PROFILE_PATH[profile];
     response = await schedule(() =>
-      client.get<OsrmRouteResponse>(`${base}/route/v1/${perfil}/${path}`, { params }),
+      client.get<OsrmRouteResponse>(`${base}/route/v1/${perfil}/${path}`, {
+        params,
+        // **Aceitar também os erros.** O OSRM responde a um pedido inválido com
+        // 400 e um corpo JSON que explica o que se passou. Com a validação
+        // normal do axios, esse 400 virava uma exceção e o corpo perdia-se — e
+        // com ele o recuo das portagens aqui em baixo, que assim nunca chegava
+        // a correr. Quem tinha "evitar portagens" ligado ficava sem percurso
+        // nenhum e com uma mensagem a dizer que o serviço estava inacessível.
+        validateStatus: (status) => status < 500,
+      }),
     );
   } catch {
     throw new RouteError('Não foi possível contactar o serviço de percursos.');
   }
 
   if (params.exclude && response.data.code !== 'Ok') {
-    // Segunda tentativa sem a exclusão. Sai um percurso com portagens, que é o
-    // que há — e quem chamou fica a saber pelo `avoidedTolls`.
+    // Este servidor não sabe excluir portagens. Pede-se outra vez sem isso: um
+    // percurso com portagens é melhor do que percurso nenhum, e quem chamou
+    // fica a saber pelo `avoidedTolls`.
     return getRoutes(from, via, to, profile, false);
   }
 
   const { code, routes, message, waypoints } = response.data;
-  if (code !== 'Ok' || routes.length === 0) {
+  if (code !== 'Ok' || !routes || routes.length === 0) {
     throw new RouteError(message ?? 'Não foi encontrado nenhum percurso entre estes pontos.');
   }
 

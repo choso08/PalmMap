@@ -29,6 +29,14 @@ import {
 import type { Theme } from '../theme';
 
 interface SettingsSheetProps {
+  /**
+   * Avisa que os últimos destinos foram esquecidos.
+   *
+   * Sem isto, apagá-los limpava o telemóvel mas não a lista que a pesquisa
+   * mostra: continuavam todos lá até se fechar a aplicação, e o botão parecia
+   * avariado.
+   */
+  onRecentsCleared: () => void;
   visible: boolean;
   onClose: () => void;
 }
@@ -73,7 +81,7 @@ function ChoiceRow<T extends string>({
 }
 
 /** Ecrã de definições. */
-export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
+export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -305,7 +313,7 @@ export function SettingsSheet({ visible, onClose }: SettingsSheetProps) {
           <Text style={styles.sectionHint}>
             Aparecem na pesquisa antes de se escrever, a seguir aos guardados.
           </Text>
-          <Pressable style={styles.forgetRow} onPress={() => void clearRecents()}>
+          <Pressable style={styles.forgetRow} onPress={() => void clearRecents().then(onRecentsCleared)}>
             <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
             <Text style={styles.clearText}>Esquecer os últimos destinos</Text>
           </Pressable>

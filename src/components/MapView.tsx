@@ -27,7 +27,7 @@ import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 import { formatDistance } from '../utils/format';
-import { distanceMeters } from '../utils/geometry';
+import { boundsOf, distanceMeters } from '../utils/geometry';
 
 interface MapViewProps {
   userLocation: Coordinates | null;
@@ -146,8 +146,16 @@ export function MapView({
 
   /** O mapa guardado que cobre a zona que se está a ver, se houver algum. */
   const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
-  /** Liga-se quando um mapa guardado não abre, para não se insistir nele. */
-  const [offlineFailed, setOfflineFailed] = useState(false);
+  /**
+   * Os mapas guardados que não abriram.
+   *
+   * Guarda-se **por país**, e não um sim-ou-não para tudo. Antes era um trinco
+   * que, uma vez fechado, desligava o offline o resto da sessão: bastava uma
+   * falha passageira num país para o mapa de outro — descarregado e perfeito —
+   * nunca mais ser usado, o que em modo de avião dá um ecrã vazio sem
+   * explicação nenhuma.
+   */
+  const [failedRegions, setFailedRegions] = useState<string[]>([]);
   /**
    * Muda sempre que se pede para voltar ao carro durante a navegação.
    *
@@ -214,17 +222,14 @@ export function MapView({
       return;
     }
 
-    const longitudes = route.coordinates.map((point) => point.longitude);
-    const latitudes = route.coordinates.map((point) => point.latitude);
+    // Numa passagem só: `Math.min(...pontos)` passa-os todos como argumentos da
+    // função, e com `overview=full` um percurso longo traz dezenas de milhares
+    // de pontos — o suficiente para rebentar a pilha.
+    const area = boundsOf(route.coordinates);
 
     cameraRef.current?.fitBounds(
       // Ordem exigida pelo MapLibre: oeste, sul, este, norte.
-      [
-        Math.min(...longitudes),
-        Math.min(...latitudes),
-        Math.max(...longitudes),
-        Math.max(...latitudes),
-      ],
+      [area.west, area.south, area.east, area.north],
       {
         // Margem em pixels, para a linha não ficar colada às extremidades nem
         // escondida por baixo da barra de pesquisa e do painel do percurso.
@@ -287,13 +292,17 @@ export function MapView({
    * mapa normal — e ninguém perceberia porquê.
    */
   const handleFailure = useCallback(() => {
-    setOfflineRegion((atual) => {
-      if (atual) {
-        setOfflineFailed(true);
-      }
-      return null;
-    });
-  }, []);
+    // Marca-se este país como falhado e recua-se para os tiles da Internet. O
+    // `setState` não pode ter efeitos lá dentro: o React pode correr a função
+    // duas vezes, e aí registava a falha a dobrar.
+    const falhado = offlineRegion?.id;
+    if (falhado) {
+      setFailedRegions((atuais) =>
+        atuais.includes(falhado) ? atuais : [...atuais, falhado],
+      );
+    }
+    setOfflineRegion(null);
+  }, [offlineRegion]);
 
   // O estilo só se recalcula quando algo que o define muda. Se fosse criado a
   // cada desenho, o mapa recarregava sozinho de cada vez.
@@ -302,10 +311,10 @@ export function MapView({
       mapStyleFor(
         theme.dark,
         settings.mapType,
-        offlineFailed ? null : offlineRegion,
+        offlineRegion && failedRegions.includes(offlineRegion.id) ? null : offlineRegion,
         settings.satelliteDetail,
       ),
-    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, offlineFailed],
+    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, failedRegions],
   );
 
   return (
@@ -522,6 +531,8 @@ export function MapView({
         <GeoJSONSource
           id="paragens"
           onPress={(event) => {
+            // Ver a nota nos negócios: o toque não pode subir para o mapa.
+            event.stopPropagation?.();
             // Igual ao dos negócios: as funcionalidades vêm em `nativeEvent`.
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
@@ -650,6 +661,10 @@ export function MapView({
             })),
           }}
           onPress={(event) => {
+            // Sem isto o toque sobe também para o mapa: com a fita métrica
+            // ligada, tocar num negócio abria a ficha **e** deixava lá um ponto
+            // de medição por cima do pino.
+            event.stopPropagation?.();
             const feature = event.nativeEvent.features[0];
             const placeId = feature?.properties?.placeId;
             if (typeof placeId === 'number') {

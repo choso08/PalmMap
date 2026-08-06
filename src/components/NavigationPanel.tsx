@@ -185,13 +185,13 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderRadius: 17,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.signFace,
       borderWidth: 3,
       // O vermelho do sinal de limite de velocidade, que se lê num instante.
-      borderColor: '#D32F2F',
+      borderColor: theme.signEdge,
     },
     limiteText: {
-      color: '#111111',
+      color: theme.signInk,
       fontSize: 14,
       fontWeight: '800',
     },

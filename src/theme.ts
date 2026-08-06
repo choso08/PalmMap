@@ -57,6 +57,16 @@ export interface Theme {
   overlay: string;
   /** Texto dessas mensagens. */
   onOverlay: string;
+  /**
+   * As cores do sinal de limite de velocidade.
+   *
+   * São iguais nas duas paletas de propósito: é um sinal de trânsito, e o que o
+   * torna legível de relance é ser sempre o mesmo. Estão aqui na mesma porque
+   * nenhum componente escreve cores à mão.
+   */
+  signFace: string;
+  signEdge: string;
+  signInk: string;
 }
 
 export const light: Theme = {
@@ -77,6 +87,9 @@ export const light: Theme = {
   poiOutline: '#FCF8F2',
   overlay: 'rgba(24, 38, 45, 0.80)',
   onOverlay: '#FCF8F2',
+  signFace: '#FFFFFF',
+  signEdge: '#D32F2F',
+  signInk: '#111111',
 };
 
 export const dark: Theme = {
@@ -98,6 +111,9 @@ export const dark: Theme = {
   poiOutline: '#152230',
   overlay: 'rgba(5, 11, 15, 0.86)',
   onOverlay: '#EDE5D8',
+  signFace: '#FFFFFF',
+  signEdge: '#D32F2F',
+  signInk: '#111111',
 };
 
 export function themeFor(isDark: boolean): Theme {

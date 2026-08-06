@@ -24,5 +24,13 @@ export interface OverpassElement {
 }
 
 export interface OverpassResponse {
+  /**
+   * Explicação quando a consulta não correu bem.
+   *
+   * A Overpass responde **200** mesmo quando rebenta pelo tempo ou pela
+   * memória, e mete a razão aqui. Sem olhar para isto, uma falha passava por
+   * "não há nada nesta zona".
+   */
+  remark?: string;
   elements: OverpassElement[];
 }

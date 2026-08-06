@@ -1,4 +1,4 @@
-import type { Coordinates } from '../types/geo';
+import type { Bounds, Coordinates } from '../types/geo';
 
 /**
  * Contas de distância sobre o mapa.
@@ -145,4 +145,27 @@ export function perimeterMeters(points: Coordinates[]): number {
     return pathLengthMeters(points);
   }
   return pathLengthMeters(points) + distanceMeters(points[points.length - 1], points[0]);
+}
+
+/**
+ * O retângulo que contém todos estes pontos.
+ *
+ * Numa passagem só, de propósito: `Math.min(...pontos)` passa cada ponto como
+ * argumento da função, e um percurso longo — que com `overview=full` traz
+ * dezenas de milhares — rebenta a pilha com `RangeError`.
+ */
+export function boundsOf(points: Coordinates[]): Bounds {
+  let south = Infinity;
+  let west = Infinity;
+  let north = -Infinity;
+  let east = -Infinity;
+
+  for (const p of points) {
+    if (p.latitude < south) south = p.latitude;
+    if (p.latitude > north) north = p.latitude;
+    if (p.longitude < west) west = p.longitude;
+    if (p.longitude > east) east = p.longitude;
+  }
+
+  return { south, west, north, east };
 }

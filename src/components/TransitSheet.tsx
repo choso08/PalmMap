@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -21,7 +21,6 @@ import {
 } from '../services/transit';
 import { useTheme } from '../settings';
 import type { Theme } from '../theme';
-import type { Coordinates } from '../types/geo';
 import { formatDistance } from '../utils/format';
 
 interface TransitSheetProps {
@@ -32,17 +31,17 @@ interface TransitSheetProps {
    * painel inteiro.
    */
   dragHandlers?: GestureResponderHandlers;
-  origin: Coordinates | null;
+  /** Paragens perto, já encontradas pelo `App`. */
+  stops: TransitStop[];
+  loading: boolean;
+  error: string | null;
+  /** Está fora da área servida: não é erro, é falta de dados abertos. */
+  outside: boolean;
+  /** Falta a permissão do GPS, ou ainda não há posição. */
+  semPosicao: boolean;
   onClose: () => void;
   /** Traçar o percurso a pé até à paragem. */
   onGoToStop: (stop: TransitStop) => void;
-  /**
-   * Diz ao mapa que paragens marcar e qual está aberta.
-   *
-   * Sem os pinos, seis linhas de lista com nomes parecidos não dizem onde é que
-   * cada paragem fica — que é a primeira coisa que se quer saber.
-   */
-  onStopsChange: (stops: TransitStop[]) => void;
   onSelectedStopChange: (stopId: string | null) => void;
   /** A paragem escolhida no mapa, para a lista abrir a mesma. */
   selectedStopId: string | null;
@@ -61,10 +60,13 @@ function formatWait(minutes: number): string {
  * de mostrar uma lista vazia.
  */
 export function TransitSheet({
-  origin,
+  stops,
+  loading,
+  error,
+  outside,
+  semPosicao,
   onClose,
   onGoToStop,
-  onStopsChange,
   onSelectedStopChange,
   selectedStopId,
   dragHandlers,
@@ -73,15 +75,12 @@ export function TransitSheet({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
-  const [stops, setStops] = useState<TransitStop[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  /** Fora da área servida: não é erro, é falta de dados abertos. */
-  const [outside, setOutside] = useState(false);
-
   /**
    * A paragem aberta vive no `App`, e não aqui, porque também se abre tocando no
    * pino do mapa. Ter duas cópias do mesmo estado dava-as a divergir.
+   *
+   * A lista das paragens também é de lá, pela mesma razão e por outra: os pinos
+   * têm de aparecer no mapa **sem** este painel estar aberto.
    */
   const openStop = selectedStopId;
   const setOpenStop = onSelectedStopChange;
@@ -89,62 +88,41 @@ export function TransitSheet({
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Lista das paragens, uma vez.
-  useEffect(() => {
-    if (!origin) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const perto = await nearbyStops(origin);
-        if (cancelled) {
-          return;
-        }
-        if (perto === null) {
-          setOutside(true);
-          onStopsChange([]);
-        } else {
-          setStops(perto);
-          onStopsChange(perto);
-        }
-      } catch {
-        if (!cancelled) {
-          setError('Não foi possível obter as paragens. Verifique a ligação.');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [origin, onStopsChange]);
-
   /**
    * As passagens da paragem aberta.
    *
    * `silencioso` serve para as atualizações automáticas não porem o indicador a
    * rodar de trinta em trinta segundos — o painel ficaria sempre a piscar.
    */
+  /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
+  const ultimoPedido = useRef(0);
+
   const carregarPassagens = useCallback(async (stopId: string, silencioso = false) => {
+    const pedido = ultimoPedido.current + 1;
+    ultimoPedido.current = pedido;
+
     if (!silencioso) {
       setArrivals(null);
       setArrivalsError(null);
     }
     setRefreshing(true);
     try {
-      setArrivals(await arrivalsAt(stopId));
+      const horas = await arrivalsAt(stopId);
+      // Trocar de paragem enquanto a anterior estava na fila fazia as horas de
+      // uma aparecer por baixo do nome da outra.
+      if (ultimoPedido.current !== pedido) {
+        return;
+      }
+      setArrivals(horas);
       setArrivalsError(null);
     } catch {
-      setArrivalsError('Não foi possível obter as horas de passagem.');
+      if (ultimoPedido.current === pedido) {
+        setArrivalsError('Não foi possível obter as horas de passagem.');
+      }
     } finally {
-      setRefreshing(false);
+      if (ultimoPedido.current === pedido) {
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -187,7 +165,7 @@ export function TransitSheet({
         </View>
       ) : null}
 
-      {!loading && !origin ? (
+      {!loading && semPosicao ? (
         <Text style={styles.aviso}>
           Sem a sua localização não há como saber que paragens ficam perto. Autorize o
           acesso ao GPS nas definições do telemóvel.
@@ -205,7 +183,7 @@ export function TransitSheet({
       ) : null}
 
       <ScrollView style={styles.lista} keyboardShouldPersistTaps="handled">
-        {(stops ?? []).map((stop) => {
+        {stops.map((stop) => {
           const aberta = openStop === stop.id;
 
           return (

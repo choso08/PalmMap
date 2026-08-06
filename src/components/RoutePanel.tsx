@@ -238,10 +238,11 @@ export function RoutePanel({
 
           {/*
             Quando a definição de evitar portagens está ligada mas o servidor não
-            a soube cumprir, diz-se. Prometer um caminho sem portagens e mandar a
+            a soube cumprir, diz-se. **Só de carro**: a pé e de bicicleta a
+            exclusão nem chega a ser pedida, e o aviso aparecia sempre. Prometer um caminho sem portagens e mandar a
             pessoa por uma autoestrada paga era o pior dos dois mundos.
           */}
-          {avoidTollsWanted && !route.avoidedTolls ? (
+          {avoidTollsWanted && travelMode === 'driving' && !route.avoidedTolls ? (
             <View style={styles.aviso}>
               <MaterialCommunityIcons
                 name="cash-remove"

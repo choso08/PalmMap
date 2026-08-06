@@ -13,7 +13,16 @@ import type { Bounds, Coordinates, Place } from '../types/geo';
 import type { OverpassElement, OverpassResponse } from '../types/overpass';
 import { MAP_PIN_TAGS, categoryLabel, type SearchCategory } from '../utils/categories';
 
-const client = axios.create({
+/**
+ * O cliente e a fila da Overpass, partilhados por quem lhe fizer perguntas.
+ *
+ * **A fila tem de ser uma só.** O `createRateLimiter` guarda o tempo do último
+ * pedido dentro de si; duas filas com o mesmo intervalo são duas filas, e os
+ * dois segundos que as regras da Overpass pedem passavam a ser cumpridos por
+ * cada uma de sua vez — ou seja, dois pedidos ao mesmo tempo. Foi o que
+ * aconteceu quando os radares criaram a sua.
+ */
+export const overpassClient = axios.create({
   baseURL: OVERPASS_BASE_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: {
@@ -23,7 +32,8 @@ const client = axios.create({
   },
 });
 
-const schedule = createRateLimiter(OVERPASS_MIN_INTERVAL_MS);
+export const overpassSchedule = createRateLimiter(OVERPASS_MIN_INTERVAL_MS);
+const schedule = overpassSchedule;
 
 /**
  * Memória dos pedidos já feitos. A Overpass é pesada de correr, por isso
@@ -93,9 +103,16 @@ async function runQuery(cacheKey: string, query: string): Promise<Place[]> {
 
   let response;
   try {
-    response = await schedule(() => client.post<OverpassResponse>('', query));
+    response = await schedule(() => overpassClient.post<OverpassResponse>('', query));
   } catch {
     throw new PlacesError('Não foi possível procurar locais. Tente daqui a pouco.');
+  }
+
+  // A Overpass responde 200 com um `remark` quando a consulta rebenta pelo
+  // tempo ou pela memória. Guardar isso na memória era guardar uma falha para
+  // sempre: aquela zona ficava sem negócios o resto da sessão, sem erro nenhum.
+  if (response.data.remark) {
+    throw new PlacesError('O serviço está cheio neste momento. Tente daqui a pouco.');
   }
 
   const places = response.data.elements
@@ -130,7 +147,8 @@ export async function searchNearby(
   return runQuery(cacheKey, query);
 }
 
-function boundingBox(bounds: Bounds): string {
+/** O retângulo no formato que a Overpass quer: sul,oeste,norte,este. */
+export function boundingBox(bounds: Bounds): string {
   return [
     bounds.south.toFixed(4),
     bounds.west.toFixed(4),

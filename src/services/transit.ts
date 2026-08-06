@@ -152,10 +152,27 @@ export async function nearbyStops(
 ): Promise<TransitStop[] | null> {
   const todas = await loadStops();
 
-  const perto = todas
-    .map((stop) => ({ ...stop, meters: distanceMeters(origin, stop.coordinates) }))
-    .sort((a, b) => a.meters - b.meters)
-    .slice(0, limit);
+  // Uma passagem só, guardando as melhores à medida que se anda. A alternativa
+  // — copiar as milhares de paragens, ordenar tudo e ficar com seis — fazia
+  // milhares de cópias de objetos de cada vez, e isto corre sempre que a
+  // posição muda.
+  const perto: TransitStop[] = [];
+  let pior = Infinity;
+
+  for (const stop of todas) {
+    const meters = distanceMeters(origin, stop.coordinates);
+    if (perto.length === limit && meters >= pior) {
+      continue;
+    }
+
+    const entrada = { ...stop, meters };
+    const onde = perto.findIndex((p) => p.meters > meters);
+    perto.splice(onde === -1 ? perto.length : onde, 0, entrada);
+    if (perto.length > limit) {
+      perto.pop();
+    }
+    pior = perto[perto.length - 1].meters;
+  }
 
   if (perto.length === 0 || perto[0].meters > FORA_DA_AREA_METROS) {
     return null;

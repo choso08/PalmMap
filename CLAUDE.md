@@ -28,8 +28,9 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
    não abrir, a aplicação recua sozinha para os tiles da Internet e parece que está tudo
    bem — uma avaria passa despercebida com rede.
 
-**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação e os anúncios
-de voz depois do filtro das manobras.
+**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação, os anúncios de
+voz depois do filtro das manobras, e os radares, as horas dos autocarros e as portagens —
+que dependem de serviços a que o ambiente de desenvolvimento não chega.
 
 ## Objetivo do projeto
 
@@ -617,7 +618,7 @@ A distinção que interessa, e que se deve manter sempre que se mexer nisto:
 
 O que se faz, e é legítimo:
 
-- **Teto de zoom nos tiles.** O estilo pede tiles até ao nível 17 (`MAX_TILE_ZOOM`); acima
+- **Teto de zoom nos tiles.** O estilo pede tiles até ao nível 18 (`MAX_TILE_ZOOM`); acima
   disso o MapLibre amplia os que já tem. Isto resolve metade do problema do offline: os
   níveis mais aproximados deixam de precisar de tiles próprios, e passam a funcionar a
   partir dos que já estão guardados. De caminho, tira cerca de dezasseis vezes o peso posto
@@ -727,7 +728,10 @@ tile que falta deixava ver o vazio, que o MapLibre desenha a preto — era daí 
 preto" ao afastar sem rede.
 
 **Se o mapa guardado não abrir, a aplicação recua para os tiles da Internet**
-(`onDidFailLoadingMap`). É o que evita um ecrã em branco — mas também é o que faz uma
+(`onDidFailLoadingMap`). A falha fica registada **por país** (`failedRegions`), e não como
+um sim-ou-não para tudo: já foi um trinco que, uma vez fechado, desligava o offline o resto
+da sessão — bastava uma falha passageira num país para o mapa de outro nunca mais ser
+usado, e em modo de avião isso é um ecrã vazio sem explicação. É o que evita um ecrã em branco — mas também é o que faz uma
 avaria passar despercebida, daí o aviso lá em cima sobre testar com os dados desligados.
 
 Tamanhos reais já medidos (zoom 14):
@@ -1010,7 +1014,12 @@ serem desfeitas sem se perceber o que se está a desligar.
 OpenStreetMap. Convém ser especialmente cuidadoso.
 
 - Intervalo mínimo de 2 segundos entre pedidos. *No código:* `OVERPASS_MIN_INTERVAL_MS`,
-  aplicado pela fila partilhada em `src/services/rateLimit.ts`.
+  numa **fila só**, exportada por `src/services/overpass.ts` e usada também pelos radares.
+  Ter fila própria em cada ficheiro é ter duas: cada uma cumpre os dois segundos por si, e
+  os pedidos saem ao mesmo tempo. Quem precisar da Overpass importa `overpassSchedule`.
+- **Um 200 com `remark` é uma falha.** A Overpass responde com sucesso e explica ali que a
+  consulta rebentou pelo tempo ou pela memória. Guardar isso na cache deixava aquela zona
+  sem resultados o resto da sessão, sem erro nenhum.
 - Os botões de categoria procuram **na área visível do mapa**, não à volta do GPS. Ao
   olhar para outra zona, procurar à volta do GPS punha os resultados fora do ecrã e
   parecia que o botão não fazia nada. *No código:* `searchCategoryInBounds`, com aviso a
@@ -1019,6 +1028,7 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
 - Os pinos automáticos no mapa são o maior risco de abuso — sem travões, seria um pedido
   por cada arrastar do dedo. *No código:* só se pede a partir do zoom `MAP_PINS_MIN_ZOOM`
   (15), e só `MAP_PINS_DEBOUNCE_MS` (1,2 s) depois de o mapa parar. **Não desligar isto.**
+  Já esteve no 14 por engano: cada nível a menos quadruplica a área da consulta.
 - Guardar em memória as consultas já feitas. *No código:* o `Map` de cache em
   `src/services/overpass.ts`, com as coordenadas arredondadas para o GPS a oscilar não
   gerar pedidos novos.

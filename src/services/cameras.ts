@@ -1,16 +1,7 @@
-import axios from 'axios';
-
-import {
-  CAMERA_CORRIDOR_M,
-  OVERPASS_BASE_URL,
-  OVERPASS_MIN_INTERVAL_MS,
-  REQUEST_TIMEOUT_MS,
-  USER_AGENT,
-} from './config';
-import { createRateLimiter } from './rateLimit';
+import { CAMERA_CORRIDOR_M } from './config';
 import type { Coordinates } from '../types/geo';
 import type { OverpassElement, OverpassResponse } from '../types/overpass';
-import { distanceMeters } from '../utils/geometry';
+import { boundsOf, locateOnRoute } from '../utils/geometry';
 
 /**
  * Radares e outros controlos de velocidade, a partir do OpenStreetMap.
@@ -40,16 +31,14 @@ import { distanceMeters } from '../utils/geometry';
  * Isto é dito ao utilizador no ecrã de definições, e não só aqui.
  */
 
-const client = axios.create({
-  baseURL: OVERPASS_BASE_URL,
-  timeout: REQUEST_TIMEOUT_MS,
-  headers: {
-    'User-Agent': USER_AGENT,
-    'Content-Type': 'application/x-www-form-urlencoded',
-  },
-});
-
-const schedule = createRateLimiter(OVERPASS_MIN_INTERVAL_MS);
+/**
+ * O cliente e a fila são **os mesmos** que os dos negócios.
+ *
+ * Ter fila própria era ter duas: cada uma cumpria os dois segundos por si, e um
+ * percurso calculado enquanto o mapa procurava negócios mandava dois pedidos
+ * pesados à Overpass no mesmo instante. É assim que se é bloqueado.
+ */
+import { boundingBox, overpassClient, overpassSchedule } from './overpass';
 
 /** Que género de controlo é. Muda o que se diz em voz alta. */
 export type CameraKind = 'fixo' | 'media' | 'semaforo' | 'outro';
@@ -134,7 +123,13 @@ async function camerasInBox(box: string): Promise<Omit<SpeedCamera, 'routeIndex'
     `  node["highway"="checkpoint"]["checkpoint"="speed"](${box});\n` +
     `);\nout body 400;`;
 
-  const response = await schedule(() => client.post<OverpassResponse>('', query));
+  const response = await overpassSchedule(() => overpassClient.post<OverpassResponse>('', query));
+
+  if (response.data.remark) {
+    // Ver a nota igual em `overpass.ts`: um 200 com `remark` é uma falha, e
+    // guardá-la deixava este percurso sem radares para sempre.
+    throw new Error(response.data.remark);
+  }
 
   const cameras = response.data.elements
     .map(toCamera)
@@ -164,35 +159,45 @@ export async function camerasAlongRoute(
     return [];
   }
 
-  const lats = routeCoordinates.map((p) => p.latitude);
-  const lons = routeCoordinates.map((p) => p.longitude);
-  // Uma folga pequena à volta do percurso, para não cortar um radar mesmo na borda.
+  // Uma folga pequena à volta do percurso, para não cortar um radar mesmo na
+  // borda. O retângulo calcula-se com uma passagem só: `Math.min(...lista)`
+  // passa os pontos todos como argumentos, e num percurso longo — que com
+  // `overview=full` são dezenas de milhares — isso rebenta a pilha.
   const margem = 0.005;
-  const box = [
-    (Math.min(...lats) - margem).toFixed(4),
-    (Math.min(...lons) - margem).toFixed(4),
-    (Math.max(...lats) + margem).toFixed(4),
-    (Math.max(...lons) + margem).toFixed(4),
-  ].join(',');
+  const area = boundsOf(routeCoordinates);
+  const box = boundingBox({
+    south: area.south - margem,
+    west: area.west - margem,
+    north: area.north + margem,
+    east: area.east + margem,
+  });
 
   const encontrados = await camerasInBox(box);
 
   const emRota: SpeedCamera[] = [];
 
-  for (const camera of encontrados) {
-    let melhor = Infinity;
-    let indice = 0;
+  // Um grau de latitude são uns 111 km. Comparar em graus antes de fazer a
+  // conta a sério tira de cima a esmagadora maioria dos radares — sem isto,
+  // eram 400 radares vezes dezenas de milhares de pontos, tudo de uma vez e a
+  // bloquear o ecrã no momento em que o percurso acaba de aparecer.
+  const grauFolga = (CAMERA_CORRIDOR_M / 111000) * 4;
 
-    for (let i = 0; i < routeCoordinates.length; i += 1) {
-      const d = distanceMeters(routeCoordinates[i], camera.coordinates);
-      if (d < melhor) {
-        melhor = d;
-        indice = i;
-      }
+  for (const camera of encontrados) {
+    const perto =
+      camera.coordinates.latitude >= area.south - grauFolga &&
+      camera.coordinates.latitude <= area.north + grauFolga &&
+      camera.coordinates.longitude >= area.west - grauFolga &&
+      camera.coordinates.longitude <= area.east + grauFolga;
+
+    if (!perto) {
+      continue;
     }
 
-    if (melhor <= CAMERA_CORRIDOR_M) {
-      emRota.push({ ...camera, routeIndex: indice });
+    // O mesmo `locateOnRoute` que a navegação usa para saber onde se está: uma
+    // só regra de "ponto mais próximo do percurso" em toda a aplicação.
+    const { index, offRouteMeters } = locateOnRoute(routeCoordinates, camera.coordinates);
+    if (offRouteMeters <= CAMERA_CORRIDOR_M) {
+      emRota.push({ ...camera, routeIndex: index });
     }
   }
 
