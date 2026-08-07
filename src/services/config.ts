@@ -86,11 +86,40 @@ export const NOMINATIM_MIN_INTERVAL_MS = 1000;
 /**
  * Intervalo mínimo entre pedidos à Carris Metropolitana.
  *
- * Não há limite publicado. Um segundo é ser bem-educado com um serviço que não
- * nos pede nada em troca — e chega de sobra, porque só se pede quando a pessoa
- * abre a lista ou a manda atualizar.
+ * Não há limite publicado. Trezentos milissegundos são pouco mais de três
+ * pedidos por segundo — bem abaixo do que a aplicação oficial deles faz, e
+ * suficientemente educado para um serviço que não nos pede nada em troca.
+ *
+ * Foi baixado de um segundo por causa do planeamento de trajetos: esse precisa
+ * das horas de meia dúzia de paragens ao mesmo tempo, e a um pedido por segundo
+ * eram seis segundos de espera a olhar para um indicador a rodar.
  */
-export const CARRIS_MIN_INTERVAL_MS = 1000;
+export const CARRIS_MIN_INTERVAL_MS = 300;
+
+/**
+ * Até que distância se aceita ir a pé para apanhar o autocarro, em metros.
+ *
+ * Um quilómetro são uns doze minutos a passo normal. Mais do que isso, quem vai
+ * a pé até lá já preferia ir a pé o caminho todo.
+ */
+export const TRANSIT_WALK_MAX_M = 1000;
+
+/**
+ * A que velocidade se anda a pé, em metros por segundo.
+ *
+ * 1,35 m/s são uns 4,9 km/h, o passo normal de um adulto. É o mesmo valor que o
+ * perfil de peão do OSRM usa.
+ */
+export const WALK_SPEED_MS = 1.35;
+
+/**
+ * Quanto se acrescenta à distância em linha reta para chegar à distância real.
+ *
+ * Entre dois pontos de uma cidade anda-se sempre mais do que a linha reta,
+ * porque há quarteirões pelo meio. Um terço a mais é a aproximação habitual — e
+ * chega, porque isto só serve para ordenar opções e dizer "cinco minutos a pé".
+ */
+export const WALK_DETOUR = 1.3;
 
 /**
  * De quanto em quanto tempo se voltam a pedir as horas de passagem, enquanto o

@@ -42,8 +42,18 @@ export interface CarrisStop {
  */
 export interface CarrisArrival {
   line_id?: string;
-  route_id?: string;
+  /**
+   * Identifica a **viagem**: aquele autocarro, naquele horário, naquele dia.
+   *
+   * É a peça que permite montar um trajeto: se o mesmo `trip_id` aparece na
+   * paragem onde se entra e na paragem onde se sai, é o mesmo autocarro — e as
+   * duas horas são a partida e a chegada reais, sem se ter de adivinhar nada.
+   */
   trip_id?: string;
+  /** A ordem desta paragem dentro da viagem. Confirma o sentido da marcha. */
+  stop_sequence?: number;
+  pattern_id?: string;
+  route_id?: string;
   headsign?: string;
   stop_id?: string;
   /** A hora do horário, em texto. */

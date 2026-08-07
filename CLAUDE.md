@@ -391,7 +391,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | Definição | O que faz |
   | --- | --- |
   | `appearance` | Aspeto: automático, claro ou escuro |
-  | `travelMode` | Meio de transporte: carro, a pé ou bicicleta |
+  | `travelMode` | Meio de transporte: carro, a pé, bicicleta ou autocarro |
   | `timeAdjustment` | Correção do tempo estimado: 1×, 1,25×, 1,5× ou 2× |
   | `cacheSize` | Tamanho do mapa guardado: 100 MB, 250 MB, 500 MB ou 1 GB |
   | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
@@ -508,6 +508,40 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   — duas cópias do mesmo estado acabariam por divergir.
 - **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
   isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
+
+### 6-B-2. Trajetos de autocarro
+
+Isto é o terceiro andar dos transportes. O mapa mostra por onde as linhas passam; as horas
+de passagem dizem quando passam numa paragem; **isto responde a "como vou daqui até ali de
+autocarro"**.
+
+- **Não há nenhum serviço aberto que responda a isso em Portugal.** Monta-se a partir do que
+  há: as passagens de cada paragem. Ver `planBusTrips`, em `src/services/transit.ts`.
+- **A peça que faz isto funcionar é o `trip_id`.** Se a mesma viagem aparece numa paragem
+  perto da origem e numa paragem perto do destino, é o mesmo autocarro — e as duas horas são
+  a partida e a chegada reais. A ordem entre elas confirma o sentido da marcha, por isso não
+  é preciso ir buscar o desenho da linha nem adivinhar direções.
+- **`stop_sequence` é a segunda confirmação.** A paragem de entrada tem de vir antes da de
+  saída dentro da viagem. Sem isto, a mesma linha em sentido contrário passava por trajeto.
+- **Uma linha aparece uma vez.** As três passagens seguintes do mesmo autocarro não são três
+  opções — são a mesma opção repetida.
+- **A recomendação não é opinião:** o primeiro da lista é o que põe a pessoa no destino mais
+  cedo, contando com o tempo a pé das duas pontas. É por isso que se ordena por `reachAt` e
+  não pela hora de partida.
+- O tempo a pé é **estimado** (linha reta × `WALK_DETOUR`, a `WALK_SPEED_MS`), não é
+  calculado no mapa. Serve para ordenar as opções e para dizer "cinco minutos a pé".
+- `CARRIS_MIN_INTERVAL_MS` baixou para 300 ms por causa disto: o planeamento precisa das
+  horas de meia dúzia de paragens, e a um pedido por segundo eram seis segundos de espera.
+
+**Os limites, para dizer sem rodeios:**
+
+- Só **autocarros da Carris Metropolitana**, e só na Área Metropolitana de Lisboa. Comboios,
+  metro e barcos são outros operadores, com outros serviços — e alguns nem serviço aberto
+  têm.
+- **Sem transbordos.** Só linhas que fazem o caminho todo de uma vez.
+- O objetivo declarado pelo autor é chegar perto do que o Google faz, acrescentando fontes
+  com o tempo. Ao juntar um operador novo, o sítio é o mesmo: mais paragens na lista e mais
+  passagens a comparar por `trip_id`.
 
 ### 6-C. Radares
 

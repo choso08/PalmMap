@@ -8,6 +8,8 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { TRAVEL_MODES, useTheme, useTimeFactor, type TravelMode } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
+import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
+import type { BusTrip } from '../services/transit';
 import { formatDistance, formatDuration } from '../utils/format';
 
 interface RoutePanelProps {
@@ -35,10 +37,35 @@ interface RoutePanelProps {
   /** Paragens pelo caminho, pela ordem por que se passa por elas. */
   waypoints: Place[];
   onRemoveWaypoint: (index: number) => void;
+  /**
+   * Trajetos de autocarro, quando o meio escolhido são os transportes.
+   *
+   * `null` quer dizer "não é este o meio"; uma lista vazia quer dizer que não se
+   * encontrou nenhum — e são coisas diferentes de dizer.
+   */
+  busTrips: BusTrip[] | null;
+  busTripIndex: number;
+  onChooseBusTrip: (index: number) => void;
   /** Caminhos alternativos, e qual está escolhido. */
   options: Route[];
   optionIndex: number;
   onChooseOption: (index: number) => void;
+}
+
+/** `HH:MM` a partir de segundos desde 1970. */
+function relogio(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * O tempo a pé para uma distância, igual ao que o planeamento usa.
+ *
+ * Repetido aqui de propósito e não importado do serviço: o serviço trabalha em
+ * segundos e sem arredondamentos, isto só quer um número para escrever no ecrã.
+ */
+function walkSecondsEntre(meters: number): number {
+  return (meters * WALK_DETOUR) / WALK_SPEED_MS;
 }
 
 /** Painel inferior com a informação do percurso. */
@@ -61,6 +88,9 @@ export function RoutePanel({
   optionIndex,
   onChooseOption,
   dragHandlers,
+  busTrips,
+  busTripIndex,
+  onChooseBusTrip,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -159,6 +189,64 @@ export function RoutePanel({
         <View style={styles.status}>
           <MaterialCommunityIcons name="alert-circle-outline" size={18} color={theme.danger} />
           <Text style={styles.error}>{error}</Text>
+        </View>
+      ) : null}
+
+      {/*
+        Os trajetos de autocarro. Cada um é uma linha só, sem transbordos — ver
+        `planBusTrips`, que explica porquê.
+
+        O primeiro é o que chega mais cedo, e leva a marca de recomendado. Não é
+        opinião: é o que põe a pessoa no destino primeiro, contando com o tempo
+        a pé das duas pontas.
+      */}
+      {busTrips && !loading ? (
+        <View style={styles.trajetos}>
+          {busTrips.length === 0 && !error ? (
+            <Text style={styles.avisoTexto}>
+              Nenhum autocarro faz este caminho sem mudanças. Por agora só se procuram
+              linhas diretas da Carris Metropolitana.
+            </Text>
+          ) : null}
+
+          {busTrips.map((t, i) => {
+            const ativo = i === busTripIndex;
+            return (
+              <Pressable
+                key={t.tripId}
+                style={[styles.trajeto, ativo ? styles.trajetoAtivo : null]}
+                onPress={() => onChooseBusTrip(i)}
+              >
+                <View style={styles.trajetoTopo}>
+                  <View style={styles.linhaBadge}>
+                    <Text style={styles.linhaBadgeTexto}>{t.line}</Text>
+                  </View>
+                  <Text style={styles.trajetoDestino} numberOfLines={1}>
+                    {t.headsign}
+                  </Text>
+                  {i === 0 ? (
+                    <View style={styles.melhor}>
+                      <Text style={styles.melhorTexto}>melhor</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <Text style={styles.trajetoHoras}>
+                  {relogio(t.departsAt)} – {relogio(t.arrivesAt)} ·{' '}
+                  {formatDuration(t.reachAt - Math.max(t.leaveAt, Date.now() / 1000))}
+                </Text>
+
+                <Text style={styles.trajetoDetalhe} numberOfLines={2}>
+                  {t.live ? '● ' : ''}
+                  {formatDuration(walkSecondsEntre(t.from.meters))} a pé até {t.from.name}
+                  {' · '}
+                  {t.stops} paragens
+                  {' · '}
+                  {formatDuration(walkSecondsEntre(t.to.meters))} a pé de {t.to.name}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
 
@@ -363,6 +451,70 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       fontSize: 13,
       color: theme.text,
+    },
+    trajetos: {
+      marginTop: 14,
+      gap: 8,
+    },
+    trajeto: {
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      borderRadius: 16,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    trajetoAtivo: {
+      borderColor: theme.accent,
+      borderWidth: 1.5,
+    },
+    trajetoTopo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    linhaBadge: {
+      minWidth: 46,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 6,
+      backgroundColor: theme.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      alignItems: 'center',
+    },
+    linhaBadgeTexto: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.accent,
+    },
+    trajetoDestino: {
+      flex: 1,
+      fontSize: 13,
+      color: theme.text,
+    },
+    melhor: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: theme.accent,
+    },
+    melhorTexto: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.onAccent,
+    },
+    trajetoHoras: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.text,
+      marginTop: 7,
+    },
+    trajetoDetalhe: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginTop: 3,
+      lineHeight: 17,
     },
     alternativas: {
       flexDirection: 'row',

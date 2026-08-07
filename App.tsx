@@ -52,12 +52,18 @@ import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
-import { nearbyStops, type TransitStop } from './src/services/transit';
+import {
+  nearbyStops,
+  planBusTrips,
+  type BusTrip,
+  type TransitStop,
+} from './src/services/transit';
 import {
   MAP_TYPES,
   SettingsProvider,
   cacheMegabytesFor,
   nextMapType,
+  osrmProfile,
   useSettings,
   useTheme,
   type MapType,
@@ -160,6 +166,15 @@ function PalmMap() {
     setRouteOptions(novo ? [novo] : []);
     setRouteIndex(0);
   }, []);
+  /**
+   * Trajetos de autocarro, quando o meio escolhido são os transportes.
+   *
+   * Ficam à parte do `routeOptions` de propósito: um trajeto de autocarro não é
+   * um percurso desenhado no mapa, é uma lista de horas. Misturá-los obrigava
+   * tudo o que lê o percurso a saber distinguir os dois.
+   */
+  const [busTrips, setBusTrips] = useState<BusTrip[] | null>(null);
+  const [busTripIndex, setBusTripIndex] = useState(0);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [stepsVisible, setStepsVisible] = useState(false);
@@ -419,13 +434,55 @@ function PalmMap() {
     setRouteLoading(true);
     setRouteError(null);
 
+    const perfil = osrmProfile(settings.travelMode);
+
+    // --- Autocarro -----------------------------------------------------------
+    //
+    // Os transportes não passam pelo OSRM: não há motor de percursos que os
+    // saiba calcular a partir de dados abertos. Montam-se a partir das horas de
+    // passagem das paragens — ver `planBusTrips`.
+    if (perfil === null) {
+      setRouteOptions([]);
+      void (async () => {
+        try {
+          const trajetos = await planBusTrips(origem, destination.coordinates);
+          if (cancelled) {
+            return;
+          }
+          setBusTrips(trajetos ?? []);
+          setBusTripIndex(0);
+          setRouteError(
+            trajetos === null
+              ? 'Não há paragens a pé de distância de um dos pontos, ou está fora da área da Carris Metropolitana.'
+              : null,
+          );
+          void rememberRecent(destination).then(setRecents);
+        } catch {
+          if (!cancelled) {
+            setBusTrips([]);
+            setRouteError('Não foi possível obter os horários. Verifique a ligação.');
+          }
+        } finally {
+          if (!cancelled) {
+            setRouteLoading(false);
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setBusTrips(null);
+
     void (async () => {
       try {
         const result = await getRoutes(
           origem,
           waypoints.map((w) => w.coordinates),
           destination.coordinates,
-          settings.travelMode,
+          perfil,
           settings.avoidTolls,
         );
         if (!cancelled) {
@@ -716,7 +773,7 @@ function PalmMap() {
                 position,
                 emFalta.map((w) => w.coordinates),
                 destination.coordinates,
-                settings.travelMode,
+                osrmProfile(settings.travelMode) ?? 'driving',
                 settings.avoidTolls,
               );
               setRoute(fresh);
@@ -1065,7 +1122,11 @@ function PalmMap() {
         measureClosed={measureMode === 'area'}
         alternativeRoutes={navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)}
         waypoints={waypoints.map((w) => w.coordinates)}
-        transitStops={transitStops}
+        transitStops={
+          busTrips?.[busTripIndex]
+            ? [busTrips[busTripIndex].from, busTrips[busTripIndex].to]
+            : transitStops
+        }
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
         offlineRegions={offlineRegions}
@@ -1162,6 +1223,9 @@ function PalmMap() {
                 options={routeOptions}
                 optionIndex={routeIndex}
                 onChooseOption={setRouteIndex}
+                busTrips={busTrips}
+                busTripIndex={busTripIndex}
+                onChooseBusTrip={setBusTripIndex}
               />
             )}
           </DraggableSheet>

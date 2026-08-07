@@ -20,8 +20,19 @@ import { type Theme, themeFor } from './theme';
 /** Aspeto do mapa e da interface. */
 export type AppearanceMode = 'system' | 'light' | 'dark';
 
-/** Meio de transporte usado para calcular o percurso. */
-export type TravelMode = 'driving' | 'walking' | 'cycling';
+/**
+ * Meio de transporte usado para calcular o percurso.
+ *
+ * Os três primeiros são perfis do OSRM. O `transit` **não é**: os transportes
+ * não se calculam com um motor de percursos, montam-se a partir das horas de
+ * passagem das paragens — ver `src/services/transit.ts`.
+ */
+export type TravelMode = 'driving' | 'walking' | 'cycling' | 'transit';
+
+/** Só os três que o OSRM sabe calcular. `null` para os transportes. */
+export function osrmProfile(mode: TravelMode): 'driving' | 'walking' | 'cycling' | null {
+  return mode === 'transit' ? null : mode;
+}
 
 /**
  * Correção do tempo estimado.
@@ -136,6 +147,7 @@ export const TRAVEL_MODES: { id: TravelMode; label: string; icon: string }[] = [
   { id: 'driving', label: 'Carro', icon: 'car' },
   { id: 'walking', label: 'A pé', icon: 'walk' },
   { id: 'cycling', label: 'Bicicleta', icon: 'bike' },
+  { id: 'transit', label: 'Autocarro', icon: 'bus' },
 ];
 
 export const APPEARANCE_MODES: { id: AppearanceMode; label: string; icon: string }[] = [
