@@ -27,6 +27,40 @@ export interface CarrisStop {
   municipality_name?: string;
   /** As linhas que param aqui. **É `line_ids`, não `lines`.** */
   line_ids?: string[];
+  /**
+   * Ligações que esta paragem tem a outros meios.
+   *
+   * Traz `'train'`, `'subway'`, `'light_rail'`, `'boat'` — é o que permite dizer
+   * "aqui muda para o comboio" sem se ter de cruzar coordenadas à mão.
+   */
+  facilities?: string[];
+}
+
+/**
+ * Uma estação de comboio, metro, metro de superfície ou barco.
+ *
+ * Vem dos endpoints `/facilities/*` da mesma API dos autocarros. São só as
+ * **localizações** — não há horários destes operadores por aqui.
+ *
+ * **Atenção aos tipos.** No código do serviço há duas formas deste objeto: uma
+ * com `lat`/`lon` como número e outra como texto. Não se sabe qual é a que a v2
+ * serve, por isso aceitam-se as duas — já se perdeu tempo suficiente com nomes
+ * e formatos adivinhados nesta API.
+ */
+export interface CarrisFacility {
+  id: string;
+  name?: string;
+  lat?: number | string;
+  lon?: number | string;
+  locality?: string;
+  municipality_name?: string;
+  /**
+   * As paragens de autocarro que servem esta estação.
+   *
+   * É isto que liga um trajeto de autocarro a um transbordo para o comboio, sem
+   * ser preciso adivinhar por proximidade.
+   */
+  stop_ids?: string[];
 }
 
 /**

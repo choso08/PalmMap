@@ -53,9 +53,11 @@ import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
+  nearbyStations,
   nearbyStops,
   planBusTrips,
   type BusTrip,
+  type TransitStation,
   type TransitStop,
 } from './src/services/transit';
 import {
@@ -127,6 +129,14 @@ function PalmMap() {
   const [transitError, setTransitError] = useState<string | null>(null);
   /** Fora da Área Metropolitana de Lisboa, onde não há dados abertos. */
   const [transitOutside, setTransitOutside] = useState(false);
+  /**
+   * Estações de comboio, metro, metro de superfície e barco perto de si.
+   *
+   * Destas só se sabe onde ficam. Aparecem na mesma porque saber que há uma
+   * estação de comboio ali é metade da questão — e é o primeiro passo para um
+   * dia haver horários também.
+   */
+  const [transitStations, setTransitStations] = useState<TransitStation[]>([]);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
@@ -280,6 +290,7 @@ function PalmMap() {
   useEffect(() => {
     if (settings.mapType !== 'transit' || !perto) {
       setTransitStops([]);
+      setTransitStations([]);
       return;
     }
 
@@ -289,10 +300,16 @@ function PalmMap() {
     setTransitLoading(true);
     void (async () => {
       try {
-        const encontradas = await nearbyStops({ latitude: lat, longitude: lon });
+        // As estações vêm ao mesmo tempo que as paragens: são quatro listas
+        // curtas e ficam em memória a seguir ao primeiro pedido.
+        const [encontradas, estacoes] = await Promise.all([
+          nearbyStops({ latitude: lat, longitude: lon }),
+          nearbyStations({ latitude: lat, longitude: lon }).catch(() => []),
+        ]);
         if (cancelled) {
           return;
         }
+        setTransitStations(estacoes);
         // Os três estados repõem-se sempre, e não só quando correm mal: sem
         // isso, abrir o painel fora de Lisboa e depois entrar na área deixava
         // o aviso de "não há horários" por cima de uma lista cheia.
@@ -1129,6 +1146,7 @@ function PalmMap() {
         }
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
+        transitStations={transitStations}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />
@@ -1414,6 +1432,7 @@ function PalmMap() {
               <TransitSheet
                 dragHandlers={drag}
                 stops={transitStops}
+                stations={transitStations}
                 loading={transitLoading}
                 error={transitError}
                 outside={transitOutside}

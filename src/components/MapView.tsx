@@ -21,7 +21,11 @@ import {
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
-import type { TransitStop } from '../services/transit';
+import {
+  STATION_LABELS,
+  type TransitStation,
+  type TransitStop,
+} from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
@@ -80,6 +84,13 @@ interface MapViewProps {
   selectedStopId?: string | null;
   /** Chamado ao tocar num pino de paragem. */
   onStopPress?: (stopId: string) => void;
+  /**
+   * Estações de comboio, metro, metro de superfície e barco.
+   *
+   * Destas só se sabe onde ficam — não há horários abertos destes operadores.
+   * Aparecem na mesma porque saber que há uma estação ali é metade da questão.
+   */
+  transitStations?: TransitStation[];
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -135,6 +146,7 @@ export function MapView({
   waypoints = [],
   transitStops = [],
   selectedStopId = null,
+  transitStations = [],
   onStopPress,
   offlineRegions,
   labelsReady,
@@ -517,6 +529,64 @@ export function MapView({
               'circle-stroke-color': theme.accent,
             }}
           />
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        As estações de comboio, metro, metro de superfície e barco.
+
+        Vão antes das paragens de autocarro para ficarem por baixo delas: as
+        paragens é que se tocam, estas são só referência.
+      */}
+      {transitStations.length > 0 ? (
+        <GeoJSONSource
+          id="estacoes"
+          data={{
+            type: 'FeatureCollection',
+            features: transitStations.map((estacao) => ({
+              type: 'Feature',
+              properties: {
+                nome: estacao.name,
+                genero: STATION_LABELS[estacao.kind],
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [estacao.coordinates.longitude, estacao.coordinates.latitude],
+              },
+            })),
+          }}
+        >
+          <Layer
+            id="estacoes-circle"
+            type="circle"
+            paint={{
+              'circle-radius': 7,
+              'circle-color': theme.poi,
+              'circle-stroke-width': 2.5,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="estacoes-label"
+              type="symbol"
+              minzoom={12}
+              layout={{
+                'text-field': ['get', 'nome'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 11,
+                'text-offset': [0, 1.3],
+                'text-anchor': 'top',
+                'text-max-width': 9,
+                'text-allow-overlap': false,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.6,
+              }}
+            />
+          ) : null}
         </GeoJSONSource>
       ) : null}
 

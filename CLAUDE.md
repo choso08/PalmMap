@@ -543,6 +543,38 @@ autocarro"**.
   com o tempo. Ao juntar um operador novo, o sítio é o mesmo: mais paragens na lista e mais
   passagens a comparar por `trip_id`.
 
+### 6-B-3. Outros operadores: o que há e o que não há
+
+Isto foi investigado a sério, para não se voltar a procurar. **Estado em agosto de 2026.**
+
+| Operador | Localizações | Horários | Tempo real |
+| --- | --- | --- | --- |
+| Carris Metropolitana (autocarros) | ✅ API aberta | ✅ API aberta | ✅ API aberta |
+| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | GTFS estático, por fazer | Só pela TML |
+| Metro de Lisboa | ✅ `/facilities/subway_stations` | GTFS estático, por fazer | Só pela TML |
+| **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ❌ **não publica** | ❌ **não publica** |
+| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | GTFS estático, por fazer | Só pela TML |
+
+**As localizações vêm todas da API que já se usa** — os quatro endpoints
+`/facilities/*` da Carris Metropolitana, sem chave nenhuma. Cada estação traz um `stop_ids`
+com as paragens de autocarro que a servem, e cada paragem traz um `facilities` a dizer com
+que meios liga. É isso que permite dizer "muda aqui para o comboio" sem cruzar coordenadas.
+
+**O Metro Sul do Tejo é o caso perdido.** É uma concessão privada e não publica nem
+horários nem tempo real. Cuidado com uma confusão fácil: existe GTFS da **TST — Transportes
+Sul do Tejo**, empresa de autocarros do mesmo grupo. **Não é o metro.**
+
+**A porta que falta abrir é a TML.** A Transportes Metropolitanos de Lisboa tem uma API em
+`go.tmlmobilidade.pt/hub/api/` com tempo real de oito operadores, incluindo CP, Fertagus,
+Metro de Lisboa e Transtejo/Soflusa. A documentação diz que o módulo `hub` é o de dados
+abertos e que se pode usar em aplicações sem limites — mas **não foi possível confirmar
+daqui** se é mesmo sem chave, porque o ambiente de desenvolvimento não lhe chega. É o
+primeiro sítio a verificar de um browser normal.
+
+**Os horários do Fertagus e da CP existem em GTFS estático** (transporlis.pt, dados.gov.pt,
+Mobility Database). O caminho para os usar é o mesmo dos mapas offline: um workflow que os
+converte num ficheiro compacto e o publica numa Release, para a aplicação descarregar.
+
 ### 6-C. Radares
 
 - Vêm do OpenStreetMap, pela Overpass (`src/services/cameras.ts`). Apanham-se **todos os

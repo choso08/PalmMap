@@ -14,9 +14,11 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { ARRIVALS_REFRESH_MS } from '../services/config';
 import {
+  STATION_ICONS,
+  STATION_LABELS,
   arrivalsAt,
-  nearbyStops,
   type TransitArrival,
+  type TransitStation,
   type TransitStop,
 } from '../services/transit';
 import { useTheme } from '../settings';
@@ -33,6 +35,8 @@ interface TransitSheetProps {
   dragHandlers?: GestureResponderHandlers;
   /** Paragens perto, já encontradas pelo `App`. */
   stops: TransitStop[];
+  /** Estações de comboio, metro, metro de superfície e barco perto. */
+  stations: TransitStation[];
   loading: boolean;
   error: string | null;
   /** Está fora da área servida: não é erro, é falta de dados abertos. */
@@ -61,6 +65,7 @@ function formatWait(minutes: number): string {
  */
 export function TransitSheet({
   stops,
+  stations,
   loading,
   error,
   outside,
@@ -203,6 +208,15 @@ export function TransitSheet({
                     {stop.name}
                   </Text>
                   <Text style={styles.detalhe} numberOfLines={1}>
+                    {/*
+                      A paragem diz-nos com que meios liga. É o que permite
+                      escrever "muda aqui para o comboio" sem cruzar coordenadas.
+                    */}
+                    {stop.connections
+                      .map((c) => LIGACOES[c])
+                      .filter(Boolean)
+                      .join(' · ')}
+                    {stop.connections.length > 0 ? ' · ' : ''}
                     {formatDistance(stop.meters)}
                     {stop.locality ? ` · ${stop.locality}` : ''}
                     {stop.lines.length > 0 ? ` · ${stop.lines.slice(0, 6).join(', ')}` : ''}
@@ -284,10 +298,52 @@ export function TransitSheet({
             </View>
           );
         })}
+        {/*
+          As estações de comboio, metro, metro de superfície e barco.
+
+          **Destas só se sabe onde ficam.** O Fertagus e a CP publicam horários
+          em GTFS estático, que é outro caminho; o Metro Sul do Tejo não publica
+          nada. Mostrar a estação já vale — dizer que há horários seria mentira.
+        */}
+        {stations.length > 0 ? (
+          <>
+            <Text style={styles.seccao}>Estações perto</Text>
+            {stations.map((estacao) => (
+              <View key={estacao.id} style={styles.linha}>
+                <MaterialCommunityIcons
+                  name={STATION_ICONS[estacao.kind] as never}
+                  size={22}
+                  color={theme.poi}
+                />
+                <View style={styles.linhaTexto}>
+                  <Text style={styles.nome} numberOfLines={1}>
+                    {estacao.name}
+                  </Text>
+                  <Text style={styles.detalhe} numberOfLines={1}>
+                    {STATION_LABELS[estacao.kind]} · {formatDistance(estacao.meters)}
+                    {estacao.locality ? ` · ${estacao.locality}` : ''}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            <Text style={styles.aviso}>
+              Destas só se sabe onde ficam. Os horários do comboio e do metro ainda não
+              entram aqui — ver o que falta no ficheiro do projeto.
+            </Text>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
+
+/** Como se escreve cada ligação na linha da paragem. */
+const LIGACOES: Record<string, string> = {
+  boat: 'Barco',
+  light_rail: 'Metro de superfície',
+  subway: 'Metro',
+  train: 'Comboio',
+};
 
 function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
@@ -368,6 +424,13 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.textMuted,
       marginTop: 12,
       lineHeight: 19,
+    },
+    seccao: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textMuted,
+      marginTop: 18,
+      marginBottom: 4,
     },
     lista: {
       marginTop: 8,

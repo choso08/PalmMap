@@ -11,7 +11,7 @@ import {
 } from './config';
 import { createRateLimiter } from './rateLimit';
 import type { Coordinates } from '../types/geo';
-import type { CarrisArrival, CarrisStop } from '../types/transit';
+import type { CarrisArrival, CarrisFacility, CarrisStop } from '../types/transit';
 import { distanceMeters } from '../utils/geometry';
 
 /**
@@ -57,6 +57,8 @@ export interface TransitStop {
   coordinates: Coordinates;
   /** Que linhas param aqui, para se ver sem ter de abrir. */
   lines: string[];
+  /** Ligações a outros meios: `train`, `subway`, `light_rail`, `boat`. */
+  connections: string[];
   /** A que distância está de quem está a ver, em metros. */
   meters: number;
 }
@@ -119,6 +121,7 @@ async function loadStops(): Promise<TransitStop[]> {
         locality: stop.locality_name ?? stop.municipality_name ?? '',
         coordinates: { latitude, longitude },
         lines: Array.isArray(stop.line_ids) ? stop.line_ids : [],
+        connections: Array.isArray(stop.facilities) ? stop.facilities : [],
         meters: 0,
       });
     }
@@ -440,4 +443,131 @@ export async function planBusTrips(
   }
 
   return [...porLinha.values()].slice(0, limit);
+}
+
+/**
+ * Que género de estação é.
+ *
+ * `light_rail` é o metro de superfície — na margem sul, o Metro Sul do Tejo.
+ */
+export type StationKind = 'train' | 'subway' | 'light_rail' | 'boat';
+
+/** Uma estação pronta a mostrar no mapa. */
+export interface TransitStation {
+  id: string;
+  kind: StationKind;
+  name: string;
+  locality: string;
+  coordinates: Coordinates;
+  /** As paragens de autocarro que servem esta estação. */
+  stopIds: string[];
+  /** A que distância está de quem está a ver, em metros. */
+  meters: number;
+}
+
+/** O endereço de cada género, na mesma API dos autocarros. */
+const STATION_ENDPOINTS: Record<StationKind, string> = {
+  train: '/facilities/train_stations',
+  subway: '/facilities/subway_stations',
+  light_rail: '/facilities/light_rail_stations',
+  boat: '/facilities/boat_stations',
+};
+
+/** Como se chama cada género em português, para o ecrã. */
+export const STATION_LABELS: Record<StationKind, string> = {
+  train: 'Comboio',
+  subway: 'Metro',
+  light_rail: 'Metro de superfície',
+  boat: 'Barco',
+};
+
+/** O ícone de cada género. Confirmados na lista do MaterialCommunityIcons. */
+export const STATION_ICONS: Record<StationKind, string> = {
+  train: 'train',
+  subway: 'subway-variant',
+  light_rail: 'tram',
+  boat: 'ferry',
+};
+
+/**
+ * As estações de comboio, metro, metro de superfície e barco.
+ *
+ * São quatro listas curtas e que não mudam de sítio, por isso pedem-se uma vez
+ * por sessão e ficam em memória, tal como as paragens.
+ *
+ * **Isto são só as localizações.** Destes operadores não há horários abertos
+ * numa API — o Fertagus e a CP publicam GTFS estático, que é outro caminho, e o
+ * Metro Sul do Tejo não publica nada. Ver o CLAUDE.md.
+ */
+let cachedStations: TransitStation[] | null = null;
+let loadingStations: Promise<TransitStation[]> | null = null;
+
+async function loadStations(): Promise<TransitStation[]> {
+  if (cachedStations) {
+    return cachedStations;
+  }
+  if (loadingStations) {
+    return loadingStations;
+  }
+
+  loadingStations = (async () => {
+    const listas = await Promise.all(
+      (Object.keys(STATION_ENDPOINTS) as StationKind[]).map(async (kind) => {
+        try {
+          const { data } = await schedule(() =>
+            client.get<CarrisFacility[]>(STATION_ENDPOINTS[kind]),
+          );
+
+          const estacoes: TransitStation[] = [];
+          for (const facility of Array.isArray(data) ? data : []) {
+            const latitude = toNumber(facility.lat);
+            const longitude = toNumber(facility.lon);
+            if (latitude === null || longitude === null || !facility.id) {
+              continue;
+            }
+
+            estacoes.push({
+              id: `${kind}:${facility.id}`,
+              kind,
+              name: facility.name ?? STATION_LABELS[kind],
+              locality: facility.locality ?? facility.municipality_name ?? '',
+              coordinates: { latitude, longitude },
+              stopIds: Array.isArray(facility.stop_ids) ? facility.stop_ids : [],
+              meters: 0,
+            });
+          }
+          return estacoes;
+        } catch {
+          // Um género que falhe não pode levar os outros atrás: é melhor mostrar
+          // só os comboios do que não mostrar estação nenhuma.
+          return [];
+        }
+      }),
+    );
+
+    cachedStations = listas.flat();
+    return cachedStations;
+  })().finally(() => {
+    loadingStations = null;
+  });
+
+  return loadingStations;
+}
+
+/** As estações a menos de uma certa distância, da mais perto para a mais longe. */
+export async function nearbyStations(
+  origin: Coordinates,
+  maxMeters = 1500,
+  limit = 8,
+): Promise<TransitStation[]> {
+  const todas = await loadStations();
+
+  return todas
+    .map((estacao) => ({
+      ...estacao,
+      meters: distanceMeters(origin, estacao.coordinates),
+    }))
+    .filter((estacao) => estacao.meters <= maxMeters)
+    .sort((a, b) => a.meters - b.meters)
+    .slice(0, limit);
 }
