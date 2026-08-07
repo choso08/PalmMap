@@ -32,6 +32,15 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
 voz depois do filtro das manobras, e os radares, as horas dos autocarros e as portagens —
 que dependem de serviços a que o ambiente de desenvolvimento não chega.
 
+**Há bastante trabalho por compilar.** A última APK é a 7.0.13 e desde aí entraram, entre
+outras coisas, as estações de comboio e barco no mapa e os horários em GTFS estático. Nada
+disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
+pedir.**
+
+**Antes de os horários funcionarem é preciso correr um workflow.** O de "Gerar horários",
+primeiro em modo `descobrir` — os endereços do `transit-feeds.json` são candidatos por
+confirmar. Ver a secção "6-B-4".
+
 ## Objetivo do projeto
 
 O **PalmMap** é uma aplicação de mapas para telemóvel, pensada como alternativa ao Google
@@ -276,7 +285,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   ├── mapas/saotome.pmtiles   # O mapa que viaja dentro da aplicação
 │   └── glifos/*.pbf            # Tipos de letra com que o mapa escreve
 ├── scripts/
-│   └── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
+│   ├── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
+│   └── build-transit.py    # Converte o GTFS de um operador em horários compactos
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
@@ -293,6 +303,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
 │   │   ├── MeasureSheet.tsx # Fita métrica: distâncias e áreas no mapa
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
+│   │   ├── Schedules.tsx   # Lista de horários para descarregar
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -307,11 +318,13 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
 │   │   ├── vectorStyle.ts  # Como se desenha um mapa guardado: cores e espessuras
 │   │   ├── transit.ts      # Paragens e horas de passagem (Carris Metropolitana)
+│   │   ├── schedules.ts    # Horários de comboio, metro e barco, guardados no telemóvel
 │   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
 │   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
 │   │   ├── overpass.ts     # Formato exato da resposta da Overpass
+│   │   ├── schedule.ts     # Formato dos horários convertidos do GTFS
 │   │   └── osrm.ts         # Formato exato da resposta do OSRM
 │   ├── utils/
 │   │   ├── format.ts       # Distâncias e durações em texto legível
@@ -327,10 +340,12 @@ uma das razões para o Android Auto ficar pausado.)
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── eas.json                # Perfis de compilação para gerar o APK
 ├── map-regions.json        # Que países se recortam para offline, e com que detalhe
+├── transit-feeds.json      # De onde vem o GTFS de cada operador de comboio/metro/barco
 ├── metro.config.js         # Faz o empacotador reconhecer .pmtiles e .pbf
 ├── .github/workflows/
 │   ├── build-apk.yml       # Compila o APK e publica-o numa Release
-│   └── build-map.yml       # Recorta os mapas dos países e publica-os numa Release
+│   ├── build-map.yml       # Recorta os mapas dos países e publica-os numa Release
+│   └── build-transit.yml   # Converte os horários em GTFS e publica-os numa Release
 ├── package.json
 └── tsconfig.json
 ```
@@ -551,10 +566,10 @@ Isto foi investigado a sério, para não se voltar a procurar. **Estado em agost
 | Operador | Localizações | Horários | Tempo real |
 | --- | --- | --- | --- |
 | Carris Metropolitana (autocarros) | ✅ API aberta | ✅ API aberta | ✅ API aberta |
-| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | GTFS estático, por fazer | Só pela TML |
-| Metro de Lisboa | ✅ `/facilities/subway_stations` | GTFS estático, por fazer | Só pela TML |
+| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
+| Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
 | **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ❌ **não publica** | ❌ **não publica** |
-| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | GTFS estático, por fazer | Só pela TML |
+| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
 
 **As localizações vêm todas da API que já se usa** — os quatro endpoints
 `/facilities/*` da Carris Metropolitana, sem chave nenhuma. Cada estação traz um `stop_ids`
@@ -573,8 +588,82 @@ daqui** se é mesmo sem chave, porque o ambiente de desenvolvimento não lhe che
 primeiro sítio a verificar de um browser normal.
 
 **Os horários do Fertagus e da CP existem em GTFS estático** (transporlis.pt, dados.gov.pt,
-Mobility Database). O caminho para os usar é o mesmo dos mapas offline: um workflow que os
-converte num ficheiro compacto e o publica numa Release, para a aplicação descarregar.
+Mobility Database). O caminho está feito — é a secção seguinte.
+
+### 6-B-4. Horários em GTFS estático (comboio, metro, barco)
+
+Este é o quarto andar dos transportes, e existe por uma razão simples: **os operadores que
+não têm tempo real têm horário.** Mostrar a estação e ficar por aí era desperdiçar dados
+que estão publicados.
+
+**O caminho é o mesmo dos mapas offline, e não é por preguiça de imitação** — é o único que
+funciona. Um GTFS é um ZIP com o horário todo; o da CP tem centenas de milhares de linhas em
+`stop_times.txt`. Um telemóvel não pode ler isso para responder "a que horas passa o
+próximo". Por isso a conversão faz-se uma vez, no GitHub Actions, e o telemóvel recebe um
+ficheiro de centenas de kilobytes.
+
+As peças:
+
+- **`transit-feeds.json`** — o catálogo: que operadores há e de que endereços se descarrega
+  o GTFS de cada um. Cada operador tem **vários endereços candidatos**, tentados por ordem,
+  porque estas fontes mudam de sítio.
+- **`scripts/build-transit.py`** — a conversão. Só a biblioteca padrão do Python.
+- **`.github/workflows/build-transit.yml`** — corre a conversão e publica na etiqueta
+  `horarios`. Tem também um **modo `descobrir`**, que pesquisa o dados.gov.pt e imprime os
+  endereços de GTFS que encontrar — ver o aviso mais abaixo.
+- **`src/types/schedule.ts`** e **`src/services/schedules.ts`** — o formato e as perguntas.
+- **`src/components/Schedules.tsx`** — a lista nas definições, em "Horários".
+
+**⚠️ Os endereços do catálogo não estão confirmados.** Foram escritos de um ambiente sem
+acesso à Internet aberta, por isso são candidatos e não certezas. **Correr o workflow em
+modo `descobrir` primeiro**, e copiar para o `transit-feeds.json` os que responderem. O
+`carris` está lá de propósito com o endereço de que há mais certeza: se ele sair e os outros
+não, o problema são os endereços e não a cadeia.
+
+O que se guarda, e porquê:
+
+- **Só uma janela de dias** (60 por omissão). Um GTFS traz meses de calendário; o resto é a
+  maior parte do peso e não serve para nada num telemóvel. Passada a data, o ficheiro
+  **deixa de responder e diz porquê** — ver `isExpired`. É preciso correr o workflow outra
+  vez de vez em quando.
+- **Minutos, não segundos.** Comboios andam ao minuto.
+- **As estações, não as plataformas.** O GTFS separa "Pragal" de "Pragal — plataforma 2", e
+  é a plataforma que aparece nos horários. Junta-se tudo na estação, que é o que interessa a
+  quem espera.
+- **As datas mesmo, e não a máscara de dias da semana com os feriados à parte.** Ocupa mais
+  umas dezenas de kilobytes e poupa ter a aritmética dos feriados escrita duas vezes — que é
+  o género de conta que acaba por divergir numa das duas.
+
+Três armadilhas que já estão resolvidas e não se devem desfazer:
+
+- **As horas do GTFS passam das 24.** `25:05:00` é a uma e cinco da manhã seguinte, ainda a
+  contar como serviço do dia anterior. Por isso se olha para **três dias** — ontem, hoje e
+  amanhã: às 00:50 o comboio que se quer apanhar é serviço de ontem, e às 23:50 já interessa
+  o de amanhã.
+- **Os minutos entregam-se ao `Date`, não se somam à meia-noite.** `new Date(a, m, d, 0,
+  1505)` normaliza sozinho e acerta no dia em que os relógios mudam; somar `1505 × 60`
+  segundos à meia-noite erra uma hora duas vezes por ano.
+- **A última estação de uma viagem não é uma partida.** Sem esse filtro, o painel anunciava
+  comboios em que não se pode entrar.
+
+**As estações e os horários vêm de fontes diferentes e ligam-se por proximidade, não por
+nome.** As localizações são da API da Carris; os horários são do GTFS de cada operador.
+"Lisboa Oriente" e "Oriente" são a mesma estação e nenhuma comparação de texto acerta nisso
+sem inventar regras. Comparar coordenadas acerta sempre.
+
+**Isto é o horário, não é o comboio.** Se estiver atrasado, isto não sabe. Está escrito no
+painel e na lista das definições, e deve continuar lá: os autocarros levam ponto verde
+porque são tempo real, estes não levam. A diferença é toda.
+
+Os trajetos de comboio entram **na mesma lista dos de autocarro**, ordenados por hora de
+chegada — ver `planScheduledTrips` e a junção no `App.tsx`. O horário guardado responde
+primeiro e sem rede, por isso há logo alguma coisa no ecrã mesmo que o serviço dos
+autocarros esteja em baixo.
+
+**Nada disto foi visto a funcionar com dados reais**, porque não se chega aos endereços daqui.
+O que foi feito: gerou-se um GTFS sintético com feriado, serviço de fim de semana e uma
+viagem às 25:05, e confirmou-se que a conversão e as perguntas respondem certo em todos
+esses casos.
 
 ### 6-C. Radares
 

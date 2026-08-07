@@ -17,6 +17,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { clearRecents } from '../services/recents';
 import { clearMapCache } from '../services/tiles';
 import { OfflineMaps } from './OfflineMaps';
+import { Schedules } from './Schedules';
 import {
   APPEARANCE_MODES,
   CACHE_SIZES,
@@ -236,6 +237,13 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
           <Text style={styles.note}>
             Descarregue por Wi-Fi: os países maiores têm centenas de megabytes.
           </Text>
+
+          <Text style={styles.sectionTitle}>Horários</Text>
+          <Text style={styles.sectionHint}>
+            Comboio, metro e barco. Guardados no telemóvel, aparecem nas estações e nos
+            trajetos de transportes públicos.
+          </Text>
+          <Schedules />
 
           <Text style={styles.sectionTitle}>Navegação</Text>
           <View style={styles.switchRow}>

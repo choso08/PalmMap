@@ -1,0 +1,115 @@
+name: Gerar horários
+
+# Converte os horários em GTFS estático num ficheiro compacto e publica-o numa
+# Release, para a aplicação o descarregar e usar — tal como o workflow dos mapas
+# offline faz com os países.
+#
+# Porquê: o comboio, o metro e o barco não têm API de tempo real aberta. O que
+# têm é GTFS estático, um ZIP com o horário todo, que não se pode usar
+# diretamente num telemóvel — o da CP tem centenas de milhares de linhas. A
+# conversão é feita aqui, uma vez, e o telemóvel recebe um ficheiro pequeno.
+#
+# ## Dois modos
+#
+# **descobrir** — não gera nada. Pesquisa o dados.gov.pt e imprime os endereços
+# de GTFS que encontrar. Serve para preencher o `transit-feeds.json`: os
+# endereços que lá estão foram escritos sem acesso à Internet e são candidatos,
+# não certezas. **Correr isto primeiro.**
+#
+# **gerar** — descarrega, converte e publica. Cada operador é tentado por sua
+# conta: um que falhe não leva os outros atrás.
+#
+# ## Correr outra vez de vez em quando
+#
+# Os horários mudam, e a janela gerada são sessenta dias. Isto devia correr uma
+# vez por mês. Não está agendado de propósito — o autor pediu que nada compile
+# sozinho.
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'O que fazer'
+        type: choice
+        options: [gerar, descobrir]
+        default: gerar
+      operadores:
+        description: 'Ids separados por espaços (ver transit-feeds.json). "todos" faz o catálogo inteiro.'
+        default: 'todos'
+      dias:
+        description: 'Quantos dias de horário guardar'
+        default: '60'
+
+permissions:
+  contents: write
+
+jobs:
+  horarios:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Só a biblioteca padrão do Python — não há nada a instalar.
+      - name: Procurar endereços de GTFS
+        if: inputs.modo == 'descobrir'
+        run: python3 scripts/build-transit.py --descobrir
+
+      - name: Converter os horários
+        if: inputs.modo == 'gerar'
+        run: |
+          python3 scripts/build-transit.py \
+            --ids "${{ inputs.operadores }}" \
+            --dias "${{ inputs.dias }}" \
+            --saida horarios
+
+      # A lista é o que a aplicação lê para saber o que há. Junta-se o que já lá
+      # estava com o desta corrida, senão gerar só a CP apagava o Fertagus da
+      # lista — é a mesma armadilha do workflow dos mapas.
+      - name: Publicar
+        if: inputs.modo == 'gerar'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -o pipefail
+
+          if ! gh release view horarios -R "$REPO" > /dev/null 2>&1; then
+            gh release create horarios -R "$REPO" \
+              --title "Horários" --notes "A gerar…"
+          fi
+
+          for FICHEIRO in horarios/*.json; do
+            [ "$(basename "$FICHEIRO")" = "lote.json" ] && continue
+            gh release upload horarios "$FICHEIRO" -R "$REPO" --clobber
+          done
+
+          if gh release download horarios -R "$REPO" -p horarios.json -O anterior.json 2>/dev/null; then
+            echo "Já lá estavam: $(jq '.horarios | length' anterior.json) operador(es)."
+          else
+            echo '{"horarios":[]}' > anterior.json
+          fi
+
+          # Em caso de repetido fica o desta corrida, que é o mais recente.
+          jq -s '{horarios: (.[0].horarios + .[1].horarios)
+                    | group_by(.id)
+                    | map(.[-1])
+                    | sort_by(.nome)}' anterior.json horarios/lote.json > horarios.json
+
+          jq -r '.horarios[] | "  \(.nome): \(.estacoes) estações, \(.bytes/1024 | floor) KB, até \(.fim)"' horarios.json
+
+          gh release upload horarios horarios.json -R "$REPO" --clobber
+
+          gh release edit horarios -R "$REPO" \
+            --title "Horários" \
+            --notes "Horários de comboio, metro e barco, convertidos do GTFS estático de cada operador.
+
+          A aplicação descarrega-os nas definições, em \"Horários\". São ficheiros pequenos e funcionam sem rede.
+
+          Válidos até à data indicada — passado isso é preciso correr o workflow outra vez.
+
+          $(jq -r '.horarios[] | "- \(.nome): \(.estacoes) estações, \(.bytes/1024 | floor) KB, até \(.fim)"' horarios.json)"

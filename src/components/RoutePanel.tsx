@@ -9,7 +9,16 @@ import { TRAVEL_MODES, useTheme, useTimeFactor, type TravelMode } from '../setti
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
-import type { BusTrip } from '../services/transit';
+import type { TransitTrip } from '../services/transit';
+
+/** O ícone de cada meio, para os trajetos se distinguirem de relance. */
+const MEIOS: Record<string, string> = {
+  bus: 'bus',
+  train: 'train',
+  subway: 'subway-variant',
+  light_rail: 'tram',
+  boat: 'ferry',
+};
 import { formatDistance, formatDuration } from '../utils/format';
 
 interface RoutePanelProps {
@@ -43,9 +52,9 @@ interface RoutePanelProps {
    * `null` quer dizer "não é este o meio"; uma lista vazia quer dizer que não se
    * encontrou nenhum — e são coisas diferentes de dizer.
    */
-  busTrips: BusTrip[] | null;
-  busTripIndex: number;
-  onChooseBusTrip: (index: number) => void;
+  transitTrips: TransitTrip[] | null;
+  transitTripIndex: number;
+  onChooseTransitTrip: (index: number) => void;
   /** Caminhos alternativos, e qual está escolhido. */
   options: Route[];
   optionIndex: number;
@@ -88,9 +97,9 @@ export function RoutePanel({
   optionIndex,
   onChooseOption,
   dragHandlers,
-  busTrips,
-  busTripIndex,
-  onChooseBusTrip,
+  transitTrips,
+  transitTripIndex,
+  onChooseTransitTrip,
 }: RoutePanelProps) {
   const theme = useTheme();
   const timeFactor = useTimeFactor();
@@ -200,24 +209,35 @@ export function RoutePanel({
         opinião: é o que põe a pessoa no destino primeiro, contando com o tempo
         a pé das duas pontas.
       */}
-      {busTrips && !loading ? (
+      {transitTrips && !loading ? (
         <View style={styles.trajetos}>
-          {busTrips.length === 0 && !error ? (
+          {transitTrips.length === 0 && !error ? (
             <Text style={styles.avisoTexto}>
-              Nenhum autocarro faz este caminho sem mudanças. Por agora só se procuram
-              linhas diretas da Carris Metropolitana.
+              Nenhuma linha faz este caminho sem mudanças. Por agora só se procuram
+              ligações diretas: autocarros da Carris Metropolitana, e comboio, metro ou
+              barco de operadores cujo horário esteja descarregado nas definições.
             </Text>
           ) : null}
 
-          {busTrips.map((t, i) => {
-            const ativo = i === busTripIndex;
+          {transitTrips.map((t, i) => {
+            const ativo = i === transitTripIndex;
             return (
               <Pressable
                 key={t.tripId}
                 style={[styles.trajeto, ativo ? styles.trajetoAtivo : null]}
-                onPress={() => onChooseBusTrip(i)}
+                onPress={() => onChooseTransitTrip(i)}
               >
                 <View style={styles.trajetoTopo}>
+                  {/*
+                    O ícone do meio de transporte. Numa lista que mistura
+                    autocarros e comboios, o número da linha sozinho não chega
+                    para se perceber ao que se vai.
+                  */}
+                  <MaterialCommunityIcons
+                    name={(MEIOS[t.kind] ?? 'bus') as never}
+                    size={16}
+                    color={theme.textMuted}
+                  />
                   <View style={styles.linhaBadge}>
                     <Text style={styles.linhaBadgeTexto}>{t.line}</Text>
                   </View>

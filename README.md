@@ -38,11 +38,11 @@ paragens pelo caminho, e a opção de evitar portagens.
 caminho, avisa de radares, mantém o ecrã aceso e poupa bateria nas retas longas.
 
 **Transportes públicos** — as paragens perto de si com as horas a que passa o próximo
-autocarro, em tempo real. E trajetos de autocarro de um ponto ao outro. Na Área
-Metropolitana de Lisboa.
+autocarro, em tempo real, e as estações de comboio, metro e barco com os horários. Trajetos
+de um ponto ao outro pelos dois. Na Área Metropolitana de Lisboa.
 
 **Mapas offline** — países inteiros guardados no telemóvel, que funcionam sem rede nenhuma,
-a qualquer zoom e em sítios onde nunca esteve.
+a qualquer zoom e em sítios onde nunca esteve. E o mesmo para os horários de comboio.
 
 **Fita métrica** — distâncias e áreas medidas em cima do mapa, como no Google Earth.
 
@@ -82,9 +82,10 @@ ajuda, não é uma garantia.
 **Horários fora de Lisboa.** Só a Área Metropolitana de Lisboa tem uma fonte aberta com
 horários em tempo real. No resto do país cada operador guarda os seus.
 
-**Comboio, metro e barco.** Aparecem as estações no mapa, mas ainda não os horários. O
-Fertagus e a CP publicam-nos em GTFS estático, que é um caminho por percorrer; o Metro Sul
-do Tejo não publica nada.
+**Tempo real do comboio, do metro e do barco.** Destes há o horário — descarrega-se nas
+definições e depois funciona sem rede — mas não há o atraso. Só os autocarros da Carris
+Metropolitana publicam tempo real, e são os únicos que aqui levam ponto verde. O Metro Sul
+do Tejo não publica nem uma coisa nem outra: é uma concessão privada.
 
 **Satélite ao pormenor fora de Portugal.** O Sentinel-2 vê a Terra a 10 metros por pixel, e
 é o melhor que há de graça e à escala mundial. Em Portugal há as ortofotos do Estado, que
@@ -102,7 +103,7 @@ vêem a menos de um metro.
 | Pesquisa | [Nominatim](https://nominatim.org/) |
 | Negócios e radares | [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) |
 | Percursos | [OSRM](https://project-osrm.org/) nos servidores da [FOSSGIS](https://routing.openstreetmap.de/) |
-| Horários | [API aberta da Carris Metropolitana](https://github.com/carrismetropolitana/api) |
+| Horários | [API aberta da Carris Metropolitana](https://github.com/carrismetropolitana/api), e GTFS estático dos outros operadores |
 | Mapas offline | [Protomaps](https://protomaps.com/) (PMTiles), recortados do mapa mundial |
 
 Não há servidores próprios. O APK compila-se num workflow do GitHub Actions, e os mapas

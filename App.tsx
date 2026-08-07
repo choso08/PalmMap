@@ -51,12 +51,13 @@ import {
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
+import { planScheduledTrips } from './src/services/schedules';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
   nearbyStations,
   nearbyStops,
   planBusTrips,
-  type BusTrip,
+  type TransitTrip,
   type TransitStation,
   type TransitStop,
 } from './src/services/transit';
@@ -183,8 +184,8 @@ function PalmMap() {
    * um percurso desenhado no mapa, é uma lista de horas. Misturá-los obrigava
    * tudo o que lê o percurso a saber distinguir os dois.
    */
-  const [busTrips, setBusTrips] = useState<BusTrip[] | null>(null);
-  const [busTripIndex, setBusTripIndex] = useState(0);
+  const [transitTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
+  const [transitTripIndex, setTransitTripIndex] = useState(0);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [stepsVisible, setStepsVisible] = useState(false);
@@ -453,31 +454,58 @@ function PalmMap() {
 
     const perfil = osrmProfile(settings.travelMode);
 
-    // --- Autocarro -----------------------------------------------------------
+    // --- Transportes públicos ------------------------------------------------
     //
     // Os transportes não passam pelo OSRM: não há motor de percursos que os
-    // saiba calcular a partir de dados abertos. Montam-se a partir das horas de
-    // passagem das paragens — ver `planBusTrips`.
+    // saiba calcular a partir de dados abertos. Montam-se de duas fontes, que
+    // são bastante diferentes uma da outra:
+    //
+    // - **Autocarros**, das horas de passagem em tempo real da Carris
+    //   Metropolitana. Precisa de rede — ver `planBusTrips`.
+    // - **Comboio, metro e barco**, do horário guardado no telemóvel. Não
+    //   precisa de rede nenhuma e responde de imediato, mas é o horário e não o
+    //   comboio a andar — ver `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
       void (async () => {
+        // O horário guardado primeiro, e sem esperar por rede: assim há logo
+        // alguma coisa no ecrã, mesmo que o serviço dos autocarros esteja em
+        // baixo ou não haja ligação nenhuma.
+        let doHorario: TransitTrip[] = [];
+        try {
+          doHorario = planScheduledTrips(origem, destination.coordinates);
+        } catch {
+          // Um horário estragado não pode impedir os autocarros de aparecer.
+        }
+
+        // Chega mais cedo primeiro, venha de onde vier. É a mesma regra dos
+        // autocarros entre si: o que interessa é a que horas se lá está.
+        const juntar = (outros: TransitTrip[]) =>
+          [...outros, ...doHorario].sort((a, b) => a.reachAt - b.reachAt);
+
         try {
           const trajetos = await planBusTrips(origem, destination.coordinates);
           if (cancelled) {
             return;
           }
-          setBusTrips(trajetos ?? []);
-          setBusTripIndex(0);
+          const todos = juntar(trajetos ?? []);
+          setTransitTrips(todos);
+          setTransitTripIndex(0);
           setRouteError(
-            trajetos === null
+            trajetos === null && todos.length === 0
               ? 'Não há paragens a pé de distância de um dos pontos, ou está fora da área da Carris Metropolitana.'
               : null,
           );
           void rememberRecent(destination).then(setRecents);
         } catch {
           if (!cancelled) {
-            setBusTrips([]);
-            setRouteError('Não foi possível obter os horários. Verifique a ligação.');
+            setTransitTrips(doHorario);
+            setTransitTripIndex(0);
+            setRouteError(
+              doHorario.length > 0
+                ? null
+                : 'Não foi possível obter os horários. Verifique a ligação.',
+            );
           }
         } finally {
           if (!cancelled) {
@@ -491,7 +519,7 @@ function PalmMap() {
       };
     }
 
-    setBusTrips(null);
+    setTransitTrips(null);
 
     void (async () => {
       try {
@@ -1140,8 +1168,8 @@ function PalmMap() {
         alternativeRoutes={navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)}
         waypoints={waypoints.map((w) => w.coordinates)}
         transitStops={
-          busTrips?.[busTripIndex]
-            ? [busTrips[busTripIndex].from, busTrips[busTripIndex].to]
+          transitTrips?.[transitTripIndex]
+            ? [transitTrips[transitTripIndex].from, transitTrips[transitTripIndex].to]
             : transitStops
         }
         selectedStopId={selectedStopId}
@@ -1241,9 +1269,9 @@ function PalmMap() {
                 options={routeOptions}
                 optionIndex={routeIndex}
                 onChooseOption={setRouteIndex}
-                busTrips={busTrips}
-                busTripIndex={busTripIndex}
-                onChooseBusTrip={setBusTripIndex}
+                transitTrips={transitTrips}
+                transitTripIndex={transitTripIndex}
+                onChooseTransitTrip={setTransitTripIndex}
               />
             )}
           </DraggableSheet>

@@ -14,6 +14,11 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { ARRIVALS_REFRESH_MS } from '../services/config';
 import {
+  departuresNear,
+  hasCoverage,
+  type ScheduleDeparture,
+} from '../services/schedules';
+import {
   STATION_ICONS,
   STATION_LABELS,
   arrivalsAt,
@@ -130,6 +135,46 @@ export function TransitSheet({
       }
     }
   }, []);
+
+  /**
+   * A estação aberta, e as horas dela.
+   *
+   * Ao contrário das paragens de autocarro, isto não pede nada à Internet: lê o
+   * horário que está guardado no telemóvel, e por isso responde de imediato e
+   * funciona sem rede. O `temHorario` distingue as duas razões para não haver
+   * horas — não haver ficheiro, ou não passar lá nada nas próximas duas horas.
+   */
+  const [openStation, setOpenStation] = useState<string | null>(null);
+  const [departures, setDepartures] = useState<ScheduleDeparture[]>([]);
+  const [temHorario, setTemHorario] = useState(false);
+  const estacaoAberta = useRef<TransitStation | null>(null);
+
+  const abrirEstacao = useCallback((estacao: TransitStation | null) => {
+    estacaoAberta.current = estacao;
+    setOpenStation(estacao?.id ?? null);
+    if (!estacao) {
+      setDepartures([]);
+      return;
+    }
+    setTemHorario(hasCoverage(estacao.coordinates));
+    setDepartures(departuresNear(estacao.coordinates));
+  }, []);
+
+  // Os minutos que faltam contam-se a partir do relógio, por isso têm de ser
+  // recontados de vez em quando — senão ficava a dizer "8 min" para sempre.
+  useEffect(() => {
+    if (!openStation) {
+      return;
+    }
+    const timer = setInterval(() => {
+      const estacao = estacaoAberta.current;
+      if (estacao) {
+        setDepartures(departuresNear(estacao.coordinates));
+      }
+    }, ARRIVALS_REFRESH_MS);
+
+    return () => clearInterval(timer);
+  }, [openStation]);
 
   // Enquanto uma paragem está aberta, os minutos vão-se atualizando sozinhos.
   // Sem isto, ficava a dizer "4 min" durante um quarto de hora.
@@ -301,35 +346,85 @@ export function TransitSheet({
         {/*
           As estações de comboio, metro, metro de superfície e barco.
 
-          **Destas só se sabe onde ficam.** O Fertagus e a CP publicam horários
-          em GTFS estático, que é outro caminho; o Metro Sul do Tejo não publica
-          nada. Mostrar a estação já vale — dizer que há horários seria mentira.
+          As localizações vêm sempre da API da Carris. **As horas só aparecem se
+          o horário desse operador estiver descarregado** — vêm do GTFS estático
+          convertido, guardado no telemóvel. Sem ele, mostra-se a estação e
+          diz-se porque é que não há horas, em vez de uma lista vazia.
         */}
         {stations.length > 0 ? (
           <>
             <Text style={styles.seccao}>Estações perto</Text>
-            {stations.map((estacao) => (
-              <View key={estacao.id} style={styles.linha}>
-                <MaterialCommunityIcons
-                  name={STATION_ICONS[estacao.kind] as never}
-                  size={22}
-                  color={theme.poi}
-                />
-                <View style={styles.linhaTexto}>
-                  <Text style={styles.nome} numberOfLines={1}>
-                    {estacao.name}
-                  </Text>
-                  <Text style={styles.detalhe} numberOfLines={1}>
-                    {STATION_LABELS[estacao.kind]} · {formatDistance(estacao.meters)}
-                    {estacao.locality ? ` · ${estacao.locality}` : ''}
-                  </Text>
+            {stations.map((estacao) => {
+              const aberta = openStation === estacao.id;
+
+              return (
+                <View key={estacao.id}>
+                  <Pressable
+                    style={styles.linha}
+                    onPress={() => abrirEstacao(aberta ? null : estacao)}
+                  >
+                    <MaterialCommunityIcons
+                      name={STATION_ICONS[estacao.kind] as never}
+                      size={22}
+                      color={aberta ? theme.accent : theme.poi}
+                    />
+                    <View style={styles.linhaTexto}>
+                      <Text style={styles.nome} numberOfLines={1}>
+                        {estacao.name}
+                      </Text>
+                      <Text style={styles.detalhe} numberOfLines={1}>
+                        {STATION_LABELS[estacao.kind]} · {formatDistance(estacao.meters)}
+                        {estacao.locality ? ` · ${estacao.locality}` : ''}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name={aberta ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={theme.textMuted}
+                    />
+                  </Pressable>
+
+                  {aberta ? (
+                    <View style={styles.passagens}>
+                      {departures.length === 0 ? (
+                        <Text style={styles.aviso}>
+                          {temHorario
+                            ? 'Sem passagens nas próximas duas horas.'
+                            : 'Não há horário descarregado para esta estação. Nas definições, em "Horários", pode descarregar o do operador — são ficheiros pequenos e depois funcionam sem rede.'}
+                        </Text>
+                      ) : null}
+
+                      {departures.map((d) => (
+                        <View key={d.key} style={styles.passagem}>
+                          <View style={styles.linhaBadge}>
+                            <Text style={styles.linhaBadgeTexto}>{d.line}</Text>
+                          </View>
+                          <Text style={styles.destino} numberOfLines={1}>
+                            {d.destination}
+                          </Text>
+                          <View style={styles.espera}>
+                            <Text style={styles.esperaTexto}>{formatWait(d.minutes)}</Text>
+                            <Text style={styles.esperaHora}>{d.time}</Text>
+                          </View>
+                        </View>
+                      ))}
+
+                      {/*
+                        Dizer sempre que isto é o horário e não o comboio. Os
+                        autocarros aqui em cima levam ponto verde porque são
+                        tempo real; estes não, e a diferença é toda.
+                      */}
+                      {departures.length > 0 ? (
+                        <Text style={styles.aviso}>
+                          Horário publicado pelo operador, sem tempo real: se estiver
+                          atrasado, isto não sabe.
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
-              </View>
-            ))}
-            <Text style={styles.aviso}>
-              Destas só se sabe onde ficam. Os horários do comboio e do metro ainda não
-              entram aqui — ver o que falta no ficheiro do projeto.
-            </Text>
+              );
+            })}
           </>
         ) : null}
       </ScrollView>

@@ -271,13 +271,21 @@ export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArri
 }
 
 /**
- * Um trajeto de autocarro, de onde se está até onde se quer ir.
+ * Um trajeto de transportes, de onde se está até onde se quer ir.
  *
  * É sempre **uma linha só, sem transbordos** — ver `planBusTrips`.
+ *
+ * Serve para os dois lados: os autocarros, que saem daqui com tempo real, e os
+ * comboios, o metro e os barcos, que saem do `schedules.ts` a partir do horário
+ * guardado. O ecrã mostra os dois na mesma lista, e é o `kind` e o `live` que os
+ * distinguem — a hora de um autocarro é a hora a que ele passa mesmo, a de um
+ * comboio é a hora a que devia passar.
  */
-export interface BusTrip {
+export interface TransitTrip {
   /** Identifica a viagem. Serve de chave na lista. */
   tripId: string;
+  /** Que meio de transporte: `bus`, `train`, `subway`, `light_rail`, `boat`. */
+  kind: string;
   /** O número da linha, como vem pintado no autocarro. */
   line: string;
   /** Para onde o autocarro vai, como está no letreiro. */
@@ -348,7 +356,7 @@ export async function planBusTrips(
   origin: Coordinates,
   destination: Coordinates,
   limit = 5,
-): Promise<BusTrip[] | null> {
+): Promise<TransitTrip[] | null> {
   const [saidas, chegadas] = await Promise.all([
     stopsWithin(origin, TRANSIT_WALK_MAX_M, 3),
     stopsWithin(destination, TRANSIT_WALK_MAX_M, 3),
@@ -384,7 +392,7 @@ export async function planBusTrips(
   );
 
   const agora = Date.now() / 1000;
-  const trajetos: BusTrip[] = [];
+  const trajetos: TransitTrip[] = [];
 
   await Promise.all(
     saidas.map(async (stop) => {
@@ -418,6 +426,7 @@ export async function planBusTrips(
 
         trajetos.push({
           tripId: arrival.trip_id,
+          kind: 'bus',
           line: arrival.line_id ?? arrival.route_id ?? '—',
           headsign: arrival.headsign ?? '',
           from: stop,
@@ -435,7 +444,7 @@ export async function planBusTrips(
 
   // Chega mais cedo primeiro. Uma linha só aparece uma vez: as três passagens
   // seguintes do mesmo autocarro não são três opções, são a mesma opção.
-  const porLinha = new Map<string, BusTrip>();
+  const porLinha = new Map<string, TransitTrip>();
   for (const t of trajetos.sort((a, b) => a.reachAt - b.reachAt)) {
     if (!porLinha.has(t.line)) {
       porLinha.set(t.line, t);
