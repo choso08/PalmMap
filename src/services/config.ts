@@ -44,16 +44,18 @@ export const OSRM_ENDPOINTS = {
 } as const;
 
 /**
- * O nome do perfil no caminho do pedido.
+ * O nome do perfil no caminho do pedido: **sempre `driving`**.
  *
- * Cada instalação só tem um perfil, por isso este nome é praticamente
- * decorativo — mas tem de bater certo com o que lá está instalado, senão o
- * servidor responde que não conhece o perfil.
+ * Parece errado e não é. O OSRM ignora este segmento do endereço — o perfil
+ * verdadeiro é o da instalação, escolhido pelo `routed-car`/`routed-foot`/
+ * `routed-bike` do endereço base. Foi confirmado no código do próprio
+ * openstreetmap.org, que manda `routed-foot/route/v1/driving/…` para os
+ * percursos a pé. Usa-se a mesma forma por ser a que está provada em produção.
  */
 export const OSRM_PROFILE_PATH = {
   driving: 'driving',
-  walking: 'foot',
-  cycling: 'bike',
+  walking: 'driving',
+  cycling: 'driving',
 } as const;
 
 /**
