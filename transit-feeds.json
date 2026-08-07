@@ -6,67 +6,75 @@
     "primeiro que responda com um ZIP válido. Ter vários é de propósito — estas fontes",
     "mudam de sítio com alguma frequência e um endereço morto não deve parar tudo.",
     "",
-    "IMPORTANTE: os endereços abaixo NÃO foram confirmados. O ambiente onde este",
-    "ficheiro foi escrito não tem acesso à Internet aberta, por isso são candidatos e",
-    "não certezas. Correr o workflow em modo 'descobrir' pesquisa o dados.gov.pt e",
-    "imprime os endereços que existem mesmo — depois copiam-se para aqui.",
+    "O campo 'confirmado' diz se o endereço foi mesmo visto a responder, numa corrida do",
+    "workflow em modo 'descobrir'. O que estiver a false é palpite e não certeza.",
     "",
-    "O 'kind' decide o ícone e se a aplicação usa o ficheiro: 'bus' é ignorado, porque",
-    "para os autocarros já há tempo real, que é melhor do que um horário de papel."
+    "O 'naApp' a false quer dizer que a aplicação não descarrega este ficheiro. É o caso",
+    "da Carris Metropolitana: para os autocarros dela há tempo real por API, que é melhor",
+    "do que um horário de papel. Fica no catálogo porque serve para provar a cadeia."
   ],
   "feeds": [
+    {
+      "id": "metro",
+      "nome": "Metro de Lisboa",
+      "kind": "subway",
+      "confirmado": true,
+      "urls": [
+        "https://dados.gov.pt/s/resources/gfts-do-metropolitano-de-lisboa/20260114-115938/gtfs.zip"
+      ],
+      "notas": "Publicado pelo próprio Metropolitano de Lisboa no dados.gov.pt. Confirmado a responder. O endereço tem a data lá dentro e muda quando eles republicam — se um dia falhar, correr o 'descobrir' outra vez e trocar."
+    },
+    {
+      "id": "tub",
+      "nome": "TUB — Transportes Urbanos de Braga",
+      "kind": "bus",
+      "confirmado": true,
+      "urls": [
+        "https://www.tub.pt/developer/gtfs/feed/tub.zip"
+      ],
+      "notas": "Apareceu na pesquisa e é o primeiro operador fora de Lisboa que este projeto consegue cobrir. É autocarro, mas ao contrário da Carris não tem tempo real nenhum — por isso o horário é tudo o que há, e vale a pena."
+    },
     {
       "id": "cp",
       "nome": "CP — Comboios de Portugal",
       "kind": "train",
-      "urls": [
-        "https://publico.cp.pt/gtfs/gtfs.zip",
-        "https://www.cp.pt/StaticFiles/gtfs/gtfs.zip"
-      ],
-      "notas": "Cobre o país inteiro: urbanos, regionais e longo curso. É o maior de todos."
+      "confirmado": false,
+      "urls": [],
+      "notas": "NÃO FOI ENCONTRADO. Sete pesquisas ao dados.gov.pt não devolveram GTFS da CP. Existe referência a GTFS da CP noutros sítios (Mobility Database, transporlis) mas nenhum endereço foi confirmado daqui. É o que falta para os comboios."
     },
     {
       "id": "fertagus",
       "nome": "Fertagus",
       "kind": "train",
-      "urls": [
-        "https://www.fertagus.pt/gtfs/gtfs.zip",
-        "https://api.carrismetropolitana.pt/gtfs/fertagus.zip"
-      ],
-      "notas": "Roma-Areeiro a Setúbal, pela ponte 25 de Abril. Catorze estações."
-    },
-    {
-      "id": "metro",
-      "nome": "Metro de Lisboa",
-      "kind": "subway",
-      "urls": [
-        "https://www.metrolisboa.pt/gtfs/gtfs.zip"
-      ],
-      "notas": "Quatro linhas. O metro anda de poucos em poucos minutos, por isso o horário chega."
+      "confirmado": false,
+      "urls": [],
+      "notas": "NÃO FOI ENCONTRADO, tal como a CP. Roma-Areeiro a Setúbal, catorze estações."
     },
     {
       "id": "ttsl",
       "nome": "Transtejo / Soflusa",
       "kind": "boat",
-      "urls": [
-        "https://ttsl.pt/gtfs/gtfs.zip"
-      ],
-      "notas": "Os barcos do Tejo: Cacilhas, Barreiro, Trafaria, Porto Brandão, Montijo, Seixal."
+      "confirmado": false,
+      "urls": [],
+      "notas": "NÃO FOI ENCONTRADO. Os barcos do Tejo: Cacilhas, Barreiro, Trafaria, Porto Brandão, Montijo, Seixal."
     },
     {
       "id": "carris",
       "nome": "Carris Metropolitana",
       "kind": "bus",
+      "confirmado": true,
+      "naApp": false,
       "urls": [
-        "https://api.carrismetropolitana.pt/gtfs",
-        "https://api.carrismetropolitana.pt/v2/gtfs"
+        "https://github.com/carrismetropolitana/gtfs/raw/live/CarrisMetropolitana.zip",
+        "https://api.carrismetropolitana.pt/gtfs"
       ],
-      "notas": "A aplicação NÃO usa este ficheiro — para os autocarros há tempo real, que é melhor. Está aqui porque é o endereço de que há mais certeza, e serve para provar que a cadeia toda funciona antes de se culpar os endereços dos outros."
+      "notas": "Os dois endereços foram confirmados a responder. A aplicação NÃO usa este ficheiro — para os autocarros da Carris há tempo real, que é melhor. Serve para provar que a cadeia toda funciona antes de se culpar os endereços dos outros."
     },
     {
       "id": "mst",
       "nome": "Metro Sul do Tejo",
       "kind": "light_rail",
+      "confirmado": false,
       "urls": [],
       "notas": "Sem endereço nenhum, e não é por não se ter procurado: é uma concessão privada e não publica horários nem tempo real. Fica aqui escrito para não se voltar a procurar. Cuidado com a confusão fácil — existe GTFS da TST, Transportes Sul do Tejo, que é a empresa de autocarros do mesmo grupo e NÃO é o metro."
     }

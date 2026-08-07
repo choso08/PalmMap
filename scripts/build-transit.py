@@ -43,6 +43,7 @@ import io
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from datetime import date, timedelta
@@ -456,6 +457,19 @@ def probe_tml() -> None:
         probe(url)
 
 
+# As palavras por que se procura. Uma só não chega: nem toda a gente escreve
+# "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
+CONSULTAS = [
+    "GTFS",
+    "comboios",
+    "CP Comboios de Portugal",
+    "Fertagus",
+    "Transtejo Soflusa",
+    "horários transportes públicos",
+    "transportes ferroviários",
+]
+
+
 def discover() -> None:
     """
     Procura GTFS no dados.gov.pt e imprime o que encontra.
@@ -463,30 +477,51 @@ def discover() -> None:
     Existe porque os endereços do catálogo não puderam ser confirmados de onde
     este código foi escrito. Correr isto no GitHub Actions, que tem Internet, e
     copiar para o `transit-feeds.json` os que responderem.
-    """
-    url = "https://dados.gov.pt/api/1/datasets/?q=GTFS&page_size=50"
-    log(f"A pesquisar: {url}\n")
-    try:
-        dados = json.loads(fetch(url, timeout=60))
-    except Exception as erro:  # noqa: BLE001 — aqui qualquer falha é só "não deu"
-        log(f"Não foi possível pesquisar o dados.gov.pt: {erro}")
-        return
 
-    for conjunto in dados.get("data", []):
-        titulo = conjunto.get("title", "?")
-        organizacao = (conjunto.get("organization") or {}).get("name", "?")
-        recursos = [
-            r
-            for r in conjunto.get("resources", [])
-            if "gtfs" in (r.get("title", "") + r.get("url", "")).lower()
-            or (r.get("format") or "").lower() in ("zip", "gtfs")
-        ]
-        if not recursos:
+    **Prefere-se sempre o endereço estável.** O dados.gov.pt dá dois endereços
+    para o mesmo ficheiro: um com a data lá dentro, que muda a cada publicação, e
+    um `/datasets/r/<id>` que aponta sempre para a versão mais recente. É este
+    que vai para o catálogo — senão o horário deixava de descarregar assim que o
+    operador publicasse a versão seguinte.
+    """
+    vistos: set[str] = set()
+
+    for consulta in CONSULTAS:
+        url = (
+            "https://dados.gov.pt/api/1/datasets/"
+            f"?q={urllib.parse.quote(consulta)}&page_size=30"
+        )
+        log(f"\n=== A pesquisar: {consulta} ===")
+        try:
+            dados = json.loads(fetch(url, timeout=60))
+        except Exception as erro:  # noqa: BLE001 — aqui qualquer falha é só "não deu"
+            log(f"  Não deu: {erro}")
             continue
-        log(f"## {titulo}  [{organizacao}]")
-        for r in recursos:
-            log(f"   {r.get('format', '?'):>5}  {r.get('url')}")
-        log("")
+
+        for conjunto in dados.get("data", []):
+            titulo = conjunto.get("title", "?")
+            organizacao = (conjunto.get("organization") or {}).get("name", "?")
+            recursos = [
+                r
+                for r in conjunto.get("resources", [])
+                if "gtfs" in (r.get("title", "") + r.get("url", "")).lower()
+                or (r.get("format") or "").lower() in ("zip", "gtfs")
+            ]
+            if not recursos or titulo in vistos:
+                continue
+            vistos.add(titulo)
+
+            log(f"## {titulo}  [{organizacao}]")
+            for r in recursos:
+                estavel = (
+                    f"https://dados.gov.pt/api/1/datasets/r/{r['id']}"
+                    if r.get("id")
+                    else ""
+                )
+                log(f"   {r.get('format', '?'):>5}  {r.get('url')}")
+                if estavel:
+                    log(f"          estável: {estavel}")
+            log("")
 
 
 # --- Entrada -------------------------------------------------------------------
@@ -532,7 +567,11 @@ def main() -> int:
         log(f"::group::{feed['nome']}")
         try:
             if not feed.get("urls"):
-                raise RuntimeError(feed.get("notas") or "Sem endereço publicado.")
+                # Sem endereço não é falha da corrida, é uma fonte que ainda não
+                # se encontrou. Diz-se e passa-se à frente, sem manchar o resto.
+                log(f"  SEM ENDEREÇO — {feed.get('notas') or 'nada publicado.'}")
+                log("::endgroup::")
+                continue
 
             resultado, url = build(feed, janela)
             destino = pasta / f"{feed['id']}.json"
@@ -557,6 +596,9 @@ def main() -> int:
                     "estacoes": len(resultado["stops"]),
                     "bbox": resultado["bbox"],
                     "origem": url,
+                    # Só se escreve quando é false, para a lista não ficar cheia
+                    # de campos que dizem o que já é a regra.
+                    **({} if feed.get("naApp", True) else {"naApp": False}),
                 }
             )
         except Exception as erro:  # noqa: BLE001 — um operador não leva os outros atrás

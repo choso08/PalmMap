@@ -114,10 +114,11 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
       { timeout: REQUEST_TIMEOUT_MS, headers: { 'User-Agent': USER_AGENT } },
     );
 
-    // Os autocarros ficam de fora: para esses há tempo real, que é melhor do que
-    // um horário de papel. O ficheiro existe na Release só para provar que a
-    // cadeia de conversão funciona.
-    return (response.data.horarios ?? []).filter((f) => f.kind !== 'bus');
+    // O `naApp: false` tira da lista o que não faz sentido descarregar — hoje só
+    // a Carris Metropolitana, que tem tempo real por API e não precisa de um
+    // horário de papel. **Não se filtra por `kind`**: um autocarro de Braga não
+    // tem tempo real nenhum, e para esse o horário é tudo o que há.
+    return (response.data.horarios ?? []).filter((f) => f.naApp !== false);
   } catch {
     const guardados = installedFeeds();
     if (guardados.length > 0) {

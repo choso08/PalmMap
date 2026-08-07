@@ -37,9 +37,10 @@ outras coisas, as estações de comboio e barco no mapa e os horários em GTFS e
 disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
 pedir.**
 
-**Antes de os horários funcionarem é preciso correr um workflow.** O de "Gerar horários",
-primeiro em modo `descobrir` — os endereços do `transit-feeds.json` são candidatos por
-confirmar. Ver a secção "6-B-4".
+**Os horários já têm fontes confirmadas, mas ainda não foram gerados.** A corrida em modo
+`descobrir` confirmou o Metro de Lisboa, a Carris e — sem se andar à procura dele — os
+autocarros de Braga. **A CP, o Fertagus e os barcos continuam sem fonte encontrada.** Falta
+correr o workflow "Gerar horários" em modo `gerar`. Ver a secção "6-B-4".
 
 ## Objetivo do projeto
 
@@ -566,10 +567,12 @@ Isto foi investigado a sério, para não se voltar a procurar. **Estado em agost
 | Operador | Localizações | Horários | Tempo real |
 | --- | --- | --- | --- |
 | Carris Metropolitana (autocarros) | ✅ API aberta | ✅ API aberta | ✅ API aberta |
-| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
-| Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
+| Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS no dados.gov.pt | ❌ |
+| TUB — Braga (autocarros) | ❌ fora da área da Carris | ✅ GTFS no sítio deles | ❌ |
+| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | ❌ **fonte por encontrar** | ❌ |
+| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ❌ **fonte por encontrar** | ❌ |
 | **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ❌ **não publica** | ❌ **não publica** |
-| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ✅ GTFS estático — ver 6-B-4 | Só pela TML |
+| Alertas de serviço (vários) | — | — | ✅ **TML, JSON, sem chave** |
 
 **As localizações vêm todas da API que já se usa** — os quatro endpoints
 `/facilities/*` da Carris Metropolitana, sem chave nenhuma. Cada estação traz um `stop_ids`
@@ -580,34 +583,43 @@ que meios liga. É isso que permite dizer "muda aqui para o comboio" sem cruzar 
 horários nem tempo real. Cuidado com uma confusão fácil: existe GTFS da **TST — Transportes
 Sul do Tejo**, empresa de autocarros do mesmo grupo. **Não é o metro.**
 
-**A porta que falta abrir é a TML.** A Transportes Metropolitanos de Lisboa agrega tempo
-real de oito operadores, incluindo CP, Fertagus, Metro de Lisboa e Transtejo/Soflusa — mais
-de seis milhões de posições de GPS por dia, de autocarros, comboios, barcos e metro. O que
-se apurou até agora:
+**A porta da TML está aberta, e isso ficou confirmado.** A Transportes Metropolitanos de
+Lisboa agrega dados de vários operadores — CP, Fertagus, Metro de Lisboa,
+Transtejo/Soflusa e os autocarros. O que a sondagem do workflow devolveu, a 7 de agosto de
+2026:
 
-- **A base é `https://go.tmlmobilidade.pt/hub/api/:version/:path`.**
-- **A maior parte dos dados é aberta e sem chave.** Eles próprios escrevem que não dão
-  tratamento especial a ninguém: são os mesmos endereços que servem o Google Maps, o Transit
-  e o CityMapper. Mas dizem também que **alguns** dados exigem autenticação, sem
-  especificarem quais — e é isso que fica por saber.
-- **O formato do tempo real é GTFS-RT.** Alertas de serviço em JSON **e** em Protobuf,
-  posições dos veículos em Protobuf.
+| Endereço | Resposta |
+| --- | --- |
+| `https://go.tmlmobilidade.pt/hub/api` | **200**, `text/plain`, com uma piada lá dentro — a raiz está viva |
+| `https://go.tmlmobilidade.pt/hub/api/v1/alerts` | **200**, `application/json`, com dados reais |
+| `/hub/api/v1` e tudo o resto que se tentou | 404 |
 
-Daqui há duas conclusões práticas, e convém tê-las presentes antes de se começar:
+**Os alertas respondem sem chave nenhuma.** Não é 401 nem 403 — é 200 com o conteúdo lá.
+Os campos vistos na resposta são `_id`, `active_period_start_date`, `active_period_end_date`,
+`agency_id`, `cause`, `coordinates` e `description`. As datas vêm em **milissegundos**, ao
+contrário da Carris, que manda segundos — ver a nota abaixo.
 
-1. **Os alertas em JSON são o que vale mais a pena, e são de graça.** Supressões, desvios,
-   obras — informação que a aplicação não tem de todo, e que não obriga a dependência
-   nenhuma nova.
-2. **O Protobuf não é de graça neste projeto.** As posições dos veículos obrigavam a uma
-   biblioteca só para as descodificar. E posições não são horas de chegada: transformar umas
-   nas outras é adivinhar, e adivinhar mal é pior do que não ter.
+O `agency_id` é a peça que torna isto interessante: são alertas de **vários operadores** de
+uma vez, e não só dos autocarros.
 
-**Não escrever código contra estes endereços sem os confirmar.** Os nomes acima são o que a
-documentação descreve, não o que foi visto a responder — e este projeto já tem registado o
-que custa adivinhar nomes de campos. Para confirmar sem browser, correr o workflow **"Gerar
-horários" em modo `descobrir`**: ele bate a uma lista de portas da TML e imprime o que cada
-uma responde, com os endereços da Carris ao lado como termo de comparação. Um 401 ou 403 diz
-que a porta existe mas está fechada, que é diferente de não existir.
+**O que ficou por encontrar:** todos os outros caminhos deram 404. As posições dos veículos
+e o GTFS-RT em Protobuf existem segundo a documentação, mas não nos endereços que se
+tentaram. Não vale a pena continuar a adivinhar caminhos — se um dia forem precisos, o
+sítio de olhar é a documentação deles, não este ficheiro.
+
+**Duas notas antes de se lhes pegar:**
+
+1. **Os alertas em JSON são o que vale mais a pena.** Supressões, desvios, obras —
+   informação que a aplicação não tem de todo, e que não obriga a dependência nenhuma nova.
+2. **O Protobuf não é de graça neste projeto.** Obrigava a uma biblioteca só para o
+   descodificar. E posições de veículos não são horas de chegada: transformar umas nas
+   outras é adivinhar, e adivinhar mal é pior do que não ter.
+
+**Comparar sempre com a Carris antes de assumir.** A sondagem inclui de propósito
+`api.carrismetropolitana.pt/v2/alerts` e `/gtfs`, que se sabe funcionarem. Se um dia a TML
+deixar de responder, é isso que distingue "eles mudaram" de "a rede daqui está em baixo". E
+foi essa comparação lado a lado que mostrou a diferença das unidades de tempo — a Carris
+manda segundos, a TML manda milissegundos, e nem uma nem outra o diz.
 
 **Os horários do Fertagus e da CP existem em GTFS estático** (transporlis.pt, dados.gov.pt,
 Mobility Database). O caminho está feito — é a secção seguinte.
@@ -636,11 +648,30 @@ As peças:
 - **`src/types/schedule.ts`** e **`src/services/schedules.ts`** — o formato e as perguntas.
 - **`src/components/Schedules.tsx`** — a lista nas definições, em "Horários".
 
-**⚠️ Os endereços do catálogo não estão confirmados.** Foram escritos de um ambiente sem
-acesso à Internet aberta, por isso são candidatos e não certezas. **Correr o workflow em
-modo `descobrir` primeiro**, e copiar para o `transit-feeds.json` os que responderem. O
-`carris` está lá de propósito com o endereço de que há mais certeza: se ele sair e os outros
-não, o problema são os endereços e não a cadeia.
+**O estado dos endereços, depois da primeira corrida em modo `descobrir`** (7 de agosto de
+2026). O campo `confirmado` no catálogo diz o mesmo, entrada a entrada:
+
+| Operador | Endereço |
+| --- | --- |
+| Metro de Lisboa | ✅ confirmado, publicado por eles no dados.gov.pt |
+| Carris Metropolitana | ✅ confirmado, dois endereços — mas `naApp: false`, ver abaixo |
+| **TUB — Braga** | ✅ confirmado. Não se andava à procura dele e é o **primeiro operador fora de Lisboa** que este projeto consegue cobrir |
+| CP, Fertagus, Transtejo/Soflusa | ❌ **não foram encontrados** |
+
+**A CP, o Fertagus e os barcos continuam sem fonte.** Sete pesquisas ao dados.gov.pt — por
+"GTFS", "comboios", pelo nome de cada operador — não devolveram nada deles. Há referências a
+GTFS da CP noutros sítios (Mobility Database, transporlis), mas nenhum endereço foi visto a
+responder, e **não se escrevem endereços por palpite no catálogo**. As entradas ficam lá com
+`urls` vazio e a explicação, para não se voltar a procurar às cegas.
+
+**O `naApp: false` não é o mesmo que `kind: bus`**, e a diferença importa. A Carris fica de
+fora da lista da aplicação porque tem tempo real por API, que é melhor do que um horário. Os
+autocarros de Braga **não têm tempo real nenhum** — para esses o horário é tudo o que há, e
+entram. Filtrar por `kind` deixava Braga de fora sem razão nenhuma.
+
+**Os endereços do dados.gov.pt têm duas formas**, e convém preferir a estável: um traz a
+data lá dentro e muda a cada publicação, o outro é `/api/1/datasets/r/<id>` e aponta sempre
+para a versão mais recente. O modo `descobrir` imprime as duas.
 
 O que se guarda, e porquê:
 

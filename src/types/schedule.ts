@@ -91,4 +91,12 @@ export interface ScheduleFeedInfo {
   bbox: [number, number, number, number];
   /** De onde veio o GTFS. Fica registado para se saber que fonte foi usada. */
   origem?: string;
+  /**
+   * A `false`, a aplicação não oferece este horário para descarregar.
+   *
+   * Serve para os operadores que têm tempo real por API — hoje só a Carris
+   * Metropolitana. O ficheiro continua a ser gerado, porque é o que prova que a
+   * cadeia de conversão funciona quando os outros falham.
+   */
+  naApp?: boolean;
 }
