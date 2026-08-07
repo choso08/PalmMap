@@ -322,6 +322,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   ├── theme.ts            # Cores em versão clara e escura
 │   └── settings.tsx        # Definições guardadas e o gancho useTheme()
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
+├── README.md               # Apresentação do projeto, para quem chega pelo GitHub
 ├── AGENTS.md               # Aponta para este ficheiro
 ├── app.json                # Configuração do Expo e permissões do Android
 ├── eas.json                # Perfis de compilação para gerar o APK
