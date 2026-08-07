@@ -580,12 +580,34 @@ que meios liga. É isso que permite dizer "muda aqui para o comboio" sem cruzar 
 horários nem tempo real. Cuidado com uma confusão fácil: existe GTFS da **TST — Transportes
 Sul do Tejo**, empresa de autocarros do mesmo grupo. **Não é o metro.**
 
-**A porta que falta abrir é a TML.** A Transportes Metropolitanos de Lisboa tem uma API em
-`go.tmlmobilidade.pt/hub/api/` com tempo real de oito operadores, incluindo CP, Fertagus,
-Metro de Lisboa e Transtejo/Soflusa. A documentação diz que o módulo `hub` é o de dados
-abertos e que se pode usar em aplicações sem limites — mas **não foi possível confirmar
-daqui** se é mesmo sem chave, porque o ambiente de desenvolvimento não lhe chega. É o
-primeiro sítio a verificar de um browser normal.
+**A porta que falta abrir é a TML.** A Transportes Metropolitanos de Lisboa agrega tempo
+real de oito operadores, incluindo CP, Fertagus, Metro de Lisboa e Transtejo/Soflusa — mais
+de seis milhões de posições de GPS por dia, de autocarros, comboios, barcos e metro. O que
+se apurou até agora:
+
+- **A base é `https://go.tmlmobilidade.pt/hub/api/:version/:path`.**
+- **A maior parte dos dados é aberta e sem chave.** Eles próprios escrevem que não dão
+  tratamento especial a ninguém: são os mesmos endereços que servem o Google Maps, o Transit
+  e o CityMapper. Mas dizem também que **alguns** dados exigem autenticação, sem
+  especificarem quais — e é isso que fica por saber.
+- **O formato do tempo real é GTFS-RT.** Alertas de serviço em JSON **e** em Protobuf,
+  posições dos veículos em Protobuf.
+
+Daqui há duas conclusões práticas, e convém tê-las presentes antes de se começar:
+
+1. **Os alertas em JSON são o que vale mais a pena, e são de graça.** Supressões, desvios,
+   obras — informação que a aplicação não tem de todo, e que não obriga a dependência
+   nenhuma nova.
+2. **O Protobuf não é de graça neste projeto.** As posições dos veículos obrigavam a uma
+   biblioteca só para as descodificar. E posições não são horas de chegada: transformar umas
+   nas outras é adivinhar, e adivinhar mal é pior do que não ter.
+
+**Não escrever código contra estes endereços sem os confirmar.** Os nomes acima são o que a
+documentação descreve, não o que foi visto a responder — e este projeto já tem registado o
+que custa adivinhar nomes de campos. Para confirmar sem browser, correr o workflow **"Gerar
+horários" em modo `descobrir`**: ele bate a uma lista de portas da TML e imprime o que cada
+uma responde, com os endereços da Carris ao lado como termo de comparação. Um 401 ou 403 diz
+que a porta existe mas está fechada, que é diferente de não existir.
 
 **Os horários do Fertagus e da CP existem em GTFS estático** (transporlis.pt, dados.gov.pt,
 Mobility Database). O caminho está feito — é a secção seguinte.

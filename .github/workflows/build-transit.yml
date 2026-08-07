@@ -12,9 +12,10 @@ name: Gerar horários
 # ## Dois modos
 #
 # **descobrir** — não gera nada. Pesquisa o dados.gov.pt e imprime os endereços
-# de GTFS que encontrar. Serve para preencher o `transit-feeds.json`: os
-# endereços que lá estão foram escritos sem acesso à Internet e são candidatos,
-# não certezas. **Correr isto primeiro.**
+# de GTFS que encontrar, e bate à porta da API da TML para se ver quais dos
+# endereços dela respondem sem chave. Serve para preencher o
+# `transit-feeds.json`: os endereços que lá estão foram escritos sem acesso à
+# Internet e são candidatos, não certezas. **Correr isto primeiro.**
 #
 # **gerar** — descarrega, converte e publica. Cada operador é tentado por sua
 # conta: um que falhe não leva os outros atrás.
@@ -55,7 +56,7 @@ jobs:
           python-version: '3.12'
 
       # Só a biblioteca padrão do Python — não há nada a instalar.
-      - name: Procurar endereços de GTFS
+      - name: Procurar endereços de GTFS e sondar a API da TML
         if: inputs.modo == 'descobrir'
         run: python3 scripts/build-transit.py --descobrir
 

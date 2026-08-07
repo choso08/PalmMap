@@ -391,6 +391,71 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
 # --- Descobrir endereços -------------------------------------------------------
 
 
+def probe(url: str) -> None:
+    """Bate a uma porta e diz o que respondeu, sem tirar conclusões."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as resposta:
+            tipo = resposta.headers.get("Content-Type", "?")
+            corpo = resposta.read(300)
+            log(f"  {resposta.status}  {tipo}  {url}")
+            log(f"        {corpo[:200]!r}")
+    except urllib.error.HTTPError as erro:
+        # 401 e 403 são a resposta que interessa distinguir: querem dizer que a
+        # porta existe mas está fechada, o que é diferente de não existir.
+        log(f"  {erro.code}  {erro.reason}  {url}")
+    except Exception as erro:  # noqa: BLE001
+        log(f"  ---  {erro}  {url}")
+
+
+def probe_tml() -> None:
+    """
+    Bate à porta da API da TML e diz o que responde.
+
+    **Porque é que isto existe.** A Transportes Metropolitanos de Lisboa agrega
+    tempo real de oito operadores — CP, Fertagus, Metro de Lisboa,
+    Transtejo/Soflusa e os autocarros — e diz publicamente que a maior parte dos
+    dados é aberta e sem tratamento especial: "toda a gente tem acesso à mesma
+    informação ao mesmo tempo". Também diz que **alguns** dados exigem
+    autenticação, sem especificar quais.
+
+    De onde este código foi escrito não se chega lá, e adivinhar os endereços
+    seria repetir o erro que já está registado no CLAUDE.md — os nomes dos campos
+    da Carris foram todos adivinhados mal à primeira. Por isso em vez de escrever
+    código contra endereços supostos, pergunta-se-lhes daqui, de um sítio que tem
+    Internet, e escreve-se o que eles responderem.
+
+    O que se sabe do formato: GTFS estático para o planeado, e GTFS-RT para o
+    tempo real — alertas em JSON e em Protobuf, posições dos veículos em
+    Protobuf. **O Protobuf não é de graça neste projeto:** obrigava a uma
+    biblioteca nova só para o descodificar. Os alertas em JSON não.
+    """
+    base = "https://go.tmlmobilidade.pt/hub/api"
+    log("\n=== API da TML (tempo real de vários operadores) ===")
+    log("A documentação diz que a base é " + base + "/:version/:path\n")
+
+    for caminho in [
+        "",
+        "/v1",
+        "/v1/alerts",
+        "/v1/alerts.json",
+        "/v1/service_alerts",
+        "/v1/gtfs-rt/alerts",
+        "/v1/gtfs-rt/vehicles",
+        "/v1/vehicles",
+        "/v1/gtfs",
+    ]:
+        probe(base + caminho)
+
+    # Os da Carris são o termo de comparação: sabe-se que funcionam sem chave.
+    log("\n--- Para comparar, os da Carris Metropolitana ---")
+    for url in [
+        "https://api.carrismetropolitana.pt/v2/alerts",
+        "https://api.carrismetropolitana.pt/gtfs",
+    ]:
+        probe(url)
+
+
 def discover() -> None:
     """
     Procura GTFS no dados.gov.pt e imprime o que encontra.
@@ -446,6 +511,7 @@ def main() -> int:
 
     if args.descobrir:
         discover()
+        probe_tml()
         return 0
 
     catalogo = json.loads(Path(args.catalogo).read_text(encoding="utf-8"))
