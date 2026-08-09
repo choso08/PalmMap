@@ -37,10 +37,11 @@ outras coisas, as estações de comboio e barco no mapa e os horários em GTFS e
 disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
 pedir.**
 
-**Os horários já têm fontes confirmadas, mas ainda não foram gerados.** A corrida em modo
-`descobrir` confirmou o Metro de Lisboa, a Carris e — sem se andar à procura dele — os
-autocarros de Braga. **A CP, o Fertagus e os barcos continuam sem fonte encontrada.** Falta
-correr o workflow "Gerar horários" em modo `gerar`. Ver a secção "6-B-4".
+**Os horários estão gerados e publicados**, na etiqueta `horarios`: **CP** (454 estações,
+960 KB) e **Metro de Lisboa** (50 estações, 159 KB). Foram provados contra os dados reais —
+ver "6-B-4". **Falta o Fertagus, os barcos do Tejo e a Carris de Lisboa**, que não têm fonte
+encontrada. Os ficheiros valem **até 7 de outubro de 2026**; depois disso é preciso correr o
+workflow outra vez.
 
 ## Objetivo do projeto
 
@@ -729,10 +730,41 @@ chegada — ver `planScheduledTrips` e a junção no `App.tsx`. O horário guard
 primeiro e sem rede, por isso há logo alguma coisa no ecrã mesmo que o serviço dos
 autocarros esteja em baixo.
 
-**Nada disto foi visto a funcionar com dados reais**, porque não se chega aos endereços daqui.
-O que foi feito: gerou-se um GTFS sintético com feriado, serviço de fim de semana e uma
-viagem às 25:05, e confirmou-se que a conversão e as perguntas respondem certo em todos
-esses casos.
+### O que os dados reais ensinaram
+
+Isto **foi corrido contra os horários verdadeiros** da CP e do Metro de Lisboa, no
+GitHub Actions. Três coisas só apareceram aí, e nenhuma dava erro:
+
+**1. O raio fixo à volta da estação não serve — usa-se a mais próxima.** As localizações
+vêm da API da Carris e as horas do GTFS do operador; os dois pontos da mesma estação não
+coincidem. Com 400 metros, **Cascais ficava de fora por trinta metros**. Mas alargar o raio
+também mente: as estações de metro de Lisboa ficam a uns quinhentos metros umas das outras,
+e um raio largo punha na Rotunda os comboios do Marquês. Ficar com **a mais próxima de cada
+horário** resolve as duas coisas — ver `nearestStop`. Numa interface como o Oriente, o
+comboio vem do ficheiro da CP e o metro do do Metro, cada um com a sua estação.
+
+**2. A estação de saída escolhe-se pela hora de chegada, não pela ordem do percurso.** A
+primeira versão ficava com a primeira estação de saída que estivesse a pé de distância. Nos
+dados reais isso apanhou-se a **sair em Portela de Sintra, a 831 metros do destino**, quando
+o mesmo comboio parava em Sintra a seguir, a quatro metros. Chegava mais cedo à estação e
+mais tarde ao sítio. Hoje compara-se o `reachAt` de todas as saídas possíveis.
+
+**3. "Linha de Sintra" não é um nome curto.** A CP escreve isso no `route_short_name`, que
+é o que vai para a etiqueta ao lado do destino. Tira-se o "Linha de" — ver `shortLine`. Os
+outros nomes dela já são códigos (`AP`, `IC`, `IR`, `R`, `U`) e ficam como estão.
+
+Depois disto, e com os horários reais: Cais do Sodré para Cascais dá o comboio das 08:00 a
+chegar às 08:33; Oriente para Sintra dá 08:08–08:55; Oriente para Coimbra-B dá o Alfa
+Pendular das 08:09 a chegar às 09:53. Os que não têm ligação direta dizem-no em vez de
+inventarem — Entrecampos para Cascais, por exemplo, que obriga a mudar.
+
+**O que continua por ver num telemóvel:** tudo isto foi provado com o serviço a correr fora
+da aplicação, contra os ficheiros verdadeiros. O ecrã em si — o painel das estações, a lista
+dos trajetos — ainda não foi visto a funcionar.
+
+Antes dos dados reais, a conversão tinha sido provada contra um GTFS sintético com feriado,
+serviço de fim de semana e uma viagem às 25:05. Vale a pena manter esse teste: é o único que
+cobre o feriado retirado do calendário.
 
 ### 6-C. Radares
 

@@ -82,10 +82,14 @@ ajuda, não é uma garantia.
 **Horários fora de Lisboa.** Só a Área Metropolitana de Lisboa tem uma fonte aberta com
 horários em tempo real. No resto do país cada operador guarda os seus.
 
-**Tempo real do comboio, do metro e do barco.** Destes há o horário — descarrega-se nas
-definições e depois funciona sem rede — mas não há o atraso. Só os autocarros da Carris
-Metropolitana publicam tempo real, e são os únicos que aqui levam ponto verde. O Metro Sul
-do Tejo não publica nem uma coisa nem outra: é uma concessão privada.
+**Tempo real do comboio e do metro.** Destes há o horário — a CP e o Metro de Lisboa
+descarregam-se nas definições e depois funcionam sem rede — mas não há o atraso. Só os
+autocarros da Carris Metropolitana publicam tempo real, e são os únicos que aqui levam ponto
+verde.
+
+**Fertagus, barcos do Tejo, Metro Sul do Tejo e a Carris de Lisboa.** Não têm horário aberto
+que se tenha conseguido encontrar. O Metro Sul do Tejo não publica nada por ser concessão
+privada; dos outros a fonte está por descobrir. Aparecem as estações no mapa, sem horas.
 
 **Satélite ao pormenor fora de Portugal.** O Sentinel-2 vê a Terra a 10 metros por pixel, e
 é o melhor que há de graça e à escala mundial. Em Portugal há as ortofotos do Estado, que

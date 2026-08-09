@@ -380,6 +380,55 @@ function stopsNear(
 }
 
 /**
+ * A estação **mais próxima** de um ponto, num horário — e só essa.
+ *
+ * É o que se usa para as horas de passagem, e a diferença em relação a apanhar
+ * todas as que estão dentro de um raio é importante:
+ *
+ * - **Um raio apertado falha.** As localizações vêm da API da Carris e as horas
+ *   do GTFS do operador, e os dois pontos da mesma estação não coincidem. Com um
+ *   raio de 400 metros, Cascais ficava de fora por trinta metros — visto nos
+ *   dados reais, não em teoria.
+ * - **Um raio largo mente.** As estações de metro de Lisboa ficam a uns
+ *   quinhentos metros umas das outras; alargar o raio punha na Rotunda os
+ *   comboios do Marquês.
+ *
+ * Ficar com a mais próxima resolve as duas: pode-se ser generoso na distância
+ * sem nunca misturar duas estações. E como se faz por horário, numa interface
+ * como o Oriente o comboio vem do ficheiro da CP e o metro do do Metro, cada um
+ * com a sua estação — que é exatamente o que se quer ver.
+ */
+function nearestStop(
+  feed: IndexedFeed,
+  origin: Coordinates,
+  maxMeters: number,
+): { indice: number; meters: number } | null {
+  let melhor: { indice: number; meters: number } | null = null;
+
+  feed.data.stops.forEach((stop, i) => {
+    const meters = distanceMeters(origin, { latitude: stop.y, longitude: stop.x });
+    if (meters <= maxMeters && (!melhor || meters < melhor.meters)) {
+      melhor = { indice: i, meters };
+    }
+  });
+
+  return melhor;
+}
+
+/**
+ * O nome da linha, encurtado para caber no ecrã.
+ *
+ * A CP escreve `Linha de Sintra` e `Linha da Azambuja` no nome curto — que de
+ * curto não tem nada, e não cabe na etiqueta ao lado do destino. Tira-se o
+ * "Linha de", que fica "Sintra" e "Azambuja": é como toda a gente lhes chama.
+ *
+ * Os outros nomes já são códigos (`AP`, `IC`, `IR`, `R`, `U`) e ficam como estão.
+ */
+function shortLine(nome: string): string {
+  return nome.replace(/^Linha\s+d[eoa]s?\s+/i, '');
+}
+
+/**
  * As próximas passagens numa estação.
  *
  * Recebe coordenadas e não um nome: as estações vêm da API da Carris (as
@@ -395,7 +444,7 @@ function stopsNear(
  */
 export function departuresNear(
   origin: Coordinates,
-  maxMeters = 400,
+  maxMeters = 900,
   limit = 8,
   agora = new Date(),
 ): ScheduleDeparture[] {
@@ -408,12 +457,13 @@ export function departuresNear(
       continue;
     }
 
-    const perto = stopsNear(feed, origin, maxMeters);
-    if (perto.size === 0) {
+    const maisPerto = nearestStop(feed, origin, maxMeters);
+    if (!maisPerto) {
       continue;
     }
 
-    for (const estacao of perto.keys()) {
+    {
+      const estacao = maisPerto.indice;
       for (const { trip, pos } of feed.porEstacao.get(estacao) ?? []) {
         const viagem = feed.data.trips[trip];
         const minuto = feed.minutos[trip]?.[pos];
@@ -443,7 +493,7 @@ export function departuresNear(
             operator: feed.info.nome,
             kind: feed.info.kind,
             station: feed.data.stops[estacao]?.n ?? '',
-            line: feed.data.routes[viagem.r]?.[0] || feed.info.nome,
+            line: shortLine(feed.data.routes[viagem.r]?.[0] || feed.info.nome),
             destination: feed.data.headsigns[viagem.h] ?? '',
             minutes: faltam,
             time: clockOf(quando),
@@ -508,69 +558,91 @@ export function planScheduledTrips(
       continue;
     }
 
-    // Uma viagem pode passar por várias estações de partida à mão. Fica a
-    // primeira do percurso que sirva — é a que se apanha.
-    const candidatas = new Map<number, { pos: number; estacao: number }>();
+    // As viagens que passam por alguma estação de partida à mão. Guardam-se
+    // **todas** as posições onde se pode entrar, e não só a primeira: a melhor
+    // pode não ser a primeira, e é a comparação que decide.
+    const candidatas = new Map<number, number[]>();
     for (const estacao of saidas.keys()) {
       for (const { trip, pos } of feed.porEstacao.get(estacao) ?? []) {
-        const atual = candidatas.get(trip);
-        if (!atual || pos < atual.pos) {
-          candidatas.set(trip, { pos, estacao });
+        const lista = candidatas.get(trip);
+        if (lista) {
+          lista.push(pos);
+        } else {
+          candidatas.set(trip, [pos]);
         }
       }
     }
 
-    for (const [trip, entrada] of candidatas) {
+    for (const [trip, entradas] of candidatas) {
       const viagem = feed.data.trips[trip];
       const padrao = feed.data.patterns[viagem.p] ?? [];
       const horas = feed.minutos[trip] ?? [];
-
-      // A saída tem de vir depois da entrada no mesmo percurso. É isto que
-      // impede um trajeto no sentido contrário: a linha passa nas duas
-      // estações, mas pela ordem errada para quem quer ir neste sentido.
-      let saida = -1;
-      for (let pos = entrada.pos + 1; pos < padrao.length; pos += 1) {
-        if (chegadas.has(padrao[pos])) {
-          saida = pos;
-          break;
-        }
-      }
-      if (saida === -1) {
-        continue;
-      }
-
-      const aPe = walkSeconds(saidas.get(entrada.estacao) ?? 0);
-      const noFim = chegadas.get(padrao[saida]) ?? 0;
 
       for (const dia of dias) {
         if (!feed.dias[viagem.s]?.has(dia)) {
           continue;
         }
 
-        const parte = unixAt(dia, horas[entrada.pos]);
-        const chega = unixAt(dia, horas[saida]);
-        const leaveAt = parte - aPe;
+        /**
+         * A melhor forma de fazer esta viagem neste dia.
+         *
+         * **Escolhe-se por hora de chegada ao destino, não pela ordem do
+         * percurso.** A primeira versão ficava com a primeira estação de saída
+         * que estivesse a pé de distância, e nos dados reais isso apanhou-se a
+         * sair em Portela de Sintra — a 831 metros do destino — quando o mesmo
+         * comboio parava em Sintra a seguir, a quatro metros. Chegava mais cedo
+         * à estação e mais tarde ao sítio.
+         */
+        let melhor: TransitTrip | null = null;
 
-        // Um minuto de folga, para quem já está à porta da estação.
-        if (leaveAt < nowUnix - 60 || parte - nowUnix > 4 * 3600) {
-          continue;
+        for (const entradaPos of entradas) {
+          const estacaoEntrada = padrao[entradaPos];
+          const aPe = walkSeconds(saidas.get(estacaoEntrada) ?? 0);
+          const parte = unixAt(dia, horas[entradaPos]);
+          const leaveAt = parte - aPe;
+
+          // Um minuto de folga, para quem já está à porta da estação. E nada
+          // para lá de quatro horas: isso já não é esperar pelo comboio.
+          if (leaveAt < nowUnix - 60 || parte - nowUnix > 4 * 3600) {
+            continue;
+          }
+
+          // A saída tem de vir depois da entrada no mesmo percurso. É isto que
+          // impede um trajeto no sentido contrário: a linha passa nas duas
+          // estações, mas pela ordem errada para quem quer ir neste sentido.
+          for (let pos = entradaPos + 1; pos < padrao.length; pos += 1) {
+            const noFim = chegadas.get(padrao[pos]);
+            if (noFim === undefined) {
+              continue;
+            }
+
+            const chega = unixAt(dia, horas[pos]);
+            const reachAt = chega + walkSeconds(noFim);
+            if (melhor && reachAt >= melhor.reachAt) {
+              continue;
+            }
+
+            melhor = {
+              tripId: `${feed.info.id}:${trip}:${dia}`,
+              kind: feed.info.kind,
+              line: shortLine(feed.data.routes[viagem.r]?.[0] || feed.info.nome),
+              headsign: feed.data.headsigns[viagem.h] ?? '',
+              from: asStop(feed, estacaoEntrada, saidas.get(estacaoEntrada) ?? 0),
+              to: asStop(feed, padrao[pos], noFim),
+              departsAt: parte,
+              arrivesAt: chega,
+              leaveAt,
+              reachAt,
+              stops: pos - entradaPos,
+              // Nunca. Isto é o horário, não é o comboio a andar.
+              live: false,
+            };
+          }
         }
 
-        trajetos.push({
-          tripId: `${feed.info.id}:${trip}:${dia}`,
-          kind: feed.info.kind,
-          line: feed.data.routes[viagem.r]?.[0] || feed.info.nome,
-          headsign: feed.data.headsigns[viagem.h] ?? '',
-          from: asStop(feed, entrada.estacao, saidas.get(entrada.estacao) ?? 0),
-          to: asStop(feed, padrao[saida], noFim),
-          departsAt: parte,
-          arrivesAt: chega,
-          leaveAt,
-          reachAt: chega + walkSeconds(noFim),
-          stops: saida - entrada.pos,
-          // Nunca. Isto é o horário, não é o comboio a andar.
-          live: false,
-        });
+        if (melhor) {
+          trajetos.push(melhor);
+        }
       }
     }
   }
