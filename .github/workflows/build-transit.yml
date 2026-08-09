@@ -32,7 +32,7 @@ on:
       modo:
         description: 'O que fazer'
         type: choice
-        options: [gerar, descobrir]
+        options: [gerar, descobrir, veiculos]
         default: gerar
       operadores:
         description: 'Ids separados por espaços (ver transit-feeds.json). "todos" faz o catálogo inteiro.'
@@ -59,6 +59,13 @@ jobs:
       - name: Procurar endereços de GTFS e sondar a API da TML
         if: inputs.modo == 'descobrir'
         run: python3 scripts/build-transit.py --descobrir
+
+      # Saída curta, só com as posições dos autocarros. O que decide se dá para
+      # os pôr no mapa é o Content-Type: JSON entra de graça, Protobuf obrigava
+      # a uma biblioteca nova.
+      - name: Sondar as posições dos autocarros
+        if: inputs.modo == 'veiculos'
+        run: python3 scripts/build-transit.py --veiculos
 
       - name: Converter os horários
         if: inputs.modo == 'gerar'
