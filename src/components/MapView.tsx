@@ -27,6 +27,7 @@ import {
   type TransitStop,
 } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
+import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
@@ -91,6 +92,13 @@ interface MapViewProps {
    * Aparecem na mesma porque saber que há uma estação ali é metade da questão.
    */
   transitStations?: TransitStation[];
+  /**
+   * Os autocarros a andar neste momento, com o número da linha.
+   *
+   * Só chegam aqui os que deram sinal há pouco — o serviço devolve a frota
+   * inteira, parada incluída. Ver `src/services/vehicles.ts`.
+   */
+  vehicles?: LiveVehicle[];
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -147,6 +155,7 @@ export function MapView({
   transitStops = [],
   selectedStopId = null,
   transitStations = [],
+  vehicles = [],
   onStopPress,
   offlineRegions,
   labelsReady,
@@ -658,6 +667,69 @@ export function MapView({
                 'text-halo-color': theme.surface,
                 'text-halo-width': 1.6,
               }}
+            />
+          ) : null}
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        Os autocarros a andar, com o número da linha lá dentro.
+
+        **Vão por cima das paragens, e é de propósito:** a paragem está sempre no
+        mesmo sítio e o autocarro é que é a novidade. Tapar um autocarro com uma
+        paragem seria tapar o que se veio ver.
+
+        Não levam seta a indicar o sentido, apesar de o serviço mandar o
+        `bearing`. Uma seta precisava de uma imagem ou de um caractere que os
+        glifos incluídos não têm — são dois blocos de Noto Sans, que chegam para
+        o português e não trazem símbolos. Fica anotado para quando fizer falta.
+      */}
+      {vehicles.length > 0 ? (
+        <GeoJSONSource
+          id="autocarros"
+          data={{
+            type: 'FeatureCollection',
+            features: vehicles.map((v) => ({
+              type: 'Feature',
+              properties: {
+                linha: v.line,
+                // Um autocarro parado numa paragem desenha-se mais apagado: a
+                // diferença entre "está a andar" e "está ali parado" é o que
+                // torna isto útil a quem espera.
+                parado: v.atStop ? 1 : 0,
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [v.coordinates.longitude, v.coordinates.latitude],
+              },
+            })),
+          }}
+        >
+          <Layer
+            id="autocarros-circle"
+            type="circle"
+            paint={{
+              'circle-radius': 10,
+              'circle-color': theme.vehicle,
+              'circle-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1],
+              'circle-stroke-width': 2,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="autocarros-label"
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'linha'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 10,
+                // Sobrepostos de propósito: o número tem de ficar dentro do
+                // círculo mesmo quando há autocarros encostados uns aos outros.
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{ 'text-color': theme.onOverlay }}
             />
           ) : null}
         </GeoJSONSource>

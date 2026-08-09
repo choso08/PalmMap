@@ -37,9 +37,10 @@ paragens pelo caminho, e a opção de evitar portagens.
 **Navegação** — segue a posição, anuncia as manobras em voz alta, recalcula se sair do
 caminho, avisa de radares, mantém o ecrã aceso e poupa bateria nas retas longas.
 
-**Transportes públicos** — as paragens perto de si com as horas a que passa o próximo
-autocarro, em tempo real, e as estações de comboio, metro e barco com os horários. Trajetos
-de um ponto ao outro pelos dois. Na Área Metropolitana de Lisboa.
+**Transportes públicos** — os autocarros a andar no mapa, ao vivo, com o número da linha.
+As paragens perto de si com as horas a que passa o próximo, em tempo real, e as estações de
+comboio e metro com os horários. Trajetos de um ponto ao outro pelos dois. Na Área
+Metropolitana de Lisboa.
 
 **Mapas offline** — países inteiros guardados no telemóvel, que funcionam sem rede nenhuma,
 a qualquer zoom e em sítios onde nunca esteve. E o mesmo para os horários de comboio.

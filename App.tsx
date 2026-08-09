@@ -30,6 +30,8 @@ import {
   CATEGORY_MIN_ZOOM,
   KEEP_AWAKE_TAG,
   MAP_PINS_DEBOUNCE_MS,
+  VEHICLES_MIN_ZOOM,
+  VEHICLES_REFRESH_MS,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
   OFF_ROUTE_STRIKES,
@@ -52,6 +54,7 @@ import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
 import { planScheduledTrips } from './src/services/schedules';
+import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
   nearbyStations,
@@ -138,6 +141,16 @@ function PalmMap() {
    * dia haver horários também.
    */
   const [transitStations, setTransitStations] = useState<TransitStation[]>([]);
+
+  /**
+   * Os autocarros a andar, e se o zoom já dá para os mostrar.
+   *
+   * O zoom vive numa `ref` (o `viewport`), que um efeito não pode observar. Por
+   * isso guarda-se aqui só o **booleano** de estar acima do limite: muda duas
+   * vezes numa sessão em vez de a cada arrastar do dedo.
+   */
+  const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
+  const [vehicleZoomOk, setVehicleZoomOk] = useState(false);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
@@ -334,6 +347,47 @@ function PalmMap() {
       cancelled = true;
     };
   }, [settings.mapType, perto]);
+
+  /**
+   * Os autocarros a andar, no mapa dos transportes.
+   *
+   * **Três travões, e nenhum é decorativo.** A resposta é a frota inteira, 1,1 MB
+   * de cada vez, porque o serviço não tem filtro por área nem por linha. Por isso
+   * só se pede quando se está mesmo a olhar para os transportes (`mapType`), com
+   * o mapa aproximado ao ponto de os autocarros se distinguirem uns dos outros
+   * (`vehicleZoomOk`), e com a definição ligada.
+   *
+   * Falhar aqui não merece mensagem nenhuma: ficam os autocarros da última vez e
+   * a atualização seguinte tenta outra vez. Isto é informação a mais no mapa,
+   * não é o mapa.
+   */
+  useEffect(() => {
+    if (settings.mapType !== 'transit' || !settings.showVehicles || !vehicleZoomOk) {
+      setVehicles([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const carregar = async () => {
+      try {
+        const lista = await liveVehicles();
+        if (!cancelled) {
+          setVehicles(lista);
+        }
+      } catch {
+        // Ver acima: sem posições novas, ficam as antigas.
+      }
+    };
+
+    void carregar();
+    const timer = setInterval(() => void carregar(), VEHICLES_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [settings.mapType, settings.showVehicles, vehicleZoomOk]);
 
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -641,6 +695,11 @@ function PalmMap() {
   const handleViewportChange = useCallback(
     (bounds: Bounds, zoom: number) => {
       viewport.current = { bounds, zoom };
+
+      // Só o booleano, e só quando muda de lado: pôr o mesmo valor não redesenha
+      // nada, mas vale a pena deixar claro que é com isso que se conta.
+      const daParaVer = zoom >= VEHICLES_MIN_ZOOM;
+      setVehicleZoomOk((atual) => (atual === daParaVer ? atual : daParaVer));
 
       if (pinsTimer.current) {
         clearTimeout(pinsTimer.current);
@@ -1175,6 +1234,7 @@ function PalmMap() {
         selectedStopId={selectedStopId}
         onStopPress={setSelectedStopId}
         transitStations={transitStations}
+        vehicles={vehicles}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />

@@ -53,6 +53,14 @@ export interface Theme {
   poi: string;
   /** Contorno dos pinos, para se destacarem do mapa. */
   poiOutline: string;
+  /**
+   * Autocarros em andamento, no mapa.
+   *
+   * Tem de se distinguir das paragens, que são a coisa parecida mais próxima:
+   * uma paragem está sempre no mesmo sítio, um autocarro anda. Daí ser uma cor
+   * própria e não uma das que já existem.
+   */
+  vehicle: string;
   /** Fundo das mensagens flutuantes por cima do mapa. */
   overlay: string;
   /** Texto dessas mensagens. */
@@ -85,6 +93,7 @@ export const light: Theme = {
   destination: '#0F6E70',
   poi: '#C98526',
   poiOutline: '#FCF8F2',
+  vehicle: '#2F7D32',
   overlay: 'rgba(24, 38, 45, 0.80)',
   onOverlay: '#FCF8F2',
   signFace: '#FFFFFF',
@@ -109,6 +118,7 @@ export const dark: Theme = {
   destination: '#3FAAA6',
   poi: '#E0AC55',
   poiOutline: '#152230',
+  vehicle: '#5FBF63',
   overlay: 'rgba(5, 11, 15, 0.86)',
   onOverlay: '#EDE5D8',
   signFace: '#FFFFFF',

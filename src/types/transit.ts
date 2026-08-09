@@ -100,3 +100,38 @@ export interface CarrisArrival {
   /** A hora a que passou mesmo. Se estiver preenchida, já passou. */
   observed_arrival?: string | null;
 }
+
+/**
+ * Um veículo, tal como o `/vehicles` da Carris Metropolitana o devolve.
+ *
+ * **Os nomes foram lidos de uma resposta verdadeira**, não adivinhados. A
+ * resposta traz trinta campos por veículo — ficha da frota incluída, com
+ * matrícula, marca, modelo e lotação — e aqui só se declaram os que a aplicação
+ * usa. Os outros existem e não fazem mal nenhum.
+ *
+ * **Nem todos os veículos da lista estão a andar.** Os que não estão vêm sem
+ * `lat`, `lon` nem `timestamp` — é isso que os distingue, e não um campo a dizê-lo.
+ * E dos que trazem posição, a maioria tem-na de horas ou dias atrás: é a última
+ * conhecida, de onde ficaram estacionados. Ver `src/services/vehicles.ts`.
+ */
+export interface CarrisVehicle {
+  /** Identifica o veículo, na forma `41|300`. */
+  id?: string;
+  lat?: number | string;
+  lon?: number | string;
+  /** Para onde aponta, em graus. */
+  bearing?: number | string;
+  /** Metros por segundo, não quilómetros por hora. */
+  speed?: number | string;
+  /** Segundos desde 1970, de quando esta posição foi dada. */
+  timestamp?: number | string;
+  /** O número da linha que está a fazer. */
+  line_id?: string;
+  route_id?: string;
+  pattern_id?: string;
+  trip_id?: string;
+  /** A paragem a que se refere o `current_status`. */
+  stop_id?: string;
+  /** `STOPPED_AT`, `IN_TRANSIT_TO` ou `INCOMING_AT`, como no GTFS-RT. */
+  current_status?: string;
+}

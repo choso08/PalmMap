@@ -320,6 +320,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
 │   │   ├── vectorStyle.ts  # Como se desenha um mapa guardado: cores e espessuras
 │   │   ├── transit.ts      # Paragens e horas de passagem (Carris Metropolitana)
+│   │   ├── vehicles.ts     # Onde estão os autocarros neste momento
 │   │   ├── schedules.ts    # Horários de comboio, metro e barco, guardados no telemóvel
 │   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
@@ -418,6 +419,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | `speedCameraAlerts` | Avisar de radares que estejam no percurso |
   | `avoidTolls` | Pedir um caminho sem portagens |
   | `batterySaver` | Ler o GPS menos vezes longe das manobras |
+  | `showVehicles` | Mostrar os autocarros a andar, no mapa dos transportes |
 
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
@@ -765,6 +767,54 @@ dos trajetos — ainda não foi visto a funcionar.
 Antes dos dados reais, a conversão tinha sido provada contra um GTFS sintético com feriado,
 serviço de fim de semana e uma viagem às 25:05. Vale a pena manter esse teste: é o único que
 cobre o feriado retirado do calendário.
+
+### 6-B-5. Os autocarros a andar, no mapa
+
+É o que o sítio da Carris Metropolitana mostra: onde está cada autocarro neste momento,
+com o número da linha. Vem da **mesma API aberta** das horas de passagem — sem chave — e,
+o que decidiu que isto era possível, **em JSON**. Endereço: `/v2/vehicles`.
+
+**O GTFS-RT em Protobuf existe mas não se usa.** Descodificá-lo obrigava a uma biblioteca
+nova só para isso. Foram sondados `/gtfs-rt/vehicle-positions` e afins, e dão 404 — o que
+responde é o JSON.
+
+**A armadilha, e é a coisa mais importante desta secção.** O serviço devolve **a frota
+inteira**, não os autocarros que andam. Medido a 9 de agosto de 2026, de madrugada:
+
+| | |
+| --- | --- |
+| Tamanho da resposta | **1,1 MB** |
+| Veículos na lista | 1679 |
+| Com posição | 1550 |
+| Idade da posição | mediana **9 horas**, pior **12 dias** |
+
+Ou seja: quase todas as posições são a **última conhecida**, de onde o autocarro ficou
+estacionado. Desenhar a lista como vem enchia o mapa de mil e quinhentos autocarros parados
+em garagens, e **não dava erro nenhum** — parecia estar a funcionar. Por isso só entram os
+que deram sinal há menos de `VEHICLE_MAX_AGE_S` (2 minutos). **Não desligar esse filtro.**
+
+De madrugada a lista fica quase vazia, e isso é a resposta certa — não é avaria.
+
+**O peso obriga a três travões**, e nenhum é decoração:
+
+1. Só no **tipo de mapa dos transportes**.
+2. Só acima de `VEHICLES_MIN_ZOOM` (12).
+3. Só com a definição `showVehicles` ligada — e o ecrã de definições **diz o que custa em
+   dados**, porque 1,1 MB de vinte em vinte segundos não é coisa que se ligue sem saber.
+
+Não há forma de pedir menos: não existe filtro por área nem por linha. O `by_line` dá 404.
+
+**Os nomes dos campos foram lidos de uma resposta verdadeira**, e não adivinhados — pela
+mesma razão que está registada mais abaixo, sobre a primeira tentativa com esta API. São
+`lat`, `lon`, `bearing`, `line_id`, `trip_id`, `speed` (em **metros por segundo**, não em
+km/h), `timestamp` (segundos) e `current_status` (`STOPPED_AT`, `IN_TRANSIT_TO`,
+`INCOMING_AT`, como no GTFS-RT).
+
+No mapa, cada autocarro é um círculo com o número da linha lá dentro, e os que estão parados
+numa paragem ficam mais apagados. **Vão por cima das paragens**, de propósito: a paragem
+está sempre no mesmo sítio, o autocarro é que é a novidade. Não levam seta do sentido apesar
+de o `bearing` vir na resposta — uma seta precisava de uma imagem ou de um caractere que os
+glifos incluídos não têm.
 
 ### 6-C. Radares
 

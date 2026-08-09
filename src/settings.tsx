@@ -79,6 +79,13 @@ export interface Settings {
   avoidTolls: boolean;
   /** Ler o GPS menos vezes quando a manobra seguinte ainda vai longe. */
   batterySaver: boolean;
+  /**
+   * Mostrar os autocarros a andar, no tipo de mapa dos transportes.
+   *
+   * Fica ligado de origem porque é a razão de se ir ao mapa dos transportes,
+   * mas é o pedido mais pesado da aplicação — ver `VEHICLES_MIN_ZOOM`.
+   */
+  showVehicles: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -93,6 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speedCameraAlerts: true,
   avoidTolls: false,
   batterySaver: true,
+  showVehicles: true,
 };
 
 /**

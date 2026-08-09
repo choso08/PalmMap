@@ -131,6 +131,40 @@ export const WALK_DETOUR = 1.3;
 export const ARRIVALS_REFRESH_MS = 30000;
 
 /**
+ * Há quanto tempo, no máximo, um autocarro pode ter dado sinal para ainda contar
+ * como estando a andar.
+ *
+ * **Isto é o que faz a funcionalidade valer alguma coisa.** O serviço devolve a
+ * frota inteira com a última posição conhecida de cada veículo, e não só os que
+ * andam. Medido de madrugada: 1550 veículos com posição, idade mediana de nove
+ * horas, a pior de doze dias — quase todos parados em garagens.
+ *
+ * Dois minutos são generosos para uma posição que costuma vir de trinta em
+ * trinta segundos, e apertados o suficiente para deixar de fora tudo o que está
+ * estacionado.
+ */
+export const VEHICLE_MAX_AGE_S = 120;
+
+/**
+ * De quanto em quanto tempo se voltam a pedir as posições dos autocarros.
+ *
+ * Vinte segundos é o compromisso: mais depressa não traz posições novas, porque
+ * é mais ou menos a esse ritmo que os autocarros as dão, e mais devagar dava a
+ * impressão de estarem a saltar em vez de andarem.
+ */
+export const VEHICLES_REFRESH_MS = 20000;
+
+/**
+ * Zoom mínimo para se mostrarem os autocarros a andar.
+ *
+ * **A razão principal é o peso, não o ecrã.** A resposta é a frota toda —
+ * 1,1 MB, sem forma de pedir menos, porque não há filtro por área nem por linha.
+ * É o pedido mais pesado desta aplicação, e não deve estar a repetir-se quando
+ * se está a olhar para o país inteiro.
+ */
+export const VEHICLES_MIN_ZOOM = 12;
+
+/**
  * Intervalo mínimo entre pedidos à Overpass.
  * É um serviço partilhado e pesado de correr — convém ser generoso aqui.
  */

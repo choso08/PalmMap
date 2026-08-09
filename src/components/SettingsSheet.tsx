@@ -200,6 +200,30 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             />
           </View>
 
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Autocarros a andar</Text>
+              <Text style={styles.switchHint}>
+                Mostra onde estão os autocarros da Carris Metropolitana, em tempo real, no
+                mapa dos transportes. Só aparece com o mapa aproximado.
+              </Text>
+              {/*
+                O custo tem de estar escrito. O serviço não deixa pedir só a área
+                que se está a ver — vem a frota toda de cada vez, e é de longe o
+                pedido mais pesado que esta aplicação faz.
+              */}
+              <Text style={styles.switchHint}>
+                Gasta bastantes dados: o serviço só sabe dar a frota inteira de cada vez,
+                e isso repete-se de vinte em vinte segundos enquanto estiver a ver.
+              </Text>
+            </View>
+            <Switch
+              value={settings.showVehicles}
+              onValueChange={(next) => update('showVehicles', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+
           <Text style={styles.sectionTitle}>Mapa guardado</Text>
           <Text style={styles.sectionHint}>
             As zonas por onde passa ficam guardadas e voltam a aparecer sem rede.
