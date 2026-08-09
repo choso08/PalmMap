@@ -398,9 +398,9 @@ def probe(url: str) -> None:
     try:
         with urllib.request.urlopen(request, timeout=30) as resposta:
             tipo = resposta.headers.get("Content-Type", "?")
-            corpo = resposta.read(300)
+            corpo = resposta.read(600)
             log(f"  {resposta.status}  {tipo}  {url}")
-            log(f"        {corpo[:200]!r}")
+            log(f"        {corpo[:500]!r}")
     except urllib.error.HTTPError as erro:
         # 401 e 403 são a resposta que interessa distinguir: querem dizer que a
         # porta existe mas está fechada, o que é diferente de não existir.
@@ -516,6 +516,33 @@ def probe_candidatos() -> None:
         probe(url)
 
 
+def probe_vehicles() -> None:
+    """
+    Procura as posições dos autocarros em andamento.
+
+    O sítio da Carris Metropolitana mostra os autocarros a mexer no mapa, por
+    isso os dados existem. **O que decide se isto é possível aqui é o formato.**
+
+    - Se houver **JSON**, é de graça: entra como mais um pedido, como as horas de
+      passagem, e não obriga a dependência nenhuma nova.
+    - Se só houver **GTFS-RT em Protobuf**, obrigava a uma biblioteca só para o
+      descodificar. Não é impossível, mas é uma decisão diferente e mais cara.
+
+    Por isso pergunta-se em vez de assumir, e imprime-se o `Content-Type` de cada
+    resposta — que é o que separa uma coisa da outra.
+    """
+    log("\n=== Posições dos autocarros em andamento ===")
+    for url in [
+        "https://api.carrismetropolitana.pt/v2/vehicles",
+        "https://api.carrismetropolitana.pt/vehicles",
+        "https://api.carrismetropolitana.pt/v2/vehicles/by_line/1523",
+        "https://api.carrismetropolitana.pt/v1/vehicles",
+        "https://api.carrismetropolitana.pt/gtfs-rt/vehicle-positions",
+        "https://api.carrismetropolitana.pt/v2/gtfs-rt/vehicle_positions",
+    ]:
+        probe(url)
+
+
 # As palavras por que se procura. Uma só não chega: nem toda a gente escreve
 # "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
 CONSULTAS = [
@@ -617,6 +644,7 @@ def main() -> int:
         discover()
         probe_geoportal()
         probe_candidatos()
+        probe_vehicles()
         probe_tml()
         return 0
 
