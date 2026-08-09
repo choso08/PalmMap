@@ -38,9 +38,11 @@
       "id": "cp",
       "nome": "CP — Comboios de Portugal",
       "kind": "train",
-      "confirmado": false,
-      "urls": [],
-      "notas": "NÃO FOI ENCONTRADO. Sete pesquisas ao dados.gov.pt não devolveram GTFS da CP. Existe referência a GTFS da CP noutros sítios (Mobility Database, transporlis) mas nenhum endereço foi confirmado daqui. É o que falta para os comboios."
+      "confirmado": true,
+      "urls": [
+        "https://publico.cp.pt/gtfs/gtfs.zip"
+      ],
+      "notas": "Confirmado a responder com um ZIP válido. Inclui os urbanos de Lisboa — Sintra, Azambuja, Cascais e Sado — que é a maior peça ferroviária da AML, e ainda os regionais e o longo curso do país inteiro. Atenção: www.cp.pt/gtfs/gtfs.zip responde 200 mas devolve a página deles em HTML, não o ficheiro. É publico.cp.pt."
     },
     {
       "id": "fertagus",
@@ -48,7 +50,7 @@
       "kind": "train",
       "confirmado": false,
       "urls": [],
-      "notas": "NÃO FOI ENCONTRADO, tal como a CP. Roma-Areeiro a Setúbal, catorze estações."
+      "notas": "NÃO ENCONTRADO. Tentado: www.fertagus.pt/gtfs/gtfs.zip (404) e sete pesquisas ao dados.gov.pt, incluindo pelo nome. Só falta este e os barcos para a margem sul ficar coberta a sério."
     },
     {
       "id": "ttsl",
@@ -56,7 +58,7 @@
       "kind": "boat",
       "confirmado": false,
       "urls": [],
-      "notas": "NÃO FOI ENCONTRADO. Os barcos do Tejo: Cacilhas, Barreiro, Trafaria, Porto Brandão, Montijo, Seixal."
+      "notas": "NÃO ENCONTRADO. Tentado: ttsl.pt/gtfs/gtfs.zip (responde 200 mas é a página deles em HTML) e www.transtejo.pt (o certificado nem sequer é válido para esse nome)."
     },
     {
       "id": "carris",
@@ -77,6 +79,14 @@
       "confirmado": false,
       "urls": [],
       "notas": "Sem endereço nenhum, e não é por não se ter procurado: é uma concessão privada e não publica horários nem tempo real. Fica aqui escrito para não se voltar a procurar. Cuidado com a confusão fácil — existe GTFS da TST, Transportes Sul do Tejo, que é a empresa de autocarros do mesmo grupo e NÃO é o metro."
+    },
+    {
+      "id": "carris-lisboa",
+      "nome": "Carris (Lisboa)",
+      "kind": "bus",
+      "confirmado": false,
+      "urls": [],
+      "notas": "Os autocarros e elétricos DENTRO da cidade de Lisboa. NÃO é a Carris Metropolitana, que serve os outros concelhos da AML — são operadores diferentes e este não está coberto de todo. NÃO ENCONTRADO: www.carris.pt/gtfs/gtfs.zip dá 404, e gtfs.carris.pt e api.carris.pt nem existem em DNS. A pesquisa por 'Carris' no dados.gov.pt só devolveu estudos da Câmara de Lisboa sobre velocidade dos autocarros, não horários."
     }
   ]
 }

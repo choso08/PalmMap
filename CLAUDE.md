@@ -653,21 +653,37 @@ As peças:
 
 | Operador | Endereço |
 | --- | --- |
-| Metro de Lisboa | ✅ confirmado, publicado por eles no dados.gov.pt |
-| Carris Metropolitana | ✅ confirmado, dois endereços — mas `naApp: false`, ver abaixo |
-| **TUB — Braga** | ✅ confirmado. Não se andava à procura dele e é o **primeiro operador fora de Lisboa** que este projeto consegue cobrir |
-| CP, Fertagus, Transtejo/Soflusa | ❌ **não foram encontrados** |
+| **CP — Comboios de Portugal** | ✅ `https://publico.cp.pt/gtfs/gtfs.zip`. Traz os **urbanos de Lisboa** — Sintra, Azambuja, Cascais, Sado — que são a maior peça ferroviária da AML |
+| Metro de Lisboa | ✅ publicado por eles no dados.gov.pt |
+| Carris Metropolitana | ✅ dois endereços — mas `naApp: false`, ver abaixo |
+| TUB — Braga | ✅ apareceu sozinho na pesquisa. É o único operador fora de Lisboa |
+| Fertagus, Transtejo/Soflusa, **Carris de Lisboa** | ❌ **não foram encontrados** |
 
-**A CP, o Fertagus e os barcos continuam sem fonte.** Sete pesquisas ao dados.gov.pt — por
-"GTFS", "comboios", pelo nome de cada operador — não devolveram nada deles. Há referências a
-GTFS da CP noutros sítios (Mobility Database, transporlis), mas nenhum endereço foi visto a
-responder, e **não se escrevem endereços por palpite no catálogo**. As entradas ficam lá com
-`urls` vazio e a explicação, para não se voltar a procurar às cegas.
+**A armadilha da CP:** `www.cp.pt/gtfs/gtfs.zip` responde **200** e devolve a **página deles
+em HTML**. É `publico.cp.pt` que tem o ficheiro. Sem a verificação que confirma que o ZIP
+tem mesmo `stops.txt` e `stop_times.txt` lá dentro, o workflow teria aceitado a página de
+HTML como bom e falhado adiante, longe da causa. O `ttsl.pt` faz exatamente o mesmo.
+
+**A Carris de Lisboa é outro operador, e faltava de todo no catálogo.** São os autocarros e
+elétricos **dentro da cidade**; a Carris Metropolitana serve os outros concelhos. Não foi
+encontrada: `www.carris.pt/gtfs` dá 404, e `gtfs.carris.pt` e `api.carris.pt` nem existem em
+DNS. É o maior buraco que resta na AML.
+
+**O que se tentou e não deu fica escrito nas notas do catálogo**, endereço a endereço, para
+ninguém repetir as mesmas tentativas.
 
 **O `naApp: false` não é o mesmo que `kind: bus`**, e a diferença importa. A Carris fica de
 fora da lista da aplicação porque tem tempo real por API, que é melhor do que um horário. Os
 autocarros de Braga **não têm tempo real nenhum** — para esses o horário é tudo o que há, e
 entram. Filtrar por `kind` deixava Braga de fora sem razão nenhuma.
+
+**O geoportal da TML não serve para horários, e essa pista está fechada.** As coleções
+`gtfs_stops` e `gtfs_shapes` que aparecem no dados.gov.pt davam esperança de haver lá um
+GTFS da AML inteira. Perguntou-se-lhe: são **186 coleções** e só essas duas começam por
+`gtfs_` — não há `trips`, `stop_times` nem `calendar`. É um portal de geometria e de pontos
+de interesse, não de horários. Tem coisas interessantes para outros fins
+(`interfaces_paragens_carris`, `interfaces_estacoes_fluviais`, `seguranca_rodoviaria_radares_aml`),
+mas nenhuma diz a que horas passa o quê.
 
 **Os endereços do dados.gov.pt têm duas formas**, e convém preferir a estável: um traz a
 data lá dentro e muda a cada publicação, o outro é `/api/1/datasets/r/<id>` e aponta sempre
