@@ -4,7 +4,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme, useTimeFactor } from '../settings';
+import { useTheme, useTimeFactor, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Route } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -23,6 +23,7 @@ interface StepsListProps {
  */
 export function StepsList({ visible, route, onClose }: StepsListProps) {
   const theme = useTheme();
+  const strings = useT();
   const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -43,7 +44,7 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Instruções</Text>
+            <Text style={styles.title}>{strings.steps.title}</Text>
             {route ? (
               <Text style={styles.subtitle}>
                 {formatDistance(route.distanceMeters)} · {formatDuration(route.durationSeconds * timeFactor)}
@@ -81,7 +82,7 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Ainda não há instruções para mostrar.</Text>
+            <Text style={styles.empty}>{strings.steps.empty}</Text>
           }
         />
       </View>

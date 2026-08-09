@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { t } from '../i18n';
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
 
@@ -229,7 +230,7 @@ export async function listRegions(): Promise<OfflineRegion[]> {
       return guardadas;
     }
     throw new OfflineMapError(
-      'Não foi possível obter a lista de mapas. Verifique a ligação à Internet.',
+      t().errors.mapListFailed,
     );
   }
 }
@@ -283,7 +284,7 @@ export async function downloadRegion(
     // megabytes é quase sempre a rede a cair a meio.
     const detalhe = erro instanceof Error ? erro.message : String(erro);
     throw new OfflineMapError(
-      `Não foi possível descarregar o mapa de ${region.nome}. ${detalhe}`.trim(),
+      t().errors.mapDownloadFailed(region.nome, detalhe),
     );
   }
 }
@@ -336,7 +337,7 @@ function writeMetadata(region: OfflineRegion): void {
 async function copyAsset(module: number, destino: File): Promise<void> {
   const [asset] = await Asset.loadAsync(module);
   if (!asset?.localUri) {
-    throw new OfflineMapError('Não foi possível ler um ficheiro incluído na aplicação.');
+    throw new OfflineMapError(t().errors.bundledAssetFailed);
   }
   await new File(asset.localUri).copy(destino);
 }

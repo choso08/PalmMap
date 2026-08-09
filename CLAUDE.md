@@ -137,6 +137,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Guardar no telemóvel | `@react-native-async-storage/async-storage` e `expo-file-system` |
 | Ficheiros dentro do APK | `expo-asset` |
 | Voz | `expo-speech` |
+| Língua do telemóvel | `expo-localization` |
 | Ecrã aceso a conduzir | `expo-keep-awake` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
@@ -335,6 +336,10 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── voice.ts        # Leitura das instruções em voz alta
 │   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
 │   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
+│   ├── i18n/               # Os textos, em português e inglês
+│   │   ├── pt.ts           # A tabela de origem
+│   │   ├── en.ts           # O inglês, tipado contra o pt.ts
+│   │   └── index.ts        # Escolher a língua; useT() e t()
 │   ├── theme.ts            # Cores em versão clara e escura
 │   └── settings.tsx        # Definições guardadas e o gancho useTheme()
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
@@ -409,6 +414,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
   | Definição | O que faz |
   | --- | --- |
+  | `language` | Língua: automático, português ou inglês |
   | `appearance` | Aspeto: automático, claro ou escuro |
   | `travelMode` | Meio de transporte: carro, a pé, bicicleta ou autocarro |
   | `timeAdjustment` | Correção do tempo estimado: 1×, 1,25×, 1,5× ou 2× |
@@ -427,6 +433,64 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - **O meio de transporte também se troca no painel do percurso**, com três botões por cima
   da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
   pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
+
+### 4-A. Línguas
+
+A aplicação fala **português de Portugal e inglês**. Em "automático" segue a **língua do
+telemóvel**; nas definições pode-se forçar uma delas.
+
+**"Automático" é a língua do telemóvel e não o país onde se está.** É o que "automático"
+quer dizer em qualquer outra aplicação, e evita o caso de um português em viagem ver tudo em
+inglês. Qualquer língua que não seja o português cai no inglês — o inglês é a língua de
+recurso, e acrescentar uma língua nova é juntar um ficheiro ao lado do `en.ts`.
+
+As peças estão em **`src/i18n/`**:
+
+| Ficheiro | O que é |
+| --- | --- |
+| `pt.ts` | **A tabela de origem.** Todo o texto que aparece ao utilizador |
+| `en.ts` | O inglês, **tipado contra o `pt.ts`** |
+| `index.ts` | Escolher a língua, e as duas formas de lhe chegar |
+
+**A verificação que impede metade da aplicação de ficar em português.** O `en.ts` está
+declarado como `typeof pt`: uma chave que se acrescente ao português e se esqueça no inglês
+**não compila**. É a única verificação automática que este projeto tem, e apanha
+precisamente o erro mais provável — não é preciso lembrar-se de nada, o `npx tsc --noEmit`
+diz.
+
+**Há duas formas de pedir o texto, e a diferença importa:**
+
+- **`useT()`**, nos componentes. É um hook, por isso o ecrã redesenha-se quando a língua
+  muda — sem reiniciar a aplicação.
+- **`t()`**, nos serviços. Serviços não podem usar hooks e continuam a lançar erros com
+  mensagem; este lê a língua de uma variável do módulo, posta pelo `SettingsProvider`.
+
+**Cuidado com o `t()` capturado numa função com dependências vazias.** Um `useCallback(…,
+[])` que feche sobre o `strings` do componente fica preso à língua do arranque, e o
+TypeScript não apanha isso. Aconteceu com o nome do tipo de mapa: trocar para inglês
+deixava-o a dizer "Transportes" para sempre. Nesses sítios usa-se o `t()`, que lê a língua
+no momento em que é chamado.
+
+**As frases com valores são funções, e a gramática vive dentro de cada língua.** Não é
+arrumação: diz-se "Vire à esquerda **para** a Rua Augusta" e "Turn left **onto** Rua
+Augusta". Montar as frases por fora, a partir de pedaços traduzidos, dava a uma das línguas
+a gramática da outra. O `maneuvers.ts` decide **que** manobra é; a tabela da língua diz
+**como se diz** — incluindo os ordinais ingleses das saídas de rotunda, onde o 11.º ao 13.º
+são "th" e é aí que uma regra ingénua falha.
+
+**Quatro coisas que mudam com a língua e não são texto:**
+
+1. **O separador decimal.** 12,4 km em português, 12.4 km em inglês. É o pormenor que mais
+   denuncia uma tradução mal feita.
+2. **A voz da navegação** (`speechTag`). Sem isto, uma instrução inglesa saía lida com
+   pronúncia portuguesa.
+3. **A pesquisa** (`accept-language` no Nominatim). Quem está em inglês recebe "Lisbon".
+4. **As atribuições do mapa.** Para o Sentinel-2 usa-se, em inglês, a frase oficial que a
+   EOX pede — copiada e não traduzida.
+
+**As listas de opções não guardam nomes.** O `TRAVEL_MODES`, o `MAP_TYPES` e os outros só
+têm o `id` e o ícone; o nome vem da tabela da língua. Misturar as duas coisas obrigava a
+mexer nessas listas para traduzir, e elas são sobre outra coisa.
 
 ### 5. O tempo estimado e o piso das estradas
 

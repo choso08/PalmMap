@@ -10,6 +10,7 @@ import {
   WALK_SPEED_MS,
 } from './config';
 import { createRateLimiter } from './rateLimit';
+import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
 import type { CarrisArrival, CarrisFacility, CarrisStop } from '../types/transit';
 import { distanceMeters } from '../utils/geometry';
@@ -482,13 +483,16 @@ const STATION_ENDPOINTS: Record<StationKind, string> = {
   boat: '/facilities/boat_stations',
 };
 
-/** Como se chama cada género em português, para o ecrã. */
-export const STATION_LABELS: Record<StationKind, string> = {
-  train: 'Comboio',
-  subway: 'Metro',
-  light_rail: 'Metro de superfície',
-  boat: 'Barco',
-};
+/**
+ * Como se chama cada género, na língua atual.
+ *
+ * É uma função e não uma constante de propósito: uma constante era avaliada uma
+ * vez, no arranque, e ficava presa à língua desse momento — trocar de língua
+ * deixava as estações a dizer "Comboio" no meio de um ecrã inglês.
+ */
+export function stationLabel(kind: StationKind): string {
+  return t().transit.kinds[kind];
+}
 
 /** O ícone de cada género. Confirmados na lista do MaterialCommunityIcons. */
 export const STATION_ICONS: Record<StationKind, string> = {
@@ -538,7 +542,7 @@ async function loadStations(): Promise<TransitStation[]> {
             estacoes.push({
               id: `${kind}:${facility.id}`,
               kind,
-              name: facility.name ?? STATION_LABELS[kind],
+              name: facility.name ?? stationLabel(kind),
               locality: facility.locality ?? facility.municipality_name ?? '',
               coordinates: { latitude, longitude },
               stopIds: Array.isArray(facility.stop_ids) ? facility.stop_ids : [],

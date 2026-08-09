@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { t } from '../i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { isSamePlace } from '../services/favourites';
 import { searchPlaces } from '../services/nominatim';
-import { useTheme } from '../settings';
+import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Bounds, Place } from '../types/geo';
 
@@ -49,6 +50,7 @@ export function SearchBar({
   getBounds,
 }: SearchBarProps) {
   const theme = useTheme();
+  const strings = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [query, setQuery] = useState('');
@@ -82,7 +84,7 @@ export function SearchBar({
       }
     } catch {
       if (searchId === latestSearch.current) {
-        setError('Não foi possível pesquisar. Verifique a ligação à Internet.');
+        setError(t().search.failed);
         setResults([]);
       }
     } finally {
@@ -135,7 +137,7 @@ export function SearchBar({
           style={styles.input}
           value={query}
           onChangeText={setQuery}
-          placeholder="Pesquisar aqui"
+          placeholder={strings.search.placeholder}
           placeholderTextColor={theme.placeholder}
           returnKeyType="search"
           onFocus={() => setFocused(true)}

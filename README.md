@@ -47,6 +47,9 @@ a qualquer zoom e em sítios onde nunca esteve. E o mesmo para os horários de c
 
 **Fita métrica** — distâncias e áreas medidas em cima do mapa, como no Google Earth.
 
+**Português e inglês** — segue a língua do telemóvel, e muda-se à mão nas definições. A voz
+da navegação, a pesquisa e até o separador decimal acompanham.
+
 ## Mapas sem rede
 
 Nas definições, em "Mapas de países", escolhe-se um país e ele descarrega. A partir daí

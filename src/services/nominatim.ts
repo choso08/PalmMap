@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { acceptLanguage, activeLanguage } from '../i18n';
 
 import {
   NOMINATIM_BASE_URL,
@@ -99,6 +100,9 @@ export async function searchPlaces(
         limit,
         addressdetails: 0,
         extratags: 1,
+        // Os nomes vêm na língua da aplicação onde o OpenStreetMap os tiver
+        // traduzidos: quem está em inglês vê "Lisbon" e não "Lisboa".
+        'accept-language': acceptLanguage(activeLanguage()),
         // Ordem exigida pelo Nominatim: oeste, norte, este, sul.
         ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
       },
@@ -132,7 +136,14 @@ export async function reverseGeocode(coordinates: Coordinates): Promise<Place | 
   try {
     const response = await schedule(() =>
       client.get<NominatimReverseResponse>('/reverse', {
-        params: { lat, lon, format: 'jsonv2', zoom: 18, extratags: 1 },
+        params: {
+          lat,
+          lon,
+          format: 'jsonv2',
+          zoom: 18,
+          extratags: 1,
+          'accept-language': acceptLanguage(activeLanguage()),
+        },
       }),
     );
 

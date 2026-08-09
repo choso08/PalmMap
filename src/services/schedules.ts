@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { t } from '../i18n';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import {
@@ -125,7 +126,7 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
       return guardados;
     }
     throw new ScheduleError(
-      'Não foi possível obter a lista de horários. Verifique a ligação à Internet.',
+      t().errors.scheduleListFailed,
     );
   }
 }
@@ -158,7 +159,7 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
     }
     const detalhe = erro instanceof Error ? erro.message : String(erro);
     throw new ScheduleError(
-      `Não foi possível descarregar os horários de ${info.nome}. ${detalhe}`.trim(),
+      t().errors.scheduleDownloadFailed(info.nome, detalhe),
     );
   }
 }

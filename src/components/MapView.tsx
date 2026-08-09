@@ -22,7 +22,7 @@ import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
 import {
-  STATION_LABELS,
+  stationLabel,
   type TransitStation,
   type TransitStop,
 } from '../services/transit';
@@ -556,7 +556,7 @@ export function MapView({
               type: 'Feature',
               properties: {
                 nome: estacao.name,
-                genero: STATION_LABELS[estacao.kind],
+                genero: stationLabel(estacao.kind),
               },
               geometry: {
                 type: 'Point',

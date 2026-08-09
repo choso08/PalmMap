@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { GestureResponderHandlers } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '../settings';
+import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates } from '../types/geo';
 import { formatArea, formatDistance } from '../utils/format';
@@ -50,6 +50,7 @@ export function MeasureSheet({
   dragHandlers,
 }: MeasureSheetProps) {
   const theme = useTheme();
+  const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -68,15 +69,15 @@ export function MeasureSheet({
 
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Fita métrica</Text>
+          <Text style={styles.title}>{strings.measure.title}</Text>
           <Text style={styles.subtitle}>
             {points.length === 0
-              ? 'Toque no mapa para pôr o primeiro ponto.'
+              ? strings.measure.firstPoint
               : points.length === 1
-                ? 'Toque outra vez para medir até lá.'
+                ? strings.measure.secondPoint
                 : mode === 'area' && points.length === 2
-                  ? 'Falta um ponto para fechar a forma.'
-                  : `${points.length} pontos`}
+                  ? strings.measure.needThird
+                  : strings.measure.pointCount(points.length)}
           </Text>
         </View>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
@@ -105,7 +106,7 @@ export function MeasureSheet({
                 color={ativo ? theme.onAccent : theme.textMuted}
               />
               <Text style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}>
-                {m === 'linha' ? 'Distância' : 'Área'}
+                {m === 'linha' ? strings.measure.distance : strings.measure.area}
               </Text>
             </Pressable>
           );
@@ -117,7 +118,9 @@ export function MeasureSheet({
           <Text style={styles.valor}>
             {points.length >= 2 ? formatDistance(fechada ? perimetro : comprimento) : '—'}
           </Text>
-          <Text style={styles.etiqueta}>{fechada ? 'perímetro' : 'distância'}</Text>
+          <Text style={styles.etiqueta}>
+            {fechada ? strings.measure.perimeterLabel : strings.measure.distanceLabel}
+          </Text>
         </View>
 
         {/*
@@ -129,7 +132,7 @@ export function MeasureSheet({
             <View style={styles.separador} />
             <View style={styles.medida}>
               <Text style={styles.valor}>{formatArea(area)}</Text>
-              <Text style={styles.etiqueta}>área</Text>
+              <Text style={styles.etiqueta}>{strings.measure.areaLabel}</Text>
             </View>
           </>
         ) : null}
@@ -142,7 +145,7 @@ export function MeasureSheet({
           disabled={points.length === 0}
         >
           <MaterialCommunityIcons name="undo-variant" size={18} color={theme.accent} />
-          <Text style={styles.acaoTexto}>Anular</Text>
+          <Text style={styles.acaoTexto}>{strings.common.undo}</Text>
         </Pressable>
 
         <Pressable
@@ -151,14 +154,11 @@ export function MeasureSheet({
           disabled={points.length === 0}
         >
           <MaterialCommunityIcons name="broom" size={18} color={theme.accent} />
-          <Text style={styles.acaoTexto}>Limpar</Text>
+          <Text style={styles.acaoTexto}>{strings.common.clear}</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.nota}>
-        A precisão é a do mapa e a do dedo — serve para ter uma ideia, não para marcar uma
-        estrema. Com a imagem de satélite e bem aproximado, fica bastante mais fiável.
-      </Text>
+      <Text style={styles.nota}>{strings.measure.accuracy}</Text>
     </View>
   );
 }

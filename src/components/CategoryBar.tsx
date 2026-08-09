@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { useTheme } from '../settings';
+import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { SEARCH_CATEGORIES, type SearchCategory } from '../utils/categories';
 
@@ -19,6 +19,7 @@ interface CategoryBarProps {
  */
 export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) {
   const theme = useTheme();
+  const strings = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
@@ -45,7 +46,7 @@ export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) 
               size={16}
               color={active ? theme.onAccent : theme.textMuted}
             />
-            <Text style={[styles.label, active && styles.labelActive]}>{category.label}</Text>
+            <Text style={[styles.label, active && styles.labelActive]}>{strings.categories[category.labelKey]}</Text>
           </Pressable>
         );
       })}

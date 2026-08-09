@@ -1,36 +1,21 @@
+import { t } from '../i18n';
 import type { OsrmManeuver } from '../types/osrm';
 
 /**
- * Traduz as manobras do OSRM para instruções em português.
+ * Traduz as manobras do OSRM para instruções na língua da aplicação.
  *
  * O OSRM devolve a manobra em duas partes: `type` diz o que se faz e
- * `modifier` diz para que lado. Aqui juntam-se as duas coisas numa frase.
+ * `modifier` diz para que lado. Aqui decide-se **que** manobra é; **como se
+ * diz** está na tabela de cada língua, em `src/i18n`.
+ *
+ * Essa separação não é arrumação: em português diz-se "Vire à esquerda **para**
+ * a Rua Augusta" e em inglês "Turn left **onto** Rua Augusta". Montar as frases
+ * aqui a partir de pedaços traduzidos dava uma das línguas com a gramática da
+ * outra.
  *
  * Referência dos valores possíveis:
  * https://project-osrm.org/docs/v5.24.0/api/#stepmaneuver-object
  */
-
-/** "left" -> "à esquerda" */
-const DIRECTIONS: Record<string, string> = {
-  left: 'à esquerda',
-  right: 'à direita',
-  'slight left': 'ligeiramente à esquerda',
-  'slight right': 'ligeiramente à direita',
-  'sharp left': 'acentuadamente à esquerda',
-  'sharp right': 'acentuadamente à direita',
-  straight: 'em frente',
-  uturn: 'inversão de marcha',
-};
-
-/** "left" -> "esquerda", para as frases onde o "à" não encaixa. */
-const SIDES: Record<string, string> = {
-  left: 'esquerda',
-  right: 'direita',
-  'slight left': 'esquerda',
-  'slight right': 'direita',
-  'sharp left': 'esquerda',
-  'sharp right': 'direita',
-};
 
 /**
  * Ícone que ilustra a manobra, da família MaterialCommunityIcons.
@@ -66,11 +51,6 @@ export function maneuverIcon(type: string, modifier?: string): string {
   }
 }
 
-/** Junta " para a Rua Augusta" quando se sabe o nome da rua. */
-function withStreet(text: string, street: string): string {
-  return street ? `${text} para ${street}` : text;
-}
-
 /**
  * Escreve a instrução de um passo do percurso.
  *
@@ -78,78 +58,68 @@ function withStreet(text: string, street: string): string {
  * @param street Nome da rua onde se segue a seguir (pode ser vazio).
  */
 export function describeManeuver(maneuver: OsrmManeuver, street: string): string {
+  const m = t().maneuvers;
   const { type, modifier, exit } = maneuver;
-  const direction = modifier ? DIRECTIONS[modifier] : undefined;
-  const side = modifier ? SIDES[modifier] : undefined;
+  const direction = modifier ? m.directions[modifier] : undefined;
+  const side = modifier ? m.sides[modifier] : undefined;
+  const onto = (text: string) => m.onto(text, street);
 
   switch (type) {
     case 'depart':
-      return street ? `Siga por ${street}` : 'Comece a viagem';
+      return street ? m.departOn(street) : m.depart;
 
     case 'arrive':
-      if (side) {
-        return `Chegou ao destino, à sua ${side}`;
-      }
-      return 'Chegou ao destino';
+      return side ? m.arriveSide(side) : m.arrive;
 
     case 'turn':
       if (modifier === 'uturn') {
-        return 'Inverta o sentido de marcha';
+        return m.uturn;
       }
       if (modifier === 'straight') {
-        return withStreet('Siga em frente', street);
+        return onto(m.straightOn);
       }
-      return direction ? withStreet(`Vire ${direction}`, street) : withStreet('Vire', street);
+      return onto(direction ? m.turn(direction) : m.turnPlain);
 
     case 'new name':
-      return street ? `Continue por ${street}` : 'Continue em frente';
+      return street ? m.continueOn(street) : m.continueStraight;
 
     case 'continue':
       if (modifier === 'uturn') {
-        return 'Inverta o sentido de marcha';
+        return m.uturn;
       }
       return direction && modifier !== 'straight'
-        ? withStreet(`Continue ${direction}`, street)
-        : withStreet('Continue em frente', street);
+        ? onto(m.continueTowards(direction))
+        : onto(m.continueStraight);
 
     case 'merge':
-      return side
-        ? withStreet(`Junte-se ao trânsito pela ${side}`, street)
-        : withStreet('Junte-se ao trânsito', street);
+      return onto(side ? m.mergeSide(side) : m.merge);
 
     case 'on ramp':
-      return side ? withStreet(`Entre no acesso à ${side}`, street) : withStreet('Entre no acesso', street);
+      return onto(side ? m.onRampSide(side) : m.onRamp);
 
     case 'off ramp':
-      return side ? withStreet(`Saia pela ${side}`, street) : withStreet('Saia', street);
+      return onto(side ? m.offRampSide(side) : m.offRamp);
 
     case 'fork':
-      return side
-        ? withStreet(`Na bifurcação, mantenha-se pela ${side}`, street)
-        : withStreet('Na bifurcação, siga', street);
+      return onto(side ? m.forkSide(side) : m.fork);
 
     case 'end of road':
-      return direction
-        ? withStreet(`No fim da estrada, vire ${direction}`, street)
-        : withStreet('No fim da estrada, siga', street);
+      return onto(direction ? m.endOfRoadTurn(direction) : m.endOfRoad);
 
     case 'roundabout':
     case 'rotary':
-      if (exit) {
-        return withStreet(`Na rotunda, saia na ${exit}.ª saída`, street);
-      }
-      return withStreet('Na rotunda, siga', street);
+      return onto(exit ? m.roundaboutExit(exit) : m.roundabout);
 
     case 'roundabout turn':
-      return direction ? withStreet(`Na rotunda, vire ${direction}`, street) : 'Na rotunda, siga';
+      return direction ? onto(m.roundaboutTurn(direction)) : m.roundabout;
 
     case 'exit roundabout':
     case 'exit rotary':
-      return withStreet('Saia da rotunda', street);
+      return onto(m.exitRoundabout);
 
     default:
       // Não vale a pena inventar: quando o tipo é desconhecido, dá-se a
       // indicação mais neutra possível.
-      return street ? `Continue por ${street}` : 'Continue em frente';
+      return street ? m.continueOn(street) : m.continueStraight;
   }
 }

@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { t } from '../i18n';
 import {
   downloadRegion,
   isDownloaded,
@@ -9,16 +10,16 @@ import {
   removeRegion,
   type OfflineRegion,
 } from '../services/offlineMap';
-import { useTheme } from '../settings';
+import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 
 /** Bytes em texto: 2,1 MB / 1,4 GB. */
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   if (mb < 1000) {
-    return `${mb.toFixed(mb < 10 ? 1 : 0).replace('.', ',')} MB`;
+    return `${mb.toFixed(mb < 10 ? 1 : 0).replace('.', t().units.decimal)} MB`;
   }
-  return `${(mb / 1024).toFixed(1).replace('.', ',')} GB`;
+  return `${(mb / 1024).toFixed(1).replace('.', t().units.decimal)} GB`;
 }
 
 /**
@@ -30,6 +31,7 @@ function formatBytes(bytes: number): string {
  */
 export function OfflineMaps() {
   const theme = useTheme();
+  const strings = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [regions, setRegions] = useState<OfflineRegion[]>([]);
@@ -51,7 +53,7 @@ export function OfflineMaps() {
         setRegions(await listRegions());
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Não foi possível obter a lista.');
+        setError(err instanceof Error ? err.message : t().common.listFailed);
       } finally {
         setLoading(false);
       }
@@ -70,7 +72,7 @@ export function OfflineMaps() {
       }
       setRevision((n) => n + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível.');
+      setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
       setBusy(null);
       setProgress(0);
@@ -81,7 +83,7 @@ export function OfflineMaps() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="small" color={theme.accent} />
-        <Text style={styles.loadingText}>A obter a lista de mapas…</Text>
+        <Text style={styles.loadingText}>{strings.offline.loading}</Text>
       </View>
     );
   }
@@ -104,7 +106,7 @@ export function OfflineMaps() {
 
       {regions.length === 0 && !error ? (
         <Text style={styles.error}>
-          Ainda não há mapas publicados. Corra o workflow "Gerar mapa offline" no GitHub.
+          {strings.offline.empty}
         </Text>
       ) : null}
 
@@ -117,7 +119,7 @@ export function OfflineMaps() {
             style={styles.searchInput}
             value={filtro}
             onChangeText={setFiltro}
-            placeholder={`Procurar entre ${regions.length} países`}
+            placeholder={strings.offline.searchIn(regions.length)}
             placeholderTextColor={theme.placeholder}
             autoCorrect={false}
           />
@@ -130,7 +132,7 @@ export function OfflineMaps() {
       ) : null}
 
       {procurado && visiveis.length === 0 ? (
-        <Text style={styles.vazio}>Nenhum país com esse nome.</Text>
+        <Text style={styles.vazio}>{strings.offline.noMatch}</Text>
       ) : null}
 
       {visiveis.map((region) => {
@@ -159,7 +161,7 @@ export function OfflineMaps() {
                 {aDescarregar
                   ? ` · ${Math.round(progress * 100)}%`
                   : guardado
-                    ? ' · guardado'
+                    ? ` · ${strings.common.saved}`
                     : ''}
               </Text>
 

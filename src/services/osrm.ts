@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { t } from '../i18n';
 
 import {
   OSRM_ENDPOINTS,
@@ -122,7 +123,7 @@ export async function getRoutes(
       }),
     );
   } catch {
-    throw new RouteError('Não foi possível contactar o serviço de percursos.');
+    throw new RouteError(t().errors.routeFailed);
   }
 
   if (params.exclude && response.data.code !== 'Ok') {
@@ -134,7 +135,7 @@ export async function getRoutes(
 
   const { code, routes, message, waypoints } = response.data;
   if (code !== 'Ok' || !routes || routes.length === 0) {
-    throw new RouteError(message ?? 'Não foi encontrado nenhum percurso entre estes pontos.');
+    throw new RouteError(message ?? t().errors.noRoute);
   }
 
   const origem = waypoints?.[0];

@@ -71,9 +71,11 @@ import {
   nextMapType,
   osrmProfile,
   useSettings,
+  useT,
   useTheme,
   type MapType,
 } from './src/settings';
+import { t } from './src/i18n';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
@@ -97,6 +99,7 @@ export default function App() {
 
 function PalmMap() {
   const theme = useTheme();
+  const strings = useT();
   // As margens do sistema: barra de estado, câmara ao centro e barra de
   // navegação. No Android é preciso pedi-las — o mapa desenha por baixo delas.
   const insets = useSafeAreaInsets();
@@ -270,7 +273,10 @@ function PalmMap() {
   const mapTypeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mostrarTipoDeMapa = useCallback((tipo: MapType) => {
-    setMapTypeLabel(MAP_TYPES.find((t) => t.id === tipo)?.label ?? null);
+    // `t()` e não o `strings` do componente: esta função tem a lista de
+    // dependências vazia, e com o `strings` ficava presa à língua do arranque —
+    // trocar para inglês deixava o aviso a dizer "Transportes" para sempre.
+    setMapTypeLabel(t().settings.mapTypes[tipo]);
     if (mapTypeTimer.current) {
       clearTimeout(mapTypeTimer.current);
     }
@@ -334,7 +340,7 @@ function PalmMap() {
         if (!cancelled) {
           setTransitStops([]);
           setTransitOutside(false);
-          setTransitError('Não foi possível obter as paragens. Verifique a ligação.');
+          setTransitError(t().transit.stopsFailed);
         }
       } finally {
         if (!cancelled) {
@@ -498,7 +504,7 @@ function PalmMap() {
     const origem = userLocationRef.current;
     if (!origem) {
       setRoute(null);
-      setRouteError('Sem a sua localização não é possível calcular o percurso.');
+      setRouteError(t().errors.noLocationForRoute);
       return;
     }
 
@@ -547,7 +553,7 @@ function PalmMap() {
           setTransitTripIndex(0);
           setRouteError(
             trajetos === null && todos.length === 0
-              ? 'Não há paragens a pé de distância de um dos pontos, ou está fora da área da Carris Metropolitana.'
+              ? t().errors.noTransitStops
               : null,
           );
           void rememberRecent(destination).then(setRecents);
@@ -558,7 +564,7 @@ function PalmMap() {
             setRouteError(
               doHorario.length > 0
                 ? null
-                : 'Não foi possível obter os horários. Verifique a ligação.',
+                : t().errors.schedulesFailed,
             );
           }
         } finally {
@@ -597,7 +603,7 @@ function PalmMap() {
           setRouteError(
             error instanceof RouteError
               ? error.message
-              : 'Não foi possível calcular o percurso.',
+              : t().errors.routeGeneric,
           );
         }
       } finally {
@@ -630,7 +636,7 @@ function PalmMap() {
       if (chosen) {
         if (zoom < CATEGORY_MIN_ZOOM) {
           setPlaces([]);
-          setPlacesError('Aproxime o mapa para procurar nesta zona.');
+          setPlacesError(t().errors.zoomIn);
           return;
         }
 
@@ -640,14 +646,16 @@ function PalmMap() {
           if (requestId === latestPlaces.current) {
             setPlaces(found);
             setPlacesError(
-              found.length === 0 ? `Não há ${chosen.label.toLowerCase()} nesta zona.` : null,
+              found.length === 0
+                ? t().errors.noneOfCategory(t().categories[chosen.labelKey])
+                : null,
             );
           }
         } catch (error) {
           if (requestId === latestPlaces.current) {
             setPlaces([]);
             setPlacesError(
-              error instanceof Error ? error.message : 'Não foi possível procurar.',
+              error instanceof Error ? error.message : t().errors.searchFailed,
             );
           }
         }
@@ -1111,7 +1119,7 @@ function PalmMap() {
     const fallback: Place = {
       // Identificador negativo para nunca chocar com os do OpenStreetMap.
       id: -Date.now(),
-      name: 'Ponto no mapa',
+      name: t().search.mapPoint,
       address: `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`,
       coordinates,
     };
@@ -1253,7 +1261,7 @@ function PalmMap() {
 
         {locationDenied ? (
           <Text style={styles.notice}>
-            Sem acesso ao GPS. Ainda pode ver o mapa e pesquisar moradas.
+            {strings.errors.locationDenied}
           </Text>
         ) : null}
 
@@ -1266,7 +1274,7 @@ function PalmMap() {
           from={-10}
         >
           <Text style={styles.hint}>
-            Toque sem largar no mapa para marcar um ponto e ir até lá.
+            {strings.hints.longPress}
           </Text>
         </Reveal>
       </View>

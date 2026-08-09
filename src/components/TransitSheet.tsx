@@ -12,6 +12,7 @@ import {
 import type { GestureResponderHandlers } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { t } from '../i18n';
 import { ARRIVALS_REFRESH_MS } from '../services/config';
 import {
   departuresNear,
@@ -20,13 +21,13 @@ import {
 } from '../services/schedules';
 import {
   STATION_ICONS,
-  STATION_LABELS,
+  stationLabel,
   arrivalsAt,
   type TransitArrival,
   type TransitStation,
   type TransitStop,
 } from '../services/transit';
-import { useTheme } from '../settings';
+import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDistance } from '../utils/format';
 
@@ -58,7 +59,7 @@ interface TransitSheetProps {
 
 /** "agora" quando está a chegar, senão "4 min". */
 function formatWait(minutes: number): string {
-  return minutes <= 0 ? 'agora' : `${minutes} min`;
+  return minutes <= 0 ? t().transit.now : t().transit.inMinutes(minutes);
 }
 
 /**
@@ -82,6 +83,7 @@ export function TransitSheet({
   dragHandlers,
 }: TransitSheetProps) {
   const theme = useTheme();
+  const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -127,7 +129,7 @@ export function TransitSheet({
       setArrivalsError(null);
     } catch {
       if (ultimoPedido.current === pedido) {
-        setArrivalsError('Não foi possível obter as horas de passagem.');
+        setArrivalsError(t().transit.timesFailed);
       }
     } finally {
       if (ultimoPedido.current === pedido) {
@@ -200,8 +202,8 @@ export function TransitSheet({
 
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Transportes perto de si</Text>
-          <Text style={styles.subtitle}>Carris Metropolitana · área de Lisboa</Text>
+          <Text style={styles.title}>{strings.transit.title}</Text>
+          <Text style={styles.subtitle}>{strings.transit.subtitle}</Text>
         </View>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
@@ -211,25 +213,18 @@ export function TransitSheet({
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator size="small" color={theme.accent} />
-          <Text style={styles.loadingText}>A procurar paragens…</Text>
+          <Text style={styles.loadingText}>{strings.transit.searching}</Text>
         </View>
       ) : null}
 
       {!loading && semPosicao ? (
-        <Text style={styles.aviso}>
-          Sem a sua localização não há como saber que paragens ficam perto. Autorize o
-          acesso ao GPS nas definições do telemóvel.
-        </Text>
+        <Text style={styles.aviso}>{strings.transit.noPosition}</Text>
       ) : null}
 
       {error ? <Text style={styles.erro}>{error}</Text> : null}
 
       {outside ? (
-        <Text style={styles.aviso}>
-          Não há horários para esta zona. Só a Área Metropolitana de Lisboa tem os dados
-          abertos — no resto do país cada operador guarda os seus. O mapa dos transportes
-          continua a mostrar por onde as linhas passam.
-        </Text>
+        <Text style={styles.aviso}>{strings.transit.outsideArea}</Text>
       ) : null}
 
       <ScrollView style={styles.lista} keyboardShouldPersistTaps="handled">
@@ -258,7 +253,7 @@ export function TransitSheet({
                       escrever "muda aqui para o comboio" sem cruzar coordenadas.
                     */}
                     {stop.connections
-                      .map((c) => LIGACOES[c])
+                      .map((c) => strings.transit.kinds[c as keyof typeof strings.transit.kinds])
                       .filter(Boolean)
                       .join(' · ')}
                     {stop.connections.length > 0 ? ' · ' : ''}
@@ -280,7 +275,7 @@ export function TransitSheet({
                   {arrivals === null && !arrivalsError ? (
                     <View style={styles.loading}>
                       <ActivityIndicator size="small" color={theme.accent} />
-                      <Text style={styles.loadingText}>A ver as horas…</Text>
+                      <Text style={styles.loadingText}>{strings.transit.loadingTimes}</Text>
                     </View>
                   ) : null}
 
@@ -288,7 +283,7 @@ export function TransitSheet({
 
                   {arrivals?.length === 0 ? (
                     <Text style={styles.aviso}>
-                      Sem passagens nas próximas duas horas.
+                      {strings.transit.noneSoon}
                     </Text>
                   ) : null}
 
@@ -326,7 +321,7 @@ export function TransitSheet({
                         size={16}
                         color={theme.accent}
                       />
-                      <Text style={styles.acaoTexto}>Atualizar</Text>
+                      <Text style={styles.acaoTexto}>{strings.common.refresh}</Text>
                     </Pressable>
 
                     <Pressable style={styles.acao} onPress={() => onGoToStop(stop)}>
@@ -335,7 +330,7 @@ export function TransitSheet({
                         size={16}
                         color={theme.accent}
                       />
-                      <Text style={styles.acaoTexto}>Ir até à paragem</Text>
+                      <Text style={styles.acaoTexto}>{strings.transit.goToStop}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -353,7 +348,7 @@ export function TransitSheet({
         */}
         {stations.length > 0 ? (
           <>
-            <Text style={styles.seccao}>Estações perto</Text>
+            <Text style={styles.seccao}>{strings.transit.stationsNearby}</Text>
             {stations.map((estacao) => {
               const aberta = openStation === estacao.id;
 
@@ -373,7 +368,7 @@ export function TransitSheet({
                         {estacao.name}
                       </Text>
                       <Text style={styles.detalhe} numberOfLines={1}>
-                        {STATION_LABELS[estacao.kind]} · {formatDistance(estacao.meters)}
+                        {stationLabel(estacao.kind)} · {formatDistance(estacao.meters)}
                         {estacao.locality ? ` · ${estacao.locality}` : ''}
                       </Text>
                     </View>
@@ -389,8 +384,8 @@ export function TransitSheet({
                       {departures.length === 0 ? (
                         <Text style={styles.aviso}>
                           {temHorario
-                            ? 'Sem passagens nas próximas duas horas.'
-                            : 'Não há horário descarregado para esta estação. Nas definições, em "Horários", pode descarregar o do operador — são ficheiros pequenos e depois funcionam sem rede.'}
+                            ? strings.transit.noneSoon
+                            : strings.transit.noScheduleHere}
                         </Text>
                       ) : null}
 
@@ -416,8 +411,7 @@ export function TransitSheet({
                       */}
                       {departures.length > 0 ? (
                         <Text style={styles.aviso}>
-                          Horário publicado pelo operador, sem tempo real: se estiver
-                          atrasado, isto não sabe.
+                          {strings.transit.scheduleOnly}
                         </Text>
                       ) : null}
                     </View>
@@ -432,13 +426,7 @@ export function TransitSheet({
   );
 }
 
-/** Como se escreve cada ligação na linha da paragem. */
-const LIGACOES: Record<string, string> = {
-  boat: 'Barco',
-  light_rail: 'Metro de superfície',
-  subway: 'Metro',
-  train: 'Comboio',
-};
+
 
 function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({

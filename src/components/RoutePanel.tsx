@@ -5,7 +5,7 @@ import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { TRAVEL_MODES, useTheme, useTimeFactor, type TravelMode } from '../settings';
+import { TRAVEL_MODES, useT, useTheme, useTimeFactor, type TravelMode } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
@@ -102,6 +102,7 @@ export function RoutePanel({
   onChooseTransitTrip,
 }: RoutePanelProps) {
   const theme = useTheme();
+  const strings = useT();
   const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -155,7 +156,7 @@ export function RoutePanel({
                 color={ativo ? theme.onAccent : theme.textMuted}
               />
               <Text style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}>
-                {modo.label}
+                {strings.settings.travelModes[modo.id]}
               </Text>
             </Pressable>
           );
@@ -190,7 +191,7 @@ export function RoutePanel({
       {loading ? (
         <View style={styles.status}>
           <ActivityIndicator size="small" color={theme.accent} />
-          <Text style={styles.statusText}>A calcular o percurso…</Text>
+          <Text style={styles.statusText}>{strings.route.calculating}</Text>
         </View>
       ) : null}
 
@@ -212,11 +213,7 @@ export function RoutePanel({
       {transitTrips && !loading ? (
         <View style={styles.trajetos}>
           {transitTrips.length === 0 && !error ? (
-            <Text style={styles.avisoTexto}>
-              Nenhuma linha faz este caminho sem mudanças. Por agora só se procuram
-              ligações diretas: autocarros da Carris Metropolitana, e comboio, metro ou
-              barco de operadores cujo horário esteja descarregado nas definições.
-            </Text>
+            <Text style={styles.avisoTexto}>{strings.route.noDirectTransit}</Text>
           ) : null}
 
           {transitTrips.map((t, i) => {
@@ -246,7 +243,7 @@ export function RoutePanel({
                   </Text>
                   {i === 0 ? (
                     <View style={styles.melhor}>
-                      <Text style={styles.melhorTexto}>melhor</Text>
+                      <Text style={styles.melhorTexto}>{strings.route.best}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -258,11 +255,17 @@ export function RoutePanel({
 
                 <Text style={styles.trajetoDetalhe} numberOfLines={2}>
                   {t.live ? '● ' : ''}
-                  {formatDuration(walkSecondsEntre(t.from.meters))} a pé até {t.from.name}
+                  {strings.route.walkTo(
+                    formatDuration(walkSecondsEntre(t.from.meters)),
+                    t.from.name,
+                  )}
                   {' · '}
-                  {t.stops} paragens
+                  {strings.route.stopCount(t.stops)}
                   {' · '}
-                  {formatDuration(walkSecondsEntre(t.to.meters))} a pé de {t.to.name}
+                  {strings.route.walkFrom(
+                    formatDuration(walkSecondsEntre(t.to.meters)),
+                    t.to.name,
+                  )}
                 </Text>
               </Pressable>
             );
@@ -275,12 +278,12 @@ export function RoutePanel({
           <View style={styles.metrics}>
             <View style={styles.metric}>
               <Text style={styles.metricValue}>{formatDuration(route.durationSeconds * timeFactor)}</Text>
-              <Text style={styles.metricLabel}>tempo estimado</Text>
+              <Text style={styles.metricLabel}>{strings.route.duration}</Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.metric}>
               <Text style={styles.metricValue}>{formatDistance(route.distanceMeters)}</Text>
-              <Text style={styles.metricLabel}>distância</Text>
+              <Text style={styles.metricLabel}>{strings.route.distance}</Text>
             </View>
           </View>
 
@@ -338,8 +341,7 @@ export function RoutePanel({
                 color={theme.textMuted}
               />
               <Text style={styles.avisoTexto}>
-                O percurso começa a {formatDistance(route.startAwayMeters)} de si, na estrada
-                mais próxima. Esse bocado é a tracejado no mapa e fica por sua conta.
+                {strings.route.startsAway(formatDistance(route.startAwayMeters))}
               </Text>
             </View>
           ) : null}
@@ -357,22 +359,19 @@ export function RoutePanel({
                 size={16}
                 color={theme.textMuted}
               />
-              <Text style={styles.avisoTexto}>
-                Não foi possível evitar as portagens: o serviço público de percursos não
-                tem essa opção. Este caminho pode passar por autoestradas pagas.
-              </Text>
+              <Text style={styles.avisoTexto}>{strings.route.tollsNotAvoided}</Text>
             </View>
           ) : null}
 
           <Pressable style={styles.button} onPress={onStart}>
             <MaterialCommunityIcons name="navigation-variant" size={19} color={theme.onAccent} />
-            <Text style={styles.buttonText}>Iniciar navegação</Text>
+            <Text style={styles.buttonText}>{strings.route.start}</Text>
           </Pressable>
 
           {route.steps.length > 0 ? (
             <Pressable style={styles.secondaryButton} onPress={onShowSteps}>
               <MaterialCommunityIcons name="routes" size={18} color={theme.accent} />
-              <Text style={styles.secondaryText}>Ver instruções</Text>
+              <Text style={styles.secondaryText}>{strings.route.steps}</Text>
               <View style={styles.count}>
                 <Text style={styles.countText}>{route.steps.length}</Text>
               </View>

@@ -21,10 +21,12 @@ import { Schedules } from './Schedules';
 import {
   APPEARANCE_MODES,
   CACHE_SIZES,
+  LANGUAGES,
   SATELLITE_DETAILS,
   TIME_ADJUSTMENTS,
   TRAVEL_MODES,
   useSettings,
+  useT,
   useTheme,
 } from '../settings';
 import type { Theme } from '../theme';
@@ -42,15 +44,23 @@ interface SettingsSheetProps {
   onClose: () => void;
 }
 
-/** Um grupo de opções onde só uma pode estar escolhida. */
+/**
+ * Um grupo de opções onde só uma pode estar escolhida.
+ *
+ * O nome de cada opção vem de fora, por uma função. As listas de opções só
+ * guardam o `id` e o ícone: quem sabe como se chamam é a tabela da língua, e
+ * misturar as duas coisas obrigava a mexer nas listas para traduzir.
+ */
 function ChoiceRow<T extends string>({
   options,
+  label,
   value,
   onChange,
   styles,
   theme,
 }: {
-  options: { id: T; label: string; icon: string }[];
+  options: { id: T; icon: string }[];
+  label: (id: T) => string;
   value: T;
   onChange: (id: T) => void;
   styles: ReturnType<typeof makeStyles>;
@@ -72,7 +82,7 @@ function ChoiceRow<T extends string>({
               color={active ? theme.onAccent : theme.textMuted}
             />
             <Text style={[styles.choiceLabel, active && styles.choiceLabelActive]}>
-              {option.label}
+              {label(option.id)}
             </Text>
           </Pressable>
         );
@@ -87,15 +97,17 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
+  const strings = useT();
+  const s = strings.settings;
   const [clearing, setClearing] = useState(false);
 
   const handleClearCache = async () => {
     setClearing(true);
     try {
       await clearMapCache();
-      Alert.alert('Mapa guardado apagado', 'As zonas voltam a ser obtidas quando houver rede.');
+      Alert.alert(s.cacheClearedTitle, s.cacheClearedBody);
     } catch {
-      Alert.alert('Não foi possível apagar', 'Tente novamente.');
+      Alert.alert(s.clearCacheFailed, s.tryAgain);
     } finally {
       setClearing(false);
     }
@@ -114,84 +126,83 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Definições</Text>
+          <Text style={styles.title}>{s.title}</Text>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
             <MaterialCommunityIcons name="close" size={22} color={theme.textMuted} />
           </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionTitle}>Meio de transporte</Text>
-          <Text style={styles.sectionHint}>
-            Como se calculam os percursos.
-          </Text>
+          {/*
+            A língua fica em primeiro lugar de propósito: quem abriu as
+            definições porque não percebe o que está no ecrã tem de dar com ela
+            sem ter de ler o resto.
+          */}
+          <Text style={styles.sectionTitle}>{s.language}</Text>
+          <Text style={styles.sectionHint}>{s.languageHint}</Text>
+          <ChoiceRow
+            options={LANGUAGES}
+            label={(id) => strings.languages[id]}
+            value={settings.language}
+            onChange={(id) => update('language', id)}
+            styles={styles}
+            theme={theme}
+          />
+
+          <Text style={styles.sectionTitle}>{s.travelMode}</Text>
+          <Text style={styles.sectionHint}>{s.travelModeHint}</Text>
           <ChoiceRow
             options={TRAVEL_MODES}
+            label={(id) => s.travelModes[id]}
             value={settings.travelMode}
             onChange={(id) => update('travelMode', id)}
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>
-            Cada meio tem o seu servidor, por isso a pé ignoram-se os sentidos únicos e o
-            tempo é contado a passo de pessoa. Também se pode trocar no painel do percurso,
-            sem vir aqui.
-          </Text>
+          <Text style={styles.note}>{s.travelModeNote}</Text>
 
-          <Text style={styles.sectionTitle}>Tempo estimado</Text>
-          <Text style={styles.sectionHint}>
-            Se as estradas da sua zona forem mais lentas do que o mapa julga.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
+          <Text style={styles.sectionHint}>{s.timeAdjustmentHint}</Text>
           <ChoiceRow
             options={TIME_ADJUSTMENTS}
+            label={(id) => s.timeAdjustments[id]}
             value={settings.timeAdjustment}
             onChange={(id) => update('timeAdjustment', id)}
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>
-            O tempo vem do tipo de estrada e do piso registado no OpenStreetMap. Onde o piso
-            não está registado, assume-se estrada alcatroada — e numa estrada de terra
-            batida o tempo real pode ser o dobro.
-          </Text>
+          <Text style={styles.note}>{s.timeAdjustmentNote}</Text>
 
-          <Text style={styles.sectionTitle}>Aspeto</Text>
-          <Text style={styles.sectionHint}>
-            No modo automático segue a definição do telemóvel.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.appearance}</Text>
+          <Text style={styles.sectionHint}>{s.appearanceHint}</Text>
           <ChoiceRow
             options={APPEARANCE_MODES}
+            label={(id) => s.appearanceModes[id]}
             value={settings.appearance}
             onChange={(id) => update('appearance', id)}
             styles={styles}
             theme={theme}
           />
 
-          <Text style={styles.sectionTitle}>Detalhe do satélite</Text>
-          <Text style={styles.sectionHint}>
-            Quanto se aproxima a imagem antes de ficar desfocada.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
+          <Text style={styles.sectionHint}>{s.satelliteDetailHint}</Text>
           <ChoiceRow
             options={SATELLITE_DETAILS}
+            label={(id) => s.satelliteDetails[id]}
             value={settings.satelliteDetail}
             onChange={(id) => update('satelliteDetail', id)}
             styles={styles}
             theme={theme}
           />
           <Text style={styles.note}>
-            {settings.satelliteDetail === 'alta'
-              ? 'Acrescenta as ortofotos oficiais do Estado por cima: vê-se casa a casa, mas só em Portugal e gastando bastantes mais dados. Fora de Portugal fica igual ao normal.'
-              : 'Sentinel-2, do programa europeu Copernicus. Cobre o mundo todo e vê a dez metros por pixel — dá a costa, a floresta e os terrenos, não casas uma a uma.'}
+            {settings.satelliteDetail === 'alta' ? s.satelliteHighHint : s.satelliteNormalHint}
           </Text>
 
-          <Text style={styles.sectionTitle}>Mapa</Text>
+          <Text style={styles.sectionTitle}>{s.map}</Text>
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Mostrar negócios no mapa</Text>
-              <Text style={styles.switchHint}>
-                Marca sozinho os negócios da zona que está a ver. Desligar reduz os pedidos
-                feitos ao serviço, que é mantido por voluntários.
-              </Text>
+              <Text style={styles.switchLabel}>{s.showPlaces}</Text>
+              <Text style={styles.switchHint}>{s.showPlacesHint}</Text>
             </View>
             <Switch
               value={settings.showPlacesOnMap}
@@ -202,20 +213,14 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Autocarros a andar</Text>
-              <Text style={styles.switchHint}>
-                Mostra onde estão os autocarros da Carris Metropolitana, em tempo real, no
-                mapa dos transportes. Só aparece com o mapa aproximado.
-              </Text>
+              <Text style={styles.switchLabel}>{s.showVehicles}</Text>
+              <Text style={styles.switchHint}>{s.showVehiclesHint}</Text>
               {/*
                 O custo tem de estar escrito. O serviço não deixa pedir só a área
                 que se está a ver — vem a frota toda de cada vez, e é de longe o
                 pedido mais pesado que esta aplicação faz.
               */}
-              <Text style={styles.switchHint}>
-                Gasta bastantes dados: o serviço só sabe dar a frota inteira de cada vez,
-                e isso repete-se de vinte em vinte segundos enquanto estiver a ver.
-              </Text>
+              <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
             </View>
             <Switch
               value={settings.showVehicles}
@@ -224,21 +229,18 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Mapa guardado</Text>
-          <Text style={styles.sectionHint}>
-            As zonas por onde passa ficam guardadas e voltam a aparecer sem rede.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.cache}</Text>
+          <Text style={styles.sectionHint}>{s.cacheHint}</Text>
           <ChoiceRow
             options={CACHE_SIZES}
+            label={(id) => s.cacheSizes[id]}
             value={settings.cacheSize}
             onChange={(id) => update('cacheSize', id)}
             styles={styles}
             theme={theme}
           />
           <Text style={styles.note}>
-            {settings.cacheSize === 'off'
-              ? 'Desligado: o mapa é pedido de novo de cada vez, e sem rede não aparece.'
-              : 'Quando enche, esquece primeiro o que há mais tempo não vê.'}
+            {settings.cacheSize === 'off' ? s.cacheOffHint : s.cacheFullHint}
           </Text>
 
           <Pressable
@@ -247,36 +249,23 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             disabled={clearing}
           >
             <MaterialCommunityIcons name="delete-outline" size={18} color={theme.danger} />
-            <Text style={styles.clearText}>
-              {clearing ? 'A apagar…' : 'Apagar o mapa guardado'}
-            </Text>
+            <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
           </Pressable>
 
-          <Text style={styles.sectionTitle}>Mapas de países</Text>
-          <Text style={styles.sectionHint}>
-            Guarda o país inteiro de uma vez. Funciona sem rede a qualquer zoom, mesmo em
-            sítios onde nunca esteve.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.offlineMaps}</Text>
+          <Text style={styles.sectionHint}>{s.offlineMapsHint}</Text>
           <OfflineMaps />
-          <Text style={styles.note}>
-            Descarregue por Wi-Fi: os países maiores têm centenas de megabytes.
-          </Text>
+          <Text style={styles.note}>{s.offlineMapsNote}</Text>
 
-          <Text style={styles.sectionTitle}>Horários</Text>
-          <Text style={styles.sectionHint}>
-            Comboio, metro e barco. Guardados no telemóvel, aparecem nas estações e nos
-            trajetos de transportes públicos.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.schedules}</Text>
+          <Text style={styles.sectionHint}>{s.schedulesHint}</Text>
           <Schedules />
 
-          <Text style={styles.sectionTitle}>Navegação</Text>
+          <Text style={styles.sectionTitle}>{s.navigation}</Text>
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Ler as instruções em voz alta</Text>
-              <Text style={styles.switchHint}>
-                Durante a navegação, anuncia as manobras à medida que se aproximam. Usa a
-                voz portuguesa do telemóvel.
-              </Text>
+              <Text style={styles.switchLabel}>{s.voice}</Text>
+              <Text style={styles.switchHint}>{s.voiceHint}</Text>
             </View>
             <Switch
               value={settings.voiceGuidance}
@@ -287,11 +276,8 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Avisar de radares</Text>
-              <Text style={styles.switchHint}>
-                Avisa antes dos radares fixos, dos de semáforo e do controlo de velocidade
-                média que estiverem no percurso, com o limite quando ele é conhecido.
-              </Text>
+              <Text style={styles.switchLabel}>{s.cameras}</Text>
+              <Text style={styles.switchHint}>{s.camerasHint}</Text>
             </View>
             <Switch
               value={settings.speedCameraAlerts}
@@ -299,19 +285,12 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
               trackColor={{ true: theme.accent, false: theme.border }}
             />
           </View>
-          <Text style={styles.note}>
-            Vem do OpenStreetMap, e só apanha o que lá está marcado. Radares móveis não
-            aparecem em mapa nenhum — mudam de sítio todos os dias. Isto é uma ajuda, não
-            é uma garantia: quem conduz é quem tem de ver os sinais.
-          </Text>
+          <Text style={styles.note}>{s.camerasNote}</Text>
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Evitar portagens</Text>
-              <Text style={styles.switchHint}>
-                Procura um caminho sem autoestradas com portagem. Costuma dar mais tempo de
-                viagem.
-              </Text>
+              <Text style={styles.switchLabel}>{s.tolls}</Text>
+              <Text style={styles.switchHint}>{s.tollsHint}</Text>
             </View>
             <Switch
               value={settings.avoidTolls}
@@ -319,20 +298,12 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
               trackColor={{ true: theme.accent, false: theme.border }}
             />
           </View>
-          <Text style={styles.note}>
-            O servidor público de percursos pode não ter esta opção instalada. Quando não
-            tem, o percurso sai à mesma — e o painel diz que não foi possível evitá-las.
-            Não há forma aberta de saber quanto custa cada portagem, por isso o preço não
-            é mostrado.
-          </Text>
+          <Text style={styles.note}>{s.tollsNote}</Text>
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Poupar bateria a navegar</Text>
-              <Text style={styles.switchHint}>
-                Numa reta longa, lê a posição de quatro em quatro segundos em vez de todos
-                os segundos. Perto de uma manobra volta ao ritmo normal.
-              </Text>
+              <Text style={styles.switchLabel}>{s.batterySaver}</Text>
+              <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
             </View>
             <Switch
               value={settings.batterySaver}
@@ -341,27 +312,30 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Últimos destinos</Text>
-          <Text style={styles.sectionHint}>
-            Aparecem na pesquisa antes de se escrever, a seguir aos guardados.
-          </Text>
-          <Pressable style={styles.forgetRow} onPress={() => void clearRecents().then(onRecentsCleared)}>
+          <Text style={styles.sectionTitle}>{s.recents}</Text>
+          <Text style={styles.sectionHint}>{s.recentsHint}</Text>
+          <Pressable
+            style={styles.forgetRow}
+            onPress={() => void clearRecents().then(onRecentsCleared)}
+          >
             <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
-            <Text style={styles.clearText}>Esquecer os últimos destinos</Text>
+            <Text style={styles.clearText}>{s.forgetRecents}</Text>
           </Pressable>
 
-          <Text style={styles.sectionTitle}>Acerca</Text>
-          <Text style={styles.about}>
-            O PalmMap usa apenas serviços abertos e gratuitos, sem Google e sem chaves de
-            API. Os dados do mapa são de quem contribui para o OpenStreetMap.
-          </Text>
+          <Text style={styles.sectionTitle}>{s.about}</Text>
+          <Text style={styles.about}>{s.aboutText}</Text>
 
+          {/*
+            Os créditos. Vários destes serviços exigem atribuição por licença —
+            não é cortesia, é condição de uso. Os nomes próprios não se traduzem;
+            o que cada um faz, sim.
+          */}
           <Pressable
             style={styles.creditRow}
             onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}
           >
             <Text style={styles.creditName}>OpenStreetMap</Text>
-            <Text style={styles.creditRole}>dados do mapa, pesquisa e tiles</Text>
+            <Text style={styles.creditRole}>{s.credits.osm}</Text>
           </Pressable>
 
           <Pressable
@@ -369,7 +343,7 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html')}
           >
             <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
-            <Text style={styles.creditRole}>cálculo dos percursos</Text>
+            <Text style={styles.creditRole}>{s.credits.osrm}</Text>
           </Pressable>
 
           <Pressable
@@ -377,17 +351,12 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             onPress={() => void Linking.openURL('https://carto.com/attribution')}
           >
             <Text style={styles.creditName}>CARTO</Text>
-            <Text style={styles.creditRole}>tiles do mapa em modo escuro</Text>
+            <Text style={styles.creditRole}>{s.credits.carto}</Text>
           </Pressable>
 
           <View style={styles.creditRow}>
-            <Text style={styles.creditName}>OSRM</Text>
-            <Text style={styles.creditRole}>cálculo dos percursos</Text>
-          </View>
-
-          <View style={styles.creditRow}>
             <Text style={styles.creditName}>Overpass</Text>
-            <Text style={styles.creditRole}>negócios e pontos de interesse</Text>
+            <Text style={styles.creditRole}>{s.credits.overpass}</Text>
           </View>
         </ScrollView>
       </View>

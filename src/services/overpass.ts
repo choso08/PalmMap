@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { t } from '../i18n';
 
 import {
   CATEGORY_SEARCH_RADIUS_M,
@@ -105,14 +106,14 @@ async function runQuery(cacheKey: string, query: string): Promise<Place[]> {
   try {
     response = await schedule(() => overpassClient.post<OverpassResponse>('', query));
   } catch {
-    throw new PlacesError('Não foi possível procurar locais. Tente daqui a pouco.');
+    throw new PlacesError(t().errors.placesFailed);
   }
 
   // A Overpass responde 200 com um `remark` quando a consulta rebenta pelo
   // tempo ou pela memória. Guardar isso na memória era guardar uma falha para
   // sempre: aquela zona ficava sem negócios o resto da sessão, sem erro nenhum.
   if (response.data.remark) {
-    throw new PlacesError('O serviço está cheio neste momento. Tente daqui a pouco.');
+    throw new PlacesError(t().errors.placesBusy);
   }
 
   const places = response.data.elements

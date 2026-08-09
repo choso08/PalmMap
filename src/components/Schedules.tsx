@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '../i18n';
 import {
   downloadFeed,
   isExpired,
@@ -10,8 +11,8 @@ import {
   removeFeed,
   type ScheduleFeedInfo,
 } from '../services/schedules';
-import { STATION_ICONS, STATION_LABELS, type StationKind } from '../services/transit';
-import { useTheme } from '../settings';
+import { STATION_ICONS, stationLabel, type StationKind } from '../services/transit';
+import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 
 /**
@@ -31,35 +32,20 @@ function formatBytes(bytes: number): string {
   const kb = bytes / 1024;
   return kb < 1000
     ? `${Math.round(kb)} KB`
-    : `${(kb / 1024).toFixed(1).replace('.', ',')} MB`;
+    : `${(kb / 1024).toFixed(1).replace('.', t().units.decimal)} MB`;
 }
 
-/** `20261005` como `5 de outubro`. */
-const MESES = [
-  'janeiro',
-  'fevereiro',
-  'março',
-  'abril',
-  'maio',
-  'junho',
-  'julho',
-  'agosto',
-  'setembro',
-  'outubro',
-  'novembro',
-  'dezembro',
-];
-
+/** `20261005` na forma de cada língua. */
 function formatDate(aaaammdd: string): string {
   if (typeof aaaammdd !== 'string' || aaaammdd.length !== 8) {
     return '';
   }
-  const mes = MESES[Number(aaaammdd.slice(4, 6)) - 1];
-  return mes ? `${Number(aaaammdd.slice(6, 8))} de ${mes}` : '';
+  return t().schedules.date(Number(aaaammdd.slice(6, 8)), Number(aaaammdd.slice(4, 6)));
 }
 
 export function Schedules() {
   const theme = useTheme();
+  const strings = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [feeds, setFeeds] = useState<ScheduleFeedInfo[]>([]);
@@ -75,7 +61,7 @@ export function Schedules() {
         setFeeds(await listFeeds());
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Não foi possível obter a lista.');
+        setError(err instanceof Error ? err.message : t().common.listFailed);
       } finally {
         setLoading(false);
       }
@@ -93,7 +79,7 @@ export function Schedules() {
       }
       setRevision((n) => n + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível.');
+      setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
       setBusy(null);
     }
@@ -103,7 +89,7 @@ export function Schedules() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="small" color={theme.accent} />
-        <Text style={styles.loadingText}>A obter a lista de horários…</Text>
+        <Text style={styles.loadingText}>{strings.schedules.loading}</Text>
       </View>
     );
   }
@@ -114,7 +100,7 @@ export function Schedules() {
 
       {feeds.length === 0 && !error ? (
         <Text style={styles.error}>
-          Ainda não há horários publicados. Corra o workflow "Gerar horários" no GitHub.
+          {strings.schedules.empty}
         </Text>
       ) : null}
 
@@ -141,16 +127,16 @@ export function Schedules() {
             <View style={styles.rowText}>
               <Text style={styles.name}>{info.nome}</Text>
               <Text style={[styles.size, fora ? styles.expirado : null]}>
-                {STATION_LABELS[info.kind as StationKind] ?? 'Horário'} ·{' '}
-                {formatBytes(info.bytes)} · {info.estacoes} estações
+                {stationLabel(info.kind as StationKind)} · {formatBytes(info.bytes)} ·{' '}
+                {strings.schedules.stationCount(info.estacoes)}
                 {/*
                   A validade tem de estar à vista. Um horário fora de prazo não
                   responde, e sem isto escrito ficava-se sem perceber porquê.
                 */}
                 {fora
-                  ? ' · fora de prazo, descarregue outra vez'
+                  ? ` · ${strings.schedules.expired}`
                   : info.fim
-                    ? ` · até ${formatDate(info.fim)}`
+                    ? ` · ${strings.schedules.until(formatDate(info.fim))}`
                     : ''}
               </Text>
             </View>
@@ -166,12 +152,7 @@ export function Schedules() {
         );
       })}
 
-      <Text style={styles.nota}>
-        Estes operadores só publicam o horário, não o tempo real: as horas são as
-        previstas, e um atraso não aparece aqui. Depois de descarregados funcionam sem
-        rede. Os autocarros da Carris Metropolitana não precisam disto — esses têm tempo
-        real.
-      </Text>
+      <Text style={styles.nota}>{strings.schedules.note}</Text>
     </View>
   );
 }

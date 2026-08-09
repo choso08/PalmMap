@@ -1,4 +1,5 @@
 import { CAMERA_CORRIDOR_M } from './config';
+import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
 import type { OverpassElement, OverpassResponse } from '../types/overpass';
 import { boundsOf, locateOnRoute } from '../utils/geometry';
@@ -208,11 +209,11 @@ export async function camerasAlongRoute(
 export function cameraLabel(camera: SpeedCamera): string {
   switch (camera.kind) {
     case 'media':
-      return 'controlo de velocidade média';
+      return t().cameras.average;
     case 'semaforo':
-      return 'radar de semáforo';
+      return t().cameras.trafficSignals;
     case 'outro':
-      return 'controlo de trânsito';
+      return t().cameras.traffic;
     default:
       return 'radar';
   }

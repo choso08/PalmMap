@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 /**
  * Categorias de negócios e locais.
  *
@@ -6,11 +8,16 @@
  *   e sabem como se perguntam à Overpass.
  * - `categoryLabel()` traduz as etiquetas do OpenStreetMap para texto legível,
  *   e serve tanto para a Overpass como para o Nominatim.
+ *
+ * **Os nomes não estão aqui.** Estão nas tabelas de cada língua, e estas
+ * estruturas só guardam a chave — senão trocar de língua obrigava a mexer nesta
+ * lista, que é sobre outra coisa: sobre o que se pergunta ao OpenStreetMap.
  */
 
 export interface SearchCategory {
   id: string;
-  label: string;
+  /** A chave do nome na tabela da língua. Ver `categoryTitle()`. */
+  labelKey: keyof ReturnType<typeof t>['categories'];
   /** Nome do ícone, da família MaterialCommunityIcons. */
   icon: string;
   /** Etiquetas do OpenStreetMap que correspondem a esta categoria. */
@@ -20,49 +27,49 @@ export interface SearchCategory {
 export const SEARCH_CATEGORIES: SearchCategory[] = [
   {
     id: 'food',
-    label: 'Restaurantes',
+    labelKey: 'restaurants',
     icon: 'silverware-fork-knife',
     tags: [{ key: 'amenity', values: ['restaurant', 'fast_food'] }],
   },
   {
     id: 'cafe',
-    label: 'Cafés',
+    labelKey: 'cafes',
     icon: 'coffee',
     tags: [{ key: 'amenity', values: ['cafe', 'bar', 'pub'] }],
   },
   {
     id: 'pharmacy',
-    label: 'Farmácias',
+    labelKey: 'pharmacies',
     icon: 'pill',
     tags: [{ key: 'amenity', values: ['pharmacy'] }],
   },
   {
     id: 'fuel',
-    label: 'Combustível',
+    labelKey: 'fuel',
     icon: 'gas-station',
     tags: [{ key: 'amenity', values: ['fuel', 'charging_station'] }],
   },
   {
     id: 'shopping',
-    label: 'Supermercados',
+    labelKey: 'supermarkets',
     icon: 'cart',
     tags: [{ key: 'shop', values: ['supermarket', 'convenience'] }],
   },
   {
     id: 'money',
-    label: 'Multibanco',
+    labelKey: 'atm',
     icon: 'cash',
     tags: [{ key: 'amenity', values: ['atm', 'bank'] }],
   },
   {
     id: 'parking',
-    label: 'Estacionamento',
+    labelKey: 'parking',
     icon: 'parking',
     tags: [{ key: 'amenity', values: ['parking'] }],
   },
   {
     id: 'health',
-    label: 'Saúde',
+    labelKey: 'health',
     icon: 'hospital-box',
     tags: [{ key: 'amenity', values: ['hospital', 'clinic', 'doctors', 'dentist'] }],
   },
@@ -98,40 +105,6 @@ export const MAP_PIN_TAGS: { key: string; values: string[] | null }[] = [
   { key: 'tourism', values: ['hotel', 'hostel', 'guest_house', 'museum'] },
 ];
 
-/** Nome legível para cada valor de etiqueta do OpenStreetMap. */
-const LABELS: Record<string, string> = {
-  restaurant: 'Restaurante',
-  fast_food: 'Comida rápida',
-  cafe: 'Café',
-  bar: 'Bar',
-  pub: 'Cervejaria',
-  pharmacy: 'Farmácia',
-  fuel: 'Posto de combustível',
-  charging_station: 'Carregamento elétrico',
-  bank: 'Banco',
-  atm: 'Multibanco',
-  hospital: 'Hospital',
-  clinic: 'Clínica',
-  doctors: 'Consultório',
-  dentist: 'Dentista',
-  parking: 'Estacionamento',
-  post_office: 'Correios',
-  supermarket: 'Supermercado',
-  convenience: 'Mercearia',
-  bakery: 'Padaria',
-  butcher: 'Talho',
-  clothes: 'Roupa',
-  hairdresser: 'Cabeleireiro',
-  car_repair: 'Oficina',
-  hotel: 'Hotel',
-  hostel: 'Hostel',
-  guest_house: 'Alojamento',
-  museum: 'Museu',
-  attraction: 'Ponto de interesse',
-  school: 'Escola',
-  university: 'Universidade',
-};
-
 /**
  * Devolve o tipo de local em texto legível, a partir das etiquetas do
  * OpenStreetMap. Devolve `undefined` quando não se reconhece nada de útil.
@@ -146,8 +119,9 @@ export function categoryLabel(tags: Record<string, string> | undefined): string 
     if (!value) {
       continue;
     }
-    if (LABELS[value]) {
-      return LABELS[value];
+    const conhecido = (t().placeKinds as Record<string, string>)[value];
+    if (conhecido) {
+      return conhecido;
     }
     // Sem tradução conhecida: usa-se o próprio valor, com o underscore trocado
     // por espaço, que é melhor do que não mostrar nada.
@@ -155,4 +129,9 @@ export function categoryLabel(tags: Record<string, string> | undefined): string 
   }
 
   return undefined;
+}
+
+/** O nome de uma categoria, na língua atual. */
+export function categoryTitle(category: SearchCategory): string {
+  return t().categories[category.labelKey];
 }

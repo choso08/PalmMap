@@ -1,4 +1,5 @@
 import { OfflineManager, TransformRequestManager } from '@maplibre/maplibre-react-native';
+import { t } from '../i18n';
 import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 import { USER_AGENT } from './config';
@@ -238,8 +239,7 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       ],
       tileSize: 256,
       maxzoom: 14,
-      attribution:
-        'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2024)',
+      attribution: t().attributions.sentinel,
     },
     ortos: {
       type: 'raster',
@@ -251,7 +251,7 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       // transparência — o que voltava era um retângulo de fundo por cima da
       // imagem de satélite, em vez de nada.
       bounds: [-9.6, 36.9, -6.1, 42.2],
-      attribution: 'Ortofotos © Direção-Geral do Território',
+      attribution: t().attributions.orthophotos,
     },
   },
   layers: [

@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme, useTimeFactor } from '../settings';
+import { useTheme, useTimeFactor, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { RouteStep } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -39,6 +39,7 @@ export function NavigationPanel({
   onStop,
 }: NavigationPanelProps) {
   const theme = useTheme();
+  const strings = useT();
   const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -49,7 +50,7 @@ export function NavigationPanel({
         {recalculating ? (
           <View style={styles.recalculating}>
             <MaterialCommunityIcons name="sync" size={26} color={theme.onAccent} />
-            <Text style={styles.recalculatingText}>A recalcular o percurso…</Text>
+            <Text style={styles.recalculatingText}>{strings.navigation.recalculating}</Text>
           </View>
         ) : step ? (
           <View style={styles.bannerRow}>
@@ -66,7 +67,7 @@ export function NavigationPanel({
             </View>
           </View>
         ) : (
-          <Text style={styles.instruction}>A seguir o percurso…</Text>
+          <Text style={styles.instruction}>{strings.navigation.following}</Text>
         )}
       </View>
 
@@ -98,12 +99,12 @@ export function NavigationPanel({
           <Text style={styles.remaining}>
             {formatDuration(remainingSeconds * timeFactor)} · {formatDistance(remainingMeters)}
           </Text>
-          <Text style={styles.remainingLabel}>até ao destino</Text>
+          <Text style={styles.remainingLabel}>{strings.navigation.toDestination}</Text>
         </View>
 
         <Pressable style={styles.stopButton} onPress={onStop}>
           <MaterialCommunityIcons name="close" size={20} color={theme.onAccent} />
-          <Text style={styles.stopText}>Terminar</Text>
+          <Text style={styles.stopText}>{strings.navigation.finish}</Text>
         </Pressable>
       </View>
     </>

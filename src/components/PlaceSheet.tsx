@@ -5,7 +5,7 @@ import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '../settings';
+import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Place } from '../types/geo';
 
@@ -71,6 +71,7 @@ export function PlaceSheet({
   dragHandlers,
 }: PlaceSheetProps) {
   const theme = useTheme();
+  const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -143,13 +144,13 @@ export function PlaceSheet({
 
       <Pressable style={styles.button} onPress={onRoute}>
         <MaterialCommunityIcons name="directions" size={19} color={theme.onAccent} />
-        <Text style={styles.buttonText}>Traçar percurso</Text>
+        <Text style={styles.buttonText}>{strings.place.route}</Text>
       </Pressable>
 
       {onAddStop ? (
         <Pressable style={styles.secondary} onPress={onAddStop}>
           <MaterialCommunityIcons name="map-marker-plus" size={18} color={theme.accent} />
-          <Text style={styles.secondaryText}>Passar por aqui a caminho</Text>
+          <Text style={styles.secondaryText}>{strings.place.addWaypoint}</Text>
         </Pressable>
       ) : null}
     </View>

@@ -10,6 +10,14 @@ import {
 } from 'react';
 import { useColorScheme } from 'react-native';
 
+import {
+  resolveLanguage,
+  setActiveLanguage,
+  stringsFor,
+  type Language,
+  type LanguagePreference,
+  type Strings,
+} from './i18n';
 import { type Theme, themeFor } from './theme';
 
 /**
@@ -59,6 +67,8 @@ export type MapType = 'map' | 'satellite' | 'transit';
 export type SatelliteDetail = 'normal' | 'alta';
 
 export interface Settings {
+  /** Língua da aplicação. Em `auto` segue a do telemóvel. */
+  language: LanguagePreference;
   appearance: AppearanceMode;
   travelMode: TravelMode;
   /** Mostrar negócios sozinhos no mapa, à medida que se navega. */
@@ -89,6 +99,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  language: 'auto',
   appearance: 'system',
   travelMode: 'driving',
   showPlacesOnMap: true,
@@ -109,10 +120,10 @@ export const DEFAULT_SETTINGS: Settings = {
  * O botão mostra sempre o ícone do **seguinte**, não o do atual: é o que se vai
  * buscar ao carregar.
  */
-export const MAP_TYPES: { id: MapType; label: string; icon: string }[] = [
-  { id: 'map', label: 'Mapa', icon: 'map-outline' },
-  { id: 'satellite', label: 'Satélite', icon: 'satellite-variant' },
-  { id: 'transit', label: 'Transportes', icon: 'bus' },
+export const MAP_TYPES: { id: MapType; icon: string }[] = [
+  { id: 'map', icon: 'map-outline' },
+  { id: 'satellite', icon: 'satellite-variant' },
+  { id: 'transit', icon: 'bus' },
 ];
 
 /** O tipo de mapa a seguir a este, para o botão do canto. */
@@ -121,47 +132,51 @@ export function nextMapType(current: MapType): MapType {
   return MAP_TYPES[(i + 1) % MAP_TYPES.length].id;
 }
 
-export const SATELLITE_DETAILS: { id: SatelliteDetail; label: string; icon: string }[] = [
-  { id: 'normal', label: 'Normal', icon: 'earth' },
-  { id: 'alta', label: 'Alta', icon: 'magnify-plus-outline' },
+export const SATELLITE_DETAILS: { id: SatelliteDetail; icon: string }[] = [
+  { id: 'normal', icon: 'earth' },
+  { id: 'alta', icon: 'magnify-plus-outline' },
 ];
 
 export const CACHE_SIZES: {
   id: CacheSize;
-  label: string;
   icon: string;
   megabytes: number;
 }[] = [
-  { id: 'off', label: 'Nada', icon: 'close-circle-outline', megabytes: 0 },
-  { id: 'small', label: '100 MB', icon: 'sd', megabytes: 100 },
-  { id: 'medium', label: '250 MB', icon: 'database-outline', megabytes: 250 },
-  { id: 'large', label: '500 MB', icon: 'database', megabytes: 500 },
-  { id: 'huge', label: '1 GB', icon: 'harddisk', megabytes: 1024 },
+  { id: 'off', icon: 'close-circle-outline', megabytes: 0 },
+  { id: 'small', icon: 'sd', megabytes: 100 },
+  { id: 'medium', icon: 'database-outline', megabytes: 250 },
+  { id: 'large', icon: 'database', megabytes: 500 },
+  { id: 'huge', icon: 'harddisk', megabytes: 1024 },
 ];
 
 export const TIME_ADJUSTMENTS: {
   id: TimeAdjustment;
-  label: string;
   icon: string;
   factor: number;
 }[] = [
-  { id: 'none', label: 'Normal', icon: 'speedometer', factor: 1 },
-  { id: 'slow', label: '+25%', icon: 'speedometer-medium', factor: 1.25 },
-  { id: 'slower', label: '+50%', icon: 'speedometer-slow', factor: 1.5 },
-  { id: 'slowest', label: '+100%', icon: 'road-variant', factor: 2 },
+  { id: 'none', icon: 'speedometer', factor: 1 },
+  { id: 'slow', icon: 'speedometer-medium', factor: 1.25 },
+  { id: 'slower', icon: 'speedometer-slow', factor: 1.5 },
+  { id: 'slowest', icon: 'road-variant', factor: 2 },
 ];
 
-export const TRAVEL_MODES: { id: TravelMode; label: string; icon: string }[] = [
-  { id: 'driving', label: 'Carro', icon: 'car' },
-  { id: 'walking', label: 'A pé', icon: 'walk' },
-  { id: 'cycling', label: 'Bicicleta', icon: 'bike' },
-  { id: 'transit', label: 'Autocarro', icon: 'bus' },
+export const TRAVEL_MODES: { id: TravelMode; icon: string }[] = [
+  { id: 'driving', icon: 'car' },
+  { id: 'walking', icon: 'walk' },
+  { id: 'cycling', icon: 'bike' },
+  { id: 'transit', icon: 'bus' },
 ];
 
-export const APPEARANCE_MODES: { id: AppearanceMode; label: string; icon: string }[] = [
-  { id: 'system', label: 'Automático', icon: 'theme-light-dark' },
-  { id: 'light', label: 'Claro', icon: 'white-balance-sunny' },
-  { id: 'dark', label: 'Escuro', icon: 'weather-night' },
+export const LANGUAGES: { id: LanguagePreference; icon: string }[] = [
+  { id: 'auto', icon: 'translate' },
+  { id: 'pt', icon: 'alpha-p-box-outline' },
+  { id: 'en', icon: 'alpha-e-box-outline' },
+];
+
+export const APPEARANCE_MODES: { id: AppearanceMode; icon: string }[] = [
+  { id: 'system', icon: 'theme-light-dark' },
+  { id: 'light', icon: 'white-balance-sunny' },
+  { id: 'dark', icon: 'weather-night' },
 ];
 
 const STORAGE_KEY = 'palmmap.settings';
@@ -169,6 +184,10 @@ const STORAGE_KEY = 'palmmap.settings';
 interface SettingsContextValue {
   settings: Settings;
   theme: Theme;
+  /** A língua a usar mesmo, já com o "automático" resolvido. */
+  language: Language;
+  /** Os textos dessa língua. */
+  strings: Strings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
@@ -209,7 +228,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         ? systemScheme === 'dark'
         : settings.appearance === 'dark';
 
-    return { settings, theme: themeFor(isDark), update };
+    const language = resolveLanguage(settings.language);
+
+    // Os serviços não podem usar hooks e leem a língua de uma variável do
+    // módulo. É aqui que ela se põe — no mesmo sítio onde a preferência é
+    // resolvida, para não haver duas fontes da mesma verdade.
+    setActiveLanguage(language);
+
+    return {
+      settings,
+      theme: themeFor(isDark),
+      language,
+      strings: stringsFor(language),
+      update,
+    };
   }, [settings, systemScheme, update]);
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
@@ -251,4 +283,20 @@ export function useTimeFactor(): number {
  */
 export function useTheme(): Theme {
   return useSettingsContext().theme;
+}
+
+/**
+ * Os textos na língua atual.
+ *
+ * É um hook de propósito: assim um componente redesenha-se quando a língua muda,
+ * sem ser preciso reiniciar a aplicação. Quem não pode usar hooks — os serviços —
+ * tem o `t()` do `src/i18n`.
+ */
+export function useT(): Strings {
+  return useSettingsContext().strings;
+}
+
+/** A língua a usar mesmo, para quem precisa do código e não do texto. */
+export function useLanguage(): Language {
+  return useSettingsContext().language;
 }
