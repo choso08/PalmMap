@@ -392,15 +392,15 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
 # --- Descobrir endereços -------------------------------------------------------
 
 
-def probe(url: str) -> None:
+def probe(url: str, bytes_corpo: int = 500) -> None:
     """Bate a uma porta e diz o que respondeu, sem tirar conclusões."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=30) as resposta:
             tipo = resposta.headers.get("Content-Type", "?")
-            corpo = resposta.read(600)
+            corpo = resposta.read(bytes_corpo + 100)
             log(f"  {resposta.status}  {tipo}  {url}")
-            log(f"        {corpo[:500]!r}")
+            log(f"        {corpo[:bytes_corpo]!r}")
     except urllib.error.HTTPError as erro:
         # 401 e 403 são a resposta que interessa distinguir: querem dizer que a
         # porta existe mas está fechada, o que é diferente de não existir.
@@ -540,7 +540,7 @@ def probe_vehicles() -> None:
         "https://api.carrismetropolitana.pt/gtfs-rt/vehicle-positions",
         "https://api.carrismetropolitana.pt/v2/gtfs-rt/vehicle_positions",
     ]:
-        probe(url)
+        probe(url, 1400)
 
 
 # As palavras por que se procura. Uma só não chega: nem toda a gente escreve
@@ -634,11 +634,20 @@ def main() -> int:
     )
     parser.add_argument("--dias", type=int, default=60)
     parser.add_argument(
+        "--veiculos",
+        action="store_true",
+        help="Só sonda as posições dos autocarros e sai.",
+    )
+    parser.add_argument(
         "--descobrir",
         action="store_true",
         help="Só procura endereços no dados.gov.pt e sai.",
     )
     args = parser.parse_args()
+
+    if args.veiculos:
+        probe_vehicles()
+        return 0
 
     if args.descobrir:
         discover()
