@@ -542,6 +542,29 @@ def probe_vehicles() -> None:
     ]:
         probe(url, 1400)
 
+    # **O tamanho decide o desenho.** Não há filtro por área nem por linha — o
+    # `by_line` dá 404 —, por isso a aplicação teria de descarregar a frota toda
+    # de cada vez que atualizasse. Se forem centenas de kilobytes de vinte em
+    # vinte segundos, isso é dados móveis a sério e a coisa tem de ser travada
+    # por zoom e por definição. Mede-se em vez de se adivinhar.
+    log("\n--- Quanto pesa a frota toda, e quantos estão mesmo a andar ---")
+    try:
+        bruto = fetch("https://api.carrismetropolitana.pt/v2/vehicles", timeout=60)
+        dados = json.loads(bruto)
+        com_posicao = [v for v in dados if v.get("lat") and v.get("lon")]
+        log(f"  {len(bruto) / 1024:.0f} KB, {len(dados)} veículos na lista")
+        log(f"  {len(com_posicao)} com posição — os outros são só ficha da frota")
+
+        if com_posicao:
+            campos = sorted(com_posicao[0].keys())
+            log(f"  campos de um que anda: {campos}")
+            agora = max(v.get("timestamp", 0) for v in com_posicao)
+            idades = sorted(agora - v.get("timestamp", 0) for v in com_posicao)
+            meio = idades[len(idades) // 2]
+            log(f"  idade da posição: mediana {meio}s, pior {idades[-1]}s")
+    except Exception as erro:  # noqa: BLE001
+        log(f"  Não deu: {erro}")
+
 
 # As palavras por que se procura. Uma só não chega: nem toda a gente escreve
 # "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
