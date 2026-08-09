@@ -457,6 +457,65 @@ def probe_tml() -> None:
         probe(url)
 
 
+def probe_geoportal() -> None:
+    """
+    Pergunta ao geoportal da TML que coleções tem.
+
+    **Esta é a pista que interessa.** A pesquisa ao dados.gov.pt devolveu duas
+    coleções chamadas `gtfs_stops` e `gtfs_shapes` neste geoportal. Se existem
+    essas duas, podem existir as outras tabelas de um GTFS — e um GTFS publicado
+    pela TML seria o da **Área Metropolitana de Lisboa inteira**, com a CP, o
+    Fertagus, o Metro, os barcos e os autocarros todos no mesmo ficheiro. É
+    exatamente o que falta a este projeto.
+
+    É uma OGC API, que tem sempre um `/collections` a dizer o que lá está. Em vez
+    de adivinhar nomes de coleções, pergunta-se-lhe.
+    """
+    url = "https://geoportal.tmlmobilidade.pt/ogc-api/collections?f=json"
+    log("\n=== Geoportal da TML: que coleções existem ===")
+    try:
+        dados = json.loads(fetch(url, timeout=60))
+    except Exception as erro:  # noqa: BLE001
+        log(f"  Não deu: {erro}")
+        return
+
+    colecoes = dados.get("collections", [])
+    log(f"  {len(colecoes)} coleção(ões):")
+    for colecao in colecoes:
+        identificador = colecao.get("id", "?")
+        titulo = colecao.get("title", "")
+        log(f"    {identificador:<28} {titulo}")
+
+
+# Endereços de GTFS que valia a pena existirem, para a AML ficar coberta.
+# Não estão no catálogo porque são palpites — isto é precisamente para deixarem
+# de o ser. O que responder passa para lá; o que não responder fica registado
+# como tentado, para não se voltar a tentar o mesmo.
+CANDIDATOS = [
+    # Carris de Lisboa — a da cidade, autocarros e elétricos. NÃO é a Carris
+    # Metropolitana, que serve os outros concelhos.
+    "https://www.carris.pt/gtfs/gtfs.zip",
+    "https://gtfs.carris.pt/gtfs/gtfs.zip",
+    "https://api.carris.pt/gtfs",
+    # CP — comboios urbanos de Lisboa, entre outros.
+    "https://publico.cp.pt/gtfs/gtfs.zip",
+    "https://www.cp.pt/gtfs/gtfs.zip",
+    # Fertagus e barcos.
+    "https://www.fertagus.pt/gtfs/gtfs.zip",
+    "https://ttsl.pt/gtfs/gtfs.zip",
+    "https://www.transtejo.pt/gtfs/gtfs.zip",
+    # E a hipótese boa: um GTFS da AML inteira, publicado pela TML.
+    "https://api.tmlmobilidade.pt/gtfs",
+    "https://go.tmlmobilidade.pt/hub/api/v1/gtfs.zip",
+]
+
+
+def probe_candidatos() -> None:
+    log("\n=== Endereços de GTFS a testar ===")
+    for url in CANDIDATOS:
+        probe(url)
+
+
 # As palavras por que se procura. Uma só não chega: nem toda a gente escreve
 # "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
 CONSULTAS = [
@@ -467,6 +526,16 @@ CONSULTAS = [
     "Transtejo Soflusa",
     "horários transportes públicos",
     "transportes ferroviários",
+    # O alvo é a Área Metropolitana de Lisboa. As de cima apanharam o Metro de
+    # Lisboa e, por acaso, os autocarros de Braga — mas ficaram de fora a Carris
+    # de Lisboa (a da cidade, que não é a Carris Metropolitana), os comboios
+    # urbanos e os barcos, que são o que falta para cobrir a AML.
+    "Carris",
+    "Área Metropolitana de Lisboa",
+    "Metropolitano de Lisboa",
+    "navegante",
+    "elétricos Lisboa",
+    "transporte fluvial",
 ]
 
 
@@ -546,6 +615,8 @@ def main() -> int:
 
     if args.descobrir:
         discover()
+        probe_geoportal()
+        probe_candidatos()
         probe_tml()
         return 0
 
