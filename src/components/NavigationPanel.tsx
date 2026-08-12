@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { SPEED_OVER_LIMIT_KMH } from '../services/config';
 import { useTheme, useTimeFactor, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { RouteStep } from '../types/geo';
@@ -20,6 +21,14 @@ interface NavigationPanelProps {
   recalculating: boolean;
   /** Radar à frente, quando já está perto o suficiente para avisar. */
   camera: { label: string; icon: string; maxspeed: number | null; meters: number } | null;
+  /**
+   * A que velocidade se vai, já em km/h, ou `null` quando não se sabe.
+   *
+   * `null` é mesmo "não sei" e não "parado": o velocímetro desaparece em vez de
+   * mostrar zero. Num túnel, mostrar zero a quem vai a 100 seria pior do que
+   * não mostrar nada.
+   */
+  speedKmh: number | null;
   onStop: () => void;
 }
 
@@ -36,6 +45,7 @@ export function NavigationPanel({
   remainingSeconds,
   recalculating,
   camera,
+  speedKmh,
   onStop,
 }: NavigationPanelProps) {
   const theme = useTheme();
@@ -43,6 +53,20 @@ export function NavigationPanel({
   const timeFactor = useTimeFactor();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
+
+  /**
+   * Vai-se depressa de mais?
+   *
+   * **Só se sabe responder junto a um radar.** O limite que aparece no aviso é o
+   * que está marcado nesse ponto do OpenStreetMap; a aplicação não sabe o limite
+   * da estrada onde vai em cada momento, e fingir que sabe era pintar o número de
+   * vermelho por um limite adivinhado. Fora do alcance de um radar, o velocímetro
+   * é só um número.
+   */
+  const overLimit =
+    speedKmh !== null &&
+    camera?.maxspeed != null &&
+    speedKmh > camera.maxspeed + SPEED_OVER_LIMIT_KMH;
 
   return (
     <>
@@ -91,6 +115,22 @@ export function NavigationPanel({
               <Text style={styles.limiteText}>{camera.maxspeed}</Text>
             </View>
           ) : null}
+        </View>
+      ) : null}
+
+      {/*
+        O velocímetro, do lado oposto ao botão de voltar à posição e à mesma
+        altura. Fica fora do painel de baixo de propósito: aquele é informação da
+        viagem, este é o instante — e a conduzir procura-se sempre no mesmo sítio.
+      */}
+      {speedKmh !== null ? (
+        <View style={[styles.speed, overLimit && styles.speedOver]}>
+          <Text style={[styles.speedValue, overLimit && styles.speedValueOver]}>
+            {speedKmh}
+          </Text>
+          <Text style={[styles.speedUnit, overLimit && styles.speedUnitOver]}>
+            {strings.navigation.speedUnit}
+          </Text>
         </View>
       ) : null}
 
@@ -195,6 +235,48 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.signInk,
       fontSize: 14,
       fontWeight: '800',
+    },
+    speed: {
+      position: 'absolute',
+      left: 16,
+      // À mesma altura do botão de voltar à posição, que está do outro lado.
+      bottom: insets.bottom + 130,
+      minWidth: 64,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    speedOver: {
+      backgroundColor: theme.danger,
+    },
+    speedValue: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: theme.text,
+      letterSpacing: -0.8,
+      // Sem isto a caixa mudava de altura entre "9" e "90", e o velocímetro
+      // dava um salto de cada vez que se passava uma dezena.
+      lineHeight: 30,
+    },
+    speedValueOver: {
+      color: theme.onAccent,
+    },
+    speedUnit: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.textMuted,
+      marginTop: 1,
+    },
+    speedUnitOver: {
+      color: theme.onAccent,
     },
     footer: {
       position: 'absolute',

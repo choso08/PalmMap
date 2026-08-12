@@ -35,7 +35,8 @@ escuro conforme o telemóvel.
 paragens pelo caminho, e a opção de evitar portagens.
 
 **Navegação** — segue a posição, anuncia as manobras em voz alta, recalcula se sair do
-caminho, avisa de radares, mantém o ecrã aceso e poupa bateria nas retas longas.
+caminho, avisa de radares, mostra a que velocidade vai, mantém o ecrã aceso e poupa bateria
+nas retas longas.
 
 **Transportes públicos** — os autocarros a andar no mapa, ao vivo, com o número da linha.
 As paragens perto de si com as horas a que passa o próximo, em tempo real, e as estações de

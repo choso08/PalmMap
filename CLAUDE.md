@@ -29,8 +29,9 @@ nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
    bem — uma avaria passa despercebida com rede.
 
 **O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação, os anúncios de
-voz depois do filtro das manobras, e os radares, as horas dos autocarros e as portagens —
-que dependem de serviços a que o ambiente de desenvolvimento não chega.
+voz depois do filtro das manobras, o velocímetro — que precisa de um telemóvel a andar — e
+os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
+ambiente de desenvolvimento não chega.
 
 **Há bastante trabalho por compilar.** A última APK é a 7.0.13 e desde aí entraram, entre
 outras coisas, as estações de comboio e barco no mapa e os horários em GTFS estático. Nada
@@ -75,6 +76,7 @@ começar trabalho nessa direção sem o autor voltar a pedir.
 - Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
 - Navegação em tempo real: segue a posição, mostra a manobra seguinte com a distância,
   lê-a em voz alta e recalcula o percurso se se sair dele.
+- Velocímetro durante a navegação, com a velocidade medida pelo GPS — ver "6-H".
 - Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
 - Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
 - Ecrã de definições com sete opções — ver "Definições".
@@ -425,6 +427,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | `speedCameraAlerts` | Avisar de radares que estejam no percurso |
   | `avoidTolls` | Pedir um caminho sem portagens |
   | `batterySaver` | Ler o GPS menos vezes longe das manobras |
+  | `showSpeed` | Mostrar a velocidade do GPS enquanto se navega |
   | `showVehicles` | Mostrar os autocarros a andar, no mapa dos transportes |
 
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
@@ -969,6 +972,45 @@ glifos incluídos não têm.
   escolhido ficava por baixo e não se percebia qual era.
 - O percurso escolhido vive em `routeOptions[routeIndex]`. Trocar de alternativa é só mudar
   o índice: não se pede nada outra vez ao serviço.
+
+### 6-H. Velocímetro
+
+A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-se em
+`showSpeed`.
+
+- **Vem do recetor de GPS, não de dividir a distância pelo tempo.** É a coisa mais
+  importante desta secção. O telemóvel calcula a velocidade pelo desvio de frequência do
+  sinal dos satélites — o efeito de Doppler — e isso mede o andamento diretamente, com
+  pouco erro. A conta caseira, com leituras a um segundo e cinco metros de incerteza em
+  cada uma, dava perto de **vinte km/h de erro em cada leitura**: o número saltava sem
+  parar com o carro a velocidade constante.
+- **Por isso não há conta nenhuma de recurso.** Quando o Android não sabe dizer a
+  velocidade — manda `-1`, e há telemóveis que mandam `null` — o velocímetro **desaparece**
+  em vez de mostrar um número. Num túnel, dizer 0 a quem vai a 100 é pior do que não dizer
+  nada. Ver a nota em `watchPosition`.
+- **Parado mostra-se zero, abaixo de `SPEED_ZERO_MS` (0,5 m/s).** O GPS nunca diz
+  exatamente zero: num semáforo oscila umas décimas, e sem este mínimo o velocímetro andava
+  a saltar entre 0 e 2 km/h com o carro imóvel. Meio metro por segundo é 1,8 km/h — fica
+  abaixo do passo de uma pessoa, por isso não esconde nada a quem vai a pé.
+- **Não custa bateria.** A velocidade vem dentro das leituras que a navegação já faz; não
+  há subscrição nenhuma a mais. É por isso que aparece **só durante a navegação**: fora
+  dela o GPS é lido de dez em dez segundos (`watchPositionIdle`), e um velocímetro com dez
+  segundos de atraso diria 90 a quem já parou. Mais valia não estar lá. Para o ter sempre
+  seria preciso subir esse ritmo — e aí passava a custar bateria de verdade.
+- **Fica vermelho quando se passa o limite, mas só junto a um radar.** O limite conhecido é
+  o que está marcado no radar que vem à frente; a aplicação **não sabe** o limite da estrada
+  onde vai em cada momento. Pintar o número por um limite adivinhado era prometer o que não
+  se tem. Fora do alcance de um radar, o velocímetro é só um número.
+- A margem de `SPEED_OVER_LIMIT_KMH` (5 km/h) não é permissividade: é a incerteza do
+  próprio GPS. Sem ela, o aviso acendia-se sozinho a velocidade constante — e um aviso que
+  acende sem razão deixa de ser lido, que é a mesma lição do corredor dos radares.
+- **Dizer o que isto não é:** o velocímetro do carro é o que manda. O do GPS mede o
+  andamento no chão e não sabe nada do tamanho dos pneus, por isso costuma ficar uns km/h
+  **abaixo** do painel — os do carro são propositadamente optimistas, por exigência legal.
+  Está escrito no ecrã de definições e deve continuar lá.
+- Sai sempre em **km/h**, nas duas línguas. A língua não é o país: um inglês a viver em
+  Portugal conduz em km/h. Se um dia se quiserem milhas, o sítio é uma definição própria de
+  unidades, não a tabela da língua.
 
 ### 7. Offline — o que é permitido e o que não é
 

@@ -149,6 +149,8 @@ export const pt = {
     finish: 'Terminar',
     arrived: 'Chegou ao destino.',
     speedLimit: (kmh: number) => `${kmh}`,
+    /** A unidade por baixo do número do velocímetro. */
+    speedUnit: 'km/h',
   },
 
   transit: {
@@ -342,6 +344,11 @@ export const pt = {
     batterySaver: 'Poupar bateria a navegar',
     batterySaverHint:
       'Longe da manobra seguinte, lê o GPS de quatro em quatro segundos em vez de todos os segundos. Perto da manobra volta ao normal, e a precisão nunca desce.',
+    speed: 'Mostrar a velocidade',
+    speedHint:
+      'Durante a navegação, mostra a que velocidade vai, medida pelo GPS. Não gasta bateria a mais: vem dentro das leituras que a navegação já faz.',
+    speedNote:
+      'O velocímetro do carro é o que manda: o do GPS mede o andamento no chão e ignora o tamanho dos pneus, por isso costuma ficar uns km/h abaixo do do painel. Em túneis e entre prédios altos pode desaparecer por uns segundos. Fica vermelho quando passa o limite de um radar que esteja à frente — só nesses, que são os únicos limites que a aplicação conhece.',
 
     recents: 'Últimos destinos',
     recentsHint: 'Aparecem na pesquisa antes de se escrever, a seguir aos guardados.',

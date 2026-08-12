@@ -18,7 +18,24 @@ export async function requestPermission(): Promise<boolean> {
  * navegação, senão o GPS fica ligado a gastar bateria.
  */
 export async function watchPosition(
-  onChange: (coordinates: Coordinates, accuracyMeters: number) => void,
+  onChange: (
+    coordinates: Coordinates,
+    accuracyMeters: number,
+    /**
+     * Velocidade em metros por segundo, ou `null` quando o GPS não a soube dizer.
+     *
+     * **Vem do próprio recetor de GPS**, calculada pelo desvio de frequência do
+     * sinal dos satélites — não da diferença entre duas posições. A distinção é
+     * toda: com leituras a um segundo e cinco metros de incerteza em cada uma,
+     * dividir a distância pelo tempo dava um erro de quase vinte km/h a cada
+     * leitura. O efeito de Doppler mede a velocidade diretamente e erra pouco.
+     *
+     * Por isso não há aqui conta nenhuma de recurso. Quando o telemóvel não diz a
+     * velocidade, fica `null` e o velocímetro desaparece — mostrar um número
+     * inventado a quem está a conduzir é pior do que não mostrar nada.
+     */
+    speedMs: number | null,
+  ) => void,
   /**
    * De quantos em quantos milissegundos se lê a posição.
    *
@@ -54,6 +71,11 @@ export async function watchPosition(
         // O Android diz a que raio de confiança corresponde esta leitura. Sem
         // isso, uma leitura má é indistinguível de ter mesmo saído do percurso.
         position.coords.accuracy ?? 0,
+        // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
+        // que mandam null. Os dois querem dizer o mesmo: não sei.
+        typeof position.coords.speed === 'number' && position.coords.speed >= 0
+          ? position.coords.speed
+          : null,
       );
     },
   );

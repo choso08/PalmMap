@@ -258,6 +258,29 @@ export const BATTERY_SAVER_MIN_METERS = 1500;
 export const ANNOUNCE_AT_METERS = [400, 80];
 
 /**
+ * Abaixo de que velocidade se mostra zero, em metros por segundo.
+ *
+ * O GPS nunca diz exatamente zero: parado num semáforo, a velocidade oscila umas
+ * décimas por causa do ruído do sinal. Sem este mínimo, o velocímetro andava a
+ * saltar entre 0 e 2 km/h com o carro imóvel — que é o género de pormenor que faz
+ * duvidar do resto do número.
+ *
+ * Meio metro por segundo é 1,8 km/h: fica abaixo do passo de uma pessoa, por isso
+ * não esconde nada de quem vai a pé.
+ */
+export const SPEED_ZERO_MS = 0.5;
+
+/**
+ * Quanto se pode passar do limite antes de o velocímetro ficar vermelho, em km/h.
+ *
+ * Não é permissividade: é a margem do próprio velocímetro. A velocidade do GPS
+ * tem alguns km/h de incerteza, e um aviso que acende exatamente no limite
+ * acendia-se sozinho a velocidade constante — e um aviso que se acende sem razão
+ * deixa de ser lido.
+ */
+export const SPEED_OVER_LIMIT_KMH = 5;
+
+/**
  * Nome do pedido para o ecrã não se apagar durante a navegação.
  *
  * É preciso ser sempre o mesmo para ligar e desligar: o Android conta os pedidos

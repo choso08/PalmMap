@@ -35,6 +35,7 @@ import {
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
   OFF_ROUTE_STRIKES,
+  SPEED_ZERO_MS,
 } from './src/services/config';
 import {
   cameraIcon,
@@ -244,6 +245,13 @@ function PalmMap() {
   const [nextStep, setNextStep] = useState<RouteStep | null>(null);
   const [distanceToStep, setDistanceToStep] = useState(0);
   const [remaining, setRemaining] = useState({ meters: 0, seconds: 0 });
+  /**
+   * A que velocidade se vai, em km/h. `null` enquanto o GPS não a souber dizer.
+   *
+   * Vem de graça dentro das leituras da navegação, por isso não há aqui
+   * subscrição nenhuma a mais — ver `watchPosition`.
+   */
+  const [speedKmh, setSpeedKmh] = useState<number | null>(null);
   /** Até que ponto do percurso já se andou. O mapa apaga o que fica para trás. */
   const [progressIndex, setProgressIndex] = useState(0);
   /** Quantas leituras seguidas fora do percurso já se viram. */
@@ -830,8 +838,16 @@ function PalmMap() {
     let cancelled = false;
 
     void (async () => {
-      const stop = await watchPosition((position, accuracyMeters) => {
+      const stop = await watchPosition((position, accuracyMeters, speedMs) => {
         setUserLocation(position);
+
+        // A velocidade sai da mesma leitura, sem custo nenhum. Parado, o GPS
+        // oscila umas décimas em vez de dizer zero — daí o mínimo.
+        if (speedMs === null) {
+          setSpeedKmh(null);
+        } else {
+          setSpeedKmh(speedMs < SPEED_ZERO_MS ? 0 : Math.round(speedMs * 3.6));
+        }
 
         const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
         setProgressIndex(index);
@@ -1000,6 +1016,9 @@ function PalmMap() {
       cancelled = true;
       stopWatching?.();
       stopSpeaking();
+      // Sem isto, voltar a navegar mostrava por um instante a velocidade a que
+      // se ia quando a viagem anterior acabou.
+      setSpeedKmh(null);
     };
   }, [
     navigating,
@@ -1502,6 +1521,7 @@ function PalmMap() {
                 }
               : null
           }
+          speedKmh={settings.showSpeed ? speedKmh : null}
           onStop={handleStopNavigation}
         />
       ) : null}

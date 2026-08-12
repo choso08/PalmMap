@@ -90,6 +90,13 @@ export interface Settings {
   /** Ler o GPS menos vezes quando a manobra seguinte ainda vai longe. */
   batterySaver: boolean;
   /**
+   * Mostrar a velocidade a que se vai, durante a navegação.
+   *
+   * Não custa bateria nenhuma: a velocidade vem dentro das leituras de GPS que a
+   * navegação já faz de qualquer maneira.
+   */
+  showSpeed: boolean;
+  /**
    * Mostrar os autocarros a andar, no tipo de mapa dos transportes.
    *
    * Fica ligado de origem porque é a razão de se ir ao mapa dos transportes,
@@ -111,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speedCameraAlerts: true,
   avoidTolls: false,
   batterySaver: true,
+  showSpeed: true,
   showVehicles: true,
 };
 

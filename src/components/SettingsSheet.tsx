@@ -302,6 +302,19 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>{s.speed}</Text>
+              <Text style={styles.switchHint}>{s.speedHint}</Text>
+            </View>
+            <Switch
+              value={settings.showSpeed}
+              onValueChange={(next) => update('showSpeed', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+          <Text style={styles.note}>{s.speedNote}</Text>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.batterySaver}</Text>
               <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
             </View>

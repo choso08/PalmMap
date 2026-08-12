@@ -137,6 +137,7 @@ export const en: typeof pt = {
     finish: 'Finish',
     arrived: "You've arrived.",
     speedLimit: (kmh: number) => `${kmh}`,
+    speedUnit: 'km/h',
   },
 
   transit: {
@@ -328,6 +329,11 @@ export const en: typeof pt = {
     batterySaver: 'Save battery while navigating',
     batterySaverHint:
       'Far from the next manoeuvre it reads the GPS every four seconds instead of every second. Near the manoeuvre it goes back to normal, and the accuracy never drops.',
+    speed: 'Show your speed',
+    speedHint:
+      'While navigating, shows how fast you are going, measured by GPS. It costs no extra battery: the speed comes inside the readings navigation already takes.',
+    speedNote:
+      "The car's own speedometer is the one that counts: GPS measures your progress over the ground and knows nothing about tyre size, so it usually reads a few km/h lower than the dashboard. In tunnels and between tall buildings it may drop out for a few seconds. It turns red when you pass the limit of a speed camera ahead — only those, as they are the only limits the app knows.",
 
     recents: 'Recent destinations',
     recentsHint: 'They appear in search before you type, after the saved ones.',
