@@ -1264,6 +1264,20 @@ O atalho da última posição conhecida, no arranque, também passou a ter idade
 (`LAST_KNOWN_MAX_AGE_MS`). Serve para adiantar o arranque, não para adivinhar: sem limite
 nenhum, quem usou a aplicação em casa e a abria no trabalho via o mapa abrir em casa.
 
+**Mas nenhuma leitura pode ficar à espera para sempre, e essa lição custou uma versão.** O
+`getCurrentPositionAsync` não tem prazo nenhum: sem sinal, fica à espera indefinidamente.
+Ao pôr idade máxima no atalho sem pôr prazo no que vem a seguir, o arranque passou a cair
+nessa espera sempre que a posição guardada já tivesse uns minutos — e a aplicação demorava a
+abrir, de mapa parado e sem ponto azul. Hoje todas as leituras passam pelo `comPrazo()`, e o
+arranque acaba na última posição conhecida de qualquer idade quando nada chega a tempo: um
+ponto no sítio de ontem é pouco, mas é mais do que um mapa sem ponto nenhum — e quem já não
+acredita nela é o botão de centrar, que era o problema a resolver.
+
+**Pedir permissão não se faz fora do arranque.** Pedir abre um diálogo do sistema, o diálogo
+tira o foco à aplicação, e o Android dá isso por uma saída e uma reentrada — que é
+precisamente o que acorda quem está à escuta dessas mudanças. Quem pede é o arranque, uma
+vez; o `getFreshPosition()` apenas **consulta** (`getForegroundPermissionsAsync`).
+
 **O botão do GPS tem dois níveis, como no Maps.** Um toque leva a câmara à posição uma vez;
 **dois toques põem-na a andar com a pessoa** e o botão fica aceso, como o da fita métrica —
 é um modo em que se entra, não uma ação que se faz. Com o seguimento ligado, qualquer toque

@@ -25,6 +25,30 @@ function record(coordinates: Coordinates, at: number) {
   lastFix = { coordinates, at };
 }
 
+/** Guarda uma leitura do `expo-location` e devolve só as coordenadas. */
+function keep(position: Location.LocationObject): Coordinates {
+  const coordinates = {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+  };
+  record(coordinates, position.timestamp);
+  return coordinates;
+}
+
+/**
+ * Desiste de uma leitura ao fim de `POSITION_TIMEOUT_MS` e devolve `null`.
+ *
+ * O `getCurrentPositionAsync` **não tem prazo nenhum**: sem sinal, fica à espera
+ * indefinidamente. Dentro de casa ou sem rede isso são minutos, e nada que
+ * dependa dele pode ficar preso à espera — nem o arranque, nem o botão.
+ */
+function comPrazo(leitura: Promise<Coordinates | null>): Promise<Coordinates | null> {
+  return Promise.race([
+    leitura,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), POSITION_TIMEOUT_MS)),
+  ]);
+}
+
 /**
  * Pede a permissão de localização, durante a utilização da aplicação.
  * Devolve true se a pessoa autorizou.
@@ -176,10 +200,7 @@ export async function getBestPosition(): Promise<Coordinates | null> {
     return lastFix.coordinates;
   }
 
-  const fresca = await Promise.race([
-    getFreshPosition(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), POSITION_TIMEOUT_MS)),
-  ]);
+  const fresca = await comPrazo(getFreshPosition());
 
   return fresca ?? lastFix?.coordinates ?? null;
 }
@@ -190,11 +211,17 @@ export async function getBestPosition(): Promise<Coordinates | null> {
  * É o que se usa quando a aplicação volta ao ecrã. Aqui o atalho da última
  * conhecida seria contraproducente: é precisamente essa que se desconfia que
  * esteja velha.
+ *
+ * **Aqui só se pergunta se há permissão — nunca se pede.** Pedir abre um diálogo
+ * do sistema, e um diálogo tira o foco à aplicação: o Android dá-a por saída e
+ * por reentrada, o que volta a disparar quem está à escuta dessas mudanças e
+ * pede outra vez. Quem pede é o arranque, uma vez; daqui em diante só se
+ * consulta.
  */
 export async function getFreshPosition(): Promise<Coordinates | null> {
   try {
-    const granted = await requestPermission();
-    if (!granted) {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== Location.PermissionStatus.GRANTED) {
       return null;
     }
 
@@ -234,22 +261,29 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
       return null;
     }
 
-    // O `maxAge` é o que impede o atalho de servir uma posição de ontem. Sem ele,
-    // quem usou a aplicação em casa e a abre no trabalho via o mapa abrir em
-    // casa — e o atalho existe para adiantar o arranque, não para adivinhar.
+    // O `maxAge` impede o atalho de servir uma posição de ontem: o atalho existe
+    // para adiantar o arranque, não para adivinhar.
     const conhecida = await Location.getLastKnownPositionAsync({
       maxAge: LAST_KNOWN_MAX_AGE_MS,
     });
     if (conhecida) {
-      const coordinates = {
-        latitude: conhecida.coords.latitude,
-        longitude: conhecida.coords.longitude,
-      };
-      record(coordinates, conhecida.timestamp);
-      return coordinates;
+      return keep(conhecida);
     }
 
-    return await getFreshPosition();
+    // **Com prazo, sempre.** Sem rede o GPS leva de trinta segundos a dois
+    // minutos a dar a primeira posição, e sem este limite o arranque ficava à
+    // espera disso — de mapa parado e sem ponto azul. Foi assim que a aplicação
+    // passou a demorar a abrir.
+    const fresca = await comPrazo(getFreshPosition());
+    if (fresca) {
+      return fresca;
+    }
+
+    // Nem recente nem nova a tempo: fica a última conhecida, seja de quando for.
+    // Um ponto no sítio de ontem é pouco, mas é mais do que um mapa sem ponto
+    // nenhum — e o botão de centrar já não acredita nela, que era o problema.
+    const antiga = await Location.getLastKnownPositionAsync();
+    return antiga ? keep(antiga) : null;
   } catch {
     return null;
   }
