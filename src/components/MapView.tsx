@@ -264,20 +264,37 @@ export function MapView({
    * Não era a câmara a ignorar a posição: era a posição a chegar tarde de mais
    * para uma propriedade que é de arranque e não se volta a ler.
    *
-   * Refaz-se a câmara, em vez de se lhe pedir para voar até lá. É o mesmo
-   * mecanismo do `followNonce`, e por uma razão parecida: a esta altura o mapa
-   * ainda está a carregar, e uma ordem de movimento dada a um mapa que ainda não
-   * está pronto perde-se sem dar erro. A câmara nova nasce já no sítio certo —
-   * que é o caminho por onde a aplicação de qualquer maneira já passa ao abrir.
+   * **Espera-se que o mapa esteja carregado e move-se a câmara.** Uma ordem de
+   * movimento dada a um mapa que ainda não está pronto perde-se sem dar erro, e
+   * a posição chega quase sempre antes de o mapa acabar de carregar — daí ficar
+   * guardada em `openAt` até haver a quem a dar.
    *
-   * De caminho, resolve o salto: não se vê a câmara atravessar o Atlântico de
-   * Lisboa até São Tomé, parece que abriu logo onde devia.
+   * Já se fez isto refazendo a câmara com uma `key`, como o `followNonce`. Dava
+   * o resultado certo mas ao preço errado: desmontar e voltar a montar a câmara
+   * é trabalho nativo, e caía **poucos instantes depois do arranque** — que é
+   * precisamente quando a pessoa está a tocar na barra de pesquisa e o teclado
+   * tem de subir. Mover é muito mais barato do que reconstruir.
+   *
+   * Sem animação de propósito: a câmara está em Lisboa e a pessoa pode estar em
+   * São Tomé — vê-la atravessar o Atlântico não é uma abertura, é um espetáculo.
    *
    * Trata da **primeira** posição que chega, e só dessa. A partir daí a câmara é
    * de quem está a mexer no mapa.
    */
   const openedOnUser = useRef(false);
-  const [openNonce, setOpenNonce] = useState(0);
+  /** O mapa já acabou de carregar? Antes disso não vale a pena mandá-lo mexer. */
+  const mapReady = useRef(false);
+  /** Onde abrir, enquanto se espera que o mapa fique pronto. */
+  const openAt = useRef<Coordinates | null>(null);
+
+  const openOn = useCallback((posicao: Coordinates) => {
+    cameraRef.current?.flyTo({
+      center: [posicao.longitude, posicao.latitude],
+      zoom: 15,
+      duration: 0,
+    });
+  }, []);
+
   useEffect(() => {
     if (openedOnUser.current || !userLocation) {
       return;
@@ -291,8 +308,28 @@ export function MapView({
       return;
     }
 
-    setOpenNonce((n) => n + 1);
-  }, [userLocation, destination, route, following]);
+    if (mapReady.current) {
+      openOn(userLocation);
+    } else {
+      openAt.current = userLocation;
+    }
+  }, [userLocation, destination, route, following, openOn]);
+
+  /**
+   * O mapa acabou de carregar.
+   *
+   * Dispara também a cada troca de estilo — ao entrar num país guardado, por
+   * exemplo. Por isso a posição de abertura é consumida e apagada: só serve à
+   * primeira vez.
+   */
+  const handleMapReady = useCallback(() => {
+    mapReady.current = true;
+    const pendente = openAt.current;
+    openAt.current = null;
+    if (pendente) {
+      openOn(pendente);
+    }
+  }, [openOn]);
 
   // Sempre que há um percurso novo, enquadra-o todo no ecrã.
   useEffect(() => {
@@ -429,6 +466,7 @@ export function MapView({
       // Passa para o canto inferior esquerdo, que está livre, e continua a servir
       // para tocar e voltar a norte.
       compassPosition={{ bottom: 24, left: 16 }}
+      onDidFinishLoadingMap={handleMapReady}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
       onPress={(event) => {
@@ -439,10 +477,8 @@ export function MapView({
     >
       <Camera
         // Recriar a câmara é o que volta a prendê-la à posição depois de a
-        // pessoa ter arrastado o mapa, e é também o que a põe onde a pessoa está
-        // quando o GPS responde depois de o mapa já ter aberto. Ver `followNonce`
-        // e `openNonce`.
-        key={`camera-${followNonce}-${openNonce}`}
+        // pessoa ter arrastado o mapa. Ver `followNonce`.
+        key={`camera-${followNonce}`}
         ref={cameraRef}
         // 'course' aponta o mapa no sentido em que se segue, como na navegação
         // do Maps. O 'default' acompanha a pessoa sem lhe virar o mapa — é o que

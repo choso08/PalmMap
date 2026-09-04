@@ -1651,10 +1651,17 @@ Erros já cometidos neste projeto, para não se repetirem.
   `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
   ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a
   posição chegar, até alguém carregar no botão de centrar. Parecia a câmara a ignorar a
-  posição; era a posição a chegar tarde de mais. A saída é refazer a câmara com uma `key`,
-  que é o mesmo mecanismo do `followNonce` — e não mandá-la voar, porque a esta altura o
-  mapa ainda está a carregar e uma ordem de movimento dada a um mapa que não está pronto
-  perde-se **sem dar erro**.
+  posição; era a posição a chegar tarde de mais. A saída é esperar pelo
+  `onDidFinishLoadingMap` e mover a câmara — a posição chega quase sempre antes de o mapa
+  acabar de carregar, e uma ordem de movimento dada a um mapa que não está pronto perde-se
+  **sem dar erro**.
+- **Refazer um componente nativo custa, e o custo aparece longe da causa.** A primeira
+  versão do ponto acima refazia a câmara com uma `key`, como o `followNonce`. Dava o
+  resultado certo e um sintoma noutro sítio: **o teclado demorava a subir na primeira
+  pesquisa**. Desmontar e montar a câmara é trabalho nativo, e caía poucos instantes depois
+  do arranque — exatamente quando a pessoa toca na barra de pesquisa. Recriar resolve
+  qualquer coisa e é sempre a saída mais cara; antes de a escolher, ver se há um sinal de
+  "pronto" a que se possa esperar.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.
