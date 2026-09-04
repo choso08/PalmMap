@@ -423,7 +423,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   | `cacheSize` | Tamanho do mapa guardado: 100 MB, 250 MB, 500 MB ou 1 GB |
   | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
   | `voiceGuidance` | Ler as instruções em voz alta durante a navegação |
-  | `mapType` | Mapa desenhado, imagem de satélite ou rede de transportes |
+  | `mapType` | Mapa desenhado, imagem de satélite ou rede de transportes — **a única que não se guarda entre sessões** |
   | `speedCameraAlerts` | Avisar de radares que estejam no percurso |
   | `avoidTolls` | Pedir um caminho sem portagens |
   | `batterySaver` | Ler o GPS menos vezes longe das manobras |
@@ -433,6 +433,12 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
+- **O tipo de mapa é a exceção: abre sempre no mapa desenhado.** É uma escolha do momento e
+  não uma preferência para a vida — vê-se o satélite para espreitar um terreno e os
+  transportes para saber por onde passa o autocarro, e a seguir quer-se o mapa outra vez.
+  Guardá-lo fazia a aplicação abrir dias depois nos Transportes, com os autocarros a pedir
+  1,1 MB de vinte em vinte segundos, só porque foi ali que se fechou da última vez. O sítio
+  onde se desfaz isto é o `mapType: DEFAULT_SETTINGS.mapType` da leitura, em `settings.tsx`.
 - **O meio de transporte também se troca no painel do percurso**, com três botões por cima
   da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
   pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
@@ -1231,6 +1237,14 @@ cinquenta metros), para o ponto azul acompanhar quem anda. Durante a navegação
 subscrição desliga-se e passa a valer a do motor de navegação, a cada segundo — ter as duas
 ligadas era gastar bateria a dobrar.
 
+**A aplicação abre onde a pessoa está.** Enquanto o GPS não responde, o mapa abre em Lisboa,
+e assim que a primeira posição chega a câmara passa para lá — uma vez só, e sem animação,
+para parecer que abriu logo no sítio certo em vez de se ver o mapa a atravessar o Atlântico.
+Se nesse intervalo já se tiver escolhido um destino, a câmara fica onde está: quem escolheu
+manda. Sem permissão de localização fica-se pela vista de Lisboa, como antes. Ver
+`openedOnUser`, em `MapView.tsx`, e a lição sobre o `initialViewState` no fim deste
+ficheiro.
+
 **Armadilha:** o cálculo do percurso **não pode depender da posição em estado**. Se
 depender, cada leitura do GPS manda um pedido novo ao OSRM enquanto houver um destino
 escolhido. Por isso a posição é lida de uma `ref` e o efeito depende de `hasLocation` — um
@@ -1561,6 +1575,14 @@ Erros já cometidos neste projeto, para não se repetirem.
   existem — são `long_name`, `locality_name` e `line_ids`. A posição vinha certa, por isso
   a lista aparecia com as distâncias todas boas e o nome "Paragem" repetido seis vezes.
   Nenhum erro, nenhum aviso. O serviço é aberto no GitHub; bastava lê-lo.
+- **Uma propriedade com "initial" no nome é lida uma vez e nunca mais.** O
+  `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
+  ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a
+  posição chegar, até alguém carregar no botão de centrar. Parecia a câmara a ignorar a
+  posição; era a posição a chegar tarde de mais. A saída é refazer a câmara com uma `key`,
+  que é o mesmo mecanismo do `followNonce` — e não mandá-la voar, porque a esta altura o
+  mapa ainda está a carregar e uma ordem de movimento dada a um mapa que não está pronto
+  perde-se **sem dar erro**.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

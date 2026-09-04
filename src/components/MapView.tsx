@@ -237,6 +237,45 @@ export function MapView({
     followAgain: () => setFollowNonce((n) => n + 1),
   }));
 
+  /**
+   * Abre o mapa onde a pessoa está.
+   *
+   * **O `initialViewState` da câmara só é lido quando ela nasce**, e nessa altura
+   * o GPS ainda não respondeu — por isso a aplicação abria em Lisboa e lá ficava,
+   * mesmo depois de a posição chegar, até alguém carregar no botão de centrar.
+   * Não era a câmara a ignorar a posição: era a posição a chegar tarde de mais
+   * para uma propriedade que é de arranque e não se volta a ler.
+   *
+   * Refaz-se a câmara, em vez de se lhe pedir para voar até lá. É o mesmo
+   * mecanismo do `followNonce`, e por uma razão parecida: a esta altura o mapa
+   * ainda está a carregar, e uma ordem de movimento dada a um mapa que ainda não
+   * está pronto perde-se sem dar erro. A câmara nova nasce já no sítio certo —
+   * que é o caminho por onde a aplicação de qualquer maneira já passa ao abrir.
+   *
+   * De caminho, resolve o salto: não se vê a câmara atravessar o Atlântico de
+   * Lisboa até São Tomé, parece que abriu logo onde devia.
+   *
+   * Trata da **primeira** posição que chega, e só dessa. A partir daí a câmara é
+   * de quem está a mexer no mapa.
+   */
+  const openedOnUser = useRef(false);
+  const [openNonce, setOpenNonce] = useState(0);
+  useEffect(() => {
+    if (openedOnUser.current || !userLocation) {
+      return;
+    }
+
+    // A partir daqui o momento da abertura já passou, tenha-se chegado a centrar
+    // ou não. Sem isto, uma pesquisa feita antes de o GPS responder via a câmara
+    // ser-lhe tirada da mão assim que ele respondesse.
+    openedOnUser.current = true;
+    if (destination || route || following) {
+      return;
+    }
+
+    setOpenNonce((n) => n + 1);
+  }, [userLocation, destination, route, following]);
+
   // Sempre que há um percurso novo, enquadra-o todo no ecrã.
   useEffect(() => {
     if (!route || route.coordinates.length === 0 || following) {
@@ -360,8 +399,10 @@ export function MapView({
     >
       <Camera
         // Recriar a câmara é o que volta a prendê-la à posição depois de a
-        // pessoa ter arrastado o mapa. Ver `followNonce`.
-        key={`camera-${followNonce}`}
+        // pessoa ter arrastado o mapa, e é também o que a põe onde a pessoa está
+        // quando o GPS responde depois de o mapa já ter aberto. Ver `followNonce`
+        // e `openNonce`.
+        key={`camera-${followNonce}-${openNonce}`}
         ref={cameraRef}
         // 'course' aponta o mapa no sentido em que se segue, como na navegação
         // do Maps. Fora da navegação, a câmara fica livre.

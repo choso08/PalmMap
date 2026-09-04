@@ -211,9 +211,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
-          // Junta-se aos valores por omissão para o caso de a aplicação ter
-          // ganho definições novas desde a última vez que se guardou.
-          setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+          setSettings({
+            // Junta-se aos valores por omissão para o caso de a aplicação ter
+            // ganho definições novas desde a última vez que se guardou.
+            ...DEFAULT_SETTINGS,
+            ...JSON.parse(stored),
+            // O tipo de mapa é a única definição que **não** se lembra, e é de
+            // propósito: é uma escolha do momento, não uma preferência para a
+            // vida. Vê-se o satélite para espreitar um terreno e os transportes
+            // para saber por onde passa o autocarro — e depois quer-se o mapa
+            // outra vez. Guardá-lo fazia a aplicação abrir dias mais tarde nos
+            // Transportes, com os autocarros a pedir dados de vinte em vinte
+            // segundos, só porque foi ali que se fechou da última vez.
+            mapType: DEFAULT_SETTINGS.mapType,
+          });
         }
       } catch {
         // Sem definições guardadas, ficam as de origem. Não é motivo para falhar.
