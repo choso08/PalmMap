@@ -1,6 +1,29 @@
 import * as Location from 'expo-location';
 
 import type { Coordinates } from '../types/geo';
+import {
+  LAST_KNOWN_MAX_AGE_MS,
+  POSITION_FRESH_MS,
+  POSITION_TIMEOUT_MS,
+} from './config';
+
+/**
+ * A última posição que se aceitou, e a que horas foi medida.
+ *
+ * Guarda-se aqui, e não no ecrã, porque a pergunta "isto ainda serve?" é sobre a
+ * leitura em si e não sobre quem a está a usar. Os dois seguimentos escrevem
+ * aqui; quem quiser centrar o mapa pergunta ao `getBestPosition()`.
+ *
+ * **O relógio que conta é o da leitura, não o de quando ela chegou.** O Android
+ * entrega às vezes uma posição da cache mal se volta a subscrever o GPS — chega
+ * agora, mas é de há uma hora. Comparar com a hora de chegada dava-a como
+ * fresquíssima, que é precisamente a avaria que isto evita.
+ */
+let lastFix: { coordinates: Coordinates; at: number } | null = null;
+
+function record(coordinates: Coordinates, at: number) {
+  lastFix = { coordinates, at };
+}
 
 /**
  * Pede a permissão de localização, durante a utilização da aplicação.
@@ -63,6 +86,10 @@ export async function watchPosition(
       distanceInterval: 0,
     },
     (position) => {
+      record(
+        { latitude: position.coords.latitude, longitude: position.coords.longitude },
+        position.timestamp,
+      );
       onChange(
         {
           latitude: position.coords.latitude,
@@ -115,14 +142,76 @@ export async function watchPositionIdle(
       distanceInterval: 50,
     },
     (position) => {
-      onChange({
+      const coordinates = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-      });
+      };
+      record(coordinates, position.timestamp);
+      onChange(coordinates);
     },
   );
 
   return () => subscription.remove();
+}
+
+/**
+ * Uma posição em que se pode confiar para centrar o mapa.
+ *
+ * Se a última leitura ainda é recente, devolve-se essa — sem esperar por nada,
+ * que é o caso normal e o que faz o botão parecer instantâneo. Se já tem idade,
+ * vai-se buscar uma nova.
+ *
+ * **É isto que resolve o mapa ir parar a um sítio onde já se esteve.** Com a
+ * aplicação em segundo plano o Android deixa de entregar leituras: quem andou
+ * entretanto volta com a posição de onde estava, e o mapa levava-o para lá com
+ * toda a confiança. A posição guardada não estava errada — estava velha, e nada
+ * no código distinguia as duas coisas.
+ *
+ * Nunca fica à espera para sempre: ao fim de `POSITION_TIMEOUT_MS` devolve-se o
+ * que houver, mesmo que velho. Um mapa no sítio de antes é mau; um botão que não
+ * responde é pior, e sem rede o GPS chega a levar minutos a acordar.
+ */
+export async function getBestPosition(): Promise<Coordinates | null> {
+  if (lastFix && Date.now() - lastFix.at < POSITION_FRESH_MS) {
+    return lastFix.coordinates;
+  }
+
+  const fresca = await Promise.race([
+    getFreshPosition(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), POSITION_TIMEOUT_MS)),
+  ]);
+
+  return fresca ?? lastFix?.coordinates ?? null;
+}
+
+/**
+ * Vai buscar uma posição nova ao GPS, sem passar pela última conhecida.
+ *
+ * É o que se usa quando a aplicação volta ao ecrã. Aqui o atalho da última
+ * conhecida seria contraproducente: é precisamente essa que se desconfia que
+ * esteja velha.
+ */
+export async function getFreshPosition(): Promise<Coordinates | null> {
+  try {
+    const granted = await requestPermission();
+    if (!granted) {
+      return null;
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      // Ver a nota em `watchPositionIdle`: `Balanced` depende da rede.
+      accuracy: Location.Accuracy.High,
+    });
+
+    const coordinates = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+    record(coordinates, position.timestamp);
+    return coordinates;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -145,23 +234,22 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
       return null;
     }
 
-    const conhecida = await Location.getLastKnownPositionAsync();
+    // O `maxAge` é o que impede o atalho de servir uma posição de ontem. Sem ele,
+    // quem usou a aplicação em casa e a abre no trabalho via o mapa abrir em
+    // casa — e o atalho existe para adiantar o arranque, não para adivinhar.
+    const conhecida = await Location.getLastKnownPositionAsync({
+      maxAge: LAST_KNOWN_MAX_AGE_MS,
+    });
     if (conhecida) {
-      return {
+      const coordinates = {
         latitude: conhecida.coords.latitude,
         longitude: conhecida.coords.longitude,
       };
+      record(coordinates, conhecida.timestamp);
+      return coordinates;
     }
 
-    const position = await Location.getCurrentPositionAsync({
-      // Ver a nota em `watchPositionIdle`: `Balanced` depende da rede.
-      accuracy: Location.Accuracy.High,
-    });
-
-    return {
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-    };
+    return await getFreshPosition();
   } catch {
     return null;
   }

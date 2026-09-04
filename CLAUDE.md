@@ -1237,6 +1237,33 @@ cinquenta metros), para o ponto azul acompanhar quem anda. Durante a navegação
 subscrição desliga-se e passa a valer a do motor de navegação, a cada segundo — ter as duas
 ligadas era gastar bateria a dobrar.
 
+### Uma posição guardada tem prazo
+
+**Com a aplicação em segundo plano, o Android corta as leituras de GPS.** É a contrapartida
+de se pedir a permissão só "durante a utilização", e está certo assim. O problema é o que
+fica para trás: quem andou com a aplicação fechada volta com a posição de onde **estava**, e
+durante uns segundos nada distingue essa posição de uma boa.
+
+Foi assim que centrar o mapa levava, de vez em quando, a um sítio onde se tinha estado. A
+posição não estava errada — estava velha, e o código não sabia a diferença. Três coisas
+tratam disto agora:
+
+- **A última leitura anda com a hora a que foi medida** (`lastFix`, em `location.ts`), e é a
+  hora **da leitura**, não a de quando ela chegou. O Android entrega às vezes uma posição da
+  cache mal se volta a subscrever o GPS: chega agora e é de há uma hora. Carimbá-la à
+  chegada dava-a como fresquíssima, que é exatamente a avaria a evitar.
+- **O botão não centra no que está em estado** — pergunta ao `getBestPosition()`, que devolve
+  a guardada se ainda for recente (`POSITION_FRESH_MS`, 20 s) e vai buscar uma nova se não
+  for. Ao fim de `POSITION_TIMEOUT_MS` desiste e usa o que houver: um mapa no sítio de antes
+  é mau, um botão que não responde é pior, e sem rede o GPS leva minutos a acordar.
+- **Ao voltar ao ecrã, pede-se logo uma leitura nova.** Sem isto esperava-se pela do
+  seguimento, que só vem de dez em dez segundos **e** depois de se andar cinquenta metros —
+  parado dentro de casa podia nunca vir.
+
+O atalho da última posição conhecida, no arranque, também passou a ter idade máxima
+(`LAST_KNOWN_MAX_AGE_MS`). Serve para adiantar o arranque, não para adivinhar: sem limite
+nenhum, quem usou a aplicação em casa e a abria no trabalho via o mapa abrir em casa.
+
 **O botão do GPS tem dois níveis, como no Maps.** Um toque leva a câmara à posição uma vez;
 **dois toques põem-na a andar com a pessoa** e o botão fica aceso, como o da fita métrica —
 é um modo em que se entra, não uma ação que se faz. Com o seguimento ligado, qualquer toque
@@ -1599,6 +1626,13 @@ Erros já cometidos neste projeto, para não se repetirem.
   existem — são `long_name`, `locality_name` e `line_ids`. A posição vinha certa, por isso
   a lista aparecia com as distâncias todas boas e o nome "Paragem" repetido seis vezes.
   Nenhum erro, nenhum aviso. O serviço é aberto no GitHub; bastava lê-lo.
+- **Uma posição não é só um sítio: é um sítio a uma hora.** Centrar o mapa levava de vez em
+  quando a um sítio onde já se tinha estado, depois de a aplicação passar pelo segundo
+  plano — onde o Android corta as leituras de GPS. A posição guardada não estava errada,
+  estava velha, e nada no código distinguia as duas coisas. Ao guardar uma leitura, guardar
+  **a hora a que foi medida** e não a hora a que chegou: o Android entrega às vezes uma
+  posição da cache mal se volta a subscrever o GPS, e carimbá-la à chegada dá-a como
+  acabada de medir. Ver "Uma posição guardada tem prazo".
 - **Uma propriedade com "initial" no nome é lida uma vez e nunca mais.** O
   `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
   ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a

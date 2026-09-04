@@ -258,6 +258,37 @@ export const BATTERY_SAVER_MIN_METERS = 1500;
 export const ANNOUNCE_AT_METERS = [400, 80];
 
 /**
+ * A partir de que idade uma posição deixa de servir para centrar o mapa.
+ *
+ * Fora da navegação o GPS é lido de dez em dez segundos, e só quando a pessoa se
+ * mexe — parada, pode passar muito mais tempo sem leitura nenhuma, e isso é
+ * normal. **Com a aplicação em segundo plano, o Android corta as leituras de
+ * vez**, e é aí que isto conta: quem andou com a aplicação fechada volta com uma
+ * posição do sítio onde estava antes. Passado este tempo, vai-se buscar uma nova
+ * em vez de se acreditar na que está guardada.
+ */
+export const POSITION_FRESH_MS = 20000;
+
+/**
+ * Quanto tempo se espera por uma posição nova antes de desistir dela.
+ *
+ * Sem rede, o GPS pode levar minutos a dar a primeira posição — esperar por ela
+ * de botão carregado era deixar a aplicação a parecer encravada. Ao fim disto
+ * usa-se o que houver.
+ */
+export const POSITION_TIMEOUT_MS = 4000;
+
+/**
+ * Que idade máxima pode ter a última posição conhecida para servir no arranque.
+ *
+ * O atalho existe para haver logo alguma coisa no ecrã enquanto o GPS acorda, e
+ * isso continua a valer. Mas sem limite nenhum ele servia uma posição de ontem:
+ * quem usou a aplicação em casa e a abre no trabalho via o mapa a abrir em casa,
+ * com toda a confiança.
+ */
+export const LAST_KNOWN_MAX_AGE_MS = 120000;
+
+/**
  * Até quantos milissegundos entre dois toques ainda contam como um toque duplo.
  *
  * Trezentos é o valor que o próprio Android usa para o duplo toque. Não convém

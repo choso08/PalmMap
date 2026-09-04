@@ -2,7 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -46,7 +46,13 @@ import {
 } from './src/services/cameras';
 import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
 import { loadRecents, rememberRecent } from './src/services/recents';
-import { getCurrentPosition, watchPosition, watchPositionIdle } from './src/services/location';
+import {
+  getBestPosition,
+  getCurrentPosition,
+  getFreshPosition,
+  watchPosition,
+  watchPositionIdle,
+} from './src/services/location';
 import {
   installBundledAssets,
   installedRegions,
@@ -471,6 +477,41 @@ function PalmMap() {
       setLocationDenied(position === null);
     })();
   }, []);
+
+  /**
+   * Ao voltar do segundo plano, vai buscar a posição outra vez.
+   *
+   * **Com a aplicação fora do ecrã, o Android corta as leituras de GPS** — é a
+   * contrapartida de pedir a permissão só "durante a utilização", e é o que se
+   * quer. Mas quem andou entretanto voltava com a posição de onde estava antes,
+   * e nada no ecrã dizia que aquilo já não valia.
+   *
+   * Pede-se uma leitura nova aqui, sem esperar pela do seguimento: essa vem de
+   * dez em dez segundos e só depois de a pessoa andar cinquenta metros, o que
+   * deixava uma janela larga em que centrar o mapa levava ao sítio errado.
+   *
+   * Durante a navegação não é preciso: aí lê-se a cada segundo, e o Android
+   * retoma isso mal a aplicação volta.
+   */
+  useEffect(() => {
+    if (navigating) {
+      return;
+    }
+
+    const subscription = AppState.addEventListener('change', (estado) => {
+      if (estado !== 'active') {
+        return;
+      }
+      void getFreshPosition().then((posicao) => {
+        if (posicao) {
+          userLocationRef.current = posicao;
+          setUserLocation(posicao);
+        }
+      });
+    });
+
+    return () => subscription.remove();
+  }, [navigating]);
 
   // Fora da navegação, continua a seguir a posição devagar, para o ponto azul
   // acompanhar quem anda em vez de ficar preso onde estava ao abrir. Durante a
@@ -1159,10 +1200,21 @@ function PalmMap() {
       return;
     }
 
-    if (userLocation) {
-      mapRef.current?.recenter(userLocation);
-    }
-  }, [navigating, followUser, userLocation]);
+    // Não se centra no que está em estado: pergunta-se ao serviço, que só
+    // devolve a posição guardada se ela ainda for recente e vai buscar uma nova
+    // se não for. É isto que evita o mapa ir parar a um sítio onde já se esteve
+    // depois de a aplicação ter passado pelo segundo plano — ver
+    // `getBestPosition`.
+    void (async () => {
+      const posicao = await getBestPosition();
+      if (!posicao) {
+        return;
+      }
+      userLocationRef.current = posicao;
+      setUserLocation(posicao);
+      mapRef.current?.recenter(posicao);
+    })();
+  }, [navigating, followUser]);
 
   /**
    * Escolher um destino desliga o seguimento.
