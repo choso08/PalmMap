@@ -28,6 +28,7 @@ import {
   BATTERY_SAVER_MIN_METERS,
   CAMERA_WARN_METERS,
   CATEGORY_MIN_ZOOM,
+  DOUBLE_TAP_MS,
   KEEP_AWAKE_TAG,
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
@@ -238,6 +239,14 @@ function PalmMap() {
    * desligar em cima do limite.
    */
   const [slowGps, setSlowGps] = useState(false);
+
+  /**
+   * A câmara anda com a pessoa, fora da navegação. Liga-se com dois toques no
+   * botão do GPS e desliga-se ao arrastar o mapa — ver `handleLocatePress`.
+   */
+  const [followUser, setFollowUser] = useState(false);
+  /** Quando foi o último toque no botão do GPS, para reconhecer o toque duplo. */
+  const lastLocateTap = useRef(0);
 
   /** Navegação a decorrer: segue a posição e anuncia as manobras. */
   const [navigating, setNavigating] = useState(false);
@@ -1110,6 +1119,64 @@ function PalmMap() {
     stopSpeaking();
   }, []);
 
+  /**
+   * O botão do GPS: um toque centra uma vez, dois toques põem a câmara a andar
+   * com a pessoa.
+   *
+   * **O toque simples age já, sem esperar para ver se vem outro atrás.** Esperar
+   * trezentos milissegundos por um segundo toque que quase nunca vem era pôr a
+   * ação mais usada a parecer lenta para servir a menos usada. Assim o segundo
+   * toque promove o que o primeiro já fez: o primeiro leva a câmara à posição, o
+   * segundo manda-a lá ficar.
+   *
+   * Com o seguimento ligado, qualquer toque o desliga. O botão está aceso,
+   * carrega-se nele e apaga-se — que é o que se espera de um botão aceso, e evita
+   * ter de acertar noutro toque duplo para o desfazer.
+   */
+  const handleLocatePress = useCallback(() => {
+    // A navegação tem o seu próprio seguimento, que roda o mapa no sentido da
+    // marcha. Aqui o botão serve só para voltar a prender a câmara ao carro
+    // depois de se ter arrastado o mapa para espreitar o que vem a seguir.
+    if (navigating) {
+      mapRef.current?.followAgain();
+      return;
+    }
+
+    const agora = Date.now();
+    const duplo = agora - lastLocateTap.current < DOUBLE_TAP_MS;
+    // Zero e não `agora`: senão o terceiro toque de uma série contava como um
+    // segundo duplo, e três toques seguidos ligavam e desligavam o seguimento
+    // sem que se percebesse porquê.
+    lastLocateTap.current = duplo ? 0 : agora;
+
+    if (followUser) {
+      setFollowUser(false);
+      return;
+    }
+
+    if (duplo) {
+      setFollowUser(true);
+      return;
+    }
+
+    if (userLocation) {
+      mapRef.current?.recenter(userLocation);
+    }
+  }, [navigating, followUser, userLocation]);
+
+  /**
+   * Escolher um destino desliga o seguimento.
+   *
+   * Com um destino escolhido, o mapa enquadra o percurso todo — e uma câmara
+   * presa à pessoa desfazia esse enquadramento à primeira leitura do GPS. Quem
+   * escolhe um destino quer ver o caminho, não o seu próprio ponto.
+   */
+  useEffect(() => {
+    if (destination || navigating) {
+      setFollowUser(false);
+    }
+  }, [destination, navigating]);
+
   const placesById = useMemo(() => {
     const index = new Map<number, Place>();
     for (const place of places) {
@@ -1247,6 +1314,8 @@ function PalmMap() {
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}
         following={navigating}
+        followUser={followUser}
+        onFollowUserChange={setFollowUser}
         progressIndex={progressIndex}
         cameras={cameras}
         measurePoints={measuring ? measurePoints : []}
@@ -1475,6 +1544,10 @@ function PalmMap() {
       {/*
         Botão de voltar à posição atual.
 
+        Um toque centra, dois toques põem a câmara a andar com a pessoa — ver
+        `handleLocatePress`. Enquanto está a seguir fica aceso, como o botão da
+        fita métrica, porque é um modo em que se entra e não uma ação que se faz.
+
         Durante a navegação faz falta na mesma: basta arrastar o mapa uma vez
         para ver o que vem a seguir e a câmara larga o carro. Aí o que se quer é
         voltar a prendê-la, não só centrar uma vez — daí serem dois caminhos.
@@ -1483,6 +1556,7 @@ function PalmMap() {
         <Pressable
           style={({ pressed }) => [
             styles.locateButton,
+            followUser && !navigating ? styles.locateFollowing : null,
             navigating
               ? styles.locateNavigating
               : selectedPlace || destination
@@ -1490,16 +1564,12 @@ function PalmMap() {
                 : null,
             pressed && styles.buttonPressed,
           ]}
-          onPress={() =>
-            navigating
-              ? mapRef.current?.followAgain()
-              : mapRef.current?.recenter(userLocation)
-          }
+          onPress={handleLocatePress}
         >
           <MaterialCommunityIcons
             name="crosshairs-gps"
             size={24}
-            color={theme.accent}
+            color={followUser && !navigating ? theme.onAccent : theme.accent}
           />
         </Pressable>
       ) : null}
@@ -1745,6 +1815,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     /** Acima do painel de navegação, que é mais baixo do que os outros. */
     locateNavigating: {
       bottom: insets.bottom + 130,
+    },
+    /** Aceso enquanto a câmara anda com a pessoa, como o botão da fita métrica. */
+    locateFollowing: {
+      backgroundColor: theme.accent,
     },
   });
 }

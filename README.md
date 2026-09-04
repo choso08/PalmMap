@@ -27,7 +27,8 @@ atual.
 ## O que faz
 
 **Mapa** — desenhado, imagem de satélite ou rede de transportes públicos, em tema claro ou
-escuro conforme o telemóvel.
+escuro conforme o telemóvel. Abre onde está; dois toques no botão do GPS põem o mapa a
+andar consigo.
 
 **Pesquisa** — moradas e negócios, com os últimos destinos e os sítios guardados à mão.
 

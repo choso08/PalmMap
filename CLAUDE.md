@@ -1237,6 +1237,30 @@ cinquenta metros), para o ponto azul acompanhar quem anda. Durante a navegação
 subscrição desliga-se e passa a valer a do motor de navegação, a cada segundo — ter as duas
 ligadas era gastar bateria a dobrar.
 
+**O botão do GPS tem dois níveis, como no Maps.** Um toque leva a câmara à posição uma vez;
+**dois toques põem-na a andar com a pessoa** e o botão fica aceso, como o da fita métrica —
+é um modo em que se entra, não uma ação que se faz. Com o seguimento ligado, qualquer toque
+o desliga: o botão está aceso, carrega-se nele e apaga-se.
+
+Três decisões dentro disto, todas em `handleLocatePress`:
+
+- **O toque simples age já, sem esperar pelo segundo.** Esperar `DOUBLE_TAP_MS` por um
+  toque que quase nunca vem era pôr a ação mais usada a parecer lenta para servir a menos
+  usada. O segundo toque **promove** o que o primeiro já fez: um leva a câmara lá, o outro
+  manda-a ficar.
+- **Fora da navegação segue-se com `'default'` e não com `'course'`.** O `'course'` roda o
+  mapa no sentido da marcha, que a conduzir ajuda e a pé desorienta — quem vai a olhar para
+  o telemóvel não quer o mapa a rodar-lhe na mão. O `'course'` fica só para a navegação.
+- **Quem avisa que o seguimento caiu é o `onTrackUserLocationChange`**, e não o
+  `userInteraction` do `onRegionDidChange`. Arrastar o mapa desliga o seguimento, mas
+  **aproximar com dois dedos não** — e o `userInteraction` é verdadeiro nos dois casos. Quem
+  sabe a diferença é a biblioteca; lê-se a resposta dela em vez de a adivinhar. Sem este
+  aviso, o botão ficava aceso a dizer que seguia depois de o MapLibre já ter largado, e a
+  única forma de o apagar era carregar nele — o que o ligava outra vez.
+
+Escolher um destino desliga o seguimento: o mapa passa a enquadrar o percurso todo, e uma
+câmara presa à pessoa desfazia esse enquadramento à primeira leitura do GPS.
+
 **A aplicação abre onde a pessoa está.** Enquanto o GPS não responde, o mapa abre em Lisboa,
 e assim que a primeira posição chega a câmara passa para lá — uma vez só, e sem animação,
 para parecer que abriu logo no sítio certo em vez de se ver o mapa a atravessar o Atlântico.

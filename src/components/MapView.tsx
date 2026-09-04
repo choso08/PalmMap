@@ -6,6 +6,7 @@ import {
   Map,
   Marker,
   type PressEvent,
+  type TrackUserLocationChangeEvent,
   UserLocation,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
@@ -65,6 +66,21 @@ interface MapViewProps {
   waypoints?: Coordinates[];
   /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
   following?: boolean;
+  /**
+   * Fora da navegação: a câmara anda com a pessoa, sem rodar o mapa.
+   *
+   * É o que se liga com dois toques no botão do GPS. Não roda de propósito — a
+   * conduzir, virar o mapa no sentido da marcha ajuda; a pé, a olhar para o
+   * telemóvel, um mapa que roda sozinho é só desorientação.
+   */
+  followUser?: boolean;
+  /**
+   * Chamado quando o seguimento cai por si.
+   *
+   * O MapLibre larga-o assim que a pessoa arrasta o mapa — e sem este aviso o
+   * botão ficava aceso a dizer que seguia quando já não seguia.
+   */
+  onFollowUserChange?: (following: boolean) => void;
   /**
    * Até que ponto do percurso já se andou, durante a navegação.
    *
@@ -146,6 +162,8 @@ export function MapView({
   onDropPin,
   onTapEmpty,
   following,
+  followUser,
+  onFollowUserChange,
   progressIndex = 0,
   cameras = [],
   measurePoints = [],
@@ -345,6 +363,28 @@ export function MapView({
   );
 
   /**
+   * O MapLibre avisa aqui quando muda o modo de seguimento — incluindo quando é
+   * ele a largá-lo, que é o que acontece assim que a pessoa arrasta o mapa.
+   *
+   * **Só se comunica a queda.** Ligar é sempre decisão de quem carrega no botão;
+   * o que se aproveita daqui é o "deixei de seguir", para o botão não ficar aceso
+   * a mentir. Sem isto, a única forma de o apagar era carregar nele — o que o
+   * ligava outra vez.
+   *
+   * Reparar em quem larga o seguimento por esta via, e não pelo `userInteraction`
+   * do `onRegionDidChange`: aproximar o mapa com dois dedos também é interação da
+   * pessoa e **não** desliga o seguimento. Quem sabe a diferença é a biblioteca.
+   */
+  const handleTrackChange = useCallback(
+    (event: NativeSyntheticEvent<TrackUserLocationChangeEvent>) => {
+      if (!event.nativeEvent.trackUserLocation) {
+        onFollowUserChange?.(false);
+      }
+    },
+    [onFollowUserChange],
+  );
+
+  /**
    * Se o mapa guardado não abrir, volta-se aos tiles da Internet.
    *
    * Vale a pena ter isto: o mapa guardado é a parte mais recente e a que menos
@@ -405,8 +445,11 @@ export function MapView({
         key={`camera-${followNonce}-${openNonce}`}
         ref={cameraRef}
         // 'course' aponta o mapa no sentido em que se segue, como na navegação
-        // do Maps. Fora da navegação, a câmara fica livre.
-        trackUserLocation={following ? 'course' : undefined}
+        // do Maps. O 'default' acompanha a pessoa sem lhe virar o mapa — é o que
+        // se liga com dois toques no botão do GPS. Sem nenhum dos dois, a câmara
+        // fica livre.
+        trackUserLocation={following ? 'course' : followUser ? 'default' : undefined}
+        onTrackUserLocationChange={handleTrackChange}
         initialViewState={{
           center: userLocation
             ? [userLocation.longitude, userLocation.latitude]

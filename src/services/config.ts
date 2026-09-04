@@ -258,6 +258,15 @@ export const BATTERY_SAVER_MIN_METERS = 1500;
 export const ANNOUNCE_AT_METERS = [400, 80];
 
 /**
+ * Até quantos milissegundos entre dois toques ainda contam como um toque duplo.
+ *
+ * Trezentos é o valor que o próprio Android usa para o duplo toque. Não convém
+ * baixá-lo: quem tem menos destreza nos dedos deixa de conseguir acertar, e o
+ * segundo toque passa a valer como um toque simples — que aqui faz outra coisa.
+ */
+export const DOUBLE_TAP_MS = 300;
+
+/**
  * Abaixo de que velocidade se mostra zero, em metros por segundo.
  *
  * O GPS nunca diz exatamente zero: parado num semáforo, a velocidade oscila umas
