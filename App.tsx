@@ -10,6 +10,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import { CategoryBar } from './src/components/CategoryBar';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { MapView, type MapViewRef } from './src/components/MapView';
 import { NavigationPanel } from './src/components/NavigationPanel';
 import { PlaceSheet } from './src/components/PlaceSheet';
@@ -50,6 +51,7 @@ import {
   getBestPosition,
   getCurrentPosition,
   getFreshPosition,
+  requestPermission,
   watchPosition,
   watchPositionIdle,
 } from './src/services/location';
@@ -98,9 +100,15 @@ configureTileRequests();
 export default function App() {
   return (
     <SafeAreaProvider>
-      <SettingsProvider>
-        <PalmMap />
-      </SettingsProvider>
+      {/*
+        Por fora de tudo: um erro a desenhar o ecrã passa a ficar à vista em vez
+        de fechar a aplicação sem explicação nenhuma. Ver `ErrorBoundary`.
+      */}
+      <ErrorBoundary>
+        <SettingsProvider>
+          <PalmMap />
+        </SettingsProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }
@@ -470,11 +478,19 @@ function PalmMap() {
   // Posição atual, pedida uma vez ao arrancar.
   useEffect(() => {
     void (async () => {
+      // **"Sem posição" não é "sem permissão".** Estas duas coisas andavam
+      // juntas: qualquer falta de posição contava como recusa, e a aplicação
+      // escondia o aviso certo e o botão do GPS. Mas o GPS falha por muitas
+      // razões que não são a pessoa ter dito que não — dentro de casa, sem céu
+      // à vista, ou simplesmente por ainda não ter respondido. A recusa
+      // pergunta-se a quem sabe.
+      const autorizada = await requestPermission();
+      setLocationDenied(!autorizada);
+
       const position = await getCurrentPosition();
       userLocationRef.current = position;
       setUserLocation(position);
       setHasLocation(position !== null);
-      setLocationDenied(position === null);
     })();
   }, []);
 
@@ -1208,6 +1224,10 @@ function PalmMap() {
     void (async () => {
       const posicao = await getBestPosition();
       if (!posicao) {
+        // Não fazer nada é o pior que este botão podia fazer: quem carrega fica
+        // sem saber se a aplicação o ouviu. Dentro de casa o GPS demora mesmo,
+        // e dizê-lo evita a pessoa ficar a carregar à espera de nada.
+        setPlacesError(t().errors.locationUnavailable);
         return;
       }
       userLocationRef.current = posicao;
@@ -1603,8 +1623,16 @@ function PalmMap() {
         Durante a navegação faz falta na mesma: basta arrastar o mapa uma vez
         para ver o que vem a seguir e a câmara larga o carro. Aí o que se quer é
         voltar a prendê-la, não só centrar uma vez — daí serem dois caminhos.
+
+        **O botão não depende de já se saber onde a pessoa está**, e isso já
+        esteve ao contrário: aparecia só depois da primeira posição. Bastava o
+        GPS não responder — dentro de casa, ou parado, onde o seguimento lento
+        pode nunca chegar a dar uma leitura — para não haver botão nenhum, que é
+        exatamente quando ele faz mais falta. Sem posição, carregar nele é o que
+        manda o GPS procurar. Só desaparece se a permissão tiver sido recusada,
+        porque aí não há nada que ele possa fazer.
       */}
-      {userLocation ? (
+      {!locationDenied ? (
         <Pressable
           style={({ pressed }) => [
             styles.locateButton,

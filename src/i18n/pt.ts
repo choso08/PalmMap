@@ -370,6 +370,8 @@ export const pt = {
     routeGeneric: 'Não foi possível calcular o percurso.',
     noLocationForRoute: 'Sem a sua localização não é possível calcular o percurso.',
     locationDenied: 'Sem acesso ao GPS. Ainda pode ver o mapa e pesquisar moradas.',
+    locationUnavailable:
+      'Ainda não foi possível apanhar sinal de GPS. Dentro de casa costuma demorar.',
     placesFailed: 'Não foi possível procurar locais. Tente daqui a pouco.',
     placesBusy: 'O serviço está cheio neste momento. Tente daqui a pouco.',
     searchFailed: 'Não foi possível procurar.',

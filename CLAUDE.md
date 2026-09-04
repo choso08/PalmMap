@@ -303,6 +303,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
 │   │   ├── StepsList.tsx   # Lista das instruções do percurso
 │   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
+│   │   ├── ErrorBoundary.tsx # Mostra o erro em vez de a aplicação fechar
 │   │   ├── DraggableSheet.tsx # Painel de baixo que se arrasta para encolher
   │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
 │   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
@@ -1640,6 +1641,18 @@ Erros já cometidos neste projeto, para não se repetirem.
   existem — são `long_name`, `locality_name` e `line_ids`. A posição vinha certa, por isso
   a lista aparecia com as distâncias todas boas e o nome "Paragem" repetido seis vezes.
   Nenhum erro, nenhum aviso. O serviço é aberto no GitHub; bastava lê-lo.
+- **"Sem posição" não é "sem permissão".** As duas andavam juntas no arranque: qualquer
+  falta de posição contava como recusa. E como o botão do GPS só aparecia depois da primeira
+  posição, bastava o GPS não responder — dentro de casa, ou parado, onde o seguimento lento
+  pode nunca dar uma leitura — para **o botão e o ponto azul desaparecerem de vez**. Era o
+  contrário do que devia: é sem posição que o botão faz mais falta. Hoje a recusa
+  pergunta-se a quem sabe, e o botão só desaparece quando a permissão foi mesmo recusada.
+- **No Android não pode haver dois pedidos de permissão ao mesmo tempo.** O segundo rebenta
+  do lado nativo, e uma exceção nativa numa aplicação compilada fecha-a sem mais. Isto era
+  fácil de provocar: ao arrancar, a leitura inicial e o seguimento pediam os dois quase ao
+  mesmo tempo. Hoje o `requestPermission()` **pergunta antes de pedir** — uma vez concedida
+  nunca mais abre diálogo nenhum — e, se mesmo assim for preciso pedir, quem chega a seguir
+  espera pela resposta do primeiro em vez de abrir outro.
 - **Uma posição não é só um sítio: é um sítio a uma hora.** Centrar o mapa levava de vez em
   quando a um sítio onde já se tinha estado, depois de a aplicação passar pelo segundo
   plano — onde o Android corta as leituras de GPS. A posição guardada não estava errada,

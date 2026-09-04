@@ -50,12 +50,50 @@ function comPrazo(leitura: Promise<Coordinates | null>): Promise<Coordinates | n
 }
 
 /**
- * Pede a permissão de localização, durante a utilização da aplicação.
+ * O pedido de permissão que está a decorrer, se houver algum.
+ *
+ * **No Android não pode haver dois ao mesmo tempo.** O segundo pedido feito com
+ * o primeiro ainda aberto rebenta do lado nativo — e uma exceção nativa numa
+ * aplicação compilada fecha-a sem mais explicação. Isto acontecia mais do que
+ * parece: ao arrancar, o seguimento da posição e a leitura inicial pedem os dois
+ * quase ao mesmo tempo. Quem chegar a seguir espera pela resposta do primeiro em
+ * vez de abrir outro.
+ */
+let pedidoEmCurso: Promise<boolean> | null = null;
+
+/**
+ * Garante a permissão de localização, durante a utilização da aplicação.
  * Devolve true se a pessoa autorizou.
+ *
+ * **Pergunta antes de pedir.** Uma vez concedida, nunca mais se abre o diálogo:
+ * as vezes seguintes ficam-se por uma consulta, que não tira o foco à aplicação
+ * nem pode chocar com outro pedido. Pedir sem necessidade é a diferença entre um
+ * arranque calmo e três diálogos a disputarem o mesmo ecrã.
  */
 export async function requestPermission(): Promise<boolean> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  return status === Location.PermissionStatus.GRANTED;
+  try {
+    const atual = await Location.getForegroundPermissionsAsync();
+    if (atual.status === Location.PermissionStatus.GRANTED) {
+      return true;
+    }
+    // Recusada de vez: insistir não abre diálogo nenhum e só dá trabalho.
+    if (!atual.canAskAgain) {
+      return false;
+    }
+  } catch {
+    // Sem resposta à consulta, tenta-se pedir na mesma — é o que havia antes.
+  }
+
+  if (!pedidoEmCurso) {
+    pedidoEmCurso = Location.requestForegroundPermissionsAsync()
+      .then(({ status }) => status === Location.PermissionStatus.GRANTED)
+      .catch(() => false)
+      .finally(() => {
+        pedidoEmCurso = null;
+      });
+  }
+
+  return pedidoEmCurso;
 }
 
 /**

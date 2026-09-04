@@ -355,6 +355,7 @@ export const en: typeof pt = {
     routeGeneric: "Couldn't work out the route.",
     noLocationForRoute: "Without your location the route can't be worked out.",
     locationDenied: 'No GPS access. You can still see the map and search for addresses.',
+    locationUnavailable: 'No GPS signal yet. Indoors this usually takes a while.',
     placesFailed: "Couldn't search for places. Try again shortly.",
     placesBusy: 'The service is busy right now. Try again shortly.',
     searchFailed: "Couldn't search.",
