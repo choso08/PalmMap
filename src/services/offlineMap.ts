@@ -253,6 +253,18 @@ export async function downloadRegion(
     parcial.delete();
   }
 
+  /**
+   * A última percentagem inteira já comunicada.
+   *
+   * **O sistema avisa a cada bocado que escreve no disco**, e num ficheiro de
+   * centenas de megabytes isso são milhares de avisos por segundo. Cada um
+   * chegava ao ecrã e redesenhava a lista inteira — a barra andava na mesma, mas
+   * o telemóvel passava o tempo a desenhar em vez de a descarregar, e com várias
+   * descargas ao mesmo tempo era o suficiente para a aplicação deixar de
+   * responder. Só se avisa quando o número que se vê muda mesmo.
+   */
+  let ultimaPercentagem = -1;
+
   try {
     const descarregado = await File.downloadFileAsync(
       `${BASE_URL}/${region.ficheiro}`,
@@ -262,9 +274,17 @@ export async function downloadRegion(
           // O servidor nem sempre diz o tamanho à partida — nesse caso vem -1 e
           // usa-se o do manifesto, que é o valor real medido ao gerar o ficheiro.
           const total = totalBytes > 0 ? totalBytes : region.bytes;
-          if (total > 0) {
-            onProgress?.(Math.min(1, bytesWritten / total));
+          if (total <= 0) {
+            return;
           }
+
+          const fracao = Math.min(1, bytesWritten / total);
+          const percentagem = Math.floor(fracao * 100);
+          if (percentagem === ultimaPercentagem) {
+            return;
+          }
+          ultimaPercentagem = percentagem;
+          onProgress?.(fracao);
         },
       },
     );

@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '../i18n';
@@ -37,10 +37,22 @@ export function OfflineMaps() {
   const [regions, setRegions] = useState<OfflineRegion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  /** Que região está a ser descarregada ou apagada neste momento. */
-  const [busy, setBusy] = useState<string | null>(null);
-  /** Quanto já vai do descarregamento a decorrer, de 0 a 1. */
-  const [progress, setProgress] = useState(0);
+  /**
+   * As descargas a decorrer: id da região → quanto já vai, de 0 a 1.
+   *
+   * São várias ao mesmo tempo de propósito. Antes só cabia uma, e quem quisesse
+   * três países tinha de ficar a olhar para o primeiro até ao fim — sendo que o
+   * que demora é a rede, não a aplicação, e a rede aguenta bem as três.
+   */
+  const [downloads, setDownloads] = useState<Record<string, number>>({});
+  /**
+   * As mesmas, numa `ref`.
+   *
+   * Serve só para saber se já se está a descarregar aquela região sem pôr o
+   * `downloads` nas dependências: com ele lá, a função mudava de identidade a
+   * cada avanço da barra e as linhas todas voltavam a desenhar-se.
+   */
+  const emCurso = useRef<Set<string>>(new Set());
   /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
   const [revision, setRevision] = useState(0);
   /** Texto para filtrar a lista. Com dezenas de países, procurar é mais rápido
@@ -61,21 +73,36 @@ export function OfflineMaps() {
   }, []);
 
   const handleToggle = useCallback(async (region: OfflineRegion) => {
-    setBusy(region.id);
-    setProgress(0);
+    // Já está a descarregar: um segundo toque não recomeça do princípio.
+    if (emCurso.current.has(region.id)) {
+      return;
+    }
+
+    if (isDownloaded(region)) {
+      removeRegion(region);
+      setRevision((n) => n + 1);
+      return;
+    }
+
+    emCurso.current.add(region.id);
+    setDownloads((atuais) => ({ ...atuais, [region.id]: 0 }));
     setError(null);
+
     try {
-      if (isDownloaded(region)) {
-        removeRegion(region);
-      } else {
-        await downloadRegion(region, setProgress);
-      }
+      await downloadRegion(region, (fracao) => {
+        setDownloads((atuais) => ({ ...atuais, [region.id]: fracao }));
+      });
       setRevision((n) => n + 1);
     } catch (err) {
+      // A mensagem já diz de que país se trata — com várias a descarregar ao
+      // mesmo tempo, um "não foi possível" sem nome não servia de nada.
       setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
-      setBusy(null);
-      setProgress(0);
+      emCurso.current.delete(region.id);
+      setDownloads((atuais) => {
+        const { [region.id]: _terminada, ...resto } = atuais;
+        return resto;
+      });
     }
   }, []);
 
@@ -138,14 +165,14 @@ export function OfflineMaps() {
       {visiveis.map((region) => {
         // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
         const guardado = revision >= 0 && isDownloaded(region);
-        const ocupado = busy === region.id;
-        const aDescarregar = ocupado && !guardado;
+        const progresso = downloads[region.id];
+        const aDescarregar = progresso !== undefined;
 
         return (
           <Pressable
             key={region.id}
             style={styles.row}
-            disabled={ocupado}
+            disabled={aDescarregar}
             onPress={() => void handleToggle(region)}
           >
             <MaterialCommunityIcons
@@ -159,7 +186,7 @@ export function OfflineMaps() {
               <Text style={styles.size}>
                 {formatBytes(region.bytes)}
                 {aDescarregar
-                  ? ` · ${Math.round(progress * 100)}%`
+                  ? ` · ${Math.round(progresso * 100)}%`
                   : guardado
                     ? ` · ${strings.common.saved}`
                     : ''}
@@ -172,12 +199,12 @@ export function OfflineMaps() {
               */}
               {aDescarregar ? (
                 <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
+                  <View style={[styles.fill, { width: `${Math.round(progresso * 100)}%` }]} />
                 </View>
               ) : null}
             </View>
 
-            {ocupado ? (
+            {aDescarregar ? (
               <ActivityIndicator size="small" color={theme.accent} />
             ) : guardado ? (
               <MaterialCommunityIcons

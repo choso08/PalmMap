@@ -1102,7 +1102,11 @@ copiados uma vez para a pasta da aplicação, no primeiro arranque
 - **`src/services/offlineMap.ts`** — instala o que vem incluído, descarrega o resto, e diz
   que região cobre uma dada posição (`regionAt`).
 - **`src/components/OfflineMaps.tsx`** — a lista nas definições. São Tomé aparece como
-  "vem com a aplicação" e não se pode apagar.
+  "vem com a aplicação" e não se pode apagar. **Descarregam-se vários ao mesmo tempo**: o
+  que demora é a rede, não a aplicação, e esperar pelo primeiro para pedir o segundo não
+  servia ninguém. O estado é um mapa de `id` para progresso, e a lista dos que estão em
+  curso vive também numa `ref` — sem isso, a função de descarregar mudava de identidade a
+  cada avanço da barra e as linhas todas voltavam a desenhar-se.
 - **`map-regions.json`** — o **catálogo**: 90 regiões, do mundo todo. Estar aqui não quer
   dizer que já esteja gerado; a lista que a aplicação mostra é a do `mapas.json` da
   Release, ou seja só o que já foi gerado.
@@ -1660,6 +1664,12 @@ Erros já cometidos neste projeto, para não se repetirem.
   **a hora a que foi medida** e não a hora a que chegou: o Android entrega às vezes uma
   posição da cache mal se volta a subscrever o GPS, e carimbá-la à chegada dá-a como
   acabada de medir. Ver "Uma posição guardada tem prazo".
+- **Um aviso de progresso é por bocado escrito, não por percentagem.** O
+  `File.downloadFileAsync` chama de volta a cada pedaço que grava, o que num ficheiro de
+  centenas de megabytes são milhares de chamadas por segundo. Ligar isso diretamente a um
+  `setState` punha o telemóvel a passar o tempo a desenhar a lista em vez de a descarregar —
+  a barra andava na mesma, por isso não se via que estava mal. Hoje só se avisa quando a
+  percentagem inteira muda: cem avisos em vez de milhares.
 - **Uma propriedade com "initial" no nome é lida uma vez e nunca mais.** O
   `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
   ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a

@@ -51,7 +51,13 @@ export function Schedules() {
   const [feeds, setFeeds] = useState<ScheduleFeedInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * Os horários a descarregar neste momento.
+   *
+   * Vários ao mesmo tempo, como nos mapas: são ficheiros pequenos, mas esperar
+   * pelo primeiro para pedir o segundo não fazia sentido nenhum.
+   */
+  const [busy, setBusy] = useState<string[]>([]);
   /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
   const [revision, setRevision] = useState(0);
 
@@ -69,19 +75,21 @@ export function Schedules() {
   }, []);
 
   const handleToggle = useCallback(async (info: ScheduleFeedInfo) => {
-    setBusy(info.id);
+    if (isInstalled(info)) {
+      removeFeed(info);
+      setRevision((n) => n + 1);
+      return;
+    }
+
+    setBusy((atuais) => (atuais.includes(info.id) ? atuais : [...atuais, info.id]));
     setError(null);
     try {
-      if (isInstalled(info)) {
-        removeFeed(info);
-      } else {
-        await downloadFeed(info);
-      }
+      await downloadFeed(info);
       setRevision((n) => n + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
-      setBusy(null);
+      setBusy((atuais) => atuais.filter((id) => id !== info.id));
     }
   }, []);
 
@@ -107,7 +115,7 @@ export function Schedules() {
       {feeds.map((info) => {
         // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
         const guardado = revision >= 0 && isInstalled(info);
-        const ocupado = busy === info.id;
+        const ocupado = busy.includes(info.id);
         const fora = isExpired(info);
         const icone = STATION_ICONS[info.kind as StationKind] ?? 'clock-outline';
 
