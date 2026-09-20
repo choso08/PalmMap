@@ -155,7 +155,6 @@ export function SettingsSheet({
             sem ter de ler o resto.
           */}
           <Text style={styles.sectionTitle}>{s.language}</Text>
-          <Text style={styles.sectionHint}>{s.languageHint}</Text>
           <ChoiceRow
             options={LANGUAGES}
             label={(id) => strings.languages[id]}
@@ -166,7 +165,6 @@ export function SettingsSheet({
           />
 
           <Text style={styles.sectionTitle}>{s.travelMode}</Text>
-          <Text style={styles.sectionHint}>{s.travelModeHint}</Text>
           <ChoiceRow
             options={TRAVEL_MODES}
             label={(id) => s.travelModes[id]}
@@ -190,7 +188,6 @@ export function SettingsSheet({
           <Text style={styles.note}>{s.timeAdjustmentNote}</Text>
 
           <Text style={styles.sectionTitle}>{s.appearance}</Text>
-          <Text style={styles.sectionHint}>{s.appearanceHint}</Text>
           <ChoiceRow
             options={APPEARANCE_MODES}
             label={(id) => s.appearanceModes[id]}
@@ -201,7 +198,6 @@ export function SettingsSheet({
           />
 
           <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
-          <Text style={styles.sectionHint}>{s.satelliteDetailHint}</Text>
           <ChoiceRow
             options={SATELLITE_DETAILS}
             label={(id) => s.satelliteDetails[id]}
@@ -301,7 +297,6 @@ export function SettingsSheet({
               trackColor={{ true: theme.accent, false: theme.border }}
             />
           </View>
-          <Text style={styles.note}>{s.camerasNote}</Text>
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
@@ -314,7 +309,6 @@ export function SettingsSheet({
               trackColor={{ true: theme.accent, false: theme.border }}
             />
           </View>
-          <Text style={styles.note}>{s.tollsNote}</Text>
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
@@ -342,7 +336,6 @@ export function SettingsSheet({
           </View>
 
           <Text style={styles.sectionTitle}>{s.recents}</Text>
-          <Text style={styles.sectionHint}>{s.recentsHint}</Text>
           <Pressable
             style={styles.forgetRow}
             onPress={() => void clearRecents().then(onRecentsCleared)}

@@ -1,18 +1,12 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import type { File } from 'expo-file-system';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { t } from '../i18n';
-import {
-  checkForUpdate,
-  currentVersion,
-  downloadUpdate,
-  installUpdate,
-  type UpdateInfo,
-} from '../services/update';
+import { checkForUpdate, currentVersion, type UpdateInfo } from '../services/update';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
+import { useUpdateDownload } from '../useUpdateDownload';
 
 /** Megabytes em texto, na forma da língua atual. */
 function formatBytes(bytes: number): string {
@@ -47,58 +41,31 @@ export function Updates({ found, onFound }: UpdatesProps) {
   const [checking, setChecking] = useState(false);
   /** Já se procurou nesta sessão e não havia nada de novo. */
   const [upToDate, setUpToDate] = useState(false);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [ready, setReady] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  // Descarregar e instalar é o mesmo aqui e no aviso do arranque.
+  const descarga = useUpdateDownload();
 
   const handleCheck = useCallback(async () => {
     setChecking(true);
-    setError(null);
+    setCheckError(null);
     setUpToDate(false);
     try {
       const nova = await checkForUpdate();
       onFound(nova);
       setUpToDate(nova === null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t().common.failed);
+      setCheckError(err instanceof Error ? err.message : t().common.failed);
     } finally {
       setChecking(false);
     }
   }, [onFound]);
 
-  const handleDownload = useCallback(async () => {
-    if (!found) {
-      return;
-    }
-    setProgress(0);
-    setError(null);
-    try {
-      const ficheiro = await downloadUpdate(found, setProgress);
-      setReady(ficheiro);
-      // Abre-se o instalador logo a seguir: quem carregou em "descarregar e
-      // instalar" não quer carregar noutro botão a seguir. Se fechar o
-      // instalador sem instalar, o botão fica lá para voltar a abri-lo.
-      await installUpdate(ficheiro);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t().common.failed);
-    } finally {
-      setProgress(null);
-    }
-  }, [found]);
 
-  const handleInstall = useCallback(async () => {
-    if (!ready) {
-      return;
-    }
-    setError(null);
-    try {
-      await installUpdate(ready);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t().common.failed);
-    }
-  }, [ready]);
 
-  const aDescarregar = progress !== null;
+  const aDescarregar = descarga.downloading;
+  const progress = descarga.progress ?? 0;
+  const ready = descarga.ready;
+  const error = checkError ?? descarga.error;
 
   return (
     <View>
@@ -152,7 +119,7 @@ export function Updates({ found, onFound }: UpdatesProps) {
           <Pressable
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
             disabled={aDescarregar}
-            onPress={() => void (ready ? handleInstall() : handleDownload())}
+            onPress={() => void (ready ? descarga.install() : descarga.start(found))}
           >
             {aDescarregar ? (
               <ActivityIndicator size="small" color={theme.onAccent} />

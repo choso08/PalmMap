@@ -238,8 +238,11 @@ export const pt = {
   settings: {
     title: 'Definições',
 
+    updateTitle: 'Há uma versão nova',
+    updateNow: 'Atualizar agora',
+    updateLater: 'Agora não',
     updates: 'Atualizações',
-    updatesHint: 'Procura versões novas e instala-as sem ter de ir ao GitHub.',
+    updatesHint: 'Procura e instala versões novas, sem ir ao GitHub.',
     currentVersion: (version: string) => `Está na versão ${version}`,
     checkUpdates: 'Procurar agora',
     checking: 'A procurar…',
@@ -250,15 +253,12 @@ export const pt = {
     downloadingUpdate: 'A descarregar…',
     installUpdate: 'Instalar agora',
     updateReady: 'Descarregada. Falta instalar.',
-    updateManualNote:
-      'O Android não deixa nenhuma aplicação instalar-se a si própria em silêncio — quem carrega em "Instalar" no fim tem de ser você. Da primeira vez pergunta ainda se autoriza instalações vindas do PalmMap; sem essa autorização o instalador fecha-se sem dizer porquê.',
+    updateManualNote: 'O "Instalar" final é seu — o Android não deixa nenhuma aplicação instalar-se em silêncio.',
     whatsNew: 'O que mudou',
 
     language: 'Língua',
-    languageHint: 'No modo automático segue a língua do telemóvel.',
 
     appearance: 'Aspeto',
-    appearanceHint: 'No modo automático segue a definição do telemóvel.',
     appearanceModes: {
       system: 'Automático',
       light: 'Claro',
@@ -266,9 +266,7 @@ export const pt = {
     },
 
     travelMode: 'Meio de transporte',
-    travelModeHint: 'Como se calculam os percursos.',
-    travelModeNote:
-      'Cada meio tem o seu servidor, por isso a pé ignoram-se os sentidos únicos e o tempo é contado a passo de pessoa. Também se pode trocar no painel do percurso, sem vir aqui.',
+    travelModeNote: 'Também se troca no painel do percurso, sem vir aqui.',
     travelModes: {
       driving: 'Carro',
       walking: 'A pé',
@@ -284,8 +282,7 @@ export const pt = {
 
     timeAdjustment: 'Tempo estimado',
     timeAdjustmentHint: 'Se as estradas da sua zona forem mais lentas do que o mapa julga.',
-    timeAdjustmentNote:
-      'O tempo vem do tipo de estrada e do piso registado no OpenStreetMap. Onde o piso não está registado, assume-se estrada alcatroada — e numa estrada de terra batida o tempo real pode ser o dobro.',
+    timeAdjustmentNote: 'Onde o piso não está registado assume-se alcatrão; numa estrada de terra o tempo real pode ser o dobro.',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',
@@ -294,29 +291,23 @@ export const pt = {
     },
 
     satelliteDetail: 'Detalhe do satélite',
-    satelliteDetailHint: 'Quanto se aproxima a imagem antes de ficar desfocada.',
     satelliteDetails: {
       normal: 'Normal',
       alta: 'Alta',
     },
-    satelliteNormalHint:
-      'Sentinel-2, do programa europeu Copernicus. Cobre o mundo todo e vê a dez metros por pixel — dá a costa, a floresta e os terrenos, não dá casa a casa.',
-    satelliteHighHint:
-      'Acrescenta as ortofotos oficiais do Estado por cima: vê-se casa a casa, mas só em Portugal e gastando bastante mais dados.',
+    satelliteNormalHint: 'Sentinel-2, do Copernicus: o mundo todo, a dez metros por pixel.',
+    satelliteHighHint: 'Ortofotos do Estado por cima: vê-se casa a casa, mas só em Portugal e com muitos mais dados.',
 
     map: 'Mapa',
     showPlaces: 'Mostrar negócios no mapa',
-    showPlacesHint:
-      'Marca sozinho os negócios da zona que está a ver. Desligar reduz os pedidos feitos ao serviço, que é mantido por voluntários.',
+    showPlacesHint: 'Marca sozinho os negócios da zona que está a ver.',
     showVehicles: 'Autocarros a andar',
-    showVehiclesHint:
-      'Mostra onde estão os autocarros da Carris Metropolitana, em tempo real, no mapa dos transportes. Só aparece com o mapa aproximado.',
-    showVehiclesCost:
-      'Gasta bastantes dados: o serviço só sabe dar a frota inteira de cada vez, e isso repete-se de vinte em vinte segundos enquanto estiver a ver.',
+    showVehiclesHint: 'Onde estão os autocarros da Carris Metropolitana, ao vivo. Só com o mapa aproximado.',
+    showVehiclesCost: 'Gasta bastantes dados: são 1,1 MB de vinte em vinte segundos.',
 
     cache: 'Mapa guardado',
     cacheHint: 'As zonas por onde passa ficam guardadas e voltam a aparecer sem rede.',
-    cacheOffHint: 'Desligado: o mapa é pedido de novo de cada vez, e sem rede não aparece.',
+    cacheOffHint: 'Desligado: sem rede o mapa não aparece.',
     cacheFullHint: 'Quando enche, esquece primeiro o que há mais tempo não vê.',
     cacheSizes: {
       off: 'Nada',
@@ -333,41 +324,27 @@ export const pt = {
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',
-    offlineMapsHint:
-      'Guarda o país inteiro de uma vez. Funciona sem rede a qualquer zoom, mesmo em sítios onde nunca esteve.',
+    offlineMapsHint: 'Guarda o país inteiro. Funciona sem rede, a qualquer zoom.',
     offlineMapsNote: 'Descarregue por Wi-Fi: os países maiores têm centenas de megabytes.',
 
     schedules: 'Horários',
-    schedulesHint:
-      'Comboio, metro e barco. Guardados no telemóvel, aparecem nas estações e nos trajetos de transportes públicos.',
+    schedulesHint: 'Comboio, metro e barco. Guardados no telemóvel, funcionam sem rede.',
 
     navigation: 'Navegação',
     voice: 'Ler as instruções em voz alta',
-    voiceHint:
-      'Durante a navegação, anuncia as manobras à medida que se aproximam. Usa a voz do telemóvel.',
+    voiceHint: 'Anuncia as manobras à medida que se aproximam.',
     cameras: 'Avisar de radares',
-    camerasNote:
-      'Vem do OpenStreetMap, e só apanha o que lá está marcado. Radares móveis não aparecem em mapa nenhum — mudam de sítio todos os dias. Isto é uma ajuda, não é uma garantia: quem conduz é quem tem de ver os sinais.',
-    tollsNote:
-      'O servidor público de percursos pode não ter esta opção instalada. Quando não tem, o percurso sai à mesma — e o painel diz que não foi possível evitá-las. Não há forma aberta de saber quanto custa cada portagem, por isso o preço não é mostrado.',
-    aboutText:
-      'O PalmMap usa apenas serviços abertos e gratuitos, sem Google e sem chaves de API. Os dados do mapa são de quem contribui para o OpenStreetMap.',
-    camerasHint:
-      'Avisa dos radares que estejam no percurso, com o limite quando ele está marcado. Vem do OpenStreetMap: apanha os fixos, os de semáforo e o controlo de velocidade média. Radares móveis não existem em mapa nenhum, e o mapa não está completo — é uma ajuda, não é uma garantia.',
+    aboutText: 'Só serviços abertos e gratuitos, sem Google e sem chaves de API. O mapa é do OpenStreetMap.',
+    camerasHint: 'Os que estão marcados no OpenStreetMap: fixos, de semáforo e velocidade média. Os móveis não existem em mapa nenhum — é uma ajuda, não é uma garantia.',
     tolls: 'Evitar portagens',
-    tollsHint:
-      'Pede um caminho sem portagens. Não há fonte aberta com os preços em Portugal, por isso não se pode dizer quanto custa cada lanço.',
+    tollsHint: 'Pede um caminho sem portagens. O servidor pode não ter a opção, e o preço não existe em fonte aberta.',
     batterySaver: 'Poupar bateria a navegar',
-    batterySaverHint:
-      'Longe da manobra seguinte, lê o GPS de quatro em quatro segundos em vez de todos os segundos. Perto da manobra volta ao normal, e a precisão nunca desce.',
+    batterySaverHint: 'Longe da manobra lê o GPS a cada quatro segundos. A precisão nunca desce.',
     speed: 'Mostrar a velocidade',
-    speedHint:
-      'Durante a navegação, mostra a que velocidade vai, medida pelo GPS. Não gasta bateria a mais: vem dentro das leituras que a navegação já faz.',
-    speedNote:
-      'O velocímetro do carro é o que manda: o do GPS mede o andamento no chão e ignora o tamanho dos pneus, por isso costuma ficar uns km/h abaixo do do painel. Em túneis e entre prédios altos pode desaparecer por uns segundos. Fica vermelho quando passa o limite de um radar que esteja à frente — só nesses, que são os únicos limites que a aplicação conhece.',
+    speedHint: 'A velocidade do GPS, enquanto navega. Não gasta bateria a mais.',
+    speedNote: 'Fica uns km/h abaixo do velocímetro do carro, que é o que manda, e desaparece em túneis.',
 
     recents: 'Últimos destinos',
-    recentsHint: 'Aparecem na pesquisa antes de se escrever, a seguir aos guardados.',
     forgetRecents: 'Esquecer os últimos destinos',
 
     about: 'Acerca',

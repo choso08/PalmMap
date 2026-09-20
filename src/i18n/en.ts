@@ -223,8 +223,11 @@ export const en: typeof pt = {
   settings: {
     title: 'Settings',
 
+    updateTitle: 'A new version is out',
+    updateNow: 'Update now',
+    updateLater: 'Not now',
     updates: 'Updates',
-    updatesHint: 'Finds new versions and installs them without going to GitHub.',
+    updatesHint: 'Finds and installs new versions, without going to GitHub.',
     currentVersion: (version: string) => `You're on version ${version}`,
     checkUpdates: 'Check now',
     checking: 'Checking…',
@@ -235,15 +238,12 @@ export const en: typeof pt = {
     downloadingUpdate: 'Downloading…',
     installUpdate: 'Install now',
     updateReady: 'Downloaded. Ready to install.',
-    updateManualNote:
-      'Android does not let any app install itself silently — the final "Install" tap has to be yours. The first time it will also ask whether you allow installs from PalmMap; without that the installer closes without saying why.',
+    updateManualNote: 'The final "Install" tap is yours — Android lets no app install itself silently.',
     whatsNew: "What's changed",
 
     language: 'Language',
-    languageHint: "On automatic it follows your phone's language.",
 
     appearance: 'Appearance',
-    appearanceHint: "On automatic it follows your phone's setting.",
     appearanceModes: {
       system: 'Automatic',
       light: 'Light',
@@ -251,9 +251,7 @@ export const en: typeof pt = {
     },
 
     travelMode: 'Travel mode',
-    travelModeHint: 'How routes are worked out.',
-    travelModeNote:
-      "Each mode has its own server, so on foot one-way streets are ignored and the time is counted at walking pace. You can also switch it in the route panel, without coming here.",
+    travelModeNote: 'You can also switch it in the route panel, without coming here.',
     travelModes: {
       driving: 'Car',
       walking: 'Walking',
@@ -268,9 +266,8 @@ export const en: typeof pt = {
     },
 
     timeAdjustment: 'Estimated time',
-    timeAdjustmentHint: 'If the roads where you are are slower than the map assumes.',
-    timeAdjustmentNote:
-      'The time comes from the road type and the surface recorded in OpenStreetMap. Where the surface is missing, a paved road is assumed — and on a dirt track the real time can be double.',
+    timeAdjustmentHint: 'If the roads where you are are slower than the map thinks.',
+    timeAdjustmentNote: 'Where the surface is unrecorded, tarmac is assumed; on a dirt road the real time can be double.',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',
@@ -279,30 +276,24 @@ export const en: typeof pt = {
     },
 
     satelliteDetail: 'Satellite detail',
-    satelliteDetailHint: 'How far you can zoom in before the image blurs.',
     satelliteDetails: {
       normal: 'Normal',
       alta: 'High',
     },
-    satelliteNormalHint:
-      "Sentinel-2, from the European Copernicus programme. It covers the whole world at ten metres per pixel — you get the coastline, the woods and open ground, not individual houses.",
-    satelliteHighHint:
-      'Adds the official Portuguese aerial photography on top: you can see individual houses, but only in Portugal and it uses far more data.',
+    satelliteNormalHint: 'Sentinel-2, from Copernicus: the whole world, at ten metres per pixel.',
+    satelliteHighHint: 'Official aerial photos on top: house by house, but only in Portugal and using far more data.',
 
     map: 'Map',
     showPlaces: 'Show businesses on the map',
-    showPlacesHint:
-      "Marks the businesses in the area you're looking at on its own. Turning it off eases the load on a service run by volunteers.",
+    showPlacesHint: 'Marks the businesses in the area you are looking at.',
     showVehicles: 'Buses on the move',
-    showVehiclesHint:
-      'Shows where Carris Metropolitana buses are right now, on the transport map. Only appears when zoomed in.',
-    showVehiclesCost:
-      'Uses a fair amount of data: the service can only hand over the whole fleet at once, and that repeats every twenty seconds while you watch.',
+    showVehiclesHint: 'Where the Carris Metropolitana buses are, live. Only when the map is zoomed in.',
+    showVehiclesCost: 'Uses a fair amount of data: 1.1 MB every twenty seconds.',
 
     cache: 'Saved map',
-    cacheHint: 'The areas you pass through are kept and show up again without a connection.',
-    cacheOffHint: "Off: the map is fetched again each time, and won't appear without a connection.",
-    cacheFullHint: "When it fills up, it forgets what you haven't seen for longest first.",
+    cacheHint: 'The areas you pass through are kept and come back without a connection.',
+    cacheOffHint: 'Off: without a connection the map does not appear.',
+    cacheFullHint: 'When it fills up, it forgets what you have not seen for longest.',
     cacheSizes: {
       off: 'None',
       small: '100 MB',
@@ -318,41 +309,27 @@ export const en: typeof pt = {
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',
-    offlineMapsHint:
-      "Saves a whole country at once. Works without a connection at any zoom, even in places you've never been.",
-    offlineMapsNote: 'Download over Wi-Fi: the larger countries run to hundreds of megabytes.',
+    offlineMapsHint: 'Keeps a whole country. Works without a connection, at any zoom.',
+    offlineMapsNote: 'Download over Wi-Fi: the bigger countries are hundreds of megabytes.',
 
     schedules: 'Timetables',
-    schedulesHint:
-      'Train, metro and ferry. Kept on your phone, they show up at stations and in public transport trips.',
+    schedulesHint: 'Train, metro and ferry. Kept on the phone, they work offline.',
 
     navigation: 'Navigation',
     voice: 'Read directions aloud',
-    voiceHint:
-      "While navigating, it announces each manoeuvre as you approach it, using your phone's voice.",
+    voiceHint: 'Announces each manoeuvre as it comes up.',
     cameras: 'Warn about speed cameras',
-    camerasNote:
-      "It comes from OpenStreetMap, and only picks up what is tagged there. Mobile cameras appear on no map at all — they move every day. This is a help, not a guarantee: the person driving is the one who has to watch the signs.",
-    tollsNote:
-      "The public routing server may not have this option installed. When it doesn't, you still get a route — and the panel says the tolls couldn't be avoided. There is no open way to know what each toll costs, so the price isn't shown.",
-    aboutText:
-      'PalmMap uses only open, free services — no Google and no API keys. The map data comes from the people who contribute to OpenStreetMap.',
-    camerasHint:
-      "Warns about cameras on your route, with the limit where it's tagged. It comes from OpenStreetMap: fixed cameras, red-light cameras and average speed checks. Mobile cameras are on no map at all, and the map isn't complete — this is a help, not a guarantee.",
+    aboutText: 'Open, free services only — no Google, no API keys. The map is OpenStreetMap.',
+    camerasHint: 'The ones marked in OpenStreetMap: fixed, traffic-light and average-speed. Mobile ones exist on no map — this is a help, not a guarantee.',
     tolls: 'Avoid tolls',
-    tollsHint:
-      "Asks for a route without tolls. There's no open source of toll prices in Portugal, so it can't tell you what each stretch costs.",
+    tollsHint: 'Asks for a route without tolls. The server may not have the option, and no open source has the prices.',
     batterySaver: 'Save battery while navigating',
-    batterySaverHint:
-      'Far from the next manoeuvre it reads the GPS every four seconds instead of every second. Near the manoeuvre it goes back to normal, and the accuracy never drops.',
+    batterySaverHint: 'Far from the next manoeuvre it reads the GPS every four seconds. The accuracy never drops.',
     speed: 'Show your speed',
-    speedHint:
-      'While navigating, shows how fast you are going, measured by GPS. It costs no extra battery: the speed comes inside the readings navigation already takes.',
-    speedNote:
-      "The car's own speedometer is the one that counts: GPS measures your progress over the ground and knows nothing about tyre size, so it usually reads a few km/h lower than the dashboard. In tunnels and between tall buildings it may drop out for a few seconds. It turns red when you pass the limit of a speed camera ahead — only those, as they are the only limits the app knows.",
+    speedHint: 'Your GPS speed, while navigating. It costs no extra battery.',
+    speedNote: "It reads a few km/h below the car's own speedometer, which is the one that counts, and drops out in tunnels.",
 
     recents: 'Recent destinations',
-    recentsHint: 'They appear in search before you type, after the saved ones.',
     forgetRecents: 'Forget recent destinations',
 
     about: 'About',

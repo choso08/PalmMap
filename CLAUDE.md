@@ -313,6 +313,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   ├── Schedules.tsx   # Lista de horários para descarregar
 │   │   ├── Updates.tsx     # Procurar, descarregar e instalar versões novas
+│   │   ├── UpdateSplash.tsx # O aviso de versão nova, ao abrir a aplicação
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -349,6 +350,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   └── index.ts        # Escolher a língua; useT() e t()
 │   ├── theme.ts            # Cores em versão clara e escura
 │   └── settings.tsx        # Definições guardadas e o gancho useTheme()
+│   └── useUpdateDownload.ts # Descarregar e instalar, partilhado pelos dois ecrãs
 ├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
 ├── README.md               # Apresentação do projeto, para quem chega pelo GitHub
 ├── AGENTS.md               # Aponta para este ficheiro
@@ -1075,8 +1077,40 @@ quando faltam:
    o Expo já configura, e a bandeira `FLAG_GRANT_READ_URI_PERMISSION` é o que lhe dá licença
    para ler um ficheiro que é nosso. Sem a bandeira, o endereço existe e não abre.
 
-O ponto no botão das definições é o único sinal que quem não abre as definições chega a ver.
-Um ponto e não um número: não é urgente, é só novidade.
+**O aviso ao abrir aparece uma vez por versão.** Quem carregar em "agora não" não volta a
+vê-lo para aquela versão — fica só o ponto no botão das definições. Guarda-se o **número** da
+compilação adiada e não um sim-ou-não, para o aviso se calar naquela versão e voltar a falar
+na seguinte. Um aviso que reaparece a cada arranque deixa de ser lido ao fim de dois dias,
+que é a mesma lição dos avisos de radar.
+
+O ponto no botão das definições é o que fica para quem adiou, e o único sinal que quem nunca
+abre as definições chega a ver. Um ponto e não um número: não é urgente, é só novidade.
+
+**Descarregar e instalar vive num gancho** (`useUpdateDownload`), e não dentro de um dos
+ecrãs, porque são dois os sítios que fazem isto — o aviso e as definições. Duas cópias
+acabariam por divergir, e a parte que divergiria era a dos erros, que é justamente a que
+ninguém experimenta.
+
+### 6-J. O texto do ecrã de definições
+
+**Escreve-se curto.** O ecrã chegou a ter 4557 caracteres de explicações em português e
+ficou com metade disso: a pessoa vai ali mudar uma opção, não ler o raciocínio por trás
+dela. O porquê de cada decisão é este ficheiro; o ecrã fica com o que muda uma escolha.
+
+Regras práticas:
+
+- **Uma linha por opção**, e só quando o nome da opção não chega. Vários `…Hint` foram
+  apagados por dizerem o que o próprio botão já dizia — "no modo automático segue o
+  telemóvel", com um botão escrito "Automático" mesmo ao lado.
+- **O que não se corta são os cinco avisos que impedem uma expectativa errada**, e esses
+  estão assinalados ao longo deste ficheiro com um "deve continuar lá": os radares são uma
+  ajuda e não uma garantia; o velocímetro do carro é o que manda; o preço das portagens não
+  existe em fonte aberta; os autocarros ao vivo gastam 1,1 MB de vinte em vinte segundos; o
+  "Instalar" final é da pessoa. Encurtaram-se todos para uma linha — **a exigência é que a
+  informação esteja lá, não que tenha três frases**.
+- Ao acrescentar texto novo, medir: `Object.values(pt.settings).filter(v => typeof v ===
+  'string').join(' ').length`. Se voltar a passar dos três mil, é sinal de que alguma
+  explicação está a crescer outra vez.
 
 ### 7. Offline — o que é permitido e o que não é
 

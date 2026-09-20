@@ -12,10 +12,21 @@ import {
 
 import { CategoryBar } from './src/components/CategoryBar';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { UpdateSplash } from './src/components/UpdateSplash';
 import { checkForUpdate, type UpdateInfo } from './src/services/update';
 
 /** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
+
+/**
+ * A versão que se mandou embora, para o aviso não voltar a aparecer.
+ *
+ * Guarda-se o **número** da compilação adiada e não um sim-ou-não: assim o aviso
+ * cala-se para aquela versão e volta a falar quando sair a seguinte, que é o
+ * comportamento que se quer. Um aviso que reaparece a cada arranque deixa de ser
+ * lido ao fim de dois dias — é a mesma lição dos avisos de radar.
+ */
+const UPDATE_DISMISSED_KEY = 'palmmap.versaoAdiada';
 import { MapView, type MapViewRef } from './src/components/MapView';
 import { NavigationPanel } from './src/components/NavigationPanel';
 import { PlaceSheet } from './src/components/PlaceSheet';
@@ -138,6 +149,8 @@ function PalmMap() {
    * novidade.
    */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  /** A versão que já se mandou embora. 0 quando ainda não se mandou nenhuma. */
+  const [updateDismissed, setUpdateDismissed] = useState(0);
   /** Painel das paragens e horas de passagem. */
   const [transitVisible, setTransitVisible] = useState(false);
   /**
@@ -505,6 +518,8 @@ function PalmMap() {
   useEffect(() => {
     void (async () => {
       try {
+        setUpdateDismissed(Number(await AsyncStorage.getItem(UPDATE_DISMISSED_KEY)) || 0);
+
         const ultima = Number(await AsyncStorage.getItem(UPDATE_CHECK_KEY)) || 0;
         if (Date.now() - ultima < UPDATE_CHECK_INTERVAL_MS) {
           return;
@@ -1720,6 +1735,24 @@ function PalmMap() {
           onStop={handleStopNavigation}
         />
       ) : null}
+
+      {/*
+        O aviso da versão nova. Aparece por cima de tudo mal a procura responda,
+        e só quando aquela versão ainda não foi mandada embora.
+      */}
+      <UpdateSplash
+        info={updateInfo && updateInfo.build > updateDismissed ? updateInfo : null}
+        onDismiss={() => {
+          if (!updateInfo) {
+            return;
+          }
+          setUpdateDismissed(updateInfo.build);
+          void AsyncStorage.setItem(
+            UPDATE_DISMISSED_KEY,
+            String(updateInfo.build),
+          ).catch(() => undefined);
+        }}
+      />
 
       <SettingsSheet
         visible={settingsVisible}
