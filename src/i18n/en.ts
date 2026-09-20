@@ -223,6 +223,22 @@ export const en: typeof pt = {
   settings: {
     title: 'Settings',
 
+    updates: 'Updates',
+    updatesHint: 'Finds new versions and installs them without going to GitHub.',
+    currentVersion: (version: string) => `You're on version ${version}`,
+    checkUpdates: 'Check now',
+    checking: 'Checking…',
+    upToDate: "You're on the latest version.",
+    updateAvailable: (version: string) => `Version ${version} is out`,
+    updateSize: (size: string) => `${size} to download`,
+    downloadUpdate: 'Download and install',
+    downloadingUpdate: 'Downloading…',
+    installUpdate: 'Install now',
+    updateReady: 'Downloaded. Ready to install.',
+    updateManualNote:
+      'Android does not let any app install itself silently — the final "Install" tap has to be yours. The first time it will also ask whether you allow installs from PalmMap; without that the installer closes without saying why.',
+    whatsNew: "What's changed",
+
     language: 'Language',
     languageHint: "On automatic it follows your phone's language.",
 
@@ -356,6 +372,11 @@ export const en: typeof pt = {
     noLocationForRoute: "Without your location the route can't be worked out.",
     locationDenied: 'No GPS access. You can still see the map and search for addresses.',
     locationUnavailable: 'No GPS signal yet. Indoors this usually takes a while.',
+    updateCheckFailed: "Couldn't check for a new version. Check your connection.",
+    updateDownloadFailed: (detail: string) =>
+      `Couldn't download the update. ${detail}`.trim(),
+    updateInstallFailed: (detail: string) =>
+      `Couldn't open the installer. ${detail}`.trim(),
     placesFailed: "Couldn't search for places. Try again shortly.",
     placesBusy: 'The service is busy right now. Try again shortly.',
     searchFailed: "Couldn't search.",

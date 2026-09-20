@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   SafeAreaProvider,
@@ -11,6 +12,10 @@ import {
 
 import { CategoryBar } from './src/components/CategoryBar';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { checkForUpdate, type UpdateInfo } from './src/services/update';
+
+/** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
+const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
 import { MapView, type MapViewRef } from './src/components/MapView';
 import { NavigationPanel } from './src/components/NavigationPanel';
 import { PlaceSheet } from './src/components/PlaceSheet';
@@ -38,6 +43,7 @@ import {
   OFF_ROUTE_METERS,
   OFF_ROUTE_STRIKES,
   SPEED_ZERO_MS,
+  UPDATE_CHECK_INTERVAL_MS,
 } from './src/services/config';
 import {
   cameraIcon,
@@ -124,6 +130,14 @@ function PalmMap() {
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  /**
+   * A versão nova, quando há.
+   *
+   * Vive aqui e não dentro das definições porque marca o botão das definições
+   * com um ponto — quem não abrir as definições tem de ver na mesma que há
+   * novidade.
+   */
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   /** Painel das paragens e horas de passagem. */
   const [transitVisible, setTransitVisible] = useState(false);
   /**
@@ -474,6 +488,36 @@ function PalmMap() {
       place ? favourites.some((saved) => isSamePlace(saved, place)) : false,
     [favourites],
   );
+
+  /**
+   * Procura versão nova ao arrancar, no máximo uma vez por dia.
+   *
+   * **A data da última procura fica guardada**, e não só em memória: sem isso,
+   * quem fecha e abre a aplicação dez vezes num dia fazia dez pedidos. A API do
+   * GitHub conta 60 por hora **por endereço IP**, partilhados com tudo o que
+   * esteja na mesma rede — e não há nada a ganhar em perguntar mais vezes, que
+   * as versões saem de semana a semana.
+   *
+   * Falhar aqui não pode dar erro nenhum no ecrã: quem não pediu nada não tem
+   * de saber que uma verificação silenciosa não conseguiu chegar à Internet.
+   * Quem quiser resposta carrega no botão, nas definições, e aí sim vê o erro.
+   */
+  useEffect(() => {
+    void (async () => {
+      try {
+        const ultima = Number(await AsyncStorage.getItem(UPDATE_CHECK_KEY)) || 0;
+        if (Date.now() - ultima < UPDATE_CHECK_INTERVAL_MS) {
+          return;
+        }
+        // Marca-se **antes** de perguntar. Se a rede estiver em baixo, o que não
+        // se quer é voltar a tentar a cada arranque durante o dia inteiro.
+        await AsyncStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
+        setUpdateInfo(await checkForUpdate());
+      } catch {
+        // Em silêncio, de propósito — ver a nota acima.
+      }
+    })();
+  }, []);
 
   // Posição atual, pedida uma vez ao arrancar.
   useEffect(() => {
@@ -1412,6 +1456,7 @@ function PalmMap() {
         <SearchBar
           onSelect={handleSearchSelect}
           onOpenSettings={() => setSettingsVisible(true)}
+          updateAvailable={updateInfo !== null}
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}
@@ -1679,6 +1724,8 @@ function PalmMap() {
       <SettingsSheet
         visible={settingsVisible}
         onRecentsCleared={() => setRecents([])}
+        update={updateInfo}
+        onUpdateFound={setUpdateInfo}
         onClose={() => {
           setSettingsVisible(false);
           // Pode ter-se descarregado ou apagado um país lá dentro.

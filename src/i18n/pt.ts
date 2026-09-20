@@ -238,6 +238,22 @@ export const pt = {
   settings: {
     title: 'Definições',
 
+    updates: 'Atualizações',
+    updatesHint: 'Procura versões novas e instala-as sem ter de ir ao GitHub.',
+    currentVersion: (version: string) => `Está na versão ${version}`,
+    checkUpdates: 'Procurar agora',
+    checking: 'A procurar…',
+    upToDate: 'Está na versão mais recente.',
+    updateAvailable: (version: string) => `A versão ${version} já saiu`,
+    updateSize: (size: string) => `${size} a descarregar`,
+    downloadUpdate: 'Descarregar e instalar',
+    downloadingUpdate: 'A descarregar…',
+    installUpdate: 'Instalar agora',
+    updateReady: 'Descarregada. Falta instalar.',
+    updateManualNote:
+      'O Android não deixa nenhuma aplicação instalar-se a si própria em silêncio — quem carrega em "Instalar" no fim tem de ser você. Da primeira vez pergunta ainda se autoriza instalações vindas do PalmMap; sem essa autorização o instalador fecha-se sem dizer porquê.',
+    whatsNew: 'O que mudou',
+
     language: 'Língua',
     languageHint: 'No modo automático segue a língua do telemóvel.',
 
@@ -372,6 +388,11 @@ export const pt = {
     locationDenied: 'Sem acesso ao GPS. Ainda pode ver o mapa e pesquisar moradas.',
     locationUnavailable:
       'Ainda não foi possível apanhar sinal de GPS. Dentro de casa costuma demorar.',
+    updateCheckFailed: 'Não foi possível saber se há versão nova. Verifique a ligação.',
+    updateDownloadFailed: (detail: string) =>
+      `Não foi possível descarregar a atualização. ${detail}`.trim(),
+    updateInstallFailed: (detail: string) =>
+      `Não foi possível abrir o instalador. ${detail}`.trim(),
     placesFailed: 'Não foi possível procurar locais. Tente daqui a pouco.',
     placesBusy: 'O serviço está cheio neste momento. Tente daqui a pouco.',
     searchFailed: 'Não foi possível procurar.',

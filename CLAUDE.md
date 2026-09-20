@@ -140,6 +140,8 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Ficheiros dentro do APK | `expo-asset` |
 | Voz | `expo-speech` |
 | Língua do telemóvel | `expo-localization` |
+| Versão instalada | `expo-application` |
+| Abrir o instalador do Android | `expo-intent-launcher` |
 | Ecrã aceso a conduzir | `expo-keep-awake` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
@@ -310,6 +312,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── MeasureSheet.tsx # Fita métrica: distâncias e áreas no mapa
 │   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
 │   │   ├── Schedules.tsx   # Lista de horários para descarregar
+│   │   ├── Updates.tsx     # Procurar, descarregar e instalar versões novas
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -326,6 +329,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── transit.ts      # Paragens e horas de passagem (Carris Metropolitana)
 │   │   ├── vehicles.ts     # Onde estão os autocarros neste momento
 │   │   ├── schedules.ts    # Horários de comboio, metro e barco, guardados no telemóvel
+│   │   ├── update.ts       # Saber se há versão nova, e entregá-la ao instalador
 │   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
 │   ├── types/              # Definições de tipos do TypeScript
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
@@ -440,6 +444,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   Guardá-lo fazia a aplicação abrir dias depois nos Transportes, com os autocarros a pedir
   1,1 MB de vinte em vinte segundos, só porque foi ali que se fechou da última vez. O sítio
   onde se desfaz isto é o `mapType: DEFAULT_SETTINGS.mapType` da leitura, em `settings.tsx`.
+- **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **O meio de transporte também se troca no painel do percurso**, com três botões por cima
   da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
   pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
@@ -1018,6 +1023,60 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
 - Sai sempre em **km/h**, nas duas línguas. A língua não é o país: um inglês a viver em
   Portugal conduz em km/h. Se um dia se quiserem milhas, o sítio é uma definição própria de
   unidades, não a tabela da língua.
+
+### 6-I. Atualizações dentro da aplicação
+
+A aplicação sabe quando há versão nova, descarrega-a e entrega-a ao instalador do Android —
+sem ninguém ter de ir ao GitHub. Está nas definições, em "Atualizações".
+
+**Sem chave nenhuma, e isso não é sorte.** A API de Releases do GitHub responde a quem
+pergunte porque o repositório é público — a mesma decisão que permite os mapas dos países
+virem de um endereço sem autenticação. Se um dia o repositório fechar, isto morre com os
+mapas.
+
+**Dizer já o que isto não é: não instala sozinho.** O Android não deixa uma aplicação
+instalar-se a si própria em silêncio — isso exige ser a aplicação dona do aparelho, coisa de
+telemóveis geridos por empresas. O que se faz é tudo o que dá: procurar, descarregar e abrir
+o instalador com o ficheiro já na mão. **Quem carrega em "Instalar" é a pessoa**, e na
+primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. Está
+escrito no ecrã e deve continuar lá.
+
+Quatro decisões que interessam:
+
+- **Não se usa o `/releases/latest`, e isto era uma armadilha a sério.** Esse endereço
+  devolve a Release publicada mais recentemente, **seja ela qual for** — e aqui as Releases
+  não são só APKs: os mapas estão na etiqueta `mapas`, os horários na `horarios`, e há ainda
+  a `mapa-2` e a `mapa-3`. Bastava gerar mapas depois de compilar para o "latest" passar a
+  ser a Release dos mapas, e a procura de versões deixava de encontrar seja o que fosse —
+  **sem erro nenhum**, com um 200 e uma Release verdadeira que só não era a que interessava.
+  Pede-se a lista e escolhe-se a de maior número entre as `apk-*`.
+- **Compara-se o número da compilação, não o texto da versão.** O número da execução do
+  workflow é ao mesmo tempo o `versionCode`, o fim da versão (`7.0.16`) e a etiqueta
+  (`apk-16`) — três nomes para a mesma coisa. Como texto, `"7.0.9" < "7.0.10"` é **falso**;
+  como número não há caso especial nenhum.
+- **Procura sozinha uma vez por dia, e em silêncio.** A API do GitHub dá 60 pedidos por hora
+  a quem não se identifica, contados **por endereço IP** — partilhados com tudo o que esteja
+  na mesma rede. A data da última procura fica **guardada no telemóvel** e é marcada *antes*
+  de se perguntar: sem isso, quem abre a aplicação dez vezes fazia dez pedidos, e com a rede
+  em baixo tentava outra vez a cada arranque. Falhar aqui não põe erro nenhum no ecrã — quem
+  não pediu nada não tem de saber. Quem carrega no botão vê o erro, esse sim.
+- **O ficheiro vai para a cache e não para os documentos.** São quarenta megabytes que
+  servem uma vez; na cache o Android pode deitá-los fora sozinho. E só ganha o nome `.apk` no
+  fim, pela mesma razão dos mapas: um APK truncado entregue ao instalador dá "ocorreu um
+  problema ao analisar o pacote", erro que já custou tempo a este projeto.
+
+**Duas coisas do Android sem as quais isto não funciona**, e que não dão erro explicativo
+quando faltam:
+
+1. A permissão `REQUEST_INSTALL_PACKAGES`, no `app.json`. Sem ela o instalador não abre.
+2. Um endereço **`content://`**, nunca `file://`. Desde o Android 7 que passar um `file://` a
+   outra aplicação rebenta com `FileUriExposedException`, e o instalador é outra aplicação.
+   O `getContentUriAsync` (do `expo-file-system/legacy`) dá o endereço pelo FileProvider que
+   o Expo já configura, e a bandeira `FLAG_GRANT_READ_URI_PERMISSION` é o que lhe dá licença
+   para ler um ficheiro que é nosso. Sem a bandeira, o endereço existe e não abre.
+
+O ponto no botão das definições é o único sinal que quem não abre as definições chega a ver.
+Um ponto e não um número: não é urgente, é só novidade.
 
 ### 7. Offline — o que é permitido e o que não é
 
@@ -1670,6 +1729,12 @@ Erros já cometidos neste projeto, para não se repetirem.
   `setState` punha o telemóvel a passar o tempo a desenhar a lista em vez de a descarregar —
   a barra andava na mesma, por isso não se via que estava mal. Hoje só se avisa quando a
   percentagem inteira muda: cem avisos em vez de milhares.
+- **"O mais recente" pode não ser o mais recente do que se procura.** O `/releases/latest`
+  do GitHub devolve a Release publicada há menos tempo, seja de que etiqueta for — e este
+  repositório publica também mapas e horários como Releases. A procura de versões novas
+  teria deixado de funcionar na primeira vez que se gerassem mapas depois de compilar, com
+  um 200 e uma Release verdadeira pelo meio: nada que se parecesse com uma avaria. Antes de
+  usar um atalho de uma API, ver se o que ele escolhe é mesmo o que se quer.
 - **Uma propriedade com "initial" no nome é lida uma vez e nunca mais.** O
   `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
   ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a

@@ -29,6 +29,14 @@ interface SearchBarProps {
    */
   getBounds: () => Bounds | null;
   onOpenSettings: () => void;
+  /**
+   * Há versão nova à espera.
+   *
+   * Marca o botão das definições com um ponto. É o único sinal que quem não abre
+   * as definições chega a ver — e uma atualização que ninguém vê não serve de
+   * nada. Um ponto e não um número: não é urgente, é só novidade.
+   */
+  updateAvailable?: boolean;
   /** Sítios guardados, mostrados enquanto não se escreve nada. */
   favourites: Place[];
   /** Últimos destinos, mostrados a seguir aos guardados. */
@@ -48,6 +56,7 @@ export function SearchBar({
   favourites,
   recents,
   getBounds,
+  updateAvailable = false,
 }: SearchBarProps) {
   const theme = useTheme();
   const strings = useT();
@@ -155,6 +164,7 @@ export function SearchBar({
 
         <Pressable onPress={onOpenSettings} hitSlop={10} style={styles.settingsButton}>
           <MaterialCommunityIcons name="tune-variant" size={20} color={theme.textMuted} />
+          {updateAvailable ? <View style={styles.updateDot} /> : null}
         </Pressable>
       </View>
 
@@ -224,6 +234,19 @@ function makeStyles(theme: Theme) {
     },
     settingsButton: {
       paddingLeft: 4,
+    },
+    /** O ponto que diz que há versão nova, no canto do botão. */
+    updateDot: {
+      position: 'absolute',
+      top: -1,
+      right: -2,
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: theme.accent,
+      // A borda da cor da barra recorta o ponto do ícone que está por baixo.
+      borderWidth: 1.5,
+      borderColor: theme.surface,
     },
     error: {
       paddingHorizontal: 14,

@@ -337,3 +337,40 @@ export const SEARCH_DEBOUNCE_MS = 1000;
 
 /** Tempo máximo à espera de resposta, em milissegundos. */
 export const REQUEST_TIMEOUT_MS = 15000;
+
+/**
+ * De onde a aplicação sabe se há versão nova.
+ *
+ * É a API pública do GitHub, e **responde sem chave nenhuma** porque o
+ * repositório é público — o que não é acaso: é a mesma decisão que permite os
+ * mapas dos países serem descarregados de um endereço sem autenticação. Ver a
+ * nota sobre o repositório ser público, no `CLAUDE.md`.
+ *
+ * **Não se usa o `/releases/latest`, e a razão é uma armadilha.** Esse endereço
+ * devolve a Release publicada mais recentemente, **seja ela qual for** — e neste
+ * repositório as Releases não são só APKs: os mapas dos países estão na etiqueta
+ * `mapas` e os horários na `horarios`. Bastava gerar mapas depois de compilar
+ * para o "latest" passar a ser a Release dos mapas, e a procura de versões
+ * deixava de encontrar seja o que fosse. Sem erro nenhum: respondia 200, com uma
+ * Release verdadeira que só não era a que interessava.
+ *
+ * Por isso pede-se a lista e escolhe-se a de maior número entre as `apk-*`.
+ * Vinte chegam de sobra: as outras etiquetas são sempre as mesmas quatro, porque
+ * cada corrida desses workflows reescreve a sua em vez de criar uma nova.
+ */
+export const RELEASES_API_URL =
+  'https://api.github.com/repos/choso08/PalmMap/releases?per_page=20';
+
+/**
+ * De quanto em quanto tempo a aplicação procura versão nova sozinha.
+ *
+ * **Uma vez por dia, e não a cada arranque.** A API do GitHub dá 60 pedidos por
+ * hora a quem não se identifica com uma chave, contados **por endereço IP** — ou
+ * seja, partilhados com tudo o que esteja na mesma rede. Procurar a cada arranque
+ * gastava esse orçamento sem ganhar nada: as versões saem de semana a semana, não
+ * de minuto a minuto.
+ *
+ * Procurar à mão, no botão das definições, não passa por aqui — quem carrega
+ * quer saber agora.
+ */
+export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;

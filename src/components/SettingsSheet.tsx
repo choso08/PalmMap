@@ -18,6 +18,8 @@ import { clearRecents } from '../services/recents';
 import { clearMapCache } from '../services/tiles';
 import { OfflineMaps } from './OfflineMaps';
 import { Schedules } from './Schedules';
+import { Updates } from './Updates';
+import type { UpdateInfo } from '../services/update';
 import {
   APPEARANCE_MODES,
   CACHE_SIZES,
@@ -40,6 +42,14 @@ interface SettingsSheetProps {
    * avariado.
    */
   onRecentsCleared: () => void;
+  /**
+   * A versão nova que a procura automática encontrou, se encontrou alguma.
+   *
+   * Vive no `App.tsx` porque também marca o botão das definições com um ponto —
+   * duas cópias da mesma resposta acabariam por divergir.
+   */
+  update: UpdateInfo | null;
+  onUpdateFound: (info: UpdateInfo | null) => void;
   visible: boolean;
   onClose: () => void;
 }
@@ -92,7 +102,13 @@ function ChoiceRow<T extends string>({
 }
 
 /** Ecrã de definições. */
-export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSheetProps) {
+export function SettingsSheet({
+  visible,
+  onClose,
+  onRecentsCleared,
+  update: novaVersao,
+  onUpdateFound,
+}: SettingsSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -334,6 +350,10 @@ export function SettingsSheet({ visible, onClose, onRecentsCleared }: SettingsSh
             <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
             <Text style={styles.clearText}>{s.forgetRecents}</Text>
           </Pressable>
+
+          <Text style={styles.sectionTitle}>{s.updates}</Text>
+          <Text style={styles.sectionHint}>{s.updatesHint}</Text>
+          <Updates found={novaVersao} onFound={onUpdateFound} />
 
           <Text style={styles.sectionTitle}>{s.about}</Text>
           <Text style={styles.about}>{s.aboutText}</Text>

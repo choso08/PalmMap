@@ -32,6 +32,9 @@ andar consigo.
 
 **Pesquisa** — moradas e negócios, com os últimos destinos e os sítios guardados à mão.
 
+**Atualiza-se sozinha** — avisa quando há versão nova e instala-a a partir das definições,
+sem ter de ir ao GitHub descarregar o ficheiro à mão.
+
 **Percursos** — de carro, a pé, de bicicleta ou de autocarro. Com caminhos alternativos,
 paragens pelo caminho, e a opção de evitar portagens.
 
