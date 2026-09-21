@@ -12,6 +12,7 @@ import {
 
 import { CategoryBar } from './src/components/CategoryBar';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { SpeedBadge } from './src/components/SpeedBadge';
 import { UpdateSplash } from './src/components/UpdateSplash';
 import { checkForUpdate, type UpdateInfo } from './src/services/update';
 
@@ -52,6 +53,10 @@ import {
   VEHICLES_REFRESH_MS,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
+  DRIVING_GPS_INTERVAL_MS,
+  DRIVING_LINGER_MS,
+  DRIVING_SPEED_MS,
+  DRIVING_STOP_MS,
   OFF_ROUTE_STRIKES,
   SPEED_ZERO_MS,
   UPDATE_CHECK_INTERVAL_MS,
@@ -302,6 +307,16 @@ function PalmMap() {
    * subscrição nenhuma a mais — ver `watchPosition`.
    */
   const [speedKmh, setSpeedKmh] = useState<number | null>(null);
+  /**
+   * Vai-se a andar depressa o suficiente para isto ser um carro.
+   *
+   * É o que liga o velocímetro fora da navegação e acelera as leituras do GPS.
+   * A pé ou parado fica desligado, e aí o GPS volta ao ritmo lento de sempre —
+   * é isso que impede esta funcionalidade de custar bateria a quem não a usa.
+   */
+  const [drivingGps, setDrivingGps] = useState(false);
+  /** Quando se viu velocidade de carro pela última vez. Ver `DRIVING_LINGER_MS`. */
+  const lastDrivingAt = useRef(0);
   /** Até que ponto do percurso já se andou. O mapa apaga o que fica para trás. */
   const [progressIndex, setProgressIndex] = useState(0);
   /** Quantas leituras seguidas fora do percurso já se viram. */
@@ -611,10 +626,20 @@ function PalmMap() {
     return () => subscription.remove();
   }, [navigating]);
 
-  // Fora da navegação, continua a seguir a posição devagar, para o ponto azul
-  // acompanhar quem anda em vez de ficar preso onde estava ao abrir. Durante a
-  // navegação desliga-se, porque aí quem segue o GPS é o motor de navegação e
-  // ter os dois ligados era gastar bateria a dobrar.
+  /**
+   * Fora da navegação, continua a seguir a posição devagar, para o ponto azul
+   * acompanhar quem anda em vez de ficar preso onde estava ao abrir. Durante a
+   * navegação desliga-se, porque aí quem segue o GPS é o motor de navegação e
+   * ter os dois ligados era gastar bateria a dobrar.
+   *
+   * **A andar de carro, o ritmo sobe.** De dez em dez segundos chega de sobra
+   * para um ponto azul, e não chega de todo para um velocímetro: a 90 km/h, dez
+   * segundos são duzentos e cinquenta metros, e o número que se lia era o de há
+   * um quarteirão. Acima de `DRIVING_SPEED_MS` passa-se a ler de dois em dois
+   * segundos, e com `distanceInterval` a zero — senão, quem trava dos 90 para
+   * zero não anda os cinquenta metros que destrancariam a leitura seguinte, e o
+   * velocímetro ficava preso nos 90 com o carro imóvel.
+   */
   useEffect(() => {
     if (navigating) {
       return;
@@ -623,12 +648,39 @@ function PalmMap() {
     let stop: (() => void) | null = null;
     let cancelled = false;
 
-    void watchPositionIdle((position) => {
-      userLocationRef.current = position;
-      setUserLocation(position);
-      setHasLocation(true);
-      setLocationDenied(false);
-    }).then((fn) => {
+    void watchPositionIdle(
+      (position, speedMs) => {
+        userLocationRef.current = position;
+        setUserLocation(position);
+        setHasLocation(true);
+        setLocationDenied(false);
+
+        if (speedMs === null) {
+          setSpeedKmh(null);
+        } else {
+          setSpeedKmh(speedMs < SPEED_ZERO_MS ? 0 : Math.round(speedMs * 3.6));
+        }
+
+        // **Entra-se depressa e sai-se devagar.** Basta uma leitura acima do
+        // limiar para ligar; para desligar é preciso estar devagar há mais de
+        // `DRIVING_LINGER_MS`. Sem essa espera, o velocímetro desaparecia em
+        // cada semáforo e voltava ao arrancar — e um velocímetro mostra zero
+        // quando se pára, não se esconde.
+        if (speedMs !== null) {
+          if (speedMs >= DRIVING_SPEED_MS) {
+            lastDrivingAt.current = Date.now();
+            setDrivingGps(true);
+          } else if (
+            speedMs < DRIVING_STOP_MS &&
+            Date.now() - lastDrivingAt.current > DRIVING_LINGER_MS
+          ) {
+            setDrivingGps(false);
+          }
+        }
+      },
+      drivingGps ? DRIVING_GPS_INTERVAL_MS : 10000,
+      drivingGps ? 0 : 50,
+    ).then((fn) => {
       if (cancelled) {
         fn();
       } else {
@@ -640,7 +692,7 @@ function PalmMap() {
       cancelled = true;
       stop?.();
     };
-  }, [navigating]);
+  }, [navigating, drivingGps]);
 
   // Calcula o percurso quando há origem e destino.
   useEffect(() => {
@@ -1768,6 +1820,21 @@ function PalmMap() {
             color={followUser && !navigating ? theme.onAccent : theme.accent}
           />
         </Pressable>
+      ) : null}
+
+      {/*
+        O velocímetro a andar de carro, **sem estar a navegar**.
+
+        Só aparece acima de `DRIVING_SPEED_MS`: parado ou a pé seria um zero
+        permanente a ocupar o canto. Fica por cima da bússola, que por sua vez
+        está por cima da régua — as três alturas do canto esquerdo estão todas
+        aqui e em `compassBottom`, de propósito.
+
+        Durante a navegação quem o desenha é o `NavigationPanel`, que o põe mais
+        abaixo porque aí a régua e a bússola não existem.
+      */}
+      {!navigating && drivingGps && settings.showSpeed ? (
+        <SpeedBadge kmh={speedKmh} bottom={compassBottom + 52} />
       ) : null}
 
       {navigating ? (

@@ -315,6 +315,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── Schedules.tsx   # Lista de horários para descarregar
 │   │   ├── Updates.tsx     # Procurar, descarregar e instalar versões novas
 │   │   ├── UpdateSplash.tsx # O aviso de versão nova, ao abrir a aplicação
+│   │   ├── SpeedBadge.tsx  # O velocímetro, na navegação e no mapa
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
@@ -1014,11 +1015,23 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   exatamente zero: num semáforo oscila umas décimas, e sem este mínimo o velocímetro andava
   a saltar entre 0 e 2 km/h com o carro imóvel. Meio metro por segundo é 1,8 km/h — fica
   abaixo do passo de uma pessoa, por isso não esconde nada a quem vai a pé.
-- **Não custa bateria.** A velocidade vem dentro das leituras que a navegação já faz; não
-  há subscrição nenhuma a mais. É por isso que aparece **só durante a navegação**: fora
-  dela o GPS é lido de dez em dez segundos (`watchPositionIdle`), e um velocímetro com dez
-  segundos de atraso diria 90 a quem já parou. Mais valia não estar lá. Para o ter sempre
-  seria preciso subir esse ritmo — e aí passava a custar bateria de verdade.
+- **Aparece nos dois sítios: a navegar e a andar de carro sem destino nenhum.** Esteve só
+  na navegação, por causa da bateria, e estava errado para o uso real — quem vai a conduzir
+  quer saber a que velocidade vai, tenha ou não escolhido um destino. O desenho vive no
+  `SpeedBadge`, usado pelo ecrã de navegação e pelo mapa.
+- **Fora da navegação, o ritmo do GPS sobe quando se anda depressa.** De dez em dez segundos
+  chega de sobra para um ponto azul e não chega de todo para um velocímetro: a 90 km/h são
+  duzentos e cinquenta metros, e o número que se lia era o de há um quarteirão. Acima de
+  `DRIVING_SPEED_MS` (18 km/h) passa-se a ler de dois em dois segundos, e **com
+  `distanceInterval` a zero** — senão quem trava dos 90 para zero não anda os cinquenta
+  metros que destrancariam a leitura seguinte, e o velocímetro ficava preso nos 90 com o
+  carro imóvel.
+- **Entra-se depressa e sai-se devagar** (`DRIVING_LINGER_MS`, um minuto e meio). A primeira
+  versão desligava assim que a velocidade caísse, e **o velocímetro desaparecia em cada
+  semáforo** — um velocímetro mostra zero quando se pára, não se esconde. O custo é ficar
+  mais um minuto e meio a ler depressa depois de estacionar, que não se nota na bateria; a
+  pé ou parado volta tudo ao ritmo lento, e é isso que impede isto de custar bateria a quem
+  não conduz.
 - **Fica vermelho quando se passa o limite, mas só junto a um radar.** O limite conhecido é
   o que está marcado no radar que vem à frente; a aplicação **não sabe** o limite da estrada
   onde vai em cada momento. Pintar o número por um limite adivinhado era prometer o que não
@@ -1849,6 +1862,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   sair na mesma. Existia, parecia certa, e não poupava nada — e a Overpass, que é o serviço
   mais pesado, ia recusando. Uma cache de posição precisa de uma grelha; sem ela é
   decoração.
+- **Um indicador que desaparece é pior do que um indicador a zero.** A primeira versão do
+  velocímetro fora da navegação desligava-se assim que a velocidade caísse — e **sumia em
+  cada semáforo**, para voltar ao arrancar. Foi a simulação da viagem que o apanhou, não o
+  código: vale a pena percorrer um caso de uso inteiro, paragem a paragem, antes de dar uma
+  funcionalidade por feita.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

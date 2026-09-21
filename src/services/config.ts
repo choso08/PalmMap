@@ -307,6 +307,51 @@ export const POSITION_TIMEOUT_MS = 4000;
 export const LAST_KNOWN_MAX_AGE_MS = 120000;
 
 /**
+ * A partir de que velocidade se assume que se vai de carro, em metros por segundo.
+ *
+ * Cinco metros por segundo são 18 km/h — acima do passo de qualquer pessoa e de
+ * quase qualquer bicicleta a subir. É o que liga o velocímetro fora da navegação
+ * e acelera as leituras do GPS.
+ */
+export const DRIVING_SPEED_MS = 5;
+
+/**
+ * Abaixo de que velocidade se deixa de assumir que se vai de carro.
+ *
+ * **De propósito diferente do de cima**, e pela mesma razão do travão da
+ * poupança de bateria: mudar de ritmo obriga a voltar a subscrever o GPS, e com
+ * um único limiar isso ficava a ligar e a desligar em cada semáforo. Dois metros
+ * por segundo são 7 km/h.
+ */
+export const DRIVING_STOP_MS = 2;
+
+/**
+ * Quanto tempo se continua "de carro" depois de a velocidade cair.
+ *
+ * **Sem isto, o velocímetro desaparecia em cada semáforo** e voltava ao
+ * arrancar. Um velocímetro mostra zero quando se pára — não se esconde. Um minuto
+ * e meio cobre com folga um semáforo, uma fila ou uma paragem para deixar
+ * alguém, e continua a desligar-se pouco depois de se estacionar.
+ *
+ * O custo é ficar mais um minuto e meio a ler o GPS depressa depois de parar,
+ * que não se nota na bateria.
+ */
+export const DRIVING_LINGER_MS = 90000;
+
+/**
+ * De quanto em quanto tempo se lê o GPS a andar de carro, fora da navegação.
+ *
+ * O seguimento normal é de dez em dez segundos, que chega de sobra para o ponto
+ * azul acompanhar quem anda a pé. Para um velocímetro não chega: a 90 km/h, dez
+ * segundos são duzentos e cinquenta metros, e o número mostrava a velocidade de
+ * há um quarteirão. Dois segundos dão um número que se lê como velocímetro.
+ *
+ * **Só acontece a andar depressa e com o velocímetro ligado.** Parado ou a pé,
+ * volta-se aos dez segundos.
+ */
+export const DRIVING_GPS_INTERVAL_MS = 2000;
+
+/**
  * Até quantos milissegundos entre dois toques ainda contam como um toque duplo.
  *
  * Trezentos é o valor que o próprio Android usa para o duplo toque. Não convém

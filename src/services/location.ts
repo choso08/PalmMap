@@ -187,7 +187,25 @@ export async function watchPosition(
  * Devolve uma função para parar de seguir. Chamar sempre ao sair.
  */
 export async function watchPositionIdle(
-  onChange: (coordinates: Coordinates) => void,
+  onChange: (coordinates: Coordinates, speedMs: number | null) => void,
+  /**
+   * De quantos em quantos milissegundos se lê a posição.
+   *
+   * Dez segundos é o normal e chega de sobra para o ponto azul acompanhar quem
+   * anda a pé. A andar de carro sobe-se o ritmo, para o velocímetro mostrar a
+   * velocidade de agora e não a de há um quarteirão — ver `DRIVING_GPS_INTERVAL_MS`.
+   */
+  timeIntervalMs = 10000,
+  /**
+   * De quantos em quantos metros se lê a posição. **Zero a andar de carro.**
+   *
+   * Com um mínimo de metros, o Android cala-se enquanto a pessoa está parada — e
+   * aí o velocímetro ficava preso no último número que teve. Quem trava dos 90
+   * para zero não anda os cinquenta metros que destrancariam a leitura seguinte,
+   * e o ecrã continuava a dizer 90 com o carro imóvel. É a mesma armadilha que a
+   * navegação já evita da mesma maneira.
+   */
+  distanceIntervalMs = 50,
 ): Promise<() => void> {
   const granted = await requestPermission();
   if (!granted) {
@@ -200,8 +218,8 @@ export async function watchPositionIdle(
       // partir das redes Wi-Fi e das antenas de telemóvel à volta — que é rápido
       // em terra e completamente inútil a dez mil metros.
       accuracy: Location.Accuracy.High,
-      timeInterval: 10000,
-      distanceInterval: 50,
+      timeInterval: timeIntervalMs,
+      distanceInterval: distanceIntervalMs,
     },
     (position) => {
       const coordinates = {
@@ -209,7 +227,14 @@ export async function watchPositionIdle(
         longitude: position.coords.longitude,
       };
       record(coordinates, position.timestamp);
-      onChange(coordinates);
+      onChange(
+        coordinates,
+        // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
+        // que mandam null. Os dois querem dizer o mesmo: não sei.
+        typeof position.coords.speed === 'number' && position.coords.speed >= 0
+          ? position.coords.speed
+          : null,
+      );
     },
   );
 

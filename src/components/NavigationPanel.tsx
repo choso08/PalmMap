@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { SPEED_OVER_LIMIT_KMH } from '../services/config';
+import { SpeedBadge } from './SpeedBadge';
 import { useTheme, useTimeFactor, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { RouteStep } from '../types/geo';
@@ -122,17 +123,11 @@ export function NavigationPanel({
         O velocímetro, do lado oposto ao botão de voltar à posição e à mesma
         altura. Fica fora do painel de baixo de propósito: aquele é informação da
         viagem, este é o instante — e a conduzir procura-se sempre no mesmo sítio.
+
+        O desenho vive no `SpeedBadge` porque também aparece fora da navegação,
+        a andar de carro sem destino escolhido.
       */}
-      {speedKmh !== null ? (
-        <View style={[styles.speed, overLimit && styles.speedOver]}>
-          <Text style={[styles.speedValue, overLimit && styles.speedValueOver]}>
-            {speedKmh}
-          </Text>
-          <Text style={[styles.speedUnit, overLimit && styles.speedUnitOver]}>
-            {strings.navigation.speedUnit}
-          </Text>
-        </View>
-      ) : null}
+      <SpeedBadge kmh={speedKmh} overLimit={overLimit} bottom={insets.bottom + 130} />
 
       <View style={styles.footer}>
         <View>
@@ -235,48 +230,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.signInk,
       fontSize: 14,
       fontWeight: '800',
-    },
-    speed: {
-      position: 'absolute',
-      left: 16,
-      // À mesma altura do botão de voltar à posição, que está do outro lado.
-      bottom: insets.bottom + 130,
-      minWidth: 64,
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.surface,
-      elevation: 6,
-      shadowColor: '#000000',
-      shadowOpacity: 0.14,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 2 },
-    },
-    speedOver: {
-      backgroundColor: theme.danger,
-    },
-    speedValue: {
-      fontSize: 26,
-      fontWeight: '800',
-      color: theme.text,
-      letterSpacing: -0.8,
-      // Sem isto a caixa mudava de altura entre "9" e "90", e o velocímetro
-      // dava um salto de cada vez que se passava uma dezena.
-      lineHeight: 30,
-    },
-    speedValueOver: {
-      color: theme.onAccent,
-    },
-    speedUnit: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: theme.textMuted,
-      marginTop: 1,
-    },
-    speedUnitOver: {
-      color: theme.onAccent,
     },
     footer: {
       position: 'absolute',
