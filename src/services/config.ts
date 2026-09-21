@@ -524,15 +524,20 @@ export const RELEASES_API_URL =
   'https://api.github.com/repos/choso08/PalmMap/releases?per_page=20';
 
 /**
- * De quanto em quanto tempo a aplicação procura versão nova sozinha.
+ * Quanto tempo tem de passar entre duas procuras automáticas de versão nova.
  *
- * **Uma vez por dia, e não a cada arranque.** A API do GitHub dá 60 pedidos por
- * hora a quem não se identifica com uma chave, contados **por endereço IP** — ou
- * seja, partilhados com tudo o que esteja na mesma rede. Procurar a cada arranque
- * gastava esse orçamento sem ganhar nada: as versões saem de semana a semana, não
- * de minuto a minuto.
+ * **Procura-se a cada arranque**, que foi o que o autor pediu: abrir a aplicação
+ * é o momento em que atualizar não interrompe nada. Esteve uma vez por dia, e
+ * isso queria dizer abrir a aplicação de manhã, sair versão à tarde e só dar por
+ * ela no dia seguinte.
+ *
+ * O quarto de hora é só um travão contra o disparate. A API do GitHub dá 60
+ * pedidos por hora a quem não se identifica com uma chave, contados **por
+ * endereço IP** — partilhados com tudo o que esteja na mesma rede. Abrir e
+ * fechar a aplicação seis vezes seguidas, que é coisa que acontece, não pode
+ * valer seis pedidos.
  *
  * Procurar à mão, no botão das definições, não passa por aqui — quem carrega
  * quer saber agora.
  */
-export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;

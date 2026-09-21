@@ -14,7 +14,7 @@ import { CategoryBar } from './src/components/CategoryBar';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { SpeedBadge } from './src/components/SpeedBadge';
 import { UpdateSplash } from './src/components/UpdateSplash';
-import { checkForUpdate, type UpdateInfo } from './src/services/update';
+import { checkForUpdate, onWifi, type UpdateInfo } from './src/services/update';
 
 /** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
@@ -159,6 +159,13 @@ function PalmMap() {
    * novidade.
    */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  /**
+   * Se a versão nova se pode descarregar sozinha: só em Wi-Fi.
+   *
+   * Lê-se **uma vez, ao procurar**, e não a cada desenho: mudar de rede a meio
+   * de uma descarga não a deve mandar recomeçar nem parar.
+   */
+  const [updateOnWifi, setUpdateOnWifi] = useState(false);
   /** A versão que já se mandou embora. 0 quando ainda não se mandou nenhuma. */
   const [updateDismissed, setUpdateDismissed] = useState(0);
   /** Painel das paragens e horas de passagem. */
@@ -593,13 +600,18 @@ function PalmMap() {
   );
 
   /**
-   * Procura versão nova ao arrancar, no máximo uma vez por dia.
+   * Procura versão nova ao abrir a aplicação, e em Wi-Fi descarrega-a sozinha.
    *
    * **A data da última procura fica guardada**, e não só em memória: sem isso,
-   * quem fecha e abre a aplicação dez vezes num dia fazia dez pedidos. A API do
+   * abrir e fechar a aplicação seis vezes seguidas valia seis pedidos. A API do
    * GitHub conta 60 por hora **por endereço IP**, partilhados com tudo o que
-   * esteja na mesma rede — e não há nada a ganhar em perguntar mais vezes, que
-   * as versões saem de semana a semana.
+   * esteja na mesma rede. O travão é de um quarto de hora — ver
+   * `UPDATE_CHECK_INTERVAL_MS`.
+   *
+   * **A descarga automática é só em Wi-Fi**, e isso é uma decisão e não um
+   * esquecimento: são dezenas de megabytes, e gastá-los no plafond de alguém sem
+   * perguntar é o que já se decidiu não fazer com os mapas dos países. Nos dados
+   * móveis o aviso aparece na mesma, com o botão à espera.
    *
    * Falhar aqui não pode dar erro nenhum no ecrã: quem não pediu nada não tem
    * de saber que uma verificação silenciosa não conseguiu chegar à Internet.
@@ -617,7 +629,15 @@ function PalmMap() {
         // Marca-se **antes** de perguntar. Se a rede estiver em baixo, o que não
         // se quer é voltar a tentar a cada arranque durante o dia inteiro.
         await AsyncStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
-        setUpdateInfo(await checkForUpdate());
+
+        // A rede lê-se antes da resposta: assim, quando o aviso aparecer, já
+        // está decidido se a descarga arranca sozinha ou fica à espera de um
+        // toque. Ao contrário, o aviso nascia sem saber e começava a descarregar
+        // um instante depois de aparecer, o que se lê como um salto.
+        const wifi = await onWifi();
+        const encontrada = await checkForUpdate();
+        setUpdateOnWifi(wifi);
+        setUpdateInfo(encontrada);
       } catch {
         // Em silêncio, de propósito — ver a nota acima.
       }
@@ -2009,6 +2029,7 @@ function PalmMap() {
       */}
       <UpdateSplash
         info={updateInfo && updateInfo.build > updateDismissed ? updateInfo : null}
+        autoDownload={updateOnWifi}
         onDismiss={() => {
           if (!updateInfo) {
             return;

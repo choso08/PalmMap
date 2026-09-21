@@ -2,6 +2,7 @@ import * as Application from 'expo-application';
 import { Directory, File, Paths } from 'expo-file-system';
 import { getContentUriAsync } from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as Network from 'expo-network';
 import axios from 'axios';
 
 import { t } from '../i18n';
@@ -33,6 +34,26 @@ import { RELEASES_API_URL, REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
  * Release (`apk-16`). Comparar números inteiros não tem casos especiais;
  * comparar `"7.0.9"` com `"7.0.10"` como texto dá a resposta errada.
  */
+
+/**
+ * Está-se em Wi-Fi com Internet a sério?
+ *
+ * É o que decide se a versão nova se descarrega sozinha. **São umas dezenas de
+ * megabytes**, e gastá-los nos dados móveis de alguém sem perguntar é
+ * exatamente o que este projeto já decidiu não fazer com os mapas dos países.
+ *
+ * `isInternetReachable` e não `isConnected`: estar ligado a um Wi-Fi não quer
+ * dizer chegar lá fora. Na dúvida responde-se que não — quem quiser mesmo
+ * carrega no botão, e aí é decisão dele.
+ */
+export async function onWifi(): Promise<boolean> {
+  try {
+    const estado = await Network.getNetworkStateAsync();
+    return estado.type === Network.NetworkStateType.WIFI && !!estado.isInternetReachable;
+  } catch {
+    return false;
+  }
+}
 
 /** O que há do outro lado, quando há. */
 export interface UpdateInfo {

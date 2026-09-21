@@ -1142,6 +1142,33 @@ o instalador com o ficheiro já na mão. **Quem carrega em "Instalar" é a pesso
 primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. Está
 escrito no ecrã e deve continuar lá.
 
+**Ao abrir a aplicação, atualiza-se sozinha até onde o Android deixa.** Foi pedido pelo
+autor, e a sequência é esta: procura ao arrancar, e se houver versão nova **e se estiver em
+Wi-Fi**, a descarga começa sem ninguém carregar em nada; quando acaba, o instalador abre-se
+por si. O único toque que fica é o do Android, e esse não há como o tirar.
+
+Três coisas dentro disto:
+
+- **A descarga automática é só em Wi-Fi** (`onWifi`, em `update.ts`). São dezenas de
+  megabytes, e gastá-los no plafond de alguém sem perguntar é exatamente o que já se decidiu
+  não fazer com os mapas dos países — a decisão é a mesma, e por isso a regra também. Nos
+  dados móveis o aviso aparece na mesma, com o botão à espera de um toque.
+- **Quem não pediu nada tem de poder sair.** Numa descarga que a pessoa mandou fazer, o
+  "agora não" desaparece — fechar a meio deixava um ficheiro incompleto e ninguém a saber se
+  tinha atualizado. **Na automática é ao contrário**: ela começou sem lhe perguntarem, e sem
+  saída ficava presa ao aviso até o instalador lhe saltar à frente. Desistir **não** cancela
+  a descarga, só impede o instalador de abrir — o ficheiro fica na cache e, se mudar de
+  ideias daqui a nada, já cá está. Ver `cancel`, no `useUpdateDownload`.
+- **A rede lê-se antes da resposta da procura.** Ao contrário, o aviso nascia sem saber se
+  podia descarregar e começava um instante depois de aparecer, o que se lê como um salto.
+
+**A procura passou a ser a cada arranque**, com um travão de um quarto de hora
+(`UPDATE_CHECK_INTERVAL_MS`). Esteve uma vez por dia, e isso queria dizer abrir a aplicação
+de manhã, sair versão à tarde e só dar por ela no dia seguinte. O quarto de hora é contra o
+disparate, não contra o uso normal: abrir e fechar a aplicação seis vezes seguidas — que é
+coisa que acontece — não pode valer seis pedidos à API do GitHub, que conta 60 por hora por
+endereço IP.
+
 Quatro decisões que interessam:
 
 - **Não se usa o `/releases/latest`, e isto era uma armadilha a sério.** Esse endereço
@@ -1155,11 +1182,12 @@ Quatro decisões que interessam:
   workflow é ao mesmo tempo o `versionCode`, o fim da versão (`7.0.16`) e a etiqueta
   (`apk-16`) — três nomes para a mesma coisa. Como texto, `"7.0.9" < "7.0.10"` é **falso**;
   como número não há caso especial nenhum.
-- **Procura sozinha uma vez por dia, e em silêncio.** A API do GitHub dá 60 pedidos por hora
+- **Procura sozinha a cada arranque, e em silêncio.** A API do GitHub dá 60 pedidos por hora
   a quem não se identifica, contados **por endereço IP** — partilhados com tudo o que esteja
   na mesma rede. A data da última procura fica **guardada no telemóvel** e é marcada *antes*
-  de se perguntar: sem isso, quem abre a aplicação dez vezes fazia dez pedidos, e com a rede
-  em baixo tentava outra vez a cada arranque. Falhar aqui não põe erro nenhum no ecrã — quem
+  de se perguntar: sem isso, quem abre e fecha a aplicação seis vezes seguidas fazia seis
+  pedidos, e com a rede em baixo tentava outra vez a cada arranque. Falhar aqui não põe erro
+  nenhum no ecrã — quem
   não pediu nada não tem de saber. Quem carrega no botão vê o erro, esse sim.
 - **O ficheiro vai para a cache e não para os documentos.** São quarenta megabytes que
   servem uma vez; na cache o Android pode deitá-los fora sozinho. E só ganha o nome `.apk` no

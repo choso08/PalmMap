@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,14 @@ function formatBytes(bytes: number): string {
 interface UpdateSplashProps {
   /** A versão nova, ou `null` quando não há nada a anunciar. */
   info: UpdateInfo | null;
+  /**
+   * Se se pode descarregar sozinha, sem ninguém carregar em nada.
+   *
+   * É verdade em Wi-Fi e falso nos dados móveis — ver `onWifi`. São dezenas de
+   * megabytes, e gastá-los no plafond de alguém sem perguntar é exatamente o
+   * que já se decidiu não fazer com os mapas dos países.
+   */
+  autoDownload: boolean;
   /** Adiar: fecha e não volta a aparecer para esta versão. */
   onDismiss: () => void;
 }
@@ -33,16 +41,45 @@ interface UpdateSplashProps {
  * instalador, sem sair da aplicação e sem ir ao GitHub. O que o Android não
  * deixa é instalar em silêncio — o último toque é sempre da pessoa.
  */
-export function UpdateSplash({ info, onDismiss }: UpdateSplashProps) {
+export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProps) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const descarga = useUpdateDownload();
 
+  /**
+   * A descarga automática arranca sozinha, uma vez.
+   *
+   * A `ref` é o que a impede de voltar a arrancar: este componente redesenha-se
+   * a cada avanço da barra, e sem ela cada avanço mandava começar outra vez.
+   */
+  const jaComecou = useRef(false);
+
+  useEffect(() => {
+    if (!info || !autoDownload || jaComecou.current) {
+      return;
+    }
+    jaComecou.current = true;
+    void descarga.start(info);
+    // Só o `start`, que é estável: o objeto do gancho é novo a cada desenho, e
+    // com ele nas dependências isto corria a cada avanço da barra.
+  }, [info, autoDownload, descarga.start]);
+
   if (!info) {
     return null;
   }
+
+  /**
+   * Quem não pediu nada tem de poder sair.
+   *
+   * Numa descarga que a pessoa mandou fazer, o "agora não" desaparece: fechar a
+   * meio deixava um ficheiro incompleto e ninguém a saber se tinha atualizado.
+   * **Numa descarga automática é ao contrário** — ela começou sem lhe
+   * perguntarem, e sem saída ficava presa ao aviso até o instalador lhe saltar à
+   * frente. Desistir não cancela a descarga: só impede o instalador de abrir.
+   */
+  const podeAdiar = !descarga.downloading || autoDownload;
 
   return (
     <Modal
@@ -54,7 +91,14 @@ export function UpdateSplash({ info, onDismiss }: UpdateSplashProps) {
       statusBarTranslucent
       navigationBarTranslucent
       // Adiar com o botão de voltar do Android é o que se espera de um aviso.
-      onRequestClose={descarga.downloading ? undefined : onDismiss}
+      onRequestClose={
+        podeAdiar
+          ? () => {
+              descarga.cancel();
+              onDismiss();
+            }
+          : undefined
+      }
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
@@ -116,18 +160,17 @@ export function UpdateSplash({ info, onDismiss }: UpdateSplashProps) {
             </Text>
           </Pressable>
 
-          {/*
-            "Agora não" desaparece enquanto descarrega: fechar a meio deixava um
-            ficheiro incompleto e a pessoa sem saber se tinha atualizado.
-          */}
-          {descarga.downloading ? null : (
+          {podeAdiar ? (
             <Pressable
               style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-              onPress={onDismiss}
+              onPress={() => {
+                descarga.cancel();
+                onDismiss();
+              }}
             >
               <Text style={styles.secondaryText}>{strings.settings.updateLater}</Text>
             </Pressable>
-          )}
+          ) : null}
 
           <Text style={styles.note}>{strings.settings.updateManualNote}</Text>
         </View>
