@@ -183,8 +183,25 @@ export const MAP_PINS_DEBOUNCE_MS = 1200;
  */
 export const MAP_PINS_MIN_ZOOM = 15;
 
-/** Número máximo de negócios pedidos de cada vez. */
-export const MAP_PINS_LIMIT = 80;
+/**
+ * Número máximo de negócios pedidos **por grupo de etiquetas**.
+ *
+ * **Não é por consulta, e a diferença era a avaria.** A Overpass tinha um `out`
+ * só no fim de uma união de vários grupos — restaurantes e afins, depois as
+ * lojas, depois o alojamento — e o limite aplicava-se ao conjunto. Ela preenche
+ * a quota pela ordem dos grupos e, dentro de cada um, **por número de
+ * identificação no OpenStreetMap**, que não tem nada que ver com onde as coisas
+ * ficam. Numa zona com gente, os 80 lugares iam todos para o primeiro grupo,
+ * escolhidos de um lado ao outro da área pedida: das lojas não vinha nenhuma, e
+ * dos restaurantes vinham oitenta espalhados pelos quilómetros da consulta, a
+ * maior parte fora do que se estava a ver. O ecrã ficava sem pinos **sem erro
+ * nenhum** — e numa zona vazia aparecia tudo, o que fazia parecer que às vezes
+ * funcionava.
+ *
+ * Hoje cada grupo leva o seu próprio `out`, e este número é o que cada um pode
+ * trazer. Ver `searchInBounds`.
+ */
+export const MAP_PINS_LIMIT = 100;
 
 /**
  * A que grelha se encaixa a área dos pinos automáticos, em graus.
@@ -199,10 +216,13 @@ export const MAP_PINS_LIMIT = 80;
  * pedido. Pede-se um bocado mais do que se vê, e em troca andar às voltas na
  * mesma zona deixa de pedir seja o que for.
  *
- * 0,01° são uns 1,1 km — da ordem do que se vê no ecrã ao zoom 15, que é onde
- * estes pinos começam a aparecer.
+ * **O quadrado não pode ser muito maior do que o ecrã.** Tudo o que se pede a
+ * mais são lugares que não se vão ver e que ainda assim ocupam lugar no limite
+ * da resposta — ver `MAP_PINS_LIMIT`. 0,005° são uns 550 metros, o que acrescenta
+ * no máximo um quadrado de cada lado ao que se está a ver. Esteve no dobro disto
+ * e pedia-se uma área com quatro vezes a do ecrã.
  */
-export const MAP_PINS_GRID_DEG = 0.01;
+export const MAP_PINS_GRID_DEG = 0.005;
 
 /** Raio, em metros, das pesquisas por categoria ("restaurantes perto de mim"). */
 export const CATEGORY_SEARCH_RADIUS_M = 1500;
@@ -361,17 +381,19 @@ export const DRIVING_GPS_INTERVAL_MS = 2000;
 export const DOUBLE_TAP_MS = 300;
 
 /**
- * Abaixo de que velocidade se mostra zero, em metros por segundo.
+ * Nota sobre a velocidade, para não se voltar a mexer nela sem pensar.
  *
- * O GPS nunca diz exatamente zero: parado num semáforo, a velocidade oscila umas
- * décimas por causa do ruído do sinal. Sem este mínimo, o velocímetro andava a
- * saltar entre 0 e 2 km/h com o carro imóvel — que é o género de pormenor que faz
- * duvidar do resto do número.
+ * **Vai para o ecrã como o GPS a deu, sem mínimo nem arredondamento para zero.**
+ * Houve aqui um limiar que mostrava zero abaixo de meio metro por segundo, para
+ * o número não oscilar entre 0 e 2 km/h com o carro parado. O autor pediu o
+ * contrário, e tem razão: um velocímetro que mente um bocadinho quando está
+ * parado é um velocímetro em que se acredita um bocadinho menos quando anda. O
+ * que o recetor mede pelo efeito de Doppler é o que se mostra.
  *
- * Meio metro por segundo é 1,8 km/h: fica abaixo do passo de uma pessoa, por isso
- * não esconde nada de quem vai a pé.
+ * A única coisa que continua a não ser um número é o `null`: quando o Android
+ * não sabe dizer a velocidade — num túnel, por exemplo — o velocímetro
+ * desaparece em vez de dizer zero.
  */
-export const SPEED_ZERO_MS = 0.5;
 
 /**
  * Quanto se pode passar do limite antes de o velocímetro ficar vermelho, em km/h.
@@ -382,6 +404,67 @@ export const SPEED_ZERO_MS = 0.5;
  * deixa de ser lido.
  */
 export const SPEED_OVER_LIMIT_KMH = 5;
+
+/**
+ * A que velocidade se anda de bicicleta, em metros por segundo. São 12,5 km/h.
+ *
+ * O OSRM assume **15 km/h** para uma bicicleta (o `default_speed` do perfil
+ * `bicycle.lua`, confirmado no código deles), com um teto de 21. É a velocidade
+ * de quem anda de bicicleta a sério; não é a de quem vai para o trabalho, com
+ * semáforos, passeios e uma mochila às costas. Daí este valor, pedido pelo autor.
+ *
+ * **É um piso, não uma substituição:** onde o OSRM já responde mais devagar —
+ * uma subida em que se empurra a bicicleta, um caminho de escadas — fica o dele,
+ * que sabe da estrada o que este número não sabe. Ver `modelSeconds`.
+ */
+export const CYCLING_SPEED_MS = 12.5 / 3.6;
+
+/**
+ * Quanto tempo é preciso andar antes de o ritmo medido valer alguma coisa.
+ *
+ * Nos primeiros metros o ritmo não mede nada: um semáforo à saída de casa dava
+ * um fator de cinco e a hora de chegada saltava para o dobro. Três minutos
+ * chegam para a conta deixar de ser sobre um semáforo e passar a ser sobre a
+ * viagem.
+ */
+export const PACE_MIN_MS = 180000;
+
+/**
+ * E quantos metros, pela mesma razão vista pelo outro lado: três minutos parado
+ * num nível de passagem não dizem nada sobre o resto do caminho.
+ */
+export const PACE_MIN_METERS = 500;
+
+/** O máximo que o ritmo medido pode esticar o tempo estimado. */
+export const PACE_MAX = 3;
+
+/** E o mínimo que o pode encolher, fora do carro. */
+export const PACE_MIN = 0.5;
+
+/**
+ * O piso do fator de carro, e é uma decisão e não um número escolhido a esmo.
+ *
+ * **A aplicação não promete uma hora de chegada que obrigue a exceder o limite.**
+ * O OSRM já calcula o tempo à **velocidade limite vezes 0,8** onde o limite está
+ * marcado no OpenStreetMap (o `speed_reduction` do `car.lua` deles), e abaixo
+ * disso onde não está — 90 numa autoestrada, 55 numa estrada secundária. Ou seja,
+ * o tempo dele já é o de quem anda ao limite ou um pouco abaixo, que é o que o
+ * autor pediu.
+ *
+ * Sem este piso, quem conduz depressa ensinava a aplicação a contar com isso, e
+ * a hora de chegada passava a só bater certo a passar dos limites. O ritmo medido
+ * pode alargar o tempo à vontade — o que não pode é encolhê-lo.
+ */
+export const PACE_MIN_DRIVING = 1;
+
+/**
+ * Quanto do ritmo desta viagem entra no que fica guardado para a próxima.
+ *
+ * Um terço: uma viagem estranha — um dia de chuva, uma fila que não é normal —
+ * mexe no valor guardado sem o virar do avesso, e três ou quatro viagens
+ * parecidas chegam para o mudar mesmo.
+ */
+export const PACE_LEARN_WEIGHT = 0.3;
 
 /**
  * Nome do pedido para o ecrã não se apagar durante a navegação.

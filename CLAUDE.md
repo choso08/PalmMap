@@ -343,6 +343,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   ├── utils/
 │   │   ├── format.ts       # Distâncias e durações em texto legível
 │   │   ├── geometry.ts     # Distâncias no mapa e posição ao longo do percurso
+│   │   ├── eta.ts          # O tempo estimado: modelo por meio e ritmo medido
 │   │   ├── voice.ts        # Leitura das instruções em voz alta
 │   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
 │   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
@@ -532,8 +533,61 @@ Há duas formas de corrigir, e não se excluem:
    Ajuda noutros sítios e vale para toda a gente, mas não substitui a correção manual em
    estradas muito más.
 
-O fator é aplicado **onde o tempo é mostrado** (`useTimeFactor()`), e não dentro do
-serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
+O fator é aplicado **onde o tempo é mostrado** (`useEta()`), e não dentro do serviço: o
+`Route` continua a guardar o que o OSRM respondeu, sem retoques.
+
+### 5-A. O tempo estimado ajusta-se a quem vai a conduzir
+
+A correção manual acima resolve o caso extremo e não resolve o caso normal: ninguém anda a
+mexer nela, e ela é igual para todos os percursos. O que o autor pediu foi outra coisa —
+**que a hora de chegada conte com a velocidade a que a pessoa anda mesmo.** São três
+camadas, em `src/utils/eta.ts` e em `useEta()`:
+
+1. **O modelo do meio de transporte.** De carro e a pé é o que o OSRM respondeu. De
+   bicicleta não: o perfil deles assume **15 km/h** (o `default_speed` do `bicycle.lua`,
+   lido no código deles e não adivinhado), que é a velocidade de quem anda de bicicleta a
+   sério. Conta-se com **12,5 km/h**, pedido pelo autor — mas **como piso**: onde o OSRM já
+   responde mais devagar, é porque sabe da estrada alguma coisa que uma velocidade média
+   não sabe, e fica a dele.
+2. **O ritmo medido.** Durante a navegação compara-se o tempo que o troço já andado levou
+   mesmo com o que o percurso previa para ele. O resultado multiplica o que falta, e fica
+   **guardado por meio de transporte** (`LearnedPace`, em `settings.tsx`) para a estimativa
+   seguinte já nascer certa — a que interessa é a que se lê **antes** de partir.
+3. **A correção manual**, que passa a valer só enquanto não houver ritmo medido nenhum.
+
+**O medido ganha ao adivinhado, e não se multiplicam.** A correção manual e o ritmo medido
+medem exatamente a mesma coisa. Multiplicá-los contava-a duas vezes: 1,5× escolhido à mão
+com 1,6 medido dava 2,4×. Por isso o ecrã de definições **mostra o ritmo aprendido e tem um
+botão para o esquecer** — um valor aprendido em silêncio que ninguém vê nem apaga é, no dia
+em que sair torto, uma avaria sem explicação, e ainda por cima desligava a correção manual
+sem se perceber porquê.
+
+**De carro o ritmo nunca encolhe o tempo, e isso é uma decisão.** O piso é 1
+(`PACE_MIN_DRIVING`): **a aplicação não promete uma hora de chegada que obrigue a exceder o
+limite.** Foi o que o autor pediu — "sempre tempo para a velocidade limite local ou um
+pouco abaixo" — e dá certo com o que o OSRM já faz: o `car.lua` deles calcula o tempo à
+**velocidade limite vezes 0,8** onde o limite está marcado no OpenStreetMap (o
+`speed_reduction`), e abaixo dela onde não está — 90 numa autoestrada, 55 numa secundária.
+Ou seja, o tempo de que se parte já é o de quem anda ao limite ou um pouco abaixo; o ritmo
+medido pode alargá-lo à vontade, o que não pode é encurtá-lo. Sem esse piso, quem conduz
+depressa ensinava a aplicação a contar com isso.
+
+**O ritmo não se mede nos primeiros metros.** Só depois de `PACE_MIN_MS` (3 min) **e**
+`PACE_MIN_METERS` (500 m): um semáforo à saída de casa dava um fator de cinco e a hora de
+chegada saltava para o dobro. Mesmo assim é um rácio acumulado desde o início da viagem, e
+por isso uma paragem logo no princípio pesa mais do que devia — vai-se diluindo à medida
+que se anda, e é uma limitação conhecida e não uma avaria.
+
+**O que fica guardado é uma mistura** (`PACE_LEARN_WEIGHT`, um terço): uma viagem estranha
+mexe no valor sem o virar do avesso, e três ou quatro viagens parecidas chegam para o mudar
+mesmo. E volta a zero a cada recálculo do percurso — a distância total passa a ser outra e
+a conta de "quanto já andei" deixava de bater certo.
+
+Provado com uma simulação de viagem, sem telemóvel: estrada de terra com o OSRM a assumir
+40 km/h e a andar-se a 20 dá ritmo 2,00 e o tempo que falta acerta ao minuto; a bicicleta a
+10 km/h com o modelo de 12,5 dá 1,25 e acerta também; a conduzir a 120 onde o OSRM conta 90,
+o ritmo fica travado em 1 e chega-se mais cedo do que o prometido, que é o lado certo para
+errar.
 
 ### 6. Imagem de satélite
 
@@ -593,6 +647,12 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
   horários de todos os operadores**. Cada região teria de entrar uma a uma, cada uma com o
   seu serviço, e algumas nem serviço têm. O painel diz isso à pessoa em vez de mostrar uma
   lista vazia.
+- **As paragens e as estações são as que estão perto do meio do mapa, não perto do GPS.**
+  Esteve preso à posição do telemóvel, e era a mesma avaria que os botões de categoria já
+  tinham tido: arrastar o mapa para outra terra não trazia paragem nenhuma de lá, e quem
+  abrisse o painel sem o GPS ter respondido — dentro de casa, parado — não via nada de todo,
+  nem paragens nem horas de passagem. O que se está a ver é que manda; a posição fica como
+  recurso para enquanto não houver mapa nenhum. Ver `mapCentre`, no `App.tsx`.
 - As paragens (`/stops`) são milhares e não mudam de sítio: pedem-se **uma vez por sessão**
   e ficam em memória. É a única forma de saber quais estão perto, porque o serviço não tem
   procura por proximidade.
@@ -1011,10 +1071,11 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   velocidade — manda `-1`, e há telemóveis que mandam `null` — o velocímetro **desaparece**
   em vez de mostrar um número. Num túnel, dizer 0 a quem vai a 100 é pior do que não dizer
   nada. Ver a nota em `watchPosition`.
-- **Parado mostra-se zero, abaixo de `SPEED_ZERO_MS` (0,5 m/s).** O GPS nunca diz
-  exatamente zero: num semáforo oscila umas décimas, e sem este mínimo o velocímetro andava
-  a saltar entre 0 e 2 km/h com o carro imóvel. Meio metro por segundo é 1,8 km/h — fica
-  abaixo do passo de uma pessoa, por isso não esconde nada a quem vai a pé.
+- **O número é o do GPS, sem retoque nenhum.** Houve aqui um mínimo que mostrava zero
+  abaixo de meio metro por segundo, para o velocímetro não oscilar entre 0 e 2 km/h com o
+  carro parado. O autor pediu o contrário, e tem razão: um velocímetro que mente um
+  bocadinho quando está parado é um velocímetro em que se acredita um bocadinho menos
+  quando anda. A única conta que se faz é passar de metros por segundo a km/h.
 - **Aparece nos dois sítios: a navegar e a andar de carro sem destino nenhum.** Esteve só
   na navegação, por causa da bateria, e estava errado para o uso real — quem vai a conduzir
   quer saber a que velocidade vai, tenha ou não escolhido um destino. O desenho vive no
@@ -1679,7 +1740,22 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
   Overpass recusa de vez em quando, os pinos da zona nova não apareciam, e nada no ecrã
   distinguia "não há negócios aqui" de "o serviço não respondeu". Lia-se como avaria da
   aplicação.
-- Limitar o número de resultados por consulta (`MAP_PINS_LIMIT`).
+- **O limite é por grupo de etiquetas, e não por consulta.** É a avaria mais recente e a
+  mais difícil de ver. A consulta era uma união — restaurantes e afins, depois as lojas,
+  depois o alojamento — com **um `out center 80` só no fim**. A Overpass preenche esse
+  limite pela ordem dos grupos e, dentro de cada grupo, **por número de identificação no
+  OpenStreetMap**, que não diz nada sobre onde as coisas ficam. Resultado numa zona com
+  gente: os 80 lugares iam todos para o primeiro grupo, escolhidos de um lado ao outro da
+  área pedida — **das lojas não vinha nenhuma**, e dos restaurantes vinham oitenta
+  espalhados pelos quilómetros da consulta, a maior parte fora do ecrã. Ficava o mapa sem
+  pinos **sem erro nenhum**, e numa zona vazia aparecia tudo, o que dava a impressão de que
+  às vezes funcionava e às vezes não. Hoje cada grupo leva o seu `out` — ver `taggedQuery`
+  — e o que vier repetido tira-se pelo par tipo+número, porque um sítio pode ser loja e
+  restaurante ao mesmo tempo.
+- **O quadrado da grelha não pode ser muito maior do que o ecrã.** Pela mesma razão: tudo o
+  que se pede a mais são lugares que não se vão ver e que ainda assim ocupam lugar no limite
+  da resposta. `MAP_PINS_GRID_DEG` desceu de 0,01° para 0,005° — a cache acerta menos vezes
+  e em troca pede-se a área do ecrã e não quatro vezes ela.
 
 ### OSRM — cálculo de percursos
 
@@ -1867,6 +1943,18 @@ Erros já cometidos neste projeto, para não se repetirem.
   cada semáforo**, para voltar ao arrancar. Foi a simulação da viagem que o apanhou, não o
   código: vale a pena percorrer um caso de uso inteiro, paragem a paragem, antes de dar uma
   funcionalidade por feita.
+- **Um limite numa resposta não escolhe o que interessa — escolhe o que lhe calha à
+  frente.** O `out center 80` da Overpass estava no fim de uma união de três grupos de
+  etiquetas, e gastava-se todo no primeiro, por ordem de número de identificação no
+  OpenStreetMap. Das lojas não vinha nenhuma e dos restaurantes vinham oitenta espalhados
+  pela área toda, quase nenhum no ecrã. Nada disto dava erro, e numa aldeia funcionava
+  perfeitamente — foi por isso que passou duas rondas de correções. Ao pôr um limite numa
+  consulta, perguntar **por que ordem** é que o serviço o aplica.
+- **Uma lista "perto de si" tem de seguir o mapa, não o GPS — e já se aprendeu isto duas
+  vezes.** Estava escrito aqui em cima para os botões de categoria, e as paragens dos
+  transportes voltaram a nascer presas à posição do telemóvel: arrastar o mapa para outra
+  terra não trazia nada, e sem posição não aparecia nada de todo. Ao escrever uma lista de
+  "o que há aqui à volta", o "aqui" é o meio do mapa.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

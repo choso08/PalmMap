@@ -267,7 +267,7 @@ export const pt = {
     },
 
     travelMode: 'Meio de transporte',
-    travelModeNote: 'Também se troca no painel do percurso, sem vir aqui.',
+    travelModeNote: 'Também se troca no painel do percurso. De bicicleta conta-se com 12,5 km/h de média.',
     travelModes: {
       driving: 'Carro',
       walking: 'A pé',
@@ -283,7 +283,9 @@ export const pt = {
 
     timeAdjustment: 'Tempo estimado',
     timeAdjustmentHint: 'Se as estradas da sua zona forem mais lentas do que o mapa julga.',
-    timeAdjustmentNote: 'Onde o piso não está registado assume-se alcatrão; numa estrada de terra o tempo real pode ser o dobro.',
+    timeAdjustmentNote: 'A aplicação aprende o seu ritmo ao navegar; isto só vale enquanto não o tiver medido.',
+    paceNote: (list: string) => `Ritmo aprendido: ${list}.`,
+    forgetPace: 'Esquecer o ritmo aprendido',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',

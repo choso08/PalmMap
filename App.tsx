@@ -58,7 +58,8 @@ import {
   DRIVING_SPEED_MS,
   DRIVING_STOP_MS,
   OFF_ROUTE_STRIKES,
-  SPEED_ZERO_MS,
+  PACE_MIN_METERS,
+  PACE_MIN_MS,
   UPDATE_CHECK_INTERVAL_MS,
 } from './src/services/config';
 import {
@@ -102,16 +103,19 @@ import {
   cacheMegabytesFor,
   nextMapType,
   osrmProfile,
+  useLearnedPace,
   useSettings,
   useT,
   useTheme,
   type MapType,
+  type TravelMode,
 } from './src/settings';
 import { t } from './src/i18n';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
 import { formatDistance } from './src/utils/format';
+import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { speak, stopSpeaking } from './src/utils/voice';
 
@@ -143,6 +147,7 @@ function PalmMap() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
+  const { learnPace } = useLearnedPace();
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -202,6 +207,14 @@ function PalmMap() {
    */
   const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
   const [vehicleZoomOk, setVehicleZoomOk] = useState(false);
+  /**
+   * O meio do mapa, em texto e arredondado a três casas — uns cem metros.
+   *
+   * Pela mesma razão do booleano acima: o `viewport` é uma `ref` e um efeito não
+   * a consegue observar. É isto que faz as paragens e as estações seguirem o
+   * mapa em vez do GPS.
+   */
+  const [mapCentre, setMapCentre] = useState<string | null>(null);
   /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
@@ -317,6 +330,33 @@ function PalmMap() {
   const [drivingGps, setDrivingGps] = useState(false);
   /** Quando se viu velocidade de carro pela última vez. Ver `DRIVING_LINGER_MS`. */
   const lastDrivingAt = useRef(0);
+  /**
+   * O ritmo desta viagem: quantas vezes mais tempo se está mesmo a levar do que
+   * o que o percurso previa. `null` enquanto ainda não se andou o suficiente
+   * para ter algum sentido — ver `PACE_MIN_MS`.
+   */
+  const [livePace, setLivePace] = useState<number | null>(null);
+  /**
+   * De onde se começou a contar o ritmo: a hora, o que já se tinha andado e o
+   * que o percurso previa até ali.
+   *
+   * Volta a zero a cada recálculo, porque o percurso novo tem outra distância
+   * total e as contas de "quanto já andei" deixariam de bater certo.
+   */
+  const paceStart = useRef<{
+    atMs: number;
+    coveredMeters: number;
+    assumedSeconds: number;
+  } | null>(null);
+  /**
+   * O ritmo medido e o meio de transporte em que foi medido, para ficar
+   * guardado quando a viagem terminar.
+   *
+   * Numa `ref` e com o meio lá dentro de propósito: quem guarda é o efeito que
+   * vê a navegação acabar, e esse não pode depender das definições sem voltar a
+   * correr a cada mudança delas.
+   */
+  const paceToLearn = useRef<{ mode: TravelMode; factor: number } | null>(null);
   /** Até que ponto do percurso já se andou. O mapa apaga o que fica para trás. */
   const [progressIndex, setProgressIndex] = useState(0);
   /** Quantas leituras seguidas fora do percurso já se viram. */
@@ -370,15 +410,25 @@ function PalmMap() {
   /**
    * As paragens perto, sempre que se está no mapa dos transportes.
    *
+   * **Perto do meio do mapa, e não perto do GPS.** Isto esteve preso à posição
+   * do telemóvel, e era a mesma avaria que os botões de categoria já tinham
+   * tido: arrastar o mapa para outra terra não trazia paragem nenhuma de lá, e
+   * quem abrisse o painel sem o GPS ter respondido — dentro de casa, por
+   * exemplo — não via nada de todo, nem paragens nem horas de passagem. O que
+   * se está a ver é que manda; a posição fica como recurso para quando ainda
+   * não houve mapa nenhum.
+   *
    * **Depende das coordenadas arredondadas, não do objeto da posição.** O GPS
    * devolve um objeto novo de dez em dez segundos, e depender dele fazia isto
    * correr outra vez a cada leitura — a lista reordenava-se debaixo do dedo e
    * os pinos do mapa eram redesenhados sem nada ter mudado. Arredondado a três
    * casas são uns cem metros, que é a escala a que a resposta muda mesmo.
    */
-  const perto = userLocation
-    ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
-    : null;
+  const perto =
+    mapCentre ??
+    (userLocation
+      ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
+      : null);
 
   useEffect(() => {
     if (settings.mapType !== 'transit' || !perto) {
@@ -655,11 +705,12 @@ function PalmMap() {
         setHasLocation(true);
         setLocationDenied(false);
 
-        if (speedMs === null) {
-          setSpeedKmh(null);
-        } else {
-          setSpeedKmh(speedMs < SPEED_ZERO_MS ? 0 : Math.round(speedMs * 3.6));
-        }
+        // **O número é o do GPS, sem retoque nenhum.** O recetor mede o
+        // andamento pelo efeito de Doppler e é ele que sabe; o que a aplicação
+        // faz é passar de metros por segundo a km/h. Quando o Android não sabe
+        // dizer a velocidade, o velocímetro desaparece — isso não é retocar o
+        // número, é não ter número nenhum.
+        setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
         // **Entra-se depressa e sai-se devagar.** Basta uma leitura acima do
         // limiar para ligar; para desligar é preciso estar devagar há mais de
@@ -927,6 +978,15 @@ function PalmMap() {
       const daParaVer = zoom >= VEHICLES_MIN_ZOOM;
       setVehicleZoomOk((atual) => (atual === daParaVer ? atual : daParaVer));
 
+      // O meio do mapa, arredondado a uns cem metros. É o que diz às paragens e
+      // às estações onde procurar — arredondado porque a lista não tem de se
+      // reordenar debaixo do dedo a cada pixel que o mapa anda.
+      const centro = `${((bounds.south + bounds.north) / 2).toFixed(3)},${(
+        (bounds.west + bounds.east) /
+        2
+      ).toFixed(3)}`;
+      setMapCentre((atual) => (atual === centro ? atual : centro));
+
       if (pinsTimer.current) {
         clearTimeout(pinsTimer.current);
       }
@@ -1051,13 +1111,9 @@ function PalmMap() {
       const stop = await watchPosition((position, accuracyMeters, speedMs) => {
         setUserLocation(position);
 
-        // A velocidade sai da mesma leitura, sem custo nenhum. Parado, o GPS
-        // oscila umas décimas em vez de dizer zero — daí o mínimo.
-        if (speedMs === null) {
-          setSpeedKmh(null);
-        } else {
-          setSpeedKmh(speedMs < SPEED_ZERO_MS ? 0 : Math.round(speedMs * 3.6));
-        }
+        // A velocidade sai da mesma leitura, sem custo nenhum, e vai para o
+        // ecrã tal como o GPS a deu — ver a nota no seguimento lento.
+        setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
         const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
         setProgressIndex(index);
@@ -1125,6 +1181,11 @@ function PalmMap() {
               // Percurso novo, contagem nova: sem isto, a linha aparecia
               // apagada até onde ia o percurso antigo.
               setProgressIndex(0);
+              // E o ritmo volta a contar do zero, porque o percurso novo tem
+              // outra distância total — "quanto já andei" deixava de bater certo.
+              // O que já se mediu não se perde: continua no `livePace` até haver
+              // medida nova.
+              paceStart.current = null;
             } catch {
               // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
             } finally {
@@ -1182,6 +1243,44 @@ function PalmMap() {
             setSlowGps(true);
           } else if (toStep < BATTERY_SAVER_MIN_METERS * 0.66 && slowGps) {
             setSlowGps(false);
+          }
+        }
+
+        // --- O ritmo a que se vai mesmo ------------------------------------
+        //
+        // Compara-se o tempo que o troço já andado levou mesmo com o que o
+        // percurso previa para ele. O resultado multiplica o que falta, e é isso
+        // que faz a hora de chegada acertar com quem a está a ler. O modelo tem
+        // de ser o mesmo que o ecrã usa — daí o `modelSeconds` aqui também,
+        // senão de bicicleta media-se contra uma previsão e mostrava-se outra.
+        const coveredMeters = route.distanceMeters - remainingMeters;
+        const assumedTotal = modelSeconds(
+          route.distanceMeters,
+          route.durationSeconds,
+          settings.travelMode,
+        );
+        const assumedCovered =
+          route.distanceMeters > 0
+            ? assumedTotal * (coveredMeters / route.distanceMeters)
+            : 0;
+
+        if (!paceStart.current) {
+          paceStart.current = {
+            atMs: Date.now(),
+            coveredMeters,
+            assumedSeconds: assumedCovered,
+          };
+        } else {
+          const elapsedMs = Date.now() - paceStart.current.atMs;
+          const andados = coveredMeters - paceStart.current.coveredMeters;
+          const previstos = assumedCovered - paceStart.current.assumedSeconds;
+
+          // Os dois mínimos são o que impede um semáforo à saída de casa de
+          // valer por uma viagem inteira — ver `PACE_MIN_MS`.
+          if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
+            const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
+            setLivePace(medido);
+            paceToLearn.current = { mode: settings.travelMode, factor: medido };
           }
         }
 
@@ -1245,6 +1344,32 @@ function PalmMap() {
     settings.speedCameraAlerts,
     settings.batterySaver,
   ]);
+
+  /**
+   * O ritmo de cada viagem: começa do zero e fica guardado no fim.
+   *
+   * Vive num efeito só seu, e não na limpeza do efeito da navegação, porque
+   * aquele volta a correr sempre que o percurso, os radares ou o ritmo do GPS
+   * mudam — e aí guardava-se o mesmo ritmo meia dúzia de vezes a meio da viagem,
+   * cada uma a puxar o valor guardado mais para o desta.
+   */
+  useEffect(() => {
+    if (navigating) {
+      paceStart.current = null;
+      paceToLearn.current = null;
+      setLivePace(null);
+      return;
+    }
+
+    const medido = paceToLearn.current;
+    paceToLearn.current = null;
+    paceStart.current = null;
+    setLivePace(null);
+
+    if (medido) {
+      learnPace(medido.mode, medido.factor);
+    }
+  }, [navigating, learnPace]);
 
   /**
    * A área visível, para a pesquisa preferir o que está por perto.
@@ -1843,6 +1968,7 @@ function PalmMap() {
           distanceToStep={distanceToStep}
           remainingMeters={remaining.meters}
           remainingSeconds={remaining.seconds}
+          pace={livePace}
           recalculating={recalculating}
           camera={
             cameraAhead

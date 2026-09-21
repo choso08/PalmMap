@@ -252,7 +252,7 @@ export const en: typeof pt = {
     },
 
     travelMode: 'Travel mode',
-    travelModeNote: 'You can also switch it in the route panel, without coming here.',
+    travelModeNote: 'You can also switch it in the route panel. On a bike it assumes 12.5 km/h on average.',
     travelModes: {
       driving: 'Car',
       walking: 'Walking',
@@ -268,7 +268,9 @@ export const en: typeof pt = {
 
     timeAdjustment: 'Estimated time',
     timeAdjustmentHint: 'If the roads where you are are slower than the map thinks.',
-    timeAdjustmentNote: 'Where the surface is unrecorded, tarmac is assumed; on a dirt road the real time can be double.',
+    timeAdjustmentNote: 'The app learns your pace as you navigate; this only applies until it has measured one.',
+    paceNote: (list: string) => `Learned pace: ${list}.`,
+    forgetPace: 'Forget the learned pace',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',

@@ -19,6 +19,7 @@ import {
   type Strings,
 } from './i18n';
 import { type Theme, themeFor } from './theme';
+import { blendPace, modelSeconds } from './utils/eta';
 
 /**
  * Definições da aplicação: guardadas no telemóvel e disponíveis a toda a
@@ -189,8 +190,29 @@ export const APPEARANCE_MODES: { id: AppearanceMode; icon: string }[] = [
 
 const STORAGE_KEY = 'palmmap.settings';
 
+/**
+ * A que ritmo a pessoa anda mesmo, por meio de transporte.
+ *
+ * Um fator: 1,3 quer dizer "leva um terço mais tempo do que o serviço de
+ * percursos diz". Mede-se durante a navegação e fica guardado, para a estimativa
+ * seguinte já nascer certa — a que interessa é a que se lê **antes** de partir.
+ *
+ * **Não é uma definição, e por isso não está no tipo `Settings`:** ninguém a
+ * escolhe, a aplicação é que a aprende. Vive aqui e não num serviço próprio
+ * porque é exatamente o mesmo ciclo de vida do resto do que este ficheiro guarda.
+ */
+export type LearnedPace = Partial<Record<TravelMode, number>>;
+
+const PACE_KEY = 'palmmap.pace';
+
 interface SettingsContextValue {
   settings: Settings;
+  /** O ritmo aprendido, por meio de transporte. Vazio enquanto não se mediu nada. */
+  pace: LearnedPace;
+  /** Junta o ritmo de uma viagem ao que já estava guardado. */
+  learnPace: (mode: TravelMode, measured: number) => void;
+  /** Esquece tudo o que foi aprendido. */
+  forgetPace: () => void;
   theme: Theme;
   /** A língua a usar mesmo, já com o "automático" resolvido. */
   language: Language;
@@ -204,6 +226,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [pace, setPace] = useState<LearnedPace>({});
 
   // Lê as definições guardadas uma vez, no arranque.
   useEffect(() => {
@@ -229,6 +252,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       } catch {
         // Sem definições guardadas, ficam as de origem. Não é motivo para falhar.
       }
+
+      try {
+        const stored = await AsyncStorage.getItem(PACE_KEY);
+        if (stored) {
+          setPace(JSON.parse(stored));
+        }
+      } catch {
+        // Sem ritmo guardado, a estimativa é a do serviço até se medir um.
+      }
     })();
   }, []);
 
@@ -239,6 +271,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
       return next;
     });
+  }, []);
+
+  /**
+   * Guarda o ritmo de uma viagem que acabou de terminar.
+   *
+   * Guardar é secundário, como nas definições: se falhar, o valor continua a
+   * valer nesta sessão.
+   */
+  const learnPace = useCallback((mode: TravelMode, measured: number) => {
+    setPace((current) => {
+      const next = { ...current, [mode]: blendPace(current[mode], measured) };
+      void AsyncStorage.setItem(PACE_KEY, JSON.stringify(next)).catch(() => undefined);
+      return next;
+    });
+  }, []);
+
+  const forgetPace = useCallback(() => {
+    setPace({});
+    void AsyncStorage.removeItem(PACE_KEY).catch(() => undefined);
   }, []);
 
   const value = useMemo<SettingsContextValue>(() => {
@@ -256,12 +307,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     return {
       settings,
+      pace,
+      learnPace,
+      forgetPace,
       theme: themeFor(isDark),
       language,
       strings: stringsFor(language),
       update,
     };
-  }, [settings, systemScheme, update]);
+  }, [settings, pace, learnPace, forgetPace, systemScheme, update]);
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
@@ -280,20 +334,45 @@ export function useSettings() {
   return { settings, update };
 }
 
-/**
- * Quanto multiplicar o tempo que o OSRM devolve, conforme a correção escolhida.
- * Devolve 1 quando não há correção nenhuma.
- */
 /** Quantos megabytes guardar, conforme a definição escolhida. */
 export function cacheMegabytesFor(size: CacheSize): number {
   return CACHE_SIZES.find((option) => option.id === size)?.megabytes ?? 250;
 }
 
-export function useTimeFactor(): number {
-  const { settings } = useSettingsContext();
-  return (
-    TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1
+/**
+ * O tempo que se mostra, a partir do que o serviço de percursos respondeu.
+ *
+ * Recebe a distância **e** a duração porque o modelo de bicicleta precisa das
+ * duas — ver `modelSeconds`. O terceiro argumento é o ritmo medido nesta viagem,
+ * que só o ecrã de navegação tem; os outros ecrãs deixam-no de fora e ficam com
+ * o que foi aprendido das viagens anteriores.
+ *
+ * A ordem é sempre a mesma: **o desta viagem ganha ao aprendido, e o aprendido
+ * ganha à correção manual.** O medido ganha ao adivinhado, e nunca se
+ * multiplicam — ver a nota no cabeçalho de `utils/eta.ts`.
+ */
+export function useEta(): (
+  distanceMeters: number,
+  osrmSeconds: number,
+  livePace?: number | null,
+) => number {
+  const { settings, pace } = useSettingsContext();
+  const mode = settings.travelMode;
+  const manual =
+    TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1;
+  const learned = pace[mode];
+
+  return useCallback(
+    (distanceMeters, osrmSeconds, livePace) =>
+      modelSeconds(distanceMeters, osrmSeconds, mode) * (livePace ?? learned ?? manual),
+    [mode, learned, manual],
   );
+}
+
+/** O ritmo aprendido e a forma de o esquecer, para o ecrã de definições. */
+export function useLearnedPace() {
+  const { pace, learnPace, forgetPace } = useSettingsContext();
+  return { pace, learnPace, forgetPace };
 }
 
 /**

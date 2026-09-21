@@ -5,7 +5,7 @@ import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { TRAVEL_MODES, useT, useTheme, useTimeFactor, type TravelMode } from '../settings';
+import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode } from '../settings';
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
@@ -103,7 +103,7 @@ export function RoutePanel({
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
-  const timeFactor = useTimeFactor();
+  const eta = useEta();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -277,7 +277,7 @@ export function RoutePanel({
         <>
           <View style={styles.metrics}>
             <View style={styles.metric}>
-              <Text style={styles.metricValue}>{formatDuration(route.durationSeconds * timeFactor)}</Text>
+              <Text style={styles.metricValue}>{formatDuration(eta(route.distanceMeters, route.durationSeconds))}</Text>
               <Text style={styles.metricLabel}>{strings.route.duration}</Text>
             </View>
             <View style={styles.separator} />
@@ -310,7 +310,7 @@ export function RoutePanel({
                         ativo ? styles.alternativaTextoAtivo : null,
                       ]}
                     >
-                      {formatDuration(op.durationSeconds * timeFactor)}
+                      {formatDuration(eta(op.distanceMeters, op.durationSeconds))}
                     </Text>
                     <Text
                       style={[

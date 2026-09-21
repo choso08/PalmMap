@@ -46,6 +46,26 @@ const cache = new Map<string, Place[]>();
 /** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
 export class PlacesError extends Error {}
 
+/**
+ * Monta uma consulta com **um `out` por grupo de etiquetas**.
+ *
+ * Não é arrumação: um `out` só, no fim de uma união, dá o limite todo ao
+ * primeiro grupo — e dentro dele às coisas com número mais baixo no
+ * OpenStreetMap, que ficam onde calhar. Ver a nota em `MAP_PINS_LIMIT`, que é
+ * onde a avaria está contada por inteiro.
+ */
+function taggedQuery(
+  groups: { key: string; values: string[] | null }[],
+  area: string,
+  limit: number,
+): string {
+  const linhas = groups.flatMap(({ key, values }) => [
+    `nwr${tagFilter(key, values)}(${area});`,
+    `out center ${limit};`,
+  ]);
+  return `[out:json][timeout:25];\n${linhas.join('\n')}`;
+}
+
 /** Constrói o filtro de etiquetas, no formato que a Overpass entende. */
 function tagFilter(key: string, values: string[] | null): string {
   if (values === null) {
@@ -117,9 +137,24 @@ async function runQuery(cacheKey: string, query: string): Promise<Place[]> {
     throw new PlacesError(t().errors.placesBusy);
   }
 
-  const places = response.data.elements
-    .map(toPlace)
-    .filter((place): place is Place => place !== null);
+  // **Tira-se o que vier repetido.** Cada grupo de etiquetas tem o seu próprio
+  // `out`, e um sítio que seja ao mesmo tempo loja e restaurante sai nos dois.
+  // A chave é o tipo **e** o número: no OpenStreetMap um nó e uma linha podem
+  // ter o mesmo número e não são o mesmo sítio.
+  const seen = new Set<string>();
+  const places: Place[] = [];
+
+  for (const element of response.data.elements) {
+    const chave = `${element.type}/${element.id}`;
+    if (seen.has(chave)) {
+      continue;
+    }
+    const place = toPlace(element);
+    if (place) {
+      seen.add(chave);
+      places.push(place);
+    }
+  }
 
   cache.set(cacheKey, places);
   return places;
@@ -140,13 +175,10 @@ export async function searchNearby(
   const lon = center.longitude.toFixed(3);
   const cacheKey = `nearby|${category.id}|${lat},${lon}|${radiusMeters}`;
 
-  const filters = category.tags
-    .map(({ key, values }) => `  nwr${tagFilter(key, values)}(around:${radiusMeters},${lat},${lon});`)
-    .join('\n');
-
-  const query = `[out:json][timeout:25];\n(\n${filters}\n);\nout center ${MAP_PINS_LIMIT};`;
-
-  return runQuery(cacheKey, query);
+  return runQuery(
+    cacheKey,
+    taggedQuery(category.tags, `around:${radiusMeters},${lat},${lon}`, MAP_PINS_LIMIT),
+  );
 }
 
 /**
@@ -188,14 +220,7 @@ export function boundingBox(bounds: Bounds): string {
  */
 export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
   const box = boundingBox(snapToGrid(bounds));
-
-  const filters = MAP_PIN_TAGS.map(
-    ({ key, values }) => `  nwr${tagFilter(key, values)}(${box});`,
-  ).join('\n');
-
-  const query = `[out:json][timeout:25];\n(\n${filters}\n);\nout center ${MAP_PINS_LIMIT};`;
-
-  return runQuery(`bounds|${box}`, query);
+  return runQuery(`bounds|${box}`, taggedQuery(MAP_PIN_TAGS, box, MAP_PINS_LIMIT));
 }
 
 /**
@@ -211,12 +236,8 @@ export async function searchCategoryInBounds(
   bounds: Bounds,
 ): Promise<Place[]> {
   const box = boundingBox(bounds);
-
-  const filters = category.tags
-    .map(({ key, values }) => `  nwr${tagFilter(key, values)}(${box});`)
-    .join('\n');
-
-  const query = `[out:json][timeout:25];\n(\n${filters}\n);\nout center ${MAP_PINS_LIMIT};`;
-
-  return runQuery(`category|${category.id}|${box}`, query);
+  return runQuery(
+    `category|${category.id}|${box}`,
+    taggedQuery(category.tags, box, MAP_PINS_LIMIT),
+  );
 }

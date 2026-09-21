@@ -86,7 +86,10 @@ export function SearchBar({
     setError(null);
 
     try {
-      const places = await searchPlaces(term, 8, getBounds());
+      // Doze e não oito: a pesquisa dá preferência ao que está à vista, e com
+      // uma lista curta um negócio noutra terra era empurrado para fora por
+      // ruas e lugares daqui com nome parecido.
+      const places = await searchPlaces(term, 12, getBounds());
       // Se entretanto já houve outra pesquisa, esta resposta não interessa.
       if (searchId === latestSearch.current) {
         setResults(places);

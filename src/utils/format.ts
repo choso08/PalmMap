@@ -14,6 +14,17 @@ function decimal(text: string): string {
   return text.replace('.', t().units.decimal);
 }
 
+/**
+ * 1.3 -> "1,3×". O ritmo aprendido, para o ecrã de definições.
+ *
+ * Uma casa decimal chega: a diferença entre 1,32 e 1,35 não muda decisão nenhuma
+ * de quem está a ler, e dois algarismos dão ao número um ar de precisão que ele
+ * não tem.
+ */
+export function formatFactor(factor: number): string {
+  return `${decimal(factor.toFixed(1))}\u00d7`;
+}
+
 /** 850 -> "850 m"; 12400 -> "12,4 km" */
 export function formatDistance(meters: number): string {
   const u = t().units;

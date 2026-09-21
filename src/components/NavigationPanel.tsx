@@ -5,7 +5,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { SPEED_OVER_LIMIT_KMH } from '../services/config';
 import { SpeedBadge } from './SpeedBadge';
-import { useTheme, useTimeFactor, useT } from '../settings';
+import { useEta, useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { RouteStep } from '../types/geo';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -30,6 +30,11 @@ interface NavigationPanelProps {
    * não mostrar nada.
    */
   speedKmh: number | null;
+  /**
+   * O ritmo medido nesta viagem, ou `null` enquanto ainda não se andou o
+   * suficiente para o medir. Ver `useEta`.
+   */
+  pace: number | null;
   onStop: () => void;
 }
 
@@ -47,11 +52,12 @@ export function NavigationPanel({
   recalculating,
   camera,
   speedKmh,
+  pace,
   onStop,
 }: NavigationPanelProps) {
   const theme = useTheme();
   const strings = useT();
-  const timeFactor = useTimeFactor();
+  const eta = useEta();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
@@ -132,7 +138,8 @@ export function NavigationPanel({
       <View style={styles.footer}>
         <View>
           <Text style={styles.remaining}>
-            {formatDuration(remainingSeconds * timeFactor)} · {formatDistance(remainingMeters)}
+            {formatDuration(eta(remainingMeters, remainingSeconds, pace))} ·{' '}
+            {formatDistance(remainingMeters)}
           </Text>
           <Text style={styles.remainingLabel}>{strings.navigation.toDestination}</Text>
         </View>

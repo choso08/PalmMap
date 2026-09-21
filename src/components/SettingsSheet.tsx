@@ -27,11 +27,13 @@ import {
   SATELLITE_DETAILS,
   TIME_ADJUSTMENTS,
   TRAVEL_MODES,
+  useLearnedPace,
   useSettings,
   useT,
   useTheme,
 } from '../settings';
 import type { Theme } from '../theme';
+import { formatFactor } from '../utils/format';
 
 interface SettingsSheetProps {
   /**
@@ -115,7 +117,23 @@ export function SettingsSheet({
   const { settings, update } = useSettings();
   const strings = useT();
   const s = strings.settings;
+  const { pace, forgetPace } = useLearnedPace();
   const [clearing, setClearing] = useState(false);
+
+  /**
+   * "Carro 1,3× · Bicicleta 1,1×", só com os meios em que já se mediu alguma
+   * coisa. Vazio quando não há nada aprendido — e aí a linha inteira não aparece.
+   *
+   * A ordem é a dos `TRAVEL_MODES` e não a de chegada dos valores: uma lista que
+   * muda de ordem sozinha lê-se como se tivesse mudado de conteúdo.
+   */
+  const ritmo = useMemo(
+    () =>
+      TRAVEL_MODES.filter((mode) => pace[mode.id] != null)
+        .map((mode) => `${s.travelModes[mode.id]} ${formatFactor(pace[mode.id] as number)}`)
+        .join(' · '),
+    [pace, s],
+  );
 
   const handleClearCache = async () => {
     setClearing(true);
@@ -186,6 +204,27 @@ export function SettingsSheet({
             theme={theme}
           />
           <Text style={styles.note}>{s.timeAdjustmentNote}</Text>
+
+          {/*
+            O que a aplicação aprendeu fica à vista, e pode ser esquecido.
+            Um valor aprendido em silêncio que ninguém consegue ver nem apagar é
+            o género de coisa que, no dia em que sair torta, não tem explicação
+            nenhuma — e a correção acima deixava de fazer efeito sem se perceber
+            porquê.
+          */}
+          {ritmo ? (
+            <>
+              <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
+              <Pressable style={styles.forgetRow} onPress={forgetPace}>
+                <MaterialCommunityIcons
+                  name="speedometer"
+                  size={19}
+                  color={theme.danger}
+                />
+                <Text style={styles.clearText}>{s.forgetPace}</Text>
+              </Pressable>
+            </>
+          ) : null}
 
           <Text style={styles.sectionTitle}>{s.appearance}</Text>
           <ChoiceRow
