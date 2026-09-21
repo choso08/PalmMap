@@ -19,6 +19,7 @@ import {
   useState,
   type Ref,
 } from 'react';
+import * as Network from 'expo-network';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
@@ -211,6 +212,43 @@ export function MapView({
    * não mudou. Recriar a câmara volta a prendê-la à posição.
    */
   const [followNonce, setFollowNonce] = useState(0);
+
+  /**
+   * Se há mesmo Internet a chegar ao telemóvel.
+   *
+   * **`isInternetReachable` e não `isConnected`**: estar ligado a um Wi-Fi não
+   * quer dizer que se chegue lá fora — um hotel com portal de entrada, ou uma
+   * rede sem saída, dá ligado e sem Internet. O que interessa aqui é se os
+   * tiles vão mesmo chegar.
+   *
+   * Começa `null` — "ainda não se sabe" — e enquanto assim for **não se usa o
+   * mapa guardado**: no arranque quase sempre há rede, e trocar o estilo duas
+   * vezes seguidas faz o mapa recarregar à frente de quem está a olhar.
+   */
+  const [internetReachable, setInternetReachable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    void Network.getNetworkStateAsync()
+      .then((estado) => {
+        if (vivo) {
+          setInternetReachable(estado.isInternetReachable ?? estado.isConnected ?? null);
+        }
+      })
+      .catch(() => undefined);
+
+    // A rede vai e vem a meio de uma viagem — é precisamente o caso que os mapas
+    // guardados servem. Sem ficar à escuta, quem entrasse num túnel ficava com o
+    // mapa em branco até fechar e abrir a aplicação.
+    const subscricao = Network.addNetworkStateListener((estado) => {
+      setInternetReachable(estado.isInternetReachable ?? estado.isConnected ?? null);
+    });
+
+    return () => {
+      vivo = false;
+      subscricao.remove();
+    };
+  }, []);
 
   /** Quantos pontos do percurso já ficaram para trás. */
   const andado = following ? progressIndex : 0;
@@ -449,6 +487,27 @@ export function MapView({
     setOfflineRegion(null);
   }, [offlineRegion]);
 
+  /**
+   * **Com rede, o mapa guardado não entra.**
+   *
+   * Os mapas de países existem para quando não há rede — é para isso que se
+   * descarregam. Usá-los também com rede trocava o mapa por outro de aspeto
+   * completamente diferente assim que o país enchia o ecrã, e via-se um salto
+   * grande de nitidez a meio de um simples aproximar do dedo. Não é avaria
+   * nenhuma: são dois mapas, um desenhado a partir de geometria e outro feito de
+   * imagens, e nunca se vão parecer.
+   *
+   * Assim, quem tem rede vê sempre o mesmo mapa do princípio ao fim, e o
+   * ficheiro guardado entra exatamente quando faz falta: em modo de avião, no
+   * meio da serra ou sem dados.
+   *
+   * **A contrapartida, dita com franqueza:** com rede passam a pedir-se tiles ao
+   * OpenStreetMap em zonas que já estavam guardadas, o que gasta dados e carrega
+   * um serviço de voluntários. Se um dia isso pesar, o meio-termo é usar o
+   * ficheiro guardado também nos dados móveis e a Internet só em Wi-Fi.
+   */
+  const semRede = internetReachable === false;
+
   // O estilo só se recalcula quando algo que o define muda. Se fosse criado a
   // cada desenho, o mapa recarregava sozinho de cada vez.
   const mapStyle = useMemo(
@@ -456,10 +515,12 @@ export function MapView({
       mapStyleFor(
         theme.dark,
         settings.mapType,
-        offlineRegion && failedRegions.includes(offlineRegion.id) ? null : offlineRegion,
+        semRede && offlineRegion && !failedRegions.includes(offlineRegion.id)
+          ? offlineRegion
+          : null,
         settings.satelliteDetail,
       ),
-    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, failedRegions],
+    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, failedRegions, semRede],
   );
 
   return (

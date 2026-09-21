@@ -94,13 +94,6 @@ export function PlaceSheet({
             </View>
           ) : null}
         </View>
-        <Pressable onPress={onToggleFavourite} hitSlop={12} style={styles.closeButton}>
-          <MaterialCommunityIcons
-            name={favourite ? 'star' : 'star-outline'}
-            size={20}
-            color={favourite ? theme.poi : theme.textMuted}
-          />
-        </Pressable>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
@@ -153,6 +146,29 @@ export function PlaceSheet({
           <Text style={styles.secondaryText}>{strings.place.addWaypoint}</Text>
         </Pressable>
       ) : null}
+
+      {/*
+        Guardar nos favoritos, com nome e tudo.
+
+        **Já dava para guardar antes, e ninguém dava por isso**: era uma estrela
+        de vinte pontos no canto, do tamanho do X que fecha a ficha e logo ao
+        lado dele. Os textos "Guardar" e "Guardado" estavam escritos nas duas
+        línguas desde o início e não eram usados em sítio nenhum — o botão tinha
+        sido pensado e nunca chegou a ser feito.
+
+        Serve para qualquer coisa que abra esta ficha: um negócio, uma estação,
+        ou um pino largado com o dedo em cima do mapa.
+      */}
+      <Pressable style={styles.secondary} onPress={onToggleFavourite}>
+        <MaterialCommunityIcons
+          name={favourite ? 'star' : 'star-outline'}
+          size={18}
+          color={favourite ? theme.poi : theme.accent}
+        />
+        <Text style={[styles.secondaryText, favourite && styles.savedText]}>
+          {favourite ? strings.place.unsave : strings.place.save}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -261,6 +277,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
+    },
+    /** Guardado: a cor da estrela, para se ver de relance que já lá está. */
+    savedText: {
+      color: theme.poi,
     },
     secondaryText: {
       color: theme.accent,
