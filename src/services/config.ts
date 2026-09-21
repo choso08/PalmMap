@@ -186,6 +186,24 @@ export const MAP_PINS_MIN_ZOOM = 15;
 /** Número máximo de negócios pedidos de cada vez. */
 export const MAP_PINS_LIMIT = 80;
 
+/**
+ * A que grelha se encaixa a área dos pinos automáticos, em graus.
+ *
+ * **É isto que faz a cache servir para alguma coisa.** A chave da cache é a área
+ * pedida, com quatro casas decimais — ou seja, ao metro. Sem grelha, arrastar o
+ * dedo um bocadinho dava uma área diferente, uma chave diferente e **um pedido
+ * novo à Overpass**, que é o serviço mais pesado dos três e é mantido por
+ * voluntários. A cache existia e quase nunca acertava.
+ *
+ * Com a grelha, todas as vistas que caem no mesmo quadrado partilham o mesmo
+ * pedido. Pede-se um bocado mais do que se vê, e em troca andar às voltas na
+ * mesma zona deixa de pedir seja o que for.
+ *
+ * 0,01° são uns 1,1 km — da ordem do que se vê no ecrã ao zoom 15, que é onde
+ * estes pinos começam a aparecer.
+ */
+export const MAP_PINS_GRID_DEG = 0.01;
+
 /** Raio, em metros, das pesquisas por categoria ("restaurantes perto de mim"). */
 export const CATEGORY_SEARCH_RADIUS_M = 1500;
 

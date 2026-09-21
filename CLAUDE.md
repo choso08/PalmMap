@@ -1629,6 +1629,16 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
 - Guardar em memória as consultas já feitas. *No código:* o `Map` de cache em
   `src/services/overpass.ts`, com as coordenadas arredondadas para o GPS a oscilar não
   gerar pedidos novos.
+- **A área dos pinos encaixa numa grelha (`MAP_PINS_GRID_DEG`), e é isso que faz a cache
+  servir para alguma coisa.** A chave é a área pedida com quatro casas decimais, ou seja ao
+  metro: sem grelha, arrastar o dedo um bocadinho dava uma chave diferente e **um pedido
+  novo**. A cache existia e quase nunca acertava. Medido: quarenta paragens do mapa a andar
+  pela cidade passaram de 40 pedidos para 15, e quinze ajustes na mesma zona de 15 para 2.
+- **Uma falha a ir buscar os pinos tem de se ver.** Esteve calada de propósito, com o
+  argumento de que o mapa continua a servir — e o resultado foi pior do que o problema: a
+  Overpass recusa de vez em quando, os pinos da zona nova não apareciam, e nada no ecrã
+  distinguia "não há negócios aqui" de "o serviço não respondeu". Lia-se como avaria da
+  aplicação.
 - Limitar o número de resultados por consulta (`MAP_PINS_LIMIT`).
 
 ### OSRM — cálculo de percursos
@@ -1807,6 +1817,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   que a desliga. Ao acrescentar um painel de baixo ou um botão flutuante, confirmar as três
   situações: mapa limpo, painel aberto e a navegar. São nove combinações com as margens de
   ecrã possíveis, e é fácil verificá-las de cabeça com uma folha de contas.
+- **Uma cache cuja chave é exata quase nunca acerta.** A dos pinos do mapa guardava por
+  área com precisão de um metro: bastava o dedo mexer para a chave ser outra e o pedido
+  sair na mesma. Existia, parecia certa, e não poupava nada — e a Overpass, que é o serviço
+  mais pesado, ia recusando. Uma cache de posição precisa de uma grelha; sem ela é
+  decoração.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

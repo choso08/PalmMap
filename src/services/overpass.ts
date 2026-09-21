@@ -3,6 +3,7 @@ import { t } from '../i18n';
 
 import {
   CATEGORY_SEARCH_RADIUS_M,
+  MAP_PINS_GRID_DEG,
   MAP_PINS_LIMIT,
   OVERPASS_BASE_URL,
   OVERPASS_MIN_INTERVAL_MS,
@@ -148,6 +149,27 @@ export async function searchNearby(
   return runQuery(cacheKey, query);
 }
 
+/**
+ * Alarga a área até às linhas de uma grelha fixa.
+ *
+ * Assim, todas as vistas que caem no mesmo quadrado dão a mesma área — e
+ * portanto a mesma chave de cache e **um só pedido**. Sem isto, um dedo a
+ * arrastar meio centímetro dava uma área diferente ao metro, e a cache, que
+ * existe precisamente para poupar a Overpass, nunca acertava.
+ *
+ * Alarga-se sempre para fora (`floor` de um lado, `ceil` do outro): a área
+ * pedida tem de conter o que se está a ver, senão faltavam pinos nas bordas.
+ */
+function snapToGrid(bounds: Bounds): Bounds {
+  const g = MAP_PINS_GRID_DEG;
+  return {
+    south: Math.floor(bounds.south / g) * g,
+    west: Math.floor(bounds.west / g) * g,
+    north: Math.ceil(bounds.north / g) * g,
+    east: Math.ceil(bounds.east / g) * g,
+  };
+}
+
 /** O retângulo no formato que a Overpass quer: sul,oeste,norte,este. */
 export function boundingBox(bounds: Bounds): string {
   return [
@@ -165,7 +187,7 @@ export function boundingBox(bounds: Bounds): string {
  * em `config.ts` — sem isso, cada arrastar do dedo geraria um pedido novo.
  */
 export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
-  const box = boundingBox(bounds);
+  const box = boundingBox(snapToGrid(bounds));
 
   const filters = MAP_PIN_TAGS.map(
     ({ key, values }) => `  nwr${tagFilter(key, values)}(${box});`,

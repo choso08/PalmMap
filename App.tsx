@@ -807,9 +807,19 @@ function PalmMap() {
           setPlaces(found);
           setPlacesError(null);
         }
-      } catch {
-        // Falhar a ir buscar os pinos não é motivo para incomodar a pessoa:
-        // o mapa continua a servir. Deixa-se ficar o que já estava.
+      } catch (error) {
+        // **Uma falha tem de se ver.** Isto esteve calado de propósito, com o
+        // argumento de que o mapa continua a servir — e o resultado foi pior do
+        // que o problema: a Overpass recusa de vez em quando, os pinos da zona
+        // nova não apareciam, e não havia nada no ecrã que distinguisse "não há
+        // negócios aqui" de "o serviço não respondeu". Parecia avaria da
+        // aplicação. Os pinos que já lá estavam ficam, que é melhor do que
+        // apagar o que se tinha.
+        if (requestId === latestPlaces.current) {
+          setPlacesError(
+            error instanceof Error ? error.message : t().errors.placesFailed,
+          );
+        }
       }
     },
     [settings.showPlacesOnMap],
