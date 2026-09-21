@@ -1,6 +1,6 @@
 import * as Speech from 'expo-speech';
 
-import { activeLanguage, speechTag } from '../i18n';
+import { activeLanguage, speechTag, type Language } from '../i18n';
 
 /**
  * Leitura das instruções em voz alta, na língua da aplicação.
@@ -10,13 +10,98 @@ import { activeLanguage, speechTag } from '../i18n';
  * pronúncia portuguesa é pior do que não a ouvir — a conduzir, o que interessa é
  * perceber-se à primeira.
  *
- * Se o telemóvel não tiver a voz dessa língua instalada, o sistema usa a que
- * tiver. Nunca deixamos um erro daqui interromper a navegação: falhar a falar
- * é chato, mas o ecrã continua a mostrar tudo.
+ * Nunca deixamos um erro daqui interromper a navegação: falhar a falar é chato,
+ * mas o ecrã continua a mostrar tudo.
+ *
+ * ## Porque é que a voz se escolhe à mão
+ *
+ * Dizer só `language: 'pt-PT'` e deixar o sistema escolher **não chega**, e era
+ * daí que vinha a voz estranha. Duas razões, e as duas se ouvem:
+ *
+ * 1. **A região.** Se o telemóvel não tiver português de Portugal instalado, o
+ *    Android serve o que tiver — e o português do Brasil lê "Rua Augusta" com
+ *    outra pronúncia e outra entoação. A língua bate certo e o sotaque não.
+ * 2. **A qualidade.** O Android costuma trazer duas vozes por língua: uma
+ *    pequena, que vive no telemóvel, e uma que vem da Internet, bastante mais
+ *    natural. A que responde por omissão é quase sempre a pequena.
+ *
+ * Por isso pergunta-se ao telemóvel que vozes tem e fica-se com a melhor —
+ * primeiro a região certa, depois a qualidade. Se não houver nenhuma que sirva,
+ * volta-se ao comportamento de antes: diz-se a língua e o sistema que escolha.
  */
+
+/** A voz escolhida para cada língua. `null` quer dizer "não há nenhuma boa". */
+const escolhidas = new Map<Language, string | null>();
+
+/**
+ * Quão bem esta voz serve para esta língua. Negativo quer dizer "não serve".
+ *
+ * Os pesos são propositadamente desiguais: **a região vale mais do que a
+ * qualidade**. Uma voz portuguesa pequena é preferível a uma voz brasileira
+ * bonita, porque o que se está a ler são nomes de ruas portuguesas.
+ */
+function quaoBoa(voz: Speech.Voice, alvo: string): number {
+  const lingua = (voz.language ?? '').replace('_', '-').toLowerCase();
+  const pretendida = alvo.toLowerCase();
+  const raiz = pretendida.split('-')[0];
+
+  if (lingua !== pretendida && !lingua.startsWith(`${raiz}-`) && lingua !== raiz) {
+    return -1;
+  }
+
+  let pontos = lingua === pretendida ? 100 : 10;
+  if (voz.quality === Speech.VoiceQuality.Enhanced) {
+    pontos += 20;
+  }
+  // No Android as vozes que vêm da Internet dizem-no no identificador, e são as
+  // que soam a gente. A qualidade declarada não as distingue — quase todas se
+  // dizem `Default`.
+  if ((voz.identifier ?? '').toLowerCase().includes('network')) {
+    pontos += 15;
+  }
+  return pontos;
+}
+
+/**
+ * Descobre a melhor voz de cada língua e guarda-a.
+ *
+ * Corre-se uma vez, no arranque. **Não se pode fazer isto dentro do `speak()`**:
+ * pedir a lista das vozes é assíncrono e o `speak()` é chamado de dentro do
+ * motor de navegação, que não pode esperar por nada. Enquanto não estiver
+ * resolvido, fala-se como antes — o que se perde é a escolha, não a voz.
+ */
+export async function prepareVoices(): Promise<void> {
+  try {
+    const vozes = await Speech.getAvailableVoicesAsync();
+
+    for (const lingua of ['pt', 'en'] as Language[]) {
+      const alvo = speechTag(lingua);
+      let melhor: { id: string; pontos: number } | null = null;
+
+      for (const voz of vozes) {
+        const pontos = quaoBoa(voz, alvo);
+        if (pontos >= 0 && (!melhor || pontos > melhor.pontos)) {
+          melhor = { id: voz.identifier, pontos };
+        }
+      }
+
+      escolhidas.set(lingua, melhor?.id ?? null);
+    }
+  } catch {
+    // Sem lista de vozes, fica tudo como estava: diz-se a língua e o sistema
+    // escolhe. Não é motivo para ficar sem voz.
+  }
+}
+
 export function speak(text: string): void {
   try {
-    Speech.speak(text, { language: speechTag(activeLanguage()), rate: 1.0 });
+    const lingua = activeLanguage();
+    const voz = escolhidas.get(lingua);
+    Speech.speak(text, {
+      language: speechTag(lingua),
+      rate: 1.0,
+      ...(voz ? { voice: voz } : {}),
+    });
   } catch {
     // Sem voz, segue-se pelo ecrã.
   }

@@ -39,6 +39,14 @@ export const pt = {
     squareMetres: 'm²',
     squareKilometres: 'km²',
     kmh: 'km/h',
+    /**
+     * As mesmas unidades por extenso, para a voz.
+     *
+     * Um "m" escrito lê-se num instante; lido em voz alta sai "eme". É o género
+     * de pormenor que faz uma voz soar a robô mal programado.
+     */
+    metresSpoken: 'metros',
+    kilometresSpoken: 'quilómetros',
   },
 
   common: {
@@ -148,6 +156,24 @@ export const pt = {
     toDestination: 'até ao destino',
     finish: 'Terminar',
     arrived: 'Chegou ao destino.',
+    /**
+     * O que a voz diz, e que **não é** o que está escrito no ecrã.
+     *
+     * No ecrã cabe "A recalcular o percurso…", com reticências, porque é um
+     * estado que se vê. Dito em voz alta, as reticências não existem e a frase
+     * acaba com um ponto.
+     */
+    recalculatingVoice: 'A recalcular o percurso.',
+    /** "Daqui a duzentos metros, vire à esquerda para a Rua Augusta." */
+    inDistance: (distance: string, instruction: string) =>
+      `Daqui a ${distance}, ${instruction}.`,
+    cameraAhead: (label: string, distance: string) =>
+      `Atenção: ${label} a ${distance}.`,
+    cameraAheadLimit: (label: string, distance: string, limit: number) =>
+      `Atenção: ${label} a ${distance}, limite ${limit}.`,
+    /** A notificação do serviço que mantém a navegação viva em segundo plano. */
+    serviceTitle: 'PalmMap a navegar',
+    serviceBody: 'A seguir o percurso, mesmo com o ecrã apagado.',
     speedLimit: (kmh: number) => `${kmh}`,
     /** A unidade por baixo do número do velocímetro. */
     speedUnit: 'km/h',

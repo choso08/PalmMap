@@ -29,6 +29,8 @@ export const en: typeof pt = {
     squareMetres: 'm²',
     squareKilometres: 'km²',
     kmh: 'km/h',
+    metresSpoken: 'metres',
+    kilometresSpoken: 'kilometres',
   },
 
   common: {
@@ -136,6 +138,13 @@ export const en: typeof pt = {
     toDestination: 'to your destination',
     finish: 'Finish',
     arrived: "You've arrived.",
+    recalculatingVoice: 'Recalculating the route.',
+    inDistance: (distance: string, instruction: string) => `In ${distance}, ${instruction}.`,
+    cameraAhead: (label: string, distance: string) => `Heads up: ${label} in ${distance}.`,
+    cameraAheadLimit: (label: string, distance: string, limit: number) =>
+      `Heads up: ${label} in ${distance}, limit ${limit}.`,
+    serviceTitle: 'PalmMap navigating',
+    serviceBody: 'Following the route, even with the screen off.',
     speedLimit: (kmh: number) => `${kmh}`,
     speedUnit: 'km/h',
   },

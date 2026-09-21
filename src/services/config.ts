@@ -491,6 +491,31 @@ export const PACE_LEARN_WEIGHT = 0.3;
 export const KEEP_AWAKE_TAG = 'palmmap-navegacao';
 
 /**
+ * O nome por que o Android conhece a tarefa que recebe as posições a navegar.
+ *
+ * **Tem de ser sempre o mesmo**, e é por ele que se liga e desliga o serviço em
+ * primeiro plano. Trocá-lo entre versões deixava o serviço antigo a correr, com
+ * uma notificação que a aplicação nova já não sabe desligar.
+ */
+export const NAVIGATION_TASK = 'palmmap-navegacao-posicao';
+
+/**
+ * Quanto tempo o serviço da navegação continua vivo depois de se largar a
+ * subscrição.
+ *
+ * **Não é folga a mais: é o que impede a navegação de morrer no bolso.** O
+ * efeito que segue a posição volta a correr sempre que o percurso, os radares ou
+ * o ritmo do GPS mudam, e de cada vez larga a subscrição e faz outra. E o
+ * Android **só deixa arrancar um serviço em primeiro plano com a aplicação à
+ * frente** — com o ecrã bloqueado, parar e voltar a começar acabava em exceção e
+ * a viagem ficava sem posição, precisamente quando só a voz é que guia.
+ *
+ * Dois segundos cobrem com folga uma troca de subscrição e são curtos demais
+ * para alguém dar pela notificação a ficar mais um bocado.
+ */
+export const SERVICE_STOP_GRACE_MS = 2000;
+
+/**
  * Quanto tempo esperar depois de a pessoa parar de escrever, antes de pesquisar.
  * O Nominatim proíbe pesquisar a cada tecla escrita, por isso este valor não deve
  * ser reduzido sem se perceber bem o que se está a fazer.

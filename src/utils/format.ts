@@ -15,6 +15,26 @@ function decimal(text: string): string {
 }
 
 /**
+ * 850 -> "850 metros"; 12400 -> "12,4 quilómetros". A mesma distância, para a voz.
+ *
+ * **As abreviaturas não se dizem.** "850 m" lê-se num instante escrito e sai
+ * "oitocentos e cinquenta eme" quando é a voz a dizê-lo — que é o género de
+ * pormenor que faz uma aplicação soar a robô mal programado, precisamente no
+ * momento em que se está a conduzir e só se tem os ouvidos.
+ */
+export function formatDistanceSpoken(meters: number): string {
+  const u = t().units;
+
+  if (meters < 1000) {
+    return `${Math.round(meters)} ${u.metresSpoken}`;
+  }
+
+  const km = meters / 1000;
+  const text = km < 10 ? km.toFixed(1) : Math.round(km).toString();
+  return `${decimal(text)} ${u.kilometresSpoken}`;
+}
+
+/**
  * 1.3 -> "1,3×". O ritmo aprendido, para o ecrã de definições.
  *
  * Uma casa decimal chega: a diferença entre 1,32 e 1,35 não muda decisão nenhuma

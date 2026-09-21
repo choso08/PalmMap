@@ -144,6 +144,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Abrir o instalador do Android | `expo-intent-launcher` |
 | Saber se está em Wi-Fi | `expo-network` |
 | Ecrã aceso a conduzir | `expo-keep-awake` |
+| Navegação em segundo plano | `expo-task-manager` (serviço em primeiro plano do `expo-location`) |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
 | Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
@@ -1577,17 +1578,77 @@ booleano que só muda na primeira leitura.
 - As contas de distância estão em `src/utils/geometry.ts`. Os índices das manobras ao
   longo da linha calculam-se uma vez por percurso, porque durante a navegação é preciso
   responder a cada segundo.
-- A voz é opcional (definições) e usa `expo-speech` em `pt-PT`. Falhar a falar nunca deve
-  interromper a navegação.
+- A voz é opcional (definições) e usa `expo-speech`. Falhar a falar nunca deve interromper a
+  navegação — ver "10-A" para a escolha da voz.
 - **O ecrã fica aceso enquanto se navega** (`expo-keep-awake`, com o nome em
   `KEEP_AWAKE_TAG`). Sem isto o telemóvel bloqueava ao fim de meio minuto — a pessoa não
   lhe está a tocar, está a conduzir. Liga-se ao entrar em navegação e **desliga-se sempre
   ao sair**: o Android conta os pedidos por nome, e um que fique por levantar deixava o
   ecrã aceso para sempre. Fora da navegação não se mexe nisto.
-- **O que continua por resolver:** com a aplicação em segundo plano ou o ecrã apagado à
-  força, o Android acaba por travar a atualização da posição. Resolver isso a sério obriga
-  a um serviço em primeiro plano com notificação permanente, que é bastante mais trabalho.
-  Com o ecrã aceso o caso deixa de aparecer no uso normal.
+- **A navegação continua com o telemóvel no bolso.** É um **serviço em primeiro plano** com
+  notificação permanente (`expo-location` + `expo-task-manager`, tarefa `NAVIGATION_TASK`).
+  Sem ele, o Android corta as leituras de GPS assim que a aplicação sai da frente, e a voz
+  calava-se a meio da viagem — precisamente na situação em que ela é tudo o que guia. A
+  notificação é exigida pelo Android e não se pode esconder; é a mesma que qualquer
+  aplicação de navegação mostra. Com `foregroundService` **não é preciso a permissão de
+  localização em segundo plano** — está escrito no código nativo do `expo-location`, e foi
+  lido antes de se assumir.
+
+  **A armadilha, e é a mais séria desta secção: o Android só deixa arrancar um serviço em
+  primeiro plano com a aplicação à frente.** O efeito que segue a posição volta a correr
+  sempre que o percurso, os radares ou o ritmo do GPS mudam, e de cada vez larga a
+  subscrição e faz outra — com o ecrã bloqueado, parar e voltar a começar acabava em exceção
+  e a viagem ficava sem posição. Por isso a paragem do serviço fica **agendada**
+  (`SERVICE_STOP_GRACE_MS`, 2 s) e é cancelada por quem chegar a seguir; e se mesmo assim
+  não se conseguir mudar as opções ao serviço, **fica o que está** em vez de se recuar para
+  a subscrição normal, que em segundo plano não serve para nada.
+
+  Se o serviço nunca chegar a arrancar — há fabricantes com regras próprias — aí sim
+  volta-se à subscrição de sempre: navegar de ecrã aceso é melhor do que não navegar.
+
+  **Por confirmar num telemóvel:** que o `expo-speech` fala mesmo com a aplicação em segundo
+  plano. O processo fica vivo por causa do serviço, o que é a condição necessária, mas não
+  foi visto a acontecer.
+
+### 10-A. A voz
+
+A voz é a única coisa que guia quem está a conduzir sem olhar para o ecrã, por isso vale a
+pena que não soe a robô mal programado. Três coisas, e todas se ouvem:
+
+**A voz escolhe-se à mão** (`prepareVoices`, em `utils/voice.ts`). Dizer só
+`language: 'pt-PT'` e deixar o sistema escolher **não chega**, por duas razões:
+
+1. **A região.** Se o telemóvel não tiver português de Portugal instalado, o Android serve o
+   que tiver — e o português do Brasil lê "Rua Augusta" com outra pronúncia e outra
+   entoação. A língua bate certo e o sotaque não.
+2. **A qualidade.** O Android costuma trazer duas vozes por língua: uma pequena, que vive no
+   telemóvel, e uma que vem da Internet, bastante mais natural. A que responde por omissão é
+   quase sempre a pequena, e no Android a qualidade declarada não as distingue — quem as
+   distingue é o `network` no identificador.
+
+Por isso pergunta-se ao telemóvel que vozes tem e fica-se com a melhor. **A região vale mais
+do que a qualidade**: uma voz portuguesa pequena é preferível a uma voz brasileira bonita,
+porque o que se está a ler são nomes de ruas portuguesas. Sem nenhuma que sirva, volta-se ao
+comportamento de antes — diz-se a língua e o sistema que escolha.
+
+Corre uma vez no arranque, e não dentro do `speak()`: pedir a lista das vozes é assíncrono e
+o `speak()` é chamado de dentro do motor de navegação, que não pode esperar por nada.
+
+**As distâncias dizem-se por extenso** (`formatDistanceSpoken`). "850 m" lê-se num instante
+escrito e sai "oitocentos e cinquenta **eme**" quando é a voz a dizê-lo. No ecrã fica a
+abreviatura, na voz vai "metros" e "quilómetros".
+
+**O que a voz diz passa pela tabela da língua**, como tudo o resto. Estas frases estavam
+escritas à mão em português dentro do `App.tsx` — "Daqui a…", "Atenção:…", "A recalcular o
+percurso." — e quem tivesse a aplicação em inglês ouvia-as em português, lidas por uma voz
+inglesa. Ver `navigation.inDistance`, `cameraAhead`, `cameraAheadLimit` e
+`recalculatingVoice`.
+
+**E não se corta a voz a meio.** O `stopSpeaking()` estava na limpeza do efeito que segue a
+posição, e essa limpeza corre sempre que o percurso, os radares ou o ritmo do GPS mudam — e
+não só ao sair da navegação. Resultado: recalcular o percurso dizia "a recalcular o percurso"
+e cortava-se a si próprio a meio, porque o percurso novo chegava e o efeito voltava a correr.
+Calar a voz é coisa de **acabar** a navegação, e vive no efeito que vê a navegação acabar.
 
 ### 11. Margens do ecrã (câmara, barras do sistema)
 

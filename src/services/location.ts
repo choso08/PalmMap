@@ -1,8 +1,12 @@
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 
+import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
 import {
   LAST_KNOWN_MAX_AGE_MS,
+  NAVIGATION_TASK,
+  SERVICE_STOP_GRACE_MS,
   POSITION_FRESH_MS,
   POSITION_TIMEOUT_MS,
 } from './config';
@@ -24,6 +28,69 @@ let lastFix: { coordinates: Coordinates; at: number } | null = null;
 function record(coordinates: Coordinates, at: number) {
   lastFix = { coordinates, at };
 }
+
+/**
+ * Quem está à espera das leituras da navegação, quando há navegação a decorrer.
+ *
+ * Tem de ser uma variável do módulo: o serviço em primeiro plano entrega as
+ * posições a uma tarefa registada pelo nome, e essa tarefa é definida uma vez ao
+ * carregar o ficheiro — não tem forma de chegar ao componente que pediu para
+ * seguir a posição. Isto é a ponte entre as duas coisas.
+ */
+let navListener: ((position: Location.LocationObject) => void) | null = null;
+
+/** A paragem do serviço, agendada e ainda por acontecer. */
+let paragemAgendada: ReturnType<typeof setTimeout> | null = null;
+
+function cancelarParagem() {
+  if (paragemAgendada) {
+    clearTimeout(paragemAgendada);
+    paragemAgendada = null;
+  }
+}
+
+/**
+ * Larga a subscrição e agenda o fim do serviço.
+ *
+ * **Não pára já**, e é essa a razão de existir: entre duas subscrições seguidas
+ * — que acontecem a cada mudança de percurso ou de ritmo do GPS — o serviço tem
+ * de continuar vivo, senão o Android recusa-se a voltar a arrancá-lo com a
+ * aplicação em segundo plano. Quem chegar a seguir cancela a paragem.
+ *
+ * Sem ouvinte, as posições que cheguem neste intervalo caem no vazio, que é o
+ * que se quer.
+ */
+function pararServico(): void {
+  navListener = null;
+  cancelarParagem();
+  paragemAgendada = setTimeout(() => {
+    paragemAgendada = null;
+    void Location.stopLocationUpdatesAsync(NAVIGATION_TASK).catch(() => undefined);
+  }, SERVICE_STOP_GRACE_MS);
+}
+
+/**
+ * A tarefa que recebe as posições enquanto se navega, mesmo de ecrã apagado.
+ *
+ * **Define-se aqui, fora de tudo, e é de propósito.** O Android entrega as
+ * leituras a uma tarefa registada pelo nome; se o registo acontecesse dentro de
+ * um componente, uma aplicação que voltasse do fundo da memória não teria a
+ * tarefa registada e as leituras chegavam a um sítio que já não existe.
+ */
+TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
+  NAVIGATION_TASK,
+  async ({ data, error }) => {
+    if (error || !data) {
+      return;
+    }
+    // Vêm em lote. Só a última interessa: é onde a pessoa está agora, e as
+    // anteriores já não mudam nada do que está no ecrã.
+    const ultima = data.locations?.[data.locations.length - 1];
+    if (ultima) {
+      navListener?.(ultima);
+    }
+  },
+);
 
 /** Guarda uma leitura do `expo-location` e devolve só as coordenadas. */
 function keep(position: Location.LocationObject): Coordinates {
@@ -99,6 +166,17 @@ export async function requestPermission(): Promise<boolean> {
 /**
  * Segue a posição enquanto a navegação está a decorrer.
  *
+ * **Corre num serviço em primeiro plano**, com notificação permanente, e é isso
+ * que faz a navegação continuar com o telemóvel no bolso ou o ecrã apagado. Sem
+ * serviço, o Android corta as leituras de GPS assim que a aplicação sai da
+ * frente — e a voz calava-se a meio da viagem, precisamente na situação em que
+ * ela é tudo o que guia. A notificação é exigida pelo Android e não se pode
+ * esconder; é a mesma que qualquer aplicação de navegação mostra.
+ *
+ * Se o serviço não arrancar — há fabricantes com regras próprias — volta-se à
+ * subscrição normal, que funciona com a aplicação à frente. Navegar de ecrã
+ * aceso é melhor do que não navegar.
+ *
  * Devolve uma função para parar de seguir — é obrigatório chamá-la ao sair da
  * navegação, senão o GPS fica ligado a gastar bateria.
  */
@@ -134,40 +212,99 @@ export async function watchPosition(
     return () => undefined;
   }
 
-  const subscription = await Location.watchPositionAsync(
-    {
-      // Mesmo a poupar, a precisão mantém-se: o que muda é de quanto em quanto
-      // tempo se lê, não a qualidade da leitura. Baixar a precisão punha o
-      // Android a responder pelas antenas, e aí a posição deixava de servir
-      // para navegar.
-      accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: timeIntervalMs,
-      // Zero de propósito: com um mínimo de metros, o Android cala-se enquanto a
-      // pessoa está parada — e então o painel fica preso no que dizia. Parado
-      // num semáforo, o tempo que falta tem de continuar a acertar.
-      distanceInterval: 0,
-    },
-    (position) => {
-      record(
-        { latitude: position.coords.latitude, longitude: position.coords.longitude },
-        position.timestamp,
-      );
-      onChange(
-        {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        },
-        // O Android diz a que raio de confiança corresponde esta leitura. Sem
-        // isso, uma leitura má é indistinguível de ter mesmo saído do percurso.
-        position.coords.accuracy ?? 0,
-        // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
-        // que mandam null. Os dois querem dizer o mesmo: não sei.
-        typeof position.coords.speed === 'number' && position.coords.speed >= 0
-          ? position.coords.speed
-          : null,
-      );
-    },
+  const entregar = (position: Location.LocationObject) => {
+    record(
+      { latitude: position.coords.latitude, longitude: position.coords.longitude },
+      position.timestamp,
+    );
+    onChange(
+      {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      },
+      // O Android diz a que raio de confiança corresponde esta leitura. Sem
+      // isso, uma leitura má é indistinguível de ter mesmo saído do percurso.
+      position.coords.accuracy ?? 0,
+      // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
+      // que mandam null. Os dois querem dizer o mesmo: não sei.
+      typeof position.coords.speed === 'number' && position.coords.speed >= 0
+        ? position.coords.speed
+        : null,
+    );
+  };
+
+  const opcoes = {
+    // Mesmo a poupar, a precisão mantém-se: o que muda é de quanto em quanto
+    // tempo se lê, não a qualidade da leitura. Baixar a precisão punha o
+    // Android a responder pelas antenas, e aí a posição deixava de servir
+    // para navegar.
+    accuracy: Location.Accuracy.BestForNavigation,
+    timeInterval: timeIntervalMs,
+    // Zero de propósito: com um mínimo de metros, o Android cala-se enquanto a
+    // pessoa está parada — e então o painel fica preso no que dizia. Parado
+    // num semáforo, o tempo que falta tem de continuar a acertar.
+    distanceInterval: 0,
+  };
+
+  // --- O caminho normal: serviço em primeiro plano -------------------------
+  //
+  // **É isto que faz a navegação continuar de ecrã apagado.** Sem serviço, o
+  // Android corta as leituras de GPS assim que a aplicação sai da frente — e a
+  // voz calava-se a meio da viagem, precisamente quando o telemóvel está no
+  // bolso ou noutra aplicação e a voz é tudo o que resta.
+  //
+  // A contrapartida é a notificação permanente, que o Android exige e não deixa
+  // esconder. É o mesmo que qualquer aplicação de navegação mostra.
+  //
+  // **O serviço não se pára entre subscrições, e essa é a parte mais delicada
+  // disto.** O efeito da navegação volta a correr sempre que o percurso, os
+  // radares ou o ritmo do GPS mudam, e cada vez que corre larga a subscrição
+  // anterior e faz outra. Ora o Android **só deixa arrancar um serviço em
+  // primeiro plano com a aplicação à frente** — está escrito no código deles, e
+  // dá exceção. Parar e voltar a começar com o telemóvel no bolso matava a
+  // navegação a meio da viagem, que é exatamente quando isto serve para alguma
+  // coisa. Por isso a paragem fica agendada por uns segundos e é cancelada se
+  // entretanto chegar outra subscrição — ver `SERVICE_STOP_GRACE_MS`.
+  cancelarParagem();
+  const jaCorria = await Location.hasStartedLocationUpdatesAsync(NAVIGATION_TASK).catch(
+    () => false,
   );
+
+  try {
+    navListener = entregar;
+    await Location.startLocationUpdatesAsync(NAVIGATION_TASK, {
+      ...opcoes,
+      foregroundService: {
+        notificationTitle: t().navigation.serviceTitle,
+        notificationBody: t().navigation.serviceBody,
+        // Se a aplicação for mesmo fechada, o serviço vai com ela. Uma
+        // notificação que sobrevive à aplicação é do género de coisa que
+        // ninguém consegue desligar sem ir às definições do Android.
+        killServiceOnDestroy: true,
+      },
+    });
+
+    return pararServico;
+  } catch {
+    if (jaCorria) {
+      // Já havia serviço a andar e só não se conseguiu mudar-lhe as opções —
+      // o caso de cima, com a aplicação no bolso. O ouvinte já é o novo, por
+      // isso as posições continuam a chegar a quem as espera. Perde-se a
+      // mudança de ritmo do GPS, que é infinitamente menos do que perder a
+      // navegação.
+      return pararServico;
+    }
+
+    // --- O recuo, se o serviço nunca chegou a arrancar --------------------
+    //
+    // Não se sabe de antemão o que pode correr mal num telemóvel concreto — uma
+    // autorização recusada, um fabricante com regras próprias. Melhor navegar
+    // com o ecrã aceso do que não navegar: volta-se à subscrição de sempre, que
+    // funciona com a aplicação à frente.
+    navListener = null;
+  }
+
+  const subscription = await Location.watchPositionAsync(opcoes, entregar);
 
   return () => subscription.remove();
 }

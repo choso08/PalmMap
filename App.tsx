@@ -114,13 +114,17 @@ import { t } from './src/i18n';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
-import { formatDistance } from './src/utils/format';
+import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
-import { speak, stopSpeaking } from './src/utils/voice';
+import { prepareVoices, speak, stopSpeaking } from './src/utils/voice';
 
 // Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
 configureTileRequests();
+
+// Descobre a melhor voz de cada língua, uma vez. É assíncrono e o `speak()` não
+// pode esperar por nada — enquanto não estiver pronto, fala-se como antes.
+void prepareVoices();
 
 /** As definições têm de envolver tudo, porque o tema sai delas. */
 export default function App() {
@@ -1159,7 +1163,7 @@ function PalmMap() {
           const dizer = settings.voiceGuidance;
           setNavigating(false);
           if (dizer) {
-            setTimeout(() => speak('Chegou ao destino.'), 250);
+            setTimeout(() => speak(t().navigation.arrived), 250);
           }
           return;
         }
@@ -1182,7 +1186,7 @@ function PalmMap() {
           recalculating_.current = true;
           setRecalculating(true);
           if (settings.voiceGuidance) {
-            speak('A recalcular o percurso.');
+            speak(t().navigation.recalculatingVoice);
           }
 
           void (async () => {
@@ -1247,11 +1251,15 @@ function PalmMap() {
             if (ate <= CAMERA_WARN_METERS && !warnedCameras.current.has(seguinte.id)) {
               warnedCameras.current.add(seguinte.id);
               if (settings.voiceGuidance) {
-                const limite = seguinte.maxspeed
-                  ? `, limite ${seguinte.maxspeed}`
-                  : '';
+                const v = t().navigation;
                 speak(
-                  `Atenção: ${cameraLabel(seguinte)} a ${formatDistance(ate)}${limite}.`,
+                  seguinte.maxspeed
+                    ? v.cameraAheadLimit(
+                        cameraLabel(seguinte),
+                        formatDistanceSpoken(ate),
+                        seguinte.maxspeed,
+                      )
+                    : v.cameraAhead(cameraLabel(seguinte), formatDistanceSpoken(ate)),
                 );
               }
             }
@@ -1333,7 +1341,10 @@ function PalmMap() {
                 step.instruction.charAt(0).toLowerCase() + step.instruction.slice(1);
               speak(
                 threshold >= 200
-                  ? `Daqui a ${formatDistance(threshold)}, ${instruction}.`
+                  ? t().navigation.inDistance(
+                      formatDistanceSpoken(threshold),
+                      instruction,
+                    )
                   : `${step.instruction}.`,
               );
               break;
@@ -1349,13 +1360,16 @@ function PalmMap() {
       }
     })();
 
+    // **Aqui não se cala a voz nem se apaga o velocímetro**, e isso mudou por
+    // uma razão que se ouvia. Esta limpeza corre sempre que o percurso, os
+    // radares ou o ritmo do GPS mudam — e não só ao sair da navegação. Com o
+    // `stopSpeaking()` aqui dentro, recalcular o percurso dizia "a recalcular o
+    // percurso" e cortava-se a si próprio a meio: o percurso novo chegava, o
+    // efeito voltava a correr e a limpeza calava a frase. Quem as duas coisas
+    // são para fazer é o efeito que vê a navegação acabar, mais abaixo.
     return () => {
       cancelled = true;
       stopWatching?.();
-      stopSpeaking();
-      // Sem isto, voltar a navegar mostrava por um instante a velocidade a que
-      // se ia quando a viagem anterior acabou.
-      setSpeedKmh(null);
     };
   }, [
     navigating,
@@ -1374,7 +1388,8 @@ function PalmMap() {
   ]);
 
   /**
-   * O ritmo de cada viagem: começa do zero e fica guardado no fim.
+   * O que há a fazer ao entrar e ao sair da navegação: calar a voz, apagar o
+   * velocímetro e guardar o ritmo da viagem.
    *
    * Vive num efeito só seu, e não na limpeza do efeito da navegação, porque
    * aquele volta a correr sempre que o percurso, os radares ou o ritmo do GPS
@@ -1388,6 +1403,12 @@ function PalmMap() {
       setLivePace(null);
       return;
     }
+
+    // Calar a voz e apagar o velocímetro são coisas de **acabar** a navegação, e
+    // vivem aqui por isso: na limpeza do efeito que segue a posição corriam a
+    // cada mudança de percurso e cortavam os anúncios a meio.
+    stopSpeaking();
+    setSpeedKmh(null);
 
     const medido = paceToLearn.current;
     paceToLearn.current = null;
