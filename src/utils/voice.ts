@@ -34,6 +34,17 @@ import { activeLanguage, speechTag, type Language } from '../i18n';
 const escolhidas = new Map<Language, string | null>();
 
 /**
+ * Se a voz escolhida é mesmo da região certa — português **de Portugal**, e não
+ * do Brasil.
+ *
+ * Interessa saber porque é a diferença que se ouve, e porque a aplicação não
+ * pode fazer nada quanto a isso: instalar vozes é coisa das definições do
+ * Android. O que dá para fazer é dizê-lo a quem está a ouvir um sotaque que não
+ * pediu — ver o ecrã de definições.
+ */
+const regiaoCerta = new Map<Language, boolean>();
+
+/**
  * Quão bem esta voz serve para esta língua. Negativo quer dizer "não serve".
  *
  * Os pesos são propositadamente desiguais: **a região vale mais do que a
@@ -86,11 +97,23 @@ export async function prepareVoices(): Promise<void> {
       }
 
       escolhidas.set(lingua, melhor?.id ?? null);
+      // Cem pontos é o que só a região exata dá — ver `quaoBoa`.
+      regiaoCerta.set(lingua, (melhor?.pontos ?? 0) >= 100);
     }
   } catch {
     // Sem lista de vozes, fica tudo como estava: diz-se a língua e o sistema
     // escolhe. Não é motivo para ficar sem voz.
   }
+}
+
+/**
+ * Se o telemóvel tem voz da região desta língua.
+ *
+ * `null` enquanto a lista de vozes ainda não foi lida — nesse caso não se diz
+ * nada, que é melhor do que avisar de um problema que pode não existir.
+ */
+export function hasRegionVoice(language: Language): boolean | null {
+  return regiaoCerta.has(language) ? (regiaoCerta.get(language) as boolean) : null;
 }
 
 export function speak(text: string): void {

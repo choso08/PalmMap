@@ -27,6 +27,7 @@ import {
   SATELLITE_DETAILS,
   TIME_ADJUSTMENTS,
   TRAVEL_MODES,
+  useLanguage,
   useLearnedPace,
   useSettings,
   useT,
@@ -34,6 +35,7 @@ import {
 } from '../settings';
 import type { Theme } from '../theme';
 import { formatFactor } from '../utils/format';
+import { hasRegionVoice } from '../utils/voice';
 
 interface SettingsSheetProps {
   /**
@@ -118,6 +120,7 @@ export function SettingsSheet({
   const strings = useT();
   const s = strings.settings;
   const { pace, forgetPace } = useLearnedPace();
+  const language = useLanguage();
   const [clearing, setClearing] = useState(false);
 
   /**
@@ -317,6 +320,15 @@ export function SettingsSheet({
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.voice}</Text>
               <Text style={styles.switchHint}>{s.voiceHint}</Text>
+              {/*
+                Só quando o telemóvel **não** tem a voz da região. A aplicação não
+                pode instalar vozes — isso é das definições do Android — mas pode
+                dizer porque é que se está a ouvir um sotaque que ninguém pediu,
+                que de outra forma se lê como avaria da aplicação.
+              */}
+              {hasRegionVoice(language) === false ? (
+                <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
+              ) : null}
             </View>
             <Switch
               value={settings.voiceGuidance}

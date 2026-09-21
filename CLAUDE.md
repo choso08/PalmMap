@@ -1634,6 +1634,18 @@ comportamento de antes — diz-se a língua e o sistema que escolha.
 Corre uma vez no arranque, e não dentro do `speak()`: pedir a lista das vozes é assíncrono e
 o `speak()` é chamado de dentro do motor de navegação, que não pode esperar por nada.
 
+**E quando não há voz da região, diz-se.** Escolher a melhor não resolve o caso em que o
+telemóvel só tem português do Brasil instalado — aí ouve-se o sotaque que houver, e a
+aplicação **não pode fazer nada**: instalar vozes é das definições do Android. O que pode é
+dizer porquê, e é o que faz, numa linha por baixo da opção da voz (`hasRegionVoice`). Sem
+isso, quem ouve um sotaque que não pediu lê aquilo como avaria da aplicação — e a correção
+está a duas telas de distância, nas definições do Android, em Texto para voz.
+
+**O que não se faz: ler uma frase com duas vozes.** Em inglês, "Turn left onto Rua Augusta"
+é lido todo com pronúncia inglesa, incluindo o nome da rua. Dizer cada pedaço com a sua voz
+obrigava a partir a frase em duas leituras, e duas leituras seguidas têm uma pausa pelo meio
+que se ouve mais do que o sotaque. Fica assim de propósito.
+
 **As distâncias dizem-se por extenso** (`formatDistanceSpoken`). "850 m" lê-se num instante
 escrito e sai "oitocentos e cinquenta **eme**" quando é a voz a dizê-lo. No ecrã fica a
 abreviatura, na voz vai "metros" e "quilómetros".

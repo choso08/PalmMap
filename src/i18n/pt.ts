@@ -362,6 +362,8 @@ export const pt = {
     navigation: 'Navegação',
     voice: 'Ler as instruções em voz alta',
     voiceHint: 'Anuncia as manobras à medida que se aproximam.',
+    voiceRegionHint:
+      'O telemóvel não tem voz de português de Portugal — ouve-se outro sotaque. Instala-se nas definições do Android, em Texto para voz.',
     cameras: 'Avisar de radares',
     aboutText: 'Só serviços abertos e gratuitos, sem Google e sem chaves de API. O mapa é do OpenStreetMap.',
     camerasHint: 'Os que estão marcados no OpenStreetMap: fixos, de semáforo e velocidade média. Os móveis não existem em mapa nenhum — é uma ajuda, não é uma garantia.',

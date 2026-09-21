@@ -330,6 +330,8 @@ export const en: typeof pt = {
     navigation: 'Navigation',
     voice: 'Read directions aloud',
     voiceHint: 'Announces each manoeuvre as it comes up.',
+    voiceRegionHint:
+      "This phone has no British English voice — you'll hear another accent. You can add one in Android settings, under Text-to-speech.",
     cameras: 'Warn about speed cameras',
     aboutText: 'Open, free services only — no Google, no API keys. The map is OpenStreetMap.',
     camerasHint: 'The ones marked in OpenStreetMap: fixed, traffic-light and average-speed. Mobile ones exist on no map — this is a help, not a guarantee.',
