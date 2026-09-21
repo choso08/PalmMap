@@ -76,7 +76,7 @@ import {
   installBundledAssets,
   installedRegions,
   type OfflineRegion,
-} from './src/services/offlineMap';
+  refreshOutdatedOnWifi,} from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
 import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
@@ -483,6 +483,29 @@ function PalmMap() {
       .then(() => setLabelsReady(true))
       .catch(() => undefined)
       .then(() => setOfflineRegions(installedRegions()));
+  }, []);
+
+  /**
+   * Renova os mapas de países que já têm versão mais recente, ao arrancar.
+   *
+   * **Só por Wi-Fi.** Um país são centenas de megabytes — Portugal continental
+   * são 325 MB — e descarregar isso sozinho pelos dados móveis de alguém era
+   * gastar-lhe o plafond sem perguntar. Por Wi-Fi não custa nada e é o que se
+   * quer: o mapa vai-se mantendo em dia sem ninguém ter de pensar nisso.
+   *
+   * Fora do Wi-Fi não acontece nada aqui, e o ecrã dos mapas marca-os como
+   * desatualizados para quem os quiser renovar à mão.
+   *
+   * Em silêncio de ponta a ponta: quem não pediu isto não tem de ver nem um
+   * indicador a rodar nem um erro. Ver `refreshOutdatedOnWifi`.
+   */
+  useEffect(() => {
+    void refreshOutdatedOnWifi().then((renovados) => {
+      if (renovados > 0) {
+        // O mapa em uso pode ter sido substituído por baixo dos pés.
+        setOfflineRegions(installedRegions());
+      }
+    });
   }, []);
 
   const toggleFavourite = useCallback((place: Place) => {

@@ -142,6 +142,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Língua do telemóvel | `expo-localization` |
 | Versão instalada | `expo-application` |
 | Abrir o instalador do Android | `expo-intent-launcher` |
+| Saber se está em Wi-Fi | `expo-network` |
 | Ecrã aceso a conduzir | `expo-keep-awake` |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
@@ -1210,10 +1211,36 @@ copiados uma vez para a pasta da aplicação, no primeiro arranque
 - **`map-regions.json`** — o **catálogo**: 90 regiões, do mundo todo. Estar aqui não quer
   dizer que já esteja gerado; a lista que a aplicação mostra é a do `mapas.json` da
   Release, ou seja só o que já foi gerado.
-- **`.github/workflows/build-map.yml`** — gera as regiões que se lhe indicar. **Acrescenta,
-  não substitui:** cada corrida junta-se ao que já lá está, senão gerar França apagava
+- **`.github/workflows/build-map.yml`** — gera as regiões que se lhe indicar. **Corre
+  sozinho no dia 1 de cada mês**: o OpenStreetMap muda todos os dias e um mapa guardado
+  envelhece sem ninguém dar por isso. Numa corrida agendada não há lista nenhuma pedida, e
+  então **refaz exatamente as que já estão publicadas** — e não as 90 do catálogo, que
+  seriam dias de trabalho e mais de 100 GB. Cada entrada do manifesto leva a data em que foi
+  gerada (`gerado`), que é o que permite à aplicação saber que o ficheiro que tem já é
+  velho. **Acrescenta, não substitui:** cada corrida junta-se ao que já lá está, senão gerar França apagava
   Portugal. Cada região é enviada e apagada do disco logo a seguir, porque o servidor tem
   uns 20 GB e há países que dão mais de 1 GB cada.
+
+#### Manter os mapas em dia
+
+O workflow refaz os publicados **uma vez por mês**, e a aplicação renova sozinha os que
+tiver guardados — **mas só por Wi-Fi**, e isso é uma decisão e não um esquecimento. Portugal
+continental são 325 MB: descarregar isso sozinho pelos dados móveis de alguém era gastar-lhe
+o plafond sem lho perguntar. Por Wi-Fi não custa nada a ninguém e é exatamente o que se
+quer — o mapa vai-se mantendo em dia sem ser preciso pensar nele.
+
+Fora do Wi-Fi não se descarrega nada, e o ecrã dos mapas **marca-os como desatualizados**.
+Aí um toque **renova em vez de apagar**, porque apagar era o contrário do que quem lá toca
+quer — e irreversível sem rede.
+
+**Sem data de um dos lados não se conclui nada.** Um mapa gerado antes de o `gerado` existir
+não a traz, e tratá-lo como velho mandava descarregar centenas de megabytes por engano.
+
+**O manifesto é pedido com um parâmetro que muda a cada vez.** O endereço nunca muda mas o
+conteúdo sim, e o GitHub serve estes ficheiros por uma rede de distribuição que os guarda —
+sem isso, um país acabado de gerar podia não aparecer durante horas, sem erro nenhum e com
+uma lista velha com ar de estar certa. É também por isso que **um país novo não obriga a
+atualizar a aplicação**: a lista vem da Release, não de dentro do APK.
 
 #### Como se liga sozinho
 

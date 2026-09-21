@@ -20,6 +20,15 @@ name: Gerar mapa offline
 # escrever os ids separados por espaços. Por exemplo: `franca espanha italia`.
 
 on:
+  # Todo o dia 1, às 4 da manhã. O OpenStreetMap muda todos os dias — abrem
+  # estradas, mudam nomes, aparecem sítios — e um mapa guardado no telemóvel
+  # envelhece sem ninguém dar por isso. Uma vez por mês chega: são alterações a
+  # conta-gotas, não é um mapa novo de cada vez.
+  #
+  # **Sem `regioes`, refaz exatamente as que já estão publicadas** — e não as 90
+  # do catálogo. Ver a nota no passo de recortar.
+  schedule:
+    - cron: '0 4 1 * *'
   workflow_dispatch:
     inputs:
       regioes:
@@ -74,9 +83,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PEDIDAS: ${{ inputs.regioes }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           set -o pipefail
           mkdir -p mapas
+
+          # Numa corrida agendada não há `regioes` nenhumas: o mês virou e
+          # ninguém escreveu nada. Nesse caso refazem-se **as que já estão
+          # publicadas**, que são as que alguém pode ter no telemóvel — e não as
+          # 90 do catálogo, que seriam dias de trabalho e mais de 100 GB.
+          if [ -z "$PEDIDAS" ]; then
+            if gh release download mapas -R "$REPO" -p mapas.json -O atuais.json 2>/dev/null; then
+              PEDIDAS=$(jq -r '.regioes[].id' atuais.json | tr '\n' ' ')
+              echo "Corrida agendada: a refazer o que já está publicado — $PEDIDAS"
+            fi
+            if [ -z "$PEDIDAS" ]; then
+              echo "Nada publicado ainda e nada pedido. Não há o que fazer."
+              exit 0
+            fi
+          fi
 
           # A Release tem de existir antes de se lhe enviar seja o que for.
           if ! gh release view mapas -R "$REPO" > /dev/null 2>&1; then
@@ -127,8 +153,11 @@ jobs:
             PRIMEIRA=0
             # O bbox vai no manifesto porque a aplicação precisa dele para saber
             # se está dentro de um país guardado — e sem rede.
-            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s]}' \
-              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" >> manifesto.tmp
+            # A data vai no manifesto para a aplicação saber que o ficheiro que
+            # tem no telemóvel já é mais velho do que o que está publicado. Sem
+            # ela não há como distinguir um mapa de ontem de um do ano passado.
+            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
+              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)" >> manifesto.tmp
 
             echo "::endgroup::"
           done

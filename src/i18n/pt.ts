@@ -203,6 +203,7 @@ export const pt = {
     empty: 'Ainda não há mapas publicados. Corra o workflow "Gerar mapa offline" no GitHub.',
     searchIn: (n: number) => `Procurar entre ${n} países`,
     noMatch: 'Nenhum país com esse nome.',
+    outdated: 'desatualizado',
     bundled: 'vem com a aplicação',
   },
 

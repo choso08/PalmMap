@@ -7,6 +7,7 @@ import {
   downloadRegion,
   isDownloaded,
   listRegions,
+  outdatedRegions,
   removeRegion,
   type OfflineRegion,
 } from '../services/offlineMap';
@@ -45,6 +46,9 @@ export function OfflineMaps() {
    * que demora é a rede, não a aplicação, e a rede aguenta bem as três.
    */
   const [downloads, setDownloads] = useState<Record<string, number>>({});
+  /** Os que já têm versão mais recente publicada do que a que está guardada. */
+  const [desatualizados, setDesatualizados] = useState<Set<string>>(new Set());
+  const desatualizadosRef = useRef<Set<string>>(new Set());
   /**
    * As mesmas, numa `ref`.
    *
@@ -62,7 +66,11 @@ export function OfflineMaps() {
   useEffect(() => {
     void (async () => {
       try {
-        setRegions(await listRegions());
+        const lista = await listRegions();
+        setRegions(lista);
+        const velhos = new Set(outdatedRegions(lista).map((r) => r.id));
+        desatualizadosRef.current = velhos;
+        setDesatualizados(velhos);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : t().common.listFailed);
@@ -78,7 +86,9 @@ export function OfflineMaps() {
       return;
     }
 
-    if (isDownloaded(region)) {
+    // Num mapa desatualizado, o toque **renova em vez de apagar**. Apagar era o
+    // contrário do que quem lá toca quer, e era irreversível sem rede.
+    if (isDownloaded(region) && !desatualizadosRef.current.has(region.id)) {
       removeRegion(region);
       setRevision((n) => n + 1);
       return;
@@ -91,6 +101,12 @@ export function OfflineMaps() {
     try {
       await downloadRegion(region, (fracao) => {
         setDownloads((atuais) => ({ ...atuais, [region.id]: fracao }));
+      });
+      desatualizadosRef.current.delete(region.id);
+      setDesatualizados((atuais) => {
+        const resto = new Set(atuais);
+        resto.delete(region.id);
+        return resto;
       });
       setRevision((n) => n + 1);
     } catch (err) {
@@ -167,6 +183,10 @@ export function OfflineMaps() {
         const guardado = revision >= 0 && isDownloaded(region);
         const progresso = downloads[region.id];
         const aDescarregar = progresso !== undefined;
+        // Já há versão mais recente publicada do que a que está no telemóvel.
+        // Por Wi-Fi isto renova-se sozinho; aqui é para quem está nos dados
+        // móveis o poder fazer à mão, sabendo o que vai gastar.
+        const velho = guardado && desatualizados.has(region.id);
 
         return (
           <Pressable
@@ -187,9 +207,11 @@ export function OfflineMaps() {
                 {formatBytes(region.bytes)}
                 {aDescarregar
                   ? ` · ${Math.round(progresso * 100)}%`
-                  : guardado
-                    ? ` · ${strings.common.saved}`
-                    : ''}
+                  : velho
+                    ? ` · ${strings.offline.outdated}`
+                    : guardado
+                      ? ` · ${strings.common.saved}`
+                      : ''}
               </Text>
 
               {/*

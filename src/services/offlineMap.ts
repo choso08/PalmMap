@@ -2,6 +2,7 @@ import axios from 'axios';
 import { t } from '../i18n';
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as Network from 'expo-network';
 
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
 
@@ -40,6 +41,15 @@ export interface OfflineRegion {
   maxzoom: number;
   /** Área abrangida: oeste, sul, este, norte. */
   bbox: [number, number, number, number];
+  /**
+   * Quando este ficheiro foi gerado, em `AAAA-MM-DD`.
+   *
+   * É o que permite saber que o mapa guardado no telemóvel já é mais velho do
+   * que o publicado. Opcional porque os mapas gerados antes disto existir não a
+   * têm — e sem ela trata-se o mapa como estando em dia, que é o mais prudente:
+   * mais vale não dizer nada do que mandar descarregar 325 MB por engano.
+   */
+  gerado?: string;
 }
 
 interface Manifest {
@@ -220,6 +230,12 @@ export async function listRegions(): Promise<OfflineRegion[]> {
     const response = await axios.get<Manifest>(`${BASE_URL}/mapas.json`, {
       timeout: REQUEST_TIMEOUT_MS,
       headers: { 'User-Agent': USER_AGENT },
+      // **O endereço do manifesto nunca muda, mas o conteúdo sim.** Cada corrida
+      // do workflow substitui o ficheiro na mesma Release, no mesmo endereço; e
+      // o GitHub serve estes ficheiros por uma rede de distribuição que os
+      // guarda. Sem isto, um país acabado de gerar podia não aparecer durante
+      // horas — sem erro nenhum, só uma lista velha com ar de estar certa.
+      params: { t: Date.now() },
     });
     return response.data.regioes ?? [];
   } catch {
@@ -306,6 +322,62 @@ export async function downloadRegion(
     throw new OfflineMapError(
       t().errors.mapDownloadFailed(region.nome, detalhe),
     );
+  }
+}
+
+/**
+ * As regiões guardadas que já têm versão mais recente publicada.
+ *
+ * Compara a data do ficheiro que está no telemóvel com a do manifesto. Sem data
+ * de um dos lados, **não se conclui nada**: um mapa gerado antes de isto existir
+ * não traz data, e tratá-lo como velho mandava descarregar 325 MB por engano.
+ */
+export function outdatedRegions(published: OfflineRegion[]): OfflineRegion[] {
+  const guardadas = new Map(installedRegions().map((r) => [r.id, r]));
+
+  return published.filter((nova) => {
+    const antiga = guardadas.get(nova.id);
+    return Boolean(antiga?.gerado && nova.gerado && nova.gerado > antiga.gerado);
+  });
+}
+
+/**
+ * Renova sozinha os mapas guardados que já têm versão mais recente.
+ *
+ * **Só por Wi-Fi, e é uma decisão e não um esquecimento.** Um país são centenas
+ * de megabytes — Portugal continental são 325 MB. Descarregar isso sozinho pelos
+ * dados móveis de alguém seria gastar-lhe o plafond sem lho perguntar, e ninguém
+ * agradece uma aplicação que faz isso. Por Wi-Fi não custa nada a ninguém e é
+ * exatamente o que se quer: o mapa vai-se mantendo em dia sem ser preciso pensar
+ * nele.
+ *
+ * Fora do Wi-Fi não se descarrega nada — mas o ecrã dos mapas **marca-os como
+ * desatualizados**, para quem quiser o possa fazer à mão.
+ *
+ * Devolve quantos renovou. Falhar não é motivo para dizer nada a ninguém: quem
+ * não pediu isto não tem de saber que correu mal, e na vez seguinte tenta outra
+ * vez.
+ */
+export async function refreshOutdatedOnWifi(): Promise<number> {
+  try {
+    const estado = await Network.getNetworkStateAsync();
+    if (estado.type !== Network.NetworkStateType.WIFI || !estado.isInternetReachable) {
+      return 0;
+    }
+
+    const porRenovar = outdatedRegions(await listRegions());
+    let feitas = 0;
+    for (const regiao of porRenovar) {
+      try {
+        await downloadRegion(regiao);
+        feitas += 1;
+      } catch {
+        // Um país que falhe não pode impedir os outros de serem renovados.
+      }
+    }
+    return feitas;
+  } catch {
+    return 0;
   }
 }
 

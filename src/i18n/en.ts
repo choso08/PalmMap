@@ -189,6 +189,7 @@ export const en: typeof pt = {
     empty: 'No maps published yet. Run the "Gerar mapa offline" workflow on GitHub.',
     searchIn: (n: number) => `Search among ${n} countries`,
     noMatch: 'No country by that name.',
+    outdated: 'out of date',
     bundled: 'included with the app',
   },
 
