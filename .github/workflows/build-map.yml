@@ -83,8 +83,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PEDIDAS: ${{ inputs.regioes }}
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
         run: |
           set -o pipefail
           mkdir -p mapas
