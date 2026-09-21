@@ -1,6 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { recordCrash } from '../services/crash';
+
 /**
  * Apanha os erros que acontecem a desenhar o ecrã.
  *
@@ -16,7 +18,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
  *
  * **Só apanha erros de desenho.** Um erro dentro de uma promessa, ou uma avaria
  * do lado nativo, passa ao lado disto — é uma limitação do React e não uma
- * escolha. Serve para a classe de erro mais comum, não para todas.
+ * escolha. Serve para a classe de erro mais comum, não para todas. O que lhe
+ * escapa fica guardado pelo `installCrashHandler()`, e aparece nas definições
+ * da vez seguinte que a aplicação abrir — ver `src/services/crash.ts`.
  *
  * Os textos aqui não passam pela tabela das línguas de propósito: se o que
  * rebentou foi o desenho do ecrã, o contexto que serve os textos pode ser
@@ -48,6 +52,9 @@ export class ErrorBoundary extends Component<Props, State> {
     // Fica no registo do sistema, para quem conseguir ligar o telemóvel ao
     // computador. Quem não conseguir tem o texto no ecrã, que é o essencial.
     console.error('PalmMap: erro a desenhar o ecrã', error, info.componentStack);
+    // E fica guardado no telemóvel, para o caso de a pessoa fechar a aplicação
+    // sem fotografar este ecrã. Lê-se depois nas definições.
+    recordCrash(error, 'render');
   }
 
   render() {

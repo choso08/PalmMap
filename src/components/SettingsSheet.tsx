@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useState } from 'react';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
 import { clearMapCache } from '../services/tiles';
 import { OfflineMaps } from './OfflineMaps';
@@ -124,6 +125,32 @@ export function SettingsSheet({
   const [clearing, setClearing] = useState(false);
 
   /**
+   * A última vez que a aplicação se fechou sozinha, se houve alguma.
+   *
+   * **Aparece em primeiro lugar, e é de propósito.** Quem vem cá por causa de a
+   * aplicação ter fechado não tem de procurar; quem nunca teve nenhuma falha não
+   * vê nada, porque a secção inteira só existe quando há o que mostrar.
+   *
+   * Lê-se ao abrir o ecrã e não no arranque da aplicação: é informação para quem
+   * a foi procurar, e não vale um acesso ao disco a cada vez que se abre o mapa.
+   */
+  const [falha, setFalha] = useState<CrashReport | null>(null);
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    let cancelled = false;
+    void lastCrash().then((guardada) => {
+      if (!cancelled) {
+        setFalha(guardada);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  /**
    * "Carro 1,3× · Bicicleta 1,1×", só com os meios em que já se mediu alguma
    * coisa. Vazio quando não há nada aprendido — e aí a linha inteira não aparece.
    *
@@ -170,6 +197,36 @@ export function SettingsSheet({
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          {/*
+            O que fechou a aplicação da última vez, quando houve alguma coisa a
+            fechá-la. Ver `src/services/crash.ts`: isto não conserta a falha,
+            conserta o relato — sem telemóvel à mão, uma mensagem fotografada
+            poupa várias rondas de adivinhação.
+          */}
+          {falha ? (
+            <View style={styles.falha}>
+              <Text style={styles.falhaTitulo}>{s.lastCrash}</Text>
+              <Text style={styles.falhaHint}>{s.lastCrashHint}</Text>
+              <Text style={styles.falhaMensagem} selectable>
+                {falha.message}
+              </Text>
+              {falha.stack ? (
+                <Text style={styles.falhaPilha} selectable>
+                  {falha.stack}
+                </Text>
+              ) : null}
+              <Pressable
+                style={styles.falhaBotao}
+                onPress={() => {
+                  setFalha(null);
+                  void forgetCrash();
+                }}
+              >
+                <Text style={styles.falhaBotaoTexto}>{s.lastCrashForget}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
           {/*
             A língua fica em primeiro lugar de propósito: quem abriu as
             definições porque não percebe o que está no ecrã tem de dar com ela
@@ -535,6 +592,51 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.textMuted,
       marginTop: 10,
       lineHeight: 17,
+    },
+    /*
+     * A última falha. Fica com ar de aviso e não de definição, porque não é uma
+     * — é uma coisa que aconteceu e que se pode apagar depois de lida.
+     */
+    falha: {
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.danger,
+      padding: 14,
+      gap: 8,
+      marginBottom: 8,
+    },
+    falhaTitulo: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.danger,
+    },
+    falhaHint: {
+      fontSize: 12,
+      color: theme.textMuted,
+      lineHeight: 17,
+    },
+    falhaMensagem: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    falhaPilha: {
+      fontSize: 10,
+      lineHeight: 14,
+      color: theme.textMuted,
+    },
+    falhaBotao: {
+      alignSelf: 'flex-start',
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      backgroundColor: theme.background,
+    },
+    falhaBotaoTexto: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.textMuted,
     },
     forgetRow: {
       flexDirection: 'row',

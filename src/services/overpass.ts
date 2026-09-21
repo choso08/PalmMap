@@ -43,6 +43,19 @@ const schedule = overpassSchedule;
  */
 const cache = new Map<string, Place[]>();
 
+/**
+ * As consultas que estão a decorrer neste momento, pela mesma chave da cache.
+ *
+ * **Sem isto, a mesma área era pedida duas vezes.** A fila espaça os pedidos
+ * dois segundos; quem chegue durante esse tempo a pedir exatamente o mesmo — e
+ * chega, porque o mapa a voltar a uma zona por onde passou há um instante dá a
+ * mesma chave — entrava na fila atrás do primeiro em vez de esperar por ele. A
+ * cache só começava a valer depois de o primeiro **acabar**. Aqui partilha-se a
+ * promessa: o segundo recebe a resposta do primeiro, sem pedido nenhum e sem
+ * esperar pelo intervalo da fila.
+ */
+const emCurso = new Map<string, Promise<Place[]>>();
+
 /** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
 export class PlacesError extends Error {}
 
@@ -123,6 +136,21 @@ async function runQuery(cacheKey: string, query: string): Promise<Place[]> {
     return cached;
   }
 
+  const aCaminho = emCurso.get(cacheKey);
+  if (aCaminho) {
+    return aCaminho;
+  }
+
+  const pedido = fetchQuery(cacheKey, query);
+  emCurso.set(cacheKey, pedido);
+  try {
+    return await pedido;
+  } finally {
+    emCurso.delete(cacheKey);
+  }
+}
+
+async function fetchQuery(cacheKey: string, query: string): Promise<Place[]> {
   let response;
   try {
     response = await schedule(() => overpassClient.post<OverpassResponse>('', query));
@@ -221,6 +249,22 @@ export function boundingBox(bounds: Bounds): string {
 export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
   const box = boundingBox(snapToGrid(bounds));
   return runQuery(`bounds|${box}`, taggedQuery(MAP_PIN_TAGS, box, MAP_PINS_LIMIT));
+}
+
+/**
+ * Os negócios desta área, **se já estiverem em memória**. Não pede nada.
+ *
+ * Serve para os pinos aparecerem **de imediato** ao voltar a uma zona por onde
+ * já se passou. O tempo de espera do `MAP_PINS_DEBOUNCE_MS` existe para não
+ * atirar um pedido à Overpass a cada arrastar do dedo — e uma resposta que já
+ * está em memória não atira pedido nenhum. Esperar por ela era cumprir a letra
+ * de uma regra contra a razão dela.
+ *
+ * Devolve `null` quando não há nada guardado, para se distinguir isso de uma
+ * área que se sabe estar vazia.
+ */
+export function cachedInBounds(bounds: Bounds): Place[] | null {
+  return cache.get(`bounds|${boundingBox(snapToGrid(bounds))}`) ?? null;
 }
 
 /**

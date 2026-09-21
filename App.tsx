@@ -15,6 +15,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { SpeedBadge } from './src/components/SpeedBadge';
 import { UpdateSplash } from './src/components/UpdateSplash';
 import { checkForUpdate, onWifi, type UpdateInfo } from './src/services/update';
+import { guarded, installCrashHandler } from './src/services/crash';
 
 /** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
@@ -85,7 +86,11 @@ import {
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
-import { searchCategoryInBounds, searchInBounds } from './src/services/overpass';
+import {
+  cachedInBounds,
+  searchCategoryInBounds,
+  searchInBounds,
+} from './src/services/overpass';
 import { planScheduledTrips } from './src/services/schedules';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
@@ -118,6 +123,11 @@ import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { prepareVoices, speak, stopSpeaking } from './src/utils/voice';
+
+// **Antes de tudo o resto.** Um erro que aconteça a carregar os módulos abaixo
+// já tem quem o escreva — e é precisamente aí que um erro não tem mais nenhuma
+// forma de se dar a conhecer. Ver `src/services/crash.ts`.
+installCrashHandler();
 
 // Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
 configureTileRequests();
@@ -725,7 +735,9 @@ function PalmMap() {
     let cancelled = false;
 
     void watchPositionIdle(
-      (position, speedMs) => {
+      // Pela mesma razão do seguimento da navegação: quem chama isto é o lado
+      // nativo, e um erro aqui fechava a aplicação sem deixar rasto.
+      guarded((position: Coordinates, speedMs: number | null) => {
         userLocationRef.current = position;
         setUserLocation(position);
         setHasLocation(true);
@@ -754,7 +766,7 @@ function PalmMap() {
             setDrivingGps(false);
           }
         }
-      },
+      }),
       drivingGps ? DRIVING_GPS_INTERVAL_MS : 10000,
       drivingGps ? 0 : 50,
     ).then((fn) => {
@@ -1023,11 +1035,30 @@ function PalmMap() {
         clearTimeout(pinsTimer.current);
       }
 
+      // **O que já está em memória aparece já, sem esperar.** A espera existe
+      // para não atirar um pedido à Overpass a cada arrastar do dedo — e uma
+      // resposta guardada não atira pedido nenhum. Andar para trás e para a
+      // frente numa zona por onde já se passou deixa de ter um segundo e dois
+      // décimos de mapa sem pinos a cada paragem, que era o que mais fazia isto
+      // parecer lento. Sem categoria escolhida, porque só os pinos automáticos
+      // encaixam na grelha da cache.
+      if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
+        const guardados = cachedInBounds(bounds);
+        if (guardados) {
+          // O contador sobe para que uma resposta que ainda venha a caminho de
+          // uma área anterior não venha depois escrever por cima destes.
+          latestPlaces.current += 1;
+          setPlaces(guardados);
+          setPlacesError(null);
+          return;
+        }
+      }
+
       pinsTimer.current = setTimeout(() => {
         void searchPlacesIn(bounds, zoom, category);
       }, MAP_PINS_DEBOUNCE_MS);
     },
-    [category, searchPlacesIn],
+    [category, searchPlacesIn, settings.showPlacesOnMap],
   );
 
   useEffect(() => {
@@ -1140,218 +1171,225 @@ function PalmMap() {
     let cancelled = false;
 
     void (async () => {
-      const stop = await watchPosition((position, accuracyMeters, speedMs) => {
-        setUserLocation(position);
+      // **Embrulhado.** Isto é chamado pelo lado nativo a cada segundo, durante
+      // uma viagem inteira: um erro aqui não passa por `try` nenhum nosso nem
+      // pelo `ErrorBoundary`, vai direito ao tratador global e, num APK, fecha a
+      // aplicação — a meio de uma estrada. Ver `guarded`, em `services/crash.ts`.
+      const stop = await watchPosition(
+        guarded((position, accuracyMeters, speedMs) => {
+          setUserLocation(position);
 
-        // A velocidade sai da mesma leitura, sem custo nenhum, e vai para o
-        // ecrã tal como o GPS a deu — ver a nota no seguimento lento.
-        setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
+          // A velocidade sai da mesma leitura, sem custo nenhum, e vai para o
+          // ecrã tal como o GPS a deu — ver a nota no seguimento lento.
+          setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
-        const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
-        setProgressIndex(index);
-        const remainingMeters = distanceAlong(
-          route.coordinates,
-          index,
-          route.coordinates.length - 1,
-        );
+          const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
+          setProgressIndex(index);
+          const remainingMeters = distanceAlong(
+            route.coordinates,
+            index,
+            route.coordinates.length - 1,
+          );
 
-        // Chegada.
-        if (remainingMeters < ARRIVAL_METERS) {
-          // A voz sai **depois** de a navegação fechar, e não antes: sair da
-          // navegação desfaz este efeito, e a limpeza dele chama `stopSpeaking`
-          // — que calava o "chegou ao destino" a meio da primeira sílaba.
-          const dizer = settings.voiceGuidance;
-          setNavigating(false);
-          if (dizer) {
-            setTimeout(() => speak(t().navigation.arrived), 250);
-          }
-          return;
-        }
-
-        // Saiu do percurso? Só se confirma ao fim de algumas leituras seguidas,
-        // porque uma isolada pode ser apenas imprecisão do GPS.
-        // Só se conta como "fora do percurso" o que a leitura consegue mesmo
-        // afirmar. Entre prédios, o GPS dá facilmente cinquenta metros de erro;
-        // sem esta margem, estar parado num semáforo bastava para a aplicação
-        // julgar que se tinha saído do caminho e recalcular do nada.
-        const margem = OFF_ROUTE_METERS + Math.min(accuracyMeters, 100);
-        if (offRouteMeters > margem) {
-          offRouteStrikes.current += 1;
-        } else {
-          offRouteStrikes.current = 0;
-        }
-
-        if (offRouteStrikes.current >= OFF_ROUTE_STRIKES && !recalculating_.current) {
-          offRouteStrikes.current = 0;
-          recalculating_.current = true;
-          setRecalculating(true);
-          if (settings.voiceGuidance) {
-            speak(t().navigation.recalculatingVoice);
-          }
-
-          void (async () => {
-            try {
-              // Só as paragens que ainda faltam. As que já ficaram para trás
-              // mandariam o percurso dar meia-volta.
-              const emFalta = waypoints.filter((_, i) => waypointIndices[i] > index);
-
-              const [fresh] = await getRoutes(
-                position,
-                emFalta.map((w) => w.coordinates),
-                destination.coordinates,
-                osrmProfile(settings.travelMode) ?? 'driving',
-                settings.avoidTolls,
-              );
-              setRoute(fresh);
-              announced.current.clear();
-    // Sem isto, voltar a navegar o mesmo percurso não voltava a avisar de
-    // nenhum radar por onde já se tinha passado.
-    warnedCameras.current.clear();
-    setCameraAhead(null);
-    // E começava com o GPS ao ritmo lento em que a viagem anterior acabou.
-    setSlowGps(false);
-              // Percurso novo, contagem nova: sem isto, a linha aparecia
-              // apagada até onde ia o percurso antigo.
-              setProgressIndex(0);
-              // E o ritmo volta a contar do zero, porque o percurso novo tem
-              // outra distância total — "quanto já andei" deixava de bater certo.
-              // O que já se mediu não se perde: continua no `livePace` até haver
-              // medida nova.
-              paceStart.current = null;
-            } catch {
-              // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
-            } finally {
-              setRecalculating(false);
-              recalculating_.current = false;
+          // Chegada.
+          if (remainingMeters < ARRIVAL_METERS) {
+            // A voz sai **depois** de a navegação fechar, e não antes: sair da
+            // navegação desfaz este efeito, e a limpeza dele chama `stopSpeaking`
+            // — que calava o "chegou ao destino" a meio da primeira sílaba.
+            const dizer = settings.voiceGuidance;
+            setNavigating(false);
+            if (dizer) {
+              setTimeout(() => speak(t().navigation.arrived), 250);
             }
-          })();
-          return;
-        }
+            return;
+          }
 
-        // A próxima manobra é a primeira que ainda está à frente.
-        const ahead = stepIndices.findIndex((stepIndex) => stepIndex > index);
-        const step = ahead >= 0 ? route.steps[ahead] : route.steps[route.steps.length - 1];
-        const toStep =
-          ahead >= 0
-            ? distanceAlong(route.coordinates, index, stepIndices[ahead])
-            : remainingMeters;
+          // Saiu do percurso? Só se confirma ao fim de algumas leituras seguidas,
+          // porque uma isolada pode ser apenas imprecisão do GPS.
+          // Só se conta como "fora do percurso" o que a leitura consegue mesmo
+          // afirmar. Entre prédios, o GPS dá facilmente cinquenta metros de erro;
+          // sem esta margem, estar parado num semáforo bastava para a aplicação
+          // julgar que se tinha saído do caminho e recalcular do nada.
+          const margem = OFF_ROUTE_METERS + Math.min(accuracyMeters, 100);
+          if (offRouteMeters > margem) {
+            offRouteStrikes.current += 1;
+          } else {
+            offRouteStrikes.current = 0;
+          }
 
-        // --- Radares -------------------------------------------------------
-        //
-        // O radar seguinte é o primeiro que ainda está à frente na linha. Como a
-        // lista já vem ordenada, basta encontrar o primeiro cujo ponto do
-        // percurso é maior do que aquele onde se está.
-        if (settings.speedCameraAlerts && cameras.length > 0) {
-          const seguinte = cameras.find((c) => c.routeIndex > index);
+          if (offRouteStrikes.current >= OFF_ROUTE_STRIKES && !recalculating_.current) {
+            offRouteStrikes.current = 0;
+            recalculating_.current = true;
+            setRecalculating(true);
+            if (settings.voiceGuidance) {
+              speak(t().navigation.recalculatingVoice);
+            }
 
-          if (seguinte) {
-            const ate = distanceAlong(route.coordinates, index, seguinte.routeIndex);
-            setCameraAhead(ate <= CAMERA_WARN_METERS ? { camera: seguinte, meters: ate } : null);
+            void (async () => {
+              try {
+                // Só as paragens que ainda faltam. As que já ficaram para trás
+                // mandariam o percurso dar meia-volta.
+                const emFalta = waypoints.filter((_, i) => waypointIndices[i] > index);
 
-            if (ate <= CAMERA_WARN_METERS && !warnedCameras.current.has(seguinte.id)) {
-              warnedCameras.current.add(seguinte.id);
-              if (settings.voiceGuidance) {
-                const v = t().navigation;
-                speak(
-                  seguinte.maxspeed
-                    ? v.cameraAheadLimit(
-                        cameraLabel(seguinte),
-                        formatDistanceSpoken(ate),
-                        seguinte.maxspeed,
-                      )
-                    : v.cameraAhead(cameraLabel(seguinte), formatDistanceSpoken(ate)),
+                const [fresh] = await getRoutes(
+                  position,
+                  emFalta.map((w) => w.coordinates),
+                  destination.coordinates,
+                  osrmProfile(settings.travelMode) ?? 'driving',
+                  settings.avoidTolls,
                 );
+                setRoute(fresh);
+                announced.current.clear();
+      // Sem isto, voltar a navegar o mesmo percurso não voltava a avisar de
+      // nenhum radar por onde já se tinha passado.
+      warnedCameras.current.clear();
+      setCameraAhead(null);
+      // E começava com o GPS ao ritmo lento em que a viagem anterior acabou.
+      setSlowGps(false);
+                // Percurso novo, contagem nova: sem isto, a linha aparecia
+                // apagada até onde ia o percurso antigo.
+                setProgressIndex(0);
+                // E o ritmo volta a contar do zero, porque o percurso novo tem
+                // outra distância total — "quanto já andei" deixava de bater certo.
+                // O que já se mediu não se perde: continua no `livePace` até haver
+                // medida nova.
+                paceStart.current = null;
+              } catch {
+                // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
+              } finally {
+                setRecalculating(false);
+                recalculating_.current = false;
+              }
+            })();
+            return;
+          }
+
+          // A próxima manobra é a primeira que ainda está à frente.
+          const ahead = stepIndices.findIndex((stepIndex) => stepIndex > index);
+          const step = ahead >= 0 ? route.steps[ahead] : route.steps[route.steps.length - 1];
+          const toStep =
+            ahead >= 0
+              ? distanceAlong(route.coordinates, index, stepIndices[ahead])
+              : remainingMeters;
+
+          // --- Radares -------------------------------------------------------
+          //
+          // O radar seguinte é o primeiro que ainda está à frente na linha. Como a
+          // lista já vem ordenada, basta encontrar o primeiro cujo ponto do
+          // percurso é maior do que aquele onde se está.
+          if (settings.speedCameraAlerts && cameras.length > 0) {
+            const seguinte = cameras.find((c) => c.routeIndex > index);
+
+            if (seguinte) {
+              const ate = distanceAlong(route.coordinates, index, seguinte.routeIndex);
+              setCameraAhead(ate <= CAMERA_WARN_METERS ? { camera: seguinte, meters: ate } : null);
+
+              if (ate <= CAMERA_WARN_METERS && !warnedCameras.current.has(seguinte.id)) {
+                warnedCameras.current.add(seguinte.id);
+                if (settings.voiceGuidance) {
+                  const v = t().navigation;
+                  speak(
+                    seguinte.maxspeed
+                      ? v.cameraAheadLimit(
+                          cameraLabel(seguinte),
+                          formatDistanceSpoken(ate),
+                          seguinte.maxspeed,
+                        )
+                      : v.cameraAhead(cameraLabel(seguinte), formatDistanceSpoken(ate)),
+                  );
+                }
+              }
+            } else {
+              setCameraAhead(null);
+            }
+          }
+
+          // --- Poupança de bateria -------------------------------------------
+          //
+          // Numa reta longa não é preciso ler a posição a cada segundo: o que
+          // falta continua a acertar e a manobra seguinte está a quilómetros.
+          // Perto da manobra volta-se ao ritmo normal, porque é aí que a posição
+          // decide se o aviso de virar sai a tempo.
+          if (settings.batterySaver) {
+            if (toStep > BATTERY_SAVER_MIN_METERS && !slowGps) {
+              setSlowGps(true);
+            } else if (toStep < BATTERY_SAVER_MIN_METERS * 0.66 && slowGps) {
+              setSlowGps(false);
+            }
+          }
+
+          // --- O ritmo a que se vai mesmo ------------------------------------
+          //
+          // Compara-se o tempo que o troço já andado levou mesmo com o que o
+          // percurso previa para ele. O resultado multiplica o que falta, e é isso
+          // que faz a hora de chegada acertar com quem a está a ler. O modelo tem
+          // de ser o mesmo que o ecrã usa — daí o `modelSeconds` aqui também,
+          // senão de bicicleta media-se contra uma previsão e mostrava-se outra.
+          const coveredMeters = route.distanceMeters - remainingMeters;
+          const assumedTotal = modelSeconds(
+            route.distanceMeters,
+            route.durationSeconds,
+            settings.travelMode,
+          );
+          const assumedCovered =
+            route.distanceMeters > 0
+              ? assumedTotal * (coveredMeters / route.distanceMeters)
+              : 0;
+
+          if (!paceStart.current) {
+            paceStart.current = {
+              atMs: Date.now(),
+              coveredMeters,
+              assumedSeconds: assumedCovered,
+            };
+          } else {
+            const elapsedMs = Date.now() - paceStart.current.atMs;
+            const andados = coveredMeters - paceStart.current.coveredMeters;
+            const previstos = assumedCovered - paceStart.current.assumedSeconds;
+
+            // Os dois mínimos são o que impede um semáforo à saída de casa de
+            // valer por uma viagem inteira — ver `PACE_MIN_MS`.
+            if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
+              const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
+              setLivePace(medido);
+              paceToLearn.current = { mode: settings.travelMode, factor: medido };
+            }
+          }
+
+          setNextStep(step ?? null);
+          setDistanceToStep(toStep);
+          setRemaining({
+            meters: remainingMeters,
+            seconds:
+              route.distanceMeters > 0
+                ? route.durationSeconds * (remainingMeters / route.distanceMeters)
+                : 0,
+          });
+
+          // Anúncios em voz, uma vez por manobra e por distância. As manobras que
+          // não obrigam a decidir nada ficam de fora — ver `worthAnnouncing`.
+          if (settings.voiceGuidance && step?.announce) {
+            for (const threshold of ANNOUNCE_AT_METERS) {
+              const key = `${ahead}|${threshold}`;
+              if (toStep <= threshold && !announced.current.has(key)) {
+                announced.current.add(key);
+                const instruction =
+                  step.instruction.charAt(0).toLowerCase() + step.instruction.slice(1);
+                speak(
+                  threshold >= 200
+                    ? t().navigation.inDistance(
+                        formatDistanceSpoken(threshold),
+                        instruction,
+                      )
+                    : `${step.instruction}.`,
+                );
+                break;
               }
             }
-          } else {
-            setCameraAhead(null);
           }
-        }
-
-        // --- Poupança de bateria -------------------------------------------
-        //
-        // Numa reta longa não é preciso ler a posição a cada segundo: o que
-        // falta continua a acertar e a manobra seguinte está a quilómetros.
-        // Perto da manobra volta-se ao ritmo normal, porque é aí que a posição
-        // decide se o aviso de virar sai a tempo.
-        if (settings.batterySaver) {
-          if (toStep > BATTERY_SAVER_MIN_METERS && !slowGps) {
-            setSlowGps(true);
-          } else if (toStep < BATTERY_SAVER_MIN_METERS * 0.66 && slowGps) {
-            setSlowGps(false);
-          }
-        }
-
-        // --- O ritmo a que se vai mesmo ------------------------------------
-        //
-        // Compara-se o tempo que o troço já andado levou mesmo com o que o
-        // percurso previa para ele. O resultado multiplica o que falta, e é isso
-        // que faz a hora de chegada acertar com quem a está a ler. O modelo tem
-        // de ser o mesmo que o ecrã usa — daí o `modelSeconds` aqui também,
-        // senão de bicicleta media-se contra uma previsão e mostrava-se outra.
-        const coveredMeters = route.distanceMeters - remainingMeters;
-        const assumedTotal = modelSeconds(
-          route.distanceMeters,
-          route.durationSeconds,
-          settings.travelMode,
-        );
-        const assumedCovered =
-          route.distanceMeters > 0
-            ? assumedTotal * (coveredMeters / route.distanceMeters)
-            : 0;
-
-        if (!paceStart.current) {
-          paceStart.current = {
-            atMs: Date.now(),
-            coveredMeters,
-            assumedSeconds: assumedCovered,
-          };
-        } else {
-          const elapsedMs = Date.now() - paceStart.current.atMs;
-          const andados = coveredMeters - paceStart.current.coveredMeters;
-          const previstos = assumedCovered - paceStart.current.assumedSeconds;
-
-          // Os dois mínimos são o que impede um semáforo à saída de casa de
-          // valer por uma viagem inteira — ver `PACE_MIN_MS`.
-          if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
-            const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
-            setLivePace(medido);
-            paceToLearn.current = { mode: settings.travelMode, factor: medido };
-          }
-        }
-
-        setNextStep(step ?? null);
-        setDistanceToStep(toStep);
-        setRemaining({
-          meters: remainingMeters,
-          seconds:
-            route.distanceMeters > 0
-              ? route.durationSeconds * (remainingMeters / route.distanceMeters)
-              : 0,
-        });
-
-        // Anúncios em voz, uma vez por manobra e por distância. As manobras que
-        // não obrigam a decidir nada ficam de fora — ver `worthAnnouncing`.
-        if (settings.voiceGuidance && step?.announce) {
-          for (const threshold of ANNOUNCE_AT_METERS) {
-            const key = `${ahead}|${threshold}`;
-            if (toStep <= threshold && !announced.current.has(key)) {
-              announced.current.add(key);
-              const instruction =
-                step.instruction.charAt(0).toLowerCase() + step.instruction.slice(1);
-              speak(
-                threshold >= 200
-                  ? t().navigation.inDistance(
-                      formatDistanceSpoken(threshold),
-                      instruction,
-                    )
-                  : `${step.instruction}.`,
-              );
-              break;
-            }
-          }
-        }
-      }, settings.batterySaver && slowGps ? BATTERY_SAVER_INTERVAL_MS : 1000);
+        }),
+        settings.batterySaver && slowGps ? BATTERY_SAVER_INTERVAL_MS : 1000,
+      );
 
       if (cancelled) {
         stop();

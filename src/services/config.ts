@@ -216,8 +216,15 @@ export const MAP_PINS_MIN_ZOOM = 15;
  *
  * Hoje cada grupo leva o seu próprio `out`, e este número é o que cada um pode
  * trazer. Ver `searchInBounds`.
+ *
+ * **Quarenta e não cem, e isso é sobre o tempo que se espera.** Com três grupos,
+ * cem cada um são trezentos lugares por consulta: trezentos conjuntos de
+ * etiquetas a resolver do lado da Overpass, umas centenas de kilobytes a
+ * descarregar e trezentos símbolos a desenhar no mapa. Num quadrado de meio
+ * quilómetro, cento e vinte pinos já é mais do que cabe no ecrã sem se taparem
+ * uns aos outros — o que passa disso é trabalho feito para não se ver.
  */
-export const MAP_PINS_LIMIT = 100;
+export const MAP_PINS_LIMIT = 40;
 
 /**
  * A que grelha se encaixa a área dos pinos automáticos, em graus.

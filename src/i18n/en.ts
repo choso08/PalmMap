@@ -327,6 +327,10 @@ export const en: typeof pt = {
     schedules: 'Timetables',
     schedulesHint: 'Train, metro and ferry. Kept on the phone, they work offline.',
 
+    lastCrash: 'The app closed by itself',
+    lastCrashHint:
+      'This is what happened last time. A photo of this text is what makes it fixable.',
+    lastCrashForget: 'Clear',
     navigation: 'Navigation',
     voice: 'Read directions aloud',
     voiceHint: 'Announces each manoeuvre as it comes up.',

@@ -359,6 +359,10 @@ export const pt = {
     schedules: 'Horários',
     schedulesHint: 'Comboio, metro e barco. Guardados no telemóvel, funcionam sem rede.',
 
+    lastCrash: 'A aplicação fechou-se sozinha',
+    lastCrashHint:
+      'Foi isto que aconteceu da última vez. Uma fotografia deste texto é o que permite corrigi-lo.',
+    lastCrashForget: 'Apagar',
     navigation: 'Navegação',
     voice: 'Ler as instruções em voz alta',
     voiceHint: 'Anuncia as manobras à medida que se aproximam.',

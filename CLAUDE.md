@@ -322,6 +322,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
 │   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
 │   │   ├── cameras.ts      # Radares no percurso, por tipo
+│   │   ├── crash.ts        # Guarda o que fechou a aplicação, para se ler depois
 │   │   ├── favourites.ts   # Sítios guardados no telemóvel
 │   │   ├── recents.ts      # Últimos destinos
 │   │   ├── location.ts     # Gere o GPS do telemóvel
@@ -451,6 +452,8 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   1,1 MB de vinte em vinte segundos, só porque foi ali que se fechou da última vez. O sítio
   onde se desfaz isto é o `mapType: DEFAULT_SETTINGS.mapType` da leitura, em `settings.tsx`.
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
+- **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
+  quando a aplicação se fechou sozinha — ver "6-K".
 - **O meio de transporte também se troca no painel do percurso**, com três botões por cima
   da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
   pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
@@ -1240,6 +1243,40 @@ Regras práticas:
   'string').join(' ').length`. Se voltar a passar dos três mil, é sinal de que alguma
   explicação está a crescer outra vez.
 
+### 6-K. Quando a aplicação se fecha sozinha
+
+O `ErrorBoundary` sempre disse o que não apanha: **um erro dentro de uma
+promessa, de um `setTimeout` ou de uma chamada vinda do lado nativo passa-lhe ao
+lado.** Numa aplicação compilada esses não dão ecrã nenhum — vão direitos ao
+tratador global do React Native, que em versão de lançamento os entrega ao
+Android como erro fatal. A aplicação desaparece e quem a estava a usar fica só
+com "a aplicação fechou-se".
+
+Isto não conserta a avaria. **Conserta o relato**, que é a mesma decisão já
+tomada nos erros dos horários: sem telemóvel à mão, uma mensagem fotografada
+poupa várias rondas de adivinhação.
+
+- **`installCrashHandler()`** (em `src/services/crash.ts`) corre no arranque,
+  antes de tudo, e **encadeia-se** no tratador que já lá está em vez de o
+  substituir — tirá-lo do caminho trocava um problema por outro. Guarda a
+  mensagem e as primeiras doze linhas da pilha no `AsyncStorage`, e deixa a
+  aplicação fechar-se: manter viva uma aplicação cujo estado já rebentou torna o
+  que vem a seguir mais difícil de perceber do que o que aconteceu.
+- **Aparece no cimo do ecrã de definições**, na vez seguinte que se abrir, com um
+  botão para apagar. Quem nunca teve falha nenhuma não vê nada — a secção só
+  existe quando há o que mostrar. Lê-se ao abrir o ecrã e não no arranque: é
+  informação para quem a foi procurar.
+- **O `ErrorBoundary` também escreve lá**, para o caso de a pessoa fechar a
+  aplicação sem fotografar o ecrã vermelho.
+- **`guarded()` é para as funções que o lado nativo chama**, e só para essas: os
+  dois seguimentos da posição. Um erro aí não passa por `try` nenhum nosso e
+  fechava a aplicação **a meio de uma estrada**. Embrulhados, perde-se uma
+  leitura do GPS — a seguinte chega um segundo depois — e fica escrito o que
+  rebentou. **Não usar isto por todo o lado:** engolir erros em código normal
+  esconde avarias; aqui a alternativa não é ver o erro, é a aplicação fechar-se.
+
+Nada disto sai do telemóvel. Fica no `AsyncStorage`, como tudo o resto.
+
 ### 7. Offline — o que é permitido e o que não é
 
 Esta secção é sobre a regra. A parte prática dos países está na secção seguinte.
@@ -1874,6 +1911,25 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
   que se pede a mais são lugares que não se vão ver e que ainda assim ocupam lugar no limite
   da resposta. `MAP_PINS_GRID_DEG` desceu de 0,01° para 0,005° — a cache acerta menos vezes
   e em troca pede-se a área do ecrã e não quatro vezes ela.
+- **O que já está em memória aparece de imediato, sem esperar pelo `MAP_PINS_DEBOUNCE_MS`.**
+  A espera existe para não atirar um pedido à Overpass a cada arrastar do dedo, e uma
+  resposta guardada não atira pedido nenhum — esperar por ela era cumprir a letra da regra
+  contra a razão dela. Ver `cachedInBounds`, que consulta a cache **sem pedir nada** e
+  devolve `null` quando não tem: é o que distingue "não há negócios aqui" de "ainda não se
+  perguntou". Medido num passeio de quarenta paragens do mapa, com voltas para trás:
+  **metade delas passou de cerca de três segundos para instantânea, com exatamente os mesmos
+  vinte pedidos.**
+- **Dois pedidos iguais ao mesmo tempo passaram a ser um.** A fila espaça os pedidos dois
+  segundos; quem chegasse nesse intervalo a pedir a mesma área — e chega, porque voltar a uma
+  zona dá a mesma chave — entrava na fila atrás do primeiro em vez de esperar por ele, e a
+  cache só começava a valer depois de o primeiro **acabar**. Hoje partilha-se a promessa
+  (`emCurso`, em `overpass.ts`): o segundo recebe a resposta do primeiro, sem pedido nenhum e
+  sem esperar pelo intervalo.
+- **`MAP_PINS_LIMIT` desceu de 100 para 40 por grupo.** Com três grupos, cem cada um eram
+  trezentos lugares por consulta: trezentos conjuntos de etiquetas a resolver do lado da
+  Overpass, umas centenas de kilobytes a descarregar e trezentos símbolos a desenhar. Num
+  quadrado de meio quilómetro, cento e vinte pinos já é mais do que cabe no ecrã sem se
+  taparem uns aos outros — o que passa disso é trabalho feito para não se ver.
 
 ### OSRM — cálculo de percursos
 
@@ -2082,6 +2138,23 @@ Erros já cometidos neste projeto, para não se repetirem.
   transportes voltaram a nascer presas à posição do telemóvel: arrastar o mapa para outra
   terra não trazia nada, e sem posição não aparecia nada de todo. Ao escrever uma lista de
   "o que há aqui à volta", o "aqui" é o meio do mapa.
+- **Uma espera que existe para proteger um serviço não tem de se aplicar a quem não lhe vai
+  pedir nada.** Os pinos do mapa esperavam o segundo e dois décimos do travão da Overpass
+  mesmo quando a resposta já estava em memória — e como se anda para trás e para a frente
+  pela mesma zona, era metade das vezes. Parecia lentidão da aplicação e era uma regra
+  aplicada à letra onde a razão dela não se aplicava. Ao pôr um travão, perguntar **o que é
+  que ele está a proteger** e deixar passar o que não lhe toca.
+- **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
+  Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
+  ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
+- **O `expo-location` não lança exceção quando o serviço em primeiro plano não pode
+  arrancar.** Com a aplicação no fundo, o `maybeStartForegroundService` deles desiste e
+  escreve um aviso no registo; o `startLocationUpdatesAsync` resolve-se como se tivesse
+  corrido bem. Ou seja, o `catch` que estava escrito para esse caso nunca corre, e a
+  navegação ficava sem serviço **em silêncio**. Quem resolve isto é não parar o serviço entre
+  subscrições (`SERVICE_STOP_GRACE_MS`) e não o `catch`. Lido em
+  `taskConsumers/LocationTaskConsumer.kt`, depois de o comentário aqui ter afirmado o
+  contrário.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

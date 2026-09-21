@@ -260,11 +260,15 @@ export async function watchPosition(
   // disto.** O efeito da navegação volta a correr sempre que o percurso, os
   // radares ou o ritmo do GPS mudam, e cada vez que corre larga a subscrição
   // anterior e faz outra. Ora o Android **só deixa arrancar um serviço em
-  // primeiro plano com a aplicação à frente** — está escrito no código deles, e
-  // dá exceção. Parar e voltar a começar com o telemóvel no bolso matava a
-  // navegação a meio da viagem, que é exatamente quando isto serve para alguma
-  // coisa. Por isso a paragem fica agendada por uns segundos e é cancelada se
-  // entretanto chegar outra subscrição — ver `SERVICE_STOP_GRACE_MS`.
+  // primeiro plano com a aplicação à frente**, e o `expo-location` sabe-o: com a
+  // aplicação no fundo, o `maybeStartForegroundService` deles **desiste e
+  // escreve um aviso no registo** — não lança exceção nenhuma e este `await`
+  // resolve-se como se tivesse corrido bem. Ou seja, parar e voltar a começar
+  // com o telemóvel no bolso deixava a navegação sem serviço **em silêncio**,
+  // que é exatamente quando isto serve para alguma coisa. Por isso a paragem
+  // fica agendada por uns segundos e é cancelada se entretanto chegar outra
+  // subscrição — ver `SERVICE_STOP_GRACE_MS`. (Lido em
+  // `taskConsumers/LocationTaskConsumer.kt`, e não assumido.)
   cancelarParagem();
   const jaCorria = await Location.hasStartedLocationUpdatesAsync(NAVIGATION_TASK).catch(
     () => false,
@@ -287,11 +291,10 @@ export async function watchPosition(
     return pararServico;
   } catch {
     if (jaCorria) {
-      // Já havia serviço a andar e só não se conseguiu mudar-lhe as opções —
-      // o caso de cima, com a aplicação no bolso. O ouvinte já é o novo, por
-      // isso as posições continuam a chegar a quem as espera. Perde-se a
-      // mudança de ritmo do GPS, que é infinitamente menos do que perder a
-      // navegação.
+      // Já havia serviço a andar e só não se conseguiu mudar-lhe as opções. O
+      // ouvinte já é o novo, por isso as posições continuam a chegar a quem as
+      // espera. Perde-se a mudança de ritmo do GPS, que é infinitamente menos
+      // do que perder a navegação.
       return pararServico;
     }
 
