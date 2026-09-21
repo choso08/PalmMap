@@ -459,11 +459,13 @@ function PalmMap() {
         setTransitOutside(encontradas === null);
         setTransitStops(encontradas ?? []);
         setTransitError(null);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
           setTransitStops([]);
           setTransitOutside(false);
-          setTransitError(t().transit.stopsFailed);
+          setTransitError(
+            error instanceof Error ? error.message : t().transit.stopsFailed,
+          );
         }
       } finally {
         if (!cancelled) {
@@ -816,14 +818,20 @@ function PalmMap() {
               : null,
           );
           void rememberRecent(destination).then(setRecents);
-        } catch {
+        } catch (error) {
           if (!cancelled) {
             setTransitTrips(doHorario);
             setTransitTripIndex(0);
+            // A mensagem do erro diz o que falhou mesmo — o serviço a responder
+            // com um número, a demorar demais ou a rede em baixo. Antes era
+            // sempre "verifique a ligação", que diz o contrário do que se passa
+            // a quem tem rede e o mapa a carregar normalmente.
             setRouteError(
               doHorario.length > 0
                 ? null
-                : t().errors.schedulesFailed,
+                : error instanceof Error
+                  ? error.message
+                  : t().errors.schedulesFailed,
             );
           }
         } finally {
@@ -1395,7 +1403,12 @@ function PalmMap() {
     selectedPlace || destination || measuring
       ? insets.bottom + 322
       : navigating
-        ? insets.bottom + 130
+        ? // A navegar, este canto tem o velocímetro, que o `NavigationPanel`
+          // põe a 130. A bússola vai para cima dele — estavam as duas à mesma
+          // altura, e com o mapa a rodar no sentido da marcha a bússola está
+          // sempre à vista, por isso ficavam uma em cima da outra a viagem
+          // toda. Entre as duas, quem manda no sítio mais baixo é o velocímetro.
+          insets.bottom + 192
         : insets.bottom + 90;
 
   const handleTapEmpty = useCallback((coordinates: Coordinates) => {
@@ -1806,9 +1819,12 @@ function PalmMap() {
           style={({ pressed }) => [
             styles.measureButton,
             measuring ? styles.measureButtonOn : null,
-            // Com a fita ligada abre-se o painel dela, que tapava este botão —
-            // e este é o botão que a desliga. Sobe, como os do outro lado.
-            measuring ? styles.measureRaised : null,
+            // **Sobe com qualquer painel de baixo, e não só com o da fita.**
+            // Subia só com o dela, e por isso ficava por baixo do painel de um
+            // sítio ou de um percurso — a tapar-lhe o texto, como se vê assim
+            // que se escolhe um destino. A condição é a mesma dos três botões
+            // do outro lado e da bússola: onde há painel, sobem todos.
+            selectedPlace || destination || measuring ? styles.measureRaised : null,
             pressed ? styles.buttonPressed : null,
           ]}
           onPress={() => {
@@ -1897,7 +1913,9 @@ function PalmMap() {
         <Reveal
           style={[
             styles.mapTypeLabel,
-            selectedPlace || destination || measuring ? styles.layersRaised : null,
+            selectedPlace || destination || measuring
+              ? styles.mapTypeLabelRaised
+              : null,
           ]}
           visible={!!mapTypeLabel}
           from={0}
@@ -2194,6 +2212,16 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     layersRaised: {
       bottom: insets.bottom + 322,
+    },
+    /**
+     * O nome do tipo de mapa acompanha o botão, e não o chão do botão.
+     *
+     * São os 322 do `layersRaised` mais os mesmos 14 que o separam dele quando
+     * não há painel nenhum aberto. Com o `layersRaised` à letra, o texto subia
+     * catorze pontos a menos e ficava desalinhado do ícone que explica.
+     */
+    mapTypeLabelRaised: {
+      bottom: insets.bottom + 336,
     },
     transitRaised: {
       // Mesmo afastamento entre os dois botões de quando não há painel aberto.

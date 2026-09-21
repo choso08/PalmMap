@@ -3,6 +3,7 @@ import axios from 'axios';
 import {
   CARRIS_BASE_URL,
   CARRIS_MIN_INTERVAL_MS,
+  CARRIS_STOPS_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   TRANSIT_WALK_MAX_M,
   USER_AGENT,
@@ -48,6 +49,37 @@ const client = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
   headers: { 'User-Agent': USER_AGENT },
 });
+
+/** Falha ao falar com o serviço dos autocarros, já com a razão por escrito. */
+export class TransitError extends Error {}
+
+/**
+ * Um pedido ao serviço dos autocarros, com o erro a dizer o que falhou mesmo.
+ *
+ * **Isto não é enfeite.** A mensagem era sempre a mesma — "verifique a ligação"
+ * — e dizia o contrário do que se passava a quem tinha rede e mapa a carregar
+ * normalmente. Pior: não havia como distinguir o serviço em baixo, o endereço
+ * mudado, o pedido a demorar demais ou a rede mesmo em baixo, e sem telemóvel à
+ * mão não há outra forma de o saber. Um número de resposta no ecrã resolve numa
+ * fotografia o que de outra maneira são várias rondas de adivinhação.
+ */
+async function carrisGet<T>(path: string, timeout?: number): Promise<T> {
+  try {
+    const { data } = await schedule(() => client.get<T>(path, { timeout }));
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response) {
+        throw new TransitError(t().errors.transitStatus(error.response.status));
+      }
+      if (error.code === 'ECONNABORTED') {
+        throw new TransitError(t().errors.transitTimeout);
+      }
+      throw new TransitError(t().errors.transitOffline);
+    }
+    throw new TransitError(t().errors.schedulesFailed);
+  }
+}
 
 /** Uma paragem pronta a mostrar no ecrã. */
 export interface TransitStop {
@@ -103,8 +135,8 @@ async function loadStops(): Promise<TransitStop[]> {
     return loading;
   }
 
-  loading = schedule(async () => {
-    const { data } = await client.get<CarrisStop[]>('/stops');
+  loading = (async () => {
+    const data = await carrisGet<CarrisStop[]>('/stops', CARRIS_STOPS_TIMEOUT_MS);
     const stops: TransitStop[] = [];
 
     for (const stop of Array.isArray(data) ? data : []) {
@@ -129,8 +161,8 @@ async function loadStops(): Promise<TransitStop[]> {
 
     cachedStops = stops;
     return stops;
-  })
-    .catch((error) => {
+  })()
+    .catch((error: unknown) => {
       // Uma falha não pode deixar a promessa presa: o próximo pedido tem de
       // poder tentar de novo.
       loading = null;
@@ -210,8 +242,8 @@ async function rawArrivalsAt(stopId: string): Promise<CarrisArrival[]> {
     return guardado.dados;
   }
 
-  const { data } = await schedule(() =>
-    client.get<CarrisArrival[]>(`/arrivals/by_stop/${encodeURIComponent(stopId)}`),
+  const data = await carrisGet<CarrisArrival[]>(
+    `/arrivals/by_stop/${encodeURIComponent(stopId)}`,
   );
 
   const dados = Array.isArray(data) ? data : [];
@@ -370,9 +402,25 @@ export async function planBusTrips(
   // As paragens de chegada primeiro: é contra elas que se procuram as viagens.
   const porViagem = new Map<string, { stop: TransitStop; unix: number; seq: number }>();
 
+  // **Uma paragem que falhe não deita o planeamento abaixo.** São meia dúzia de
+  // pedidos, e o serviço recusa um de vez em quando; com um `Promise.all` puro,
+  // essa recusa isolada apagava as opções todas — incluindo as que já tinham
+  // vindo bem. Só se desiste se falharem todas, e aí diz-se porquê.
+  let falha: unknown = null;
+  let falhadas = 0;
+
   await Promise.all(
     chegadas.map(async (stop) => {
-      for (const arrival of await rawArrivalsAt(stop.id)) {
+      let passagens: CarrisArrival[];
+      try {
+        passagens = await rawArrivalsAt(stop.id);
+      } catch (error) {
+        falha = falha ?? error;
+        falhadas += 1;
+        return;
+      }
+
+      for (const arrival of passagens) {
         const passa = quandoPassa(arrival);
         if (!arrival.trip_id || !passa) {
           continue;
@@ -391,6 +439,10 @@ export async function planBusTrips(
       }
     }),
   );
+
+  if (falhadas === chegadas.length && falha) {
+    throw falha;
+  }
 
   const agora = Date.now() / 1000;
   const trajetos: TransitTrip[] = [];
@@ -527,8 +579,9 @@ async function loadStations(): Promise<TransitStation[]> {
     const listas = await Promise.all(
       (Object.keys(STATION_ENDPOINTS) as StationKind[]).map(async (kind) => {
         try {
-          const { data } = await schedule(() =>
-            client.get<CarrisFacility[]>(STATION_ENDPOINTS[kind]),
+          const data = await carrisGet<CarrisFacility[]>(
+            STATION_ENDPOINTS[kind],
+            CARRIS_STOPS_TIMEOUT_MS,
           );
 
           const estacoes: TransitStation[] = [];

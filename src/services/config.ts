@@ -99,6 +99,22 @@ export const NOMINATIM_MIN_INTERVAL_MS = 1000;
 export const CARRIS_MIN_INTERVAL_MS = 300;
 
 /**
+ * Quanto tempo se espera pela lista das paragens, que é a resposta mais pesada
+ * de que a aplicação depende.
+ *
+ * **Os quinze segundos do resto não chegam aqui.** São milhares de paragens, com
+ * nome, localidade, linhas e ligações a outros meios — megabytes de JSON, para
+ * descarregar e ainda para interpretar, num telemóvel. Em Wi-Fi passa
+ * despercebido; nos dados móveis fica mesmo em cima do limite, e aí falha umas
+ * vezes sim outras não, sem nada que o distinga do serviço estar em baixo.
+ *
+ * Pede-se uma vez por sessão, por isso esperar um minuto não custa nada a
+ * ninguém: o que a pessoa vê é o indicador a rodar mais um bocado, em vez de um
+ * erro a dizer que não há transportes.
+ */
+export const CARRIS_STOPS_TIMEOUT_MS = 60000;
+
+/**
  * Até que distância se aceita ir a pé para apanhar o autocarro, em metros.
  *
  * Um quilómetro são uns doze minutos a passo normal. Mais do que isso, quem vai

@@ -379,6 +379,10 @@ export const pt = {
     zoomIn: 'Aproxime o mapa para procurar nesta zona.',
     noneOfCategory: (category: string) => `Não há ${category.toLowerCase()} nesta zona.`,
     schedulesFailed: 'Não foi possível obter os horários. Verifique a ligação.',
+    transitOffline: 'Não foi possível chegar ao serviço dos autocarros. Verifique a rede.',
+    transitTimeout: 'O serviço dos autocarros demorou demasiado a responder.',
+    transitStatus: (status: number) =>
+      `O serviço dos autocarros respondeu ${status}.`,
     scheduleListFailed:
       'Não foi possível obter a lista de horários. Verifique a ligação à Internet.',
     scheduleDownloadFailed: (operator: string, detail: string) =>

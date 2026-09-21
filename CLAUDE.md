@@ -676,6 +676,23 @@ qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados 
 - **As paragens são marcadas no mapa**, com o nome ao lado, enquanto o painel está aberto.
   A paragem aberta vive no `App.tsx` e não no painel, porque também se abre tocando no pino
   — duas cópias do mesmo estado acabariam por divergir.
+- **A lista das paragens tem prazo próprio** (`CARRIS_STOPS_TIMEOUT_MS`, um minuto). São
+  milhares de paragens com nome, localidade, linhas e ligações — megabytes de JSON para
+  descarregar e ainda para interpretar. Os quinze segundos que servem ao resto ficam mesmo
+  em cima do limite nos dados móveis, e aí isto falhava umas vezes sim outras não, sem nada
+  que o distinguisse do serviço estar em baixo. Pede-se uma vez por sessão: esperar mais não
+  custa nada, e o que se vê é o indicador a rodar em vez de "não foi possível obter os
+  horários".
+- **O erro diz o que falhou mesmo** — ver `carrisGet`. A mensagem era sempre "verifique a
+  ligação", que diz o contrário do que se passa a quem tem rede e o mapa a carregar
+  normalmente. Hoje separa-se o serviço a responder com um número (e o número aparece no
+  ecrã), a demorar demais, e a rede mesmo em baixo. **Sem telemóvel à mão não há outra forma
+  de saber qual é**: um número de resposta numa fotografia poupa várias rondas de
+  adivinhação.
+- **Uma paragem que falhe não deita o planeamento abaixo.** O `planBusTrips` pede as horas
+  de meia dúzia de paragens ao mesmo tempo; com um `Promise.all` puro, uma recusa isolada
+  apagava as opções todas, incluindo as que já tinham vindo bem. Só se desiste quando
+  falham todas.
 - **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
   isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
 
@@ -1933,6 +1950,15 @@ Erros já cometidos neste projeto, para não se repetirem.
   que a desliga. Ao acrescentar um painel de baixo ou um botão flutuante, confirmar as três
   situações: mapa limpo, painel aberto e a navegar. São nove combinações com as margens de
   ecrã possíveis, e é fácil verificá-las de cabeça com uma folha de contas.
+- **E a mesma lição outra vez, porque metade do arranjo não é arranjo nenhum.** A régua
+  passou a subir com o painel *da fita métrica* e continuou a ficar por baixo do painel de um
+  sítio ou de um percurso — que é o painel que se abre a toda a hora. Apareceu numa
+  fotografia do autor, por cima do texto de um erro. A condição de subir é uma só e é igual
+  para os cinco elementos: `selectedPlace || destination || measuring`. E a bússola e o
+  velocímetro estavam os dois a `insets.bottom + 130` durante a navegação — uma em cima do
+  outro a viagem toda, e com o mapa a rodar no sentido da marcha a bússola está sempre à
+  vista. **Vale a pena escrever a matriz**: há um script que enumera cada elemento por
+  cenário e acusa qualquer par que se toque, e foi ele que apanhou a bússola.
 - **Uma cache cuja chave é exata quase nunca acerta.** A dos pinos do mapa guardava por
   área com precisão de um metro: bastava o dedo mexer para a chave ser outra e o pedido
   sair na mesma. Existia, parecia certa, e não poupava nada — e a Overpass, que é o serviço

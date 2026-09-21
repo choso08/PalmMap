@@ -363,6 +363,9 @@ export const en: typeof pt = {
     zoomIn: 'Zoom in to search this area.',
     noneOfCategory: (category: string) => `No ${category.toLowerCase()} in this area.`,
     schedulesFailed: "Couldn't get the timetables. Check your connection.",
+    transitOffline: "Couldn't reach the bus service. Check your network.",
+    transitTimeout: 'The bus service took too long to answer.',
+    transitStatus: (status: number) => `The bus service answered ${status}.`,
     scheduleListFailed: "Couldn't get the list of timetables. Check your Internet connection.",
     scheduleDownloadFailed: (operator: string, detail: string) =>
       `Couldn't download the ${operator} timetable. ${detail}`.trim(),
