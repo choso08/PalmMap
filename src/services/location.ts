@@ -92,6 +92,34 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
   },
 );
 
+/**
+ * Ao arrancar, larga a tarefa da navegação que tenha ficado da vez anterior.
+ *
+ * **O `expo-task-manager` grava as tarefas registadas e volta a registá-las
+ * sozinho no arranque seguinte** — está no `restoreTasks()` do `TaskService.java`
+ * deles, lido e não assumido. Serve para as tarefas que são mesmo para durar; a
+ * nossa não é: só faz sentido enquanto há uma viagem a decorrer.
+ *
+ * Se a aplicação for fechada a meio de uma navegação — pelo Android, por uma
+ * falha, ou por quem a tira da lista — a tarefa fica lá registada. No arranque
+ * seguinte volta a subscrever o GPS sem ninguém a ouvir, a gastar bateria, e com
+ * o serviço em primeiro plano a tentar arrancar num momento em que o Android
+ * pode não o permitir.
+ *
+ * Largá-la aqui não estraga nada: quem for navegar volta a pedi-la a seguir, e
+ * ao arrancar nunca há navegação nenhuma a decorrer.
+ */
+void (async () => {
+  try {
+    if (await TaskManager.isTaskRegisteredAsync(NAVIGATION_TASK)) {
+      await Location.stopLocationUpdatesAsync(NAVIGATION_TASK);
+    }
+  } catch {
+    // Não havia nada para largar, ou não se conseguiu. Nem um caso nem o outro
+    // é motivo para a aplicação não abrir.
+  }
+})();
+
 /** Guarda uma leitura do `expo-location` e devolve só as coordenadas. */
 function keep(position: Location.LocationObject): Coordinates {
   const coordinates = {

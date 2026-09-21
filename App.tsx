@@ -122,7 +122,7 @@ import type { SearchCategory } from './src/utils/categories';
 import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
-import { prepareVoices, speak, stopSpeaking } from './src/utils/voice';
+import { speak, stopSpeaking } from './src/utils/voice';
 
 // **Antes de tudo o resto.** Um erro que aconteça a carregar os módulos abaixo
 // já tem quem o escreva — e é precisamente aí que um erro não tem mais nenhuma
@@ -131,10 +131,6 @@ installCrashHandler();
 
 // Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
 configureTileRequests();
-
-// Descobre a melhor voz de cada língua, uma vez. É assíncrono e o `speak()` não
-// pode esperar por nada — enquanto não estiver pronto, fala-se como antes.
-void prepareVoices();
 
 /** As definições têm de envolver tudo, porque o tema sai delas. */
 export default function App() {

@@ -1668,8 +1668,50 @@ do que a qualidade**: uma voz portuguesa pequena é preferível a uma voz brasil
 porque o que se está a ler são nomes de ruas portuguesas. Sem nenhuma que sirva, volta-se ao
 comportamento de antes — diz-se a língua e o sistema que escolha.
 
-Corre uma vez no arranque, e não dentro do `speak()`: pedir a lista das vozes é assíncrono e
-o `speak()` é chamado de dentro do motor de navegação, que não pode esperar por nada.
+**Mas não corre no arranque, e essa parte custou uma versão inteira** — ver o aviso a
+seguir. Corre depois de o motor de voz dar sinal de vida, e nunca de dentro do `speak()`:
+pedir a lista das vozes é assíncrono e o `speak()` é chamado de dentro do motor de
+navegação, que não pode esperar por nada.
+
+#### ⚠️ Não se pergunta nada ao motor de voz antes de ele responder
+
+**Esta é a regra mais importante desta secção.** A primeira versão pedia a lista das vozes
+no arranque, e a aplicação passou a fechar-se sozinha: ora mal abria, ora uns segundos
+depois, ora ao carregar em "Ir". Três sintomas, uma causa — e nenhum deles dava erro no
+ecrã, porque a falha era do lado nativo.
+
+O que está no `SpeechModule.kt` do `expo-speech`, lido e não assumido:
+
+- O motor de voz do Android **só arranca à primeira utilização** e leva alguns segundos.
+- Quem lhe peça alguma coisa antes disso **fica numa fila**, e essa fila é despejada dentro
+  do `onInit` — uma função de retorno simples, **sem `try` nenhum à volta**. Uma exceção ali
+  não é uma promessa recusada: é uma exceção por apanhar, e isso fecha a aplicação.
+- E há mesmo o que rebentar: **`textToSpeech.voices` atira exceção** em vários motores de
+  voz do Android. É um defeito conhecido, e o `expo-speech` embrulha-o num
+  `SpeechUnableToGetVoicesException`. Dentro de um `AsyncFunction` vira uma promessa
+  recusada, que o nosso `catch` trata; dentro do `onInit` é uma aplicação fechada.
+
+**Duas coisas nossas tocavam nessa propriedade**, e as duas podiam cair na fila: pedir a
+lista das vozes, e **mandar falar com uma voz escolhida** — o `speakOut` deles também
+percorre o `textToSpeech.voices` para encontrar a que se lhe indicou. Daí os três sintomas:
+o pedido do arranque rebentava quando o motor acordasse (mal abria, ou uns segundos
+depois), e a primeira instrução falada com voz indicada rebentava ao começar a navegar.
+
+A regra que fica:
+
+> Enquanto o motor de voz não tiver dado um sinal de vida, **não se lhe pergunta a lista das
+> vozes nem se lhe indica nenhuma**. Diz-se só a língua, que é o caminho que nunca toca no
+> `voices`.
+
+O sinal de vida é qualquer um dos quatro avisos de uma leitura — começou, acabou, foi calada
+ou falhou. Qualquer deles prova que o motor arrancou, e a partir daí perguntar é seguro
+porque a resposta já não passa pela fila. **O que isto custa é a primeira frase**, lida com
+a voz que o sistema escolher; a segunda já vai com a escolhida.
+
+Provado com uma simulação do motor de voz, sem telemóvel (`prepareVoices` e `speak` contra
+um motor frio que rebenta a listar vozes): a versão antiga fazia um pedido com o motor frio
+e fechava a aplicação; esta faz zero e não fecha. Com um motor são, escolhe na mesma a
+`pt-pt-…-network` a partir da segunda frase.
 
 **E quando não há voz da região, diz-se.** Escolher a melhor não resolve o caso em que o
 telemóvel só tem português do Brasil instalado — aí ouve-se o sotaque que houver, e a
@@ -2147,6 +2189,22 @@ Erros já cometidos neste projeto, para não se repetirem.
 - **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
   Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
   ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
+- **Uma biblioteca pode ter uma porta protegida e outra não, para a mesma coisa.** O
+  `expo-speech` responde a "dá-me as vozes" de duas maneiras conforme o motor esteja
+  arrancado ou não: com ele pronto, corre dentro de um `AsyncFunction` e um erro vira
+  promessa recusada; com ele frio, o pedido fica numa fila despejada dentro do `onInit`, sem
+  `try` nenhum — e aí o mesmo erro fecha a aplicação. **A mesma chamada, duas consequências
+  opostas, conforme o instante em que se faz.** Antes de chamar alguma coisa cedo de mais no
+  arranque, ver por que caminho é que ela passa nesse instante.
+- **Uma tarefa registada no `expo-task-manager` sobrevive à aplicação.** Ele grava-as e
+  volta a registá-las sozinho no arranque seguinte (`restoreTasks()`, no `TaskService.java`).
+  Para uma tarefa que só faz sentido durante uma viagem isso é errado: uma aplicação fechada
+  a meio de uma navegação voltava a abrir com o GPS subscrito e sem ninguém a ouvir. Larga-se
+  no arranque, em `location.ts`.
+- **Três sintomas diferentes podem ser uma causa só, e a data da compilação é a pista.** "A
+  app fecha-se ao calcular um percurso", "fecha-se mal abre" e "fecha-se cinco segundos
+  depois de abrir" pareciam três avarias. Eram a mesma, e o que as ligou não foi ler o código
+  à procura — foi perguntar **o que é que entrou nesta compilação e não estava na anterior**.
 - **O `expo-location` não lança exceção quando o serviço em primeiro plano não pode
   arrancar.** Com a aplicação no fundo, o `maybeStartForegroundService` deles desiste e
   escreve um aviso no registo; o `startLocationUpdatesAsync` resolve-se como se tivesse

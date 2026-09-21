@@ -28,7 +28,54 @@ import { activeLanguage, speechTag, type Language } from '../i18n';
  * Por isso pergunta-se ao telemóvel que vozes tem e fica-se com a melhor —
  * primeiro a região certa, depois a qualidade. Se não houver nenhuma que sirva,
  * volta-se ao comportamento de antes: diz-se a língua e o sistema que escolha.
+ *
+ * ## ⚠️ Não se pergunta nada ao motor de voz antes de ele responder
+ *
+ * **Isto é a parte mais importante deste ficheiro, e custou uma versão inteira.**
+ * A primeira tentativa perguntava a lista das vozes no arranque, e a aplicação
+ * passou a fechar-se sozinha — ora mal abria, ora uns segundos depois, ora ao
+ * calcular um percurso. Três sintomas, uma causa.
+ *
+ * O `SpeechModule.kt` do `expo-speech` faz isto: o motor de voz do Android só
+ * arranca à primeira utilização e leva alguns segundos a ficar pronto. Quem lhe
+ * pedir alguma coisa antes disso **fica numa fila**, e essa fila é despejada
+ * dentro do `onInit` — que é uma função de retorno simples, **sem `try` nenhum à
+ * volta**. Uma exceção ali não é uma promessa recusada: é uma exceção por apanhar
+ * numa linha de execução do Android, e isso fecha a aplicação sem mais.
+ *
+ * E há mesmo o que rebentar: `textToSpeech.voices` **atira exceção** em vários
+ * motores de voz do Android — é um defeito conhecido, e o `expo-speech` embrulha-o
+ * num `SpeechUnableToGetVoicesException`. Dentro de um `AsyncFunction` isso
+ * vira uma promessa recusada, que o nosso `catch` trata; dentro do `onInit` é
+ * uma aplicação fechada.
+ *
+ * **Duas coisas nossas tocavam nessa propriedade**, e as duas podiam cair na
+ * fila: pedir a lista das vozes, e **mandar falar com uma voz escolhida** — o
+ * `speakOut` também percorre o `textToSpeech.voices` para encontrar a que se lhe
+ * indicou.
+ *
+ * A regra que fica, e que **não se deve desfazer**:
+ *
+ * > Enquanto o motor de voz não tiver dado um sinal de vida, não se lhe pergunta
+ * > a lista das vozes nem se lhe indica nenhuma. Diz-se só a língua, que é o
+ * > caminho que nunca toca no `voices`.
+ *
+ * O sinal de vida é qualquer um dos avisos de uma leitura — começou, acabou, foi
+ * calada ou falhou. Qualquer deles prova que o motor já arrancou, e a partir daí
+ * perguntar é seguro, porque a resposta já não passa pela fila.
+ *
+ * **O que isto custa é a primeira frase**, lida com a voz que o sistema
+ * escolher. A segunda já vai com a escolhida. É um preço pequeno ao pé de a
+ * aplicação fechar-se a meio de uma estrada.
  */
+
+/**
+ * Se o motor de voz já deu sinal de vida.
+ *
+ * Enquanto for falso, não se lhe pergunta nada nem se lhe indica voz nenhuma —
+ * ver a nota grande acima. Passa a verdadeiro no primeiro aviso de uma leitura.
+ */
+let motorPronto = false;
 
 /** A voz escolhida para cada língua. `null` quer dizer "não há nenhuma boa". */
 const escolhidas = new Map<Language, string | null>();
@@ -82,6 +129,13 @@ function quaoBoa(voz: Speech.Voice, alvo: string): number {
  * resolvido, fala-se como antes — o que se perde é a escolha, não a voz.
  */
 export async function prepareVoices(): Promise<void> {
+  // **Nunca antes de o motor responder.** Ver a nota grande no cimo do ficheiro:
+  // antes disso o pedido fica numa fila que é despejada sem proteção nenhuma, e
+  // uma lista de vozes que rebente ali fecha a aplicação.
+  if (!motorPronto || escolhidas.size > 0) {
+    return;
+  }
+
   try {
     const vozes = await Speech.getAvailableVoicesAsync();
 
@@ -116,14 +170,40 @@ export function hasRegionVoice(language: Language): boolean | null {
   return regiaoCerta.has(language) ? (regiaoCerta.get(language) as boolean) : null;
 }
 
+/**
+ * O motor acabou de dar sinal de vida. A partir daqui já se lhe pode perguntar.
+ *
+ * Serve os quatro avisos — começou, acabou, foi calada, falhou — porque qualquer
+ * um deles prova a mesma coisa: o motor arrancou. Até o erro serve.
+ */
+function aoResponder(): void {
+  if (motorPronto) {
+    return;
+  }
+  motorPronto = true;
+  void prepareVoices();
+}
+
 export function speak(text: string): void {
   try {
     const lingua = activeLanguage();
-    const voz = escolhidas.get(lingua);
+    // A voz escolhida só entra depois de o motor ter respondido: indicá-la antes
+    // punha o `speakOut` a percorrer o `textToSpeech.voices` de dentro da fila,
+    // que é o caminho que fecha a aplicação. A primeira frase vai com a voz que
+    // o sistema escolher, e é a única.
+    const voz = motorPronto ? escolhidas.get(lingua) : null;
     Speech.speak(text, {
       language: speechTag(lingua),
       rate: 1.0,
       ...(voz ? { voice: voz } : {}),
+      ...(motorPronto
+        ? {}
+        : {
+            onStart: aoResponder,
+            onDone: aoResponder,
+            onStopped: aoResponder,
+            onError: aoResponder,
+          }),
     });
   } catch {
     // Sem voz, segue-se pelo ecrã.
