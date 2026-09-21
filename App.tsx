@@ -1169,6 +1169,25 @@ function PalmMap() {
    */
   const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
 
+  /**
+   * A que altura fica a bússola do mapa, no canto inferior esquerdo.
+   *
+   * Vive aqui e não no `MapView` porque **o canto é partilhado**: é o da régua,
+   * e é tapado pelos painéis de baixo. A bússola tem de seguir as mesmas três
+   * alturas que os botões flutuantes, senão fica por baixo de um deles ou atrás
+   * de um painel — e como só aparece com o mapa rodado, o desalinho passa
+   * despercebido a quem nunca roda o mapa.
+   *
+   * Os números são os mesmos de `measureRaised`, `locateNavigating` e
+   * `measureButton`, por essa ordem.
+   */
+  const compassBottom =
+    selectedPlace || destination || measuring
+      ? insets.bottom + 322
+      : navigating
+        ? insets.bottom + 130
+        : insets.bottom + 90;
+
   const handleTapEmpty = useCallback((coordinates: Coordinates) => {
     // Com a fita métrica ligada, o toque põe um ponto e mais nada.
     if (measuringRef.current) {
@@ -1462,6 +1481,7 @@ function PalmMap() {
         onStopPress={setSelectedStopId}
         transitStations={transitStations}
         vehicles={vehicles}
+        compassBottom={compassBottom}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
       />
@@ -1576,6 +1596,9 @@ function PalmMap() {
           style={({ pressed }) => [
             styles.measureButton,
             measuring ? styles.measureButtonOn : null,
+            // Com a fita ligada abre-se o painel dela, que tapava este botão —
+            // e este é o botão que a desliga. Sobe, como os do outro lado.
+            measuring ? styles.measureRaised : null,
             pressed ? styles.buttonPressed : null,
           ]}
           onPress={() => {
@@ -1623,7 +1646,7 @@ function PalmMap() {
         <Pressable
           style={({ pressed }) => [
             styles.layersButton,
-            selectedPlace || destination ? styles.layersRaised : null,
+            selectedPlace || destination || measuring ? styles.layersRaised : null,
             pressed ? styles.buttonPressed : null,
           ]}
           onPress={() => {
@@ -1651,7 +1674,7 @@ function PalmMap() {
         <Pressable
           style={({ pressed }) => [
             styles.transitButton,
-            selectedPlace || destination ? styles.transitRaised : null,
+            selectedPlace || destination || measuring ? styles.transitRaised : null,
             pressed ? styles.buttonPressed : null,
           ]}
           onPress={() => setTransitVisible(true)}
@@ -1664,7 +1687,7 @@ function PalmMap() {
         <Reveal
           style={[
             styles.mapTypeLabel,
-            selectedPlace || destination ? styles.layersRaised : null,
+            selectedPlace || destination || measuring ? styles.layersRaised : null,
           ]}
           visible={!!mapTypeLabel}
           from={0}
@@ -1699,7 +1722,7 @@ function PalmMap() {
             followUser && !navigating ? styles.locateFollowing : null,
             navigating
               ? styles.locateNavigating
-              : selectedPlace || destination
+              : selectedPlace || destination || measuring
                 ? styles.locateRaised
                 : null,
             pressed && styles.buttonPressed,
@@ -1898,6 +1921,15 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOpacity: 0.14,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
+    },
+    /**
+     * A régua, levantada para cima do painel da fita métrica.
+     *
+     * Mesma altura a que sobem os botões do outro lado quando há um painel
+     * aberto: os quatro têm de ficar alinhados, senão vê-se o degrau.
+     */
+    measureRaised: {
+      bottom: insets.bottom + 260,
     },
     measureButtonOn: {
       backgroundColor: theme.accent,

@@ -544,6 +544,13 @@ serviço: o `Route` continua a guardar o que o OSRM respondeu, sem retoques.
   em vez de pedir tiles que não trazem mais nada. Vê-se a costa, a floresta, as roças e os
   terrenos abertos; não se veem casas uma a uma. **Satélite ao pormenor é produto pago em
   todo o lado**; não há alternativa livre, por isso não vale a pena procurar.
+- **As ortofotos entram a desvanecer, ao longo de um nível de zoom inteiro.** Apareciam de
+  uma vez, com opacidade total, no instante em que se passava o zoom 12 — e por baixo delas
+  está o Sentinel-2, que vê a **dez metros por pixel** contra o menos de um metro destas. O
+  salto de nitidez era enorme e parecia avaria do mapa, quando é só a troca de duas fontes
+  muito diferentes. Espalhar a troca por um nível resolve **sem um único pedido a mais**: o
+  `minzoom` continua no 12, o que muda é a opacidade com que se desenha o que já se estava a
+  pedir.
 - **Cada tile das ortofotos é pedido a 512 pixéis e desenhado num quadrado de 256.** Chega
   com quatro vezes mais pixéis, o que num ecrã de telemóvel — que já é de dois ou três
   pontos por pixel — se nota. É melhor do que pedir mais um nível de zoom: dá o mesmo
@@ -1784,6 +1791,22 @@ Erros já cometidos neste projeto, para não se repetirem.
   do arranque — exatamente quando a pessoa toca na barra de pesquisa. Recriar resolve
   qualquer coisa e é sempre a saída mais cara; antes de a escolher, ver se há um sinal de
   "pronto" a que se possa esperar.
+- **Duas fontes de imagem com nitidez muito diferente não se trocam de repente.** As
+  ortofotos entravam a 100% de opacidade ao passar o zoom 12, por cima de uma imagem dez
+  vezes mais grosseira: o salto lia-se como avaria. A troca faz-se a desvanecer ao longo de
+  um nível de zoom, e isso não custa pedidos nenhuns — o `minzoom` fica onde estava, muda só
+  a opacidade.
+- **Um canto do ecrã pode estar ocupado por algo que não é um componente nosso.** A bússola
+  do MapLibre foi posta no canto inferior esquerdo com um comentário a dizer que o canto
+  estava livre — e estava lá o botão da régua. Como a bússola só aparece com o mapa rodado,
+  a sobreposição passou despercebida. Hoje a altura dela é calculada no `App.tsx`, ao lado
+  das dos outros botões flutuantes: a aritmética das posições tem de viver toda no mesmo
+  sítio, senão um dia deixa de bater certo e ninguém dá por isso.
+- **Um botão flutuante que não sobe com os painéis fica atrás deles.** A régua e o botão dos
+  transportes ficavam tapados quando a fita métrica abria — e a régua é justamente o botão
+  que a desliga. Ao acrescentar um painel de baixo ou um botão flutuante, confirmar as três
+  situações: mapa limpo, painel aberto e a navegar. São nove combinações com as margens de
+  ecrã possíveis, e é fácil verificá-las de cabeça com uma folha de contas.
 - **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
   à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
   funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.

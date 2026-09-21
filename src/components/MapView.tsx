@@ -115,6 +115,13 @@ interface MapViewProps {
    * inteira, parada incluída. Ver `src/services/vehicles.ts`.
    */
   vehicles?: LiveVehicle[];
+  /**
+   * A que altura fica a bússola, em pontos a contar da borda de baixo do ecrã.
+   *
+   * O canto inferior esquerdo é partilhado com o botão da régua e é tapado
+   * pelos painéis de baixo — ver `compassBottom`, no `App.tsx`.
+   */
+  compassBottom: number;
   /** Mapas de países guardados no telemóvel, para usar sem rede. */
   offlineRegions: OfflineRegion[];
   /**
@@ -175,6 +182,7 @@ export function MapView({
   transitStations = [],
   vehicles = [],
   onStopPress,
+  compassBottom,
   offlineRegions,
   labelsReady,
   ref,
@@ -463,9 +471,18 @@ export function MapView({
       // A bússola do MapLibre aparece sozinha assim que o mapa deixa de estar
       // virado a norte — e o sítio de origem dela é o canto superior direito,
       // mesmo por trás da barra de pesquisa, onde só se via um bocado a espreitar.
-      // Passa para o canto inferior esquerdo, que está livre, e continua a servir
-      // para tocar e voltar a norte.
-      compassPosition={{ bottom: 24, left: 16 }}
+      //
+      // **O canto inferior esquerdo não está livre: é o da régua.** Esteve aqui
+      // escrito que estava, e não estava — a bússola ficava por baixo do botão
+      // da fita métrica, meio tapada, e como só aparece com o mapa rodado a
+      // sobreposição passava despercebida a quem nunca rodava o mapa.
+      //
+      // A altura vem de fora (`compassBottom`): quem a decide é o `App.tsx`,
+      // onde vivem as medidas dos outros botões flutuantes. Espalhar essa
+      // aritmética por dois ficheiros era garantir que um dia deixavam de bater
+      // certo — e a bússola só aparece com o mapa rodado, por isso o desalinho
+      // passaria despercebido a quem nunca roda o mapa.
+      compassPosition={{ bottom: compassBottom, left: 16 }}
       onDidFinishLoadingMap={handleMapReady}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}

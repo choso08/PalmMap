@@ -261,7 +261,23 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
     { id: 'base', type: 'raster', source: 'base' },
     // Só se pede a partir do 12: mais longe do que isso o Sentinel-2 chega, e
     // não vale a pena incomodar o serviço das ortofotos.
-    { id: 'ortos', type: 'raster', source: 'ortos', minzoom: 12 },
+    //
+    // **Entram a desvanecer, ao longo de um nível de zoom inteiro.** Antes
+    // apareciam de uma vez, com opacidade total, no instante em que se passava o
+    // 12 — e por baixo delas estava o Sentinel-2, que vê a dez metros por pixel
+    // contra o menos de um metro destas. O salto de nitidez era enorme e parecia
+    // uma avaria do mapa, quando é só a troca de duas fontes muito diferentes.
+    //
+    // Espalhar a troca por um nível resolve sem custar **um único pedido a
+    // mais**: o `minzoom` continua no 12, o que muda é a opacidade com que se
+    // desenha o que já se estava a pedir.
+    {
+      id: 'ortos',
+      type: 'raster',
+      source: 'ortos',
+      minzoom: 12,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 1] },
+    },
   ],
 };
 
