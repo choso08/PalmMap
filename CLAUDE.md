@@ -1624,6 +1624,8 @@ booleano que só muda na primeira leitura.
   ecrã aceso para sempre. Fora da navegação não se mexe nisto.
 - **A navegação continua com o telemóvel no bolso.** É um **serviço em primeiro plano** com
   notificação permanente (`expo-location` + `expo-task-manager`, tarefa `NAVIGATION_TASK`).
+  **Exige a permissão `RECEIVE_BOOT_COMPLETED` no `app.json`** — sem ela a aplicação fecha-se
+  à primeira leitura de GPS, e foi assim que aconteceu. Ver "10-B".
   Sem ele, o Android corta as leituras de GPS assim que a aplicação sai da frente, e a voz
   calava-se a meio da viagem — precisamente na situação em que ela é tudo o que guia. A
   notificação é exigida pelo Android e não se pode esconder; é a mesma que qualquer
@@ -1675,10 +1677,9 @@ navegação, que não pode esperar por nada.
 
 #### ⚠️ Não se pergunta nada ao motor de voz antes de ele responder
 
-**Esta é a regra mais importante desta secção.** A primeira versão pedia a lista das vozes
-no arranque, e a aplicação passou a fechar-se sozinha: ora mal abria, ora uns segundos
-depois, ora ao carregar em "Ir". Três sintomas, uma causa — e nenhum deles dava erro no
-ecrã, porque a falha era do lado nativo.
+**Isto é um perigo real, mas não foi o que fechava a aplicação** — ver "10-B", que tem a
+causa verdadeira. Apareceu a procurá-la, e fica porque é uma armadilha a sério que só ainda
+não tinha rebentado.
 
 O que está no `SpeechModule.kt` do `expo-speech`, lido e não assumido:
 
@@ -1692,10 +1693,9 @@ O que está no `SpeechModule.kt` do `expo-speech`, lido e não assumido:
   recusada, que o nosso `catch` trata; dentro do `onInit` é uma aplicação fechada.
 
 **Duas coisas nossas tocavam nessa propriedade**, e as duas podiam cair na fila: pedir a
-lista das vozes, e **mandar falar com uma voz escolhida** — o `speakOut` deles também
-percorre o `textToSpeech.voices` para encontrar a que se lhe indicou. Daí os três sintomas:
-o pedido do arranque rebentava quando o motor acordasse (mal abria, ou uns segundos
-depois), e a primeira instrução falada com voz indicada rebentava ao começar a navegar.
+lista das vozes no arranque, e **mandar falar com uma voz escolhida** — o `speakOut` deles
+também percorre o `textToSpeech.voices` para encontrar a que se lhe indicou. Num telemóvel
+cujo motor de voz atire exceção ali, qualquer das duas fecha a aplicação.
 
 A regra que fica:
 
@@ -1712,6 +1712,9 @@ Provado com uma simulação do motor de voz, sem telemóvel (`prepareVoices` e `
 um motor frio que rebenta a listar vozes): a versão antiga fazia um pedido com o motor frio
 e fechava a aplicação; esta faz zero e não fecha. Com um motor são, escolhe na mesma a
 `pt-pt-…-network` a partir da segunda frase.
+
+**Ficou por confirmar se este telemóvel tem um motor desses**, e provavelmente não tem — o
+rasto da falha real não passa por aqui. Isto é prevenção, não é a correção.
 
 **E quando não há voz da região, diz-se.** Escolher a melhor não resolve o caso em que o
 telemóvel só tem português do Brasil instalado — aí ouve-se o sotaque que houver, e a
@@ -1740,6 +1743,48 @@ posição, e essa limpeza corre sempre que o percurso, os radares ou o ritmo do 
 não só ao sair da navegação. Resultado: recalcular o percurso dizia "a recalcular o percurso"
 e cortava-se a si próprio a meio, porque o percurso novo chegava e o efeito voltava a correr.
 Calar a voz é coisa de **acabar** a navegação, e vive no efeito que vê a navegação acabar.
+
+### 10-B. A permissão sem a qual a navegação fecha a aplicação
+
+**Esta secção existe por causa de uma falha real, apanhada com o rasto na mão.** A aplicação
+fechava-se ao carregar em "Ir", e depois disso a cada arranque — ora logo, ora uns cinco
+segundos depois. Três sintomas, uma causa:
+
+```
+java.lang.IllegalArgumentException: Requested job cannot be persisted without holding
+android.permission.RECEIVE_BOOT_COMPLETED permission
+  at android.app.job.IJobScheduler$Stub$Proxy.schedule(IJobScheduler.java:479)
+  at expo.modules.taskManager.TaskManagerUtils.updateOrScheduleJob(TaskManagerUtils.java:155)
+  at expo.modules.location.taskConsumers.LocationTaskConsumer.reportLocationsImmediately(…:265)
+  at …handleLocationUpdate(LocationTaskConsumer.kt:106)
+```
+
+A cadeia, lida no código das bibliotecas:
+
+1. O `expo-location` entrega cada leitura de GPS à tarefa **através do `JobScheduler`** do
+   Android — é assim que uma posição chega ao JavaScript vinda de um serviço.
+2. O `expo-task-manager` constrói esse trabalho com **`.setPersisted(true)`**, sempre
+   (`createJobInfo`, no `TaskManagerUtils.java`). Um trabalho persistido é um que sobrevive
+   a reiniciar o telemóvel.
+3. **O Android exige a permissão `RECEIVE_BOOT_COMPLETED` para aceitar um trabalho
+   persistido.** Sem ela, o `jobScheduler.schedule()` atira `IllegalArgumentException`.
+4. E o `expo-task-manager` **apanha o tipo errado**: o `try` à volta do `schedule()` só
+   apanha `IllegalStateException`. Um `IllegalArgumentException` não é um deles — passa ao
+   lado, e como isto corre na linha principal do Android, fecha a aplicação.
+
+**A permissão está agora no `app.json`, e não se tira.** Sem ela a navegação não funciona de
+todo: a primeira leitura de GPS depois de a tarefa arrancar mata a aplicação.
+
+Porque é que também fechava ao arrancar: a tarefa fica **gravada** e é restaurada no
+arranque seguinte (ver a nota do `restoreTasks()` mais abaixo). Restaurada, volta a subscrever
+o GPS — e a primeira leitura, que chega uns segundos depois, repete a mesma falha. Daí o
+"mal abre" e o "cinco segundos depois" serem a mesma coisa com tempos de GPS diferentes. A
+tarefa passou a ser largada no arranque, mas **quem conserta isto é a permissão**, não a
+limpeza: a limpeza corre em JavaScript e a leitura de GPS pode chegar primeiro.
+
+**A lição maior:** o rasto da falha respondeu em dois minutos ao que duas rondas de leitura
+de código não tinham encontrado. A seguir a uma falha que ninguém consegue reproduzir, o
+primeiro pedido à pessoa que a tem à frente é a mensagem de erro — não mais uma hipótese.
 
 ### 11. Margens do ecrã (câmara, barras do sistema)
 
@@ -2189,6 +2234,12 @@ Erros já cometidos neste projeto, para não se repetirem.
 - **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
   Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
   ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
+- **Uma permissão do Android em falta pode não dar erro nenhum até ao dia em que dá.** A
+  `RECEIVE_BOOT_COMPLETED` nunca fez falta enquanto não houve tarefas em segundo plano; no
+  dia em que a navegação passou a usar uma, a falta dela passou a fechar a aplicação à
+  primeira leitura de GPS. Ao acrescentar uma biblioteca que corre em segundo plano, ver que
+  permissões é que o código nativo dela **assume** que a aplicação declara — o manifesto dela
+  pode declarar o recetor e deixar a permissão para quem a usa, que é exatamente o caso aqui.
 - **Uma biblioteca pode ter uma porta protegida e outra não, para a mesma coisa.** O
   `expo-speech` responde a "dá-me as vozes" de duas maneiras conforme o motor esteja
   arrancado ou não: com ele pronto, corre dentro de um `AsyncFunction` e um erro vira
@@ -2201,10 +2252,18 @@ Erros já cometidos neste projeto, para não se repetirem.
   Para uma tarefa que só faz sentido durante uma viagem isso é errado: uma aplicação fechada
   a meio de uma navegação voltava a abrir com o GPS subscrito e sem ninguém a ouvir. Larga-se
   no arranque, em `location.ts`.
-- **Três sintomas diferentes podem ser uma causa só, e a data da compilação é a pista.** "A
-  app fecha-se ao calcular um percurso", "fecha-se mal abre" e "fecha-se cinco segundos
-  depois de abrir" pareciam três avarias. Eram a mesma, e o que as ligou não foi ler o código
-  à procura — foi perguntar **o que é que entrou nesta compilação e não estava na anterior**.
+- **Três sintomas diferentes podem ser uma causa só** — "fecha-se ao calcular um percurso",
+  "fecha-se mal abre" e "fecha-se cinco segundos depois de abrir" eram a mesma avaria, a
+  falta da permissão `RECEIVE_BOOT_COMPLETED` (ver "10-B"). **E o que a encontrou foi o rasto
+  do erro, não o raciocínio.** Duas rondas de leitura do código produziram uma hipótese bem
+  fundamentada, com o mecanismo lido na biblioteca e uma simulação a apoiá-la — e **estava
+  errada**. O rasto, fotografado no telemóvel, respondeu em dois minutos. A seguir a uma
+  falha que não se consegue reproduzir, o primeiro pedido a quem a tem à frente é a mensagem
+  de erro, antes de mais uma hipótese.
+- **Uma biblioteca pode apanhar o tipo de exceção errado.** O `expo-task-manager` embrulha o
+  `jobScheduler.schedule()` num `try` que apanha `IllegalStateException`; o Android atira
+  `IllegalArgumentException`, que não é um deles. Ter um `try` à volta não quer dizer estar
+  protegido — o que conta é **qual** o tipo apanhado.
 - **O `expo-location` não lança exceção quando o serviço em primeiro plano não pode
   arrancar.** Com a aplicação no fundo, o `maybeStartForegroundService` deles desiste e
   escreve um aviso no registo; o `startLocationUpdatesAsync` resolve-se como se tivesse
