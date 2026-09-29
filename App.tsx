@@ -931,6 +931,9 @@ function PalmMap() {
   const searchPlacesIn = useCallback(
     async (bounds: Bounds, zoom: number, chosen: SearchCategory | null) => {
       const requestId = ++latestPlaces.current;
+      // Perguntado pela fila da Overpass quando chega a vez deste pedido: se
+      // entretanto o mapa já foi para outro lado, o pedido não chega a sair.
+      const stillWanted = () => requestId === latestPlaces.current;
 
       if (chosen) {
         if (zoom < CATEGORY_MIN_ZOOM) {
@@ -941,7 +944,7 @@ function PalmMap() {
 
         setPlacesError(null);
         try {
-          const found = await searchCategoryInBounds(chosen, bounds);
+          const found = await searchCategoryInBounds(chosen, bounds, stillWanted);
           if (requestId === latestPlaces.current) {
             setPlaces(found);
             setPlacesError(
@@ -968,7 +971,7 @@ function PalmMap() {
       }
 
       try {
-        const found = await searchInBounds(bounds);
+        const found = await searchInBounds(bounds, stillWanted);
         if (requestId === latestPlaces.current) {
           setPlaces(found);
           setPlacesError(null);
@@ -1040,12 +1043,16 @@ function PalmMap() {
       // encaixam na grelha da cache.
       if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
         const guardados = cachedInBounds(bounds);
-        if (guardados) {
+        if (guardados.complete || guardados.places.length > 0) {
           // O contador sobe para que uma resposta que ainda venha a caminho de
-          // uma área anterior não venha depois escrever por cima destes.
+          // uma área anterior não venha depois escrever por cima destes — e
+          // para que um pedido dessa área que ainda esteja na fila não saia.
           latestPlaces.current += 1;
-          setPlaces(guardados);
+          setPlaces(guardados.places);
           setPlacesError(null);
+        }
+        // A área toda já conhecida: não há nada a pedir.
+        if (guardados.complete) {
           return;
         }
       }

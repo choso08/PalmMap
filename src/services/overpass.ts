@@ -6,6 +6,7 @@ import {
   MAP_PINS_GRID_DEG,
   MAP_PINS_LIMIT,
   OVERPASS_BASE_URL,
+  OVERPASS_FALLBACK_URL,
   OVERPASS_MIN_INTERVAL_MS,
   REQUEST_TIMEOUT_MS,
   USER_AGENT,
@@ -24,7 +25,7 @@ import { MAP_PIN_TAGS, categoryLabel, type SearchCategory } from '../utils/categ
  * cada uma de sua vez — ou seja, dois pedidos ao mesmo tempo. Foi o que
  * aconteceu quando os radares criaram a sua.
  */
-export const overpassClient = axios.create({
+const overpassClient = axios.create({
   baseURL: OVERPASS_BASE_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: {
@@ -38,10 +39,54 @@ export const overpassSchedule = createRateLimiter(OVERPASS_MIN_INTERVAL_MS);
 const schedule = overpassSchedule;
 
 /**
+ * Faz uma consulta, e se o servidor principal falhar tenta o segundo.
+ *
+ * Um 200 com `remark` conta como falha — ver a nota em `fetchPlaces`. Corre
+ * **dentro** de uma vez da fila: o segundo servidor só é chamado quando o
+ * primeiro já respondeu que não, por isso nunca há dois pedidos ao mesmo tempo.
+ * Lança `PlacesError`, com a mensagem de "cheio" se foi isso que se ouviu por
+ * último.
+ */
+export async function askOverpass(query: string): Promise<OverpassResponse> {
+  let cheio = false;
+  for (const url of [OVERPASS_BASE_URL, OVERPASS_FALLBACK_URL]) {
+    try {
+      const response = await overpassClient.post<OverpassResponse>(url, query);
+      if (!response.data.remark) {
+        return response.data;
+      }
+      cheio = true;
+    } catch {
+      cheio = false;
+    }
+  }
+  throw new PlacesError(cheio ? t().errors.placesBusy : t().errors.placesFailed);
+}
+
+/**
  * Memória dos pedidos já feitos. A Overpass é pesada de correr, por isso
  * nunca se repete a mesma consulta.
  */
 const cache = new Map<string, Place[]>();
+
+/**
+ * Os pinos automáticos, guardados **por quadrado da grelha** e não por área.
+ *
+ * **Guardar por área fazia cada zona nova custar a área inteira.** Arrastar o
+ * mapa meio ecrã para o lado dava uma área diferente, uma chave diferente e um
+ * pedido do ecrã todo — e até ele voltar, a metade que já se tinha visto ficava
+ * como estava sem ganhar os pinos da outra. Guardado por quadrado, o que já se
+ * conhece aparece logo, e à Overpass pede-se só a tira que falta: uma consulta
+ * mais pequena, que o servidor responde mais depressa.
+ *
+ * A chave é o par de índices inteiros do quadrado (`i:j`), e não as
+ * coordenadas, para uma casa decimal a mais não fazer do mesmo quadrado dois.
+ */
+const cells = new Map<string, Place[]>();
+
+/** Quem espera por uma resposta: basta um continuar a querê-la para ela sair. */
+type Wanted = () => boolean;
+const always: Wanted = () => true;
 
 /**
  * As consultas que estão a decorrer neste momento, pela mesma chave da cache.
@@ -53,8 +98,12 @@ const cache = new Map<string, Place[]>();
  * cache só começava a valer depois de o primeiro **acabar**. Aqui partilha-se a
  * promessa: o segundo recebe a resposta do primeiro, sem pedido nenhum e sem
  * esperar pelo intervalo da fila.
+ *
+ * Guardam-se também os interessados: um pedido partilhado só se salta na fila
+ * se **nenhum** deles o quiser já. Perguntar só ao primeiro deitava fora a
+ * resposta de que o segundo estava à espera.
  */
-const emCurso = new Map<string, Promise<Place[]>>();
+const emCurso = new Map<string, { pedido: Promise<Place[]>; interessados: Wanted[] }>();
 
 /** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
 export class PlacesError extends Error {}
@@ -130,40 +179,51 @@ function toPlace(element: OverpassElement): Place | null {
   };
 }
 
-async function runQuery(cacheKey: string, query: string): Promise<Place[]> {
+/** Partilha uma consulta com quem já estiver à espera da mesma chave. */
+function shared(
+  key: string,
+  isWanted: Wanted,
+  run: (wanted: Wanted) => Promise<Place[]>,
+): Promise<Place[]> {
+  const aCaminho = emCurso.get(key);
+  if (aCaminho) {
+    aCaminho.interessados.push(isWanted);
+    return aCaminho.pedido;
+  }
+
+  const interessados = [isWanted];
+  const pedido = run(() => interessados.some((quer) => quer())).finally(() => {
+    emCurso.delete(key);
+  });
+  emCurso.set(key, { pedido, interessados });
+  return pedido;
+}
+
+async function runQuery(cacheKey: string, query: string, isWanted: Wanted): Promise<Place[]> {
   const cached = cache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const aCaminho = emCurso.get(cacheKey);
-  if (aCaminho) {
-    return aCaminho;
-  }
-
-  const pedido = fetchQuery(cacheKey, query);
-  emCurso.set(cacheKey, pedido);
-  try {
-    return await pedido;
-  } finally {
-    emCurso.delete(cacheKey);
-  }
+  return shared(cacheKey, isWanted, async (wanted) => {
+    const places = await fetchPlaces(query, wanted);
+    cache.set(cacheKey, places);
+    return places;
+  });
 }
 
-async function fetchQuery(cacheKey: string, query: string): Promise<Place[]> {
-  let response;
-  try {
-    response = await schedule(() => overpassClient.post<OverpassResponse>('', query));
-  } catch {
-    throw new PlacesError(t().errors.placesFailed);
-  }
-
+/**
+ * Faz a consulta pela fila e converte a resposta. Não guarda nada.
+ *
+ * Um pedido que já ninguém quer, quando lhe chega a vez, não sai — e rejeita com
+ * `SupersededError`, que quem chamou ignora por já ter outra coisa no ecrã.
+ */
+async function fetchPlaces(query: string, isWanted: Wanted): Promise<Place[]> {
   // A Overpass responde 200 com um `remark` quando a consulta rebenta pelo
   // tempo ou pela memória. Guardar isso na memória era guardar uma falha para
   // sempre: aquela zona ficava sem negócios o resto da sessão, sem erro nenhum.
-  if (response.data.remark) {
-    throw new PlacesError(t().errors.placesBusy);
-  }
+  // O `askOverpass` trata isso como falha.
+  const data = await schedule(() => askOverpass(query), isWanted);
 
   // **Tira-se o que vier repetido.** Cada grupo de etiquetas tem o seu próprio
   // `out`, e um sítio que seja ao mesmo tempo loja e restaurante sai nos dois.
@@ -172,7 +232,7 @@ async function fetchQuery(cacheKey: string, query: string): Promise<Place[]> {
   const seen = new Set<string>();
   const places: Place[] = [];
 
-  for (const element of response.data.elements) {
+  for (const element of data.elements) {
     const chave = `${element.type}/${element.id}`;
     if (seen.has(chave)) {
       continue;
@@ -184,7 +244,6 @@ async function fetchQuery(cacheKey: string, query: string): Promise<Place[]> {
     }
   }
 
-  cache.set(cacheKey, places);
   return places;
 }
 
@@ -196,6 +255,7 @@ export async function searchNearby(
   category: SearchCategory,
   center: Coordinates,
   radiusMeters = CATEGORY_SEARCH_RADIUS_M,
+  isWanted: Wanted = always,
 ): Promise<Place[]> {
   // Arredondar as coordenadas faz com que pequenas variações do GPS reaproveitem
   // o mesmo resultado, em vez de dispararem um pedido novo de cada vez.
@@ -206,28 +266,8 @@ export async function searchNearby(
   return runQuery(
     cacheKey,
     taggedQuery(category.tags, `around:${radiusMeters},${lat},${lon}`, MAP_PINS_LIMIT),
+    isWanted,
   );
-}
-
-/**
- * Alarga a área até às linhas de uma grelha fixa.
- *
- * Assim, todas as vistas que caem no mesmo quadrado dão a mesma área — e
- * portanto a mesma chave de cache e **um só pedido**. Sem isto, um dedo a
- * arrastar meio centímetro dava uma área diferente ao metro, e a cache, que
- * existe precisamente para poupar a Overpass, nunca acertava.
- *
- * Alarga-se sempre para fora (`floor` de um lado, `ceil` do outro): a área
- * pedida tem de conter o que se está a ver, senão faltavam pinos nas bordas.
- */
-function snapToGrid(bounds: Bounds): Bounds {
-  const g = MAP_PINS_GRID_DEG;
-  return {
-    south: Math.floor(bounds.south / g) * g,
-    west: Math.floor(bounds.west / g) * g,
-    north: Math.ceil(bounds.north / g) * g,
-    east: Math.ceil(bounds.east / g) * g,
-  };
 }
 
 /** O retângulo no formato que a Overpass quer: sul,oeste,norte,este. */
@@ -240,31 +280,135 @@ export function boundingBox(bounds: Bounds): string {
   ].join(',');
 }
 
+/** Os índices dos quadrados da grelha que uma área toca. */
+interface CellRange {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+/**
+ * Os quadrados da grelha (`MAP_PINS_GRID_DEG`) que uma área toca.
+ *
+ * Alarga-se sempre para fora (`floor` de um lado, `ceil` do outro): a área
+ * pedida tem de conter o que se está a ver, senão faltavam pinos nas bordas.
+ */
+function cellRange(bounds: Bounds): CellRange {
+  const g = MAP_PINS_GRID_DEG;
+  // A folga apaga o erro das contas em vírgula flutuante: -9,150 / 0,005 dá
+  // -1830,0000001, e sem ela uma borda exata ganhava um quadrado a mais.
+  const folga = 1e-6;
+  const south = Math.floor(bounds.south / g + folga);
+  const west = Math.floor(bounds.west / g + folga);
+  return {
+    south,
+    west,
+    north: Math.max(south, Math.ceil(bounds.north / g - folga) - 1),
+    east: Math.max(west, Math.ceil(bounds.east / g - folga) - 1),
+  };
+}
+
+function cellKey(i: number, j: number): string {
+  return `${i}:${j}`;
+}
+
+/** Os pinos guardados de todos os quadrados da área, e se estão lá todos. */
+function fromCells(r: CellRange): { places: Place[]; missing: [number, number][] } {
+  const places: Place[] = [];
+  const missing: [number, number][] = [];
+  for (let i = r.south; i <= r.north; i++) {
+    for (let j = r.west; j <= r.east; j++) {
+      const guardados = cells.get(cellKey(i, j));
+      if (guardados) {
+        places.push(...guardados);
+      } else {
+        missing.push([i, j]);
+      }
+    }
+  }
+  return { places, missing };
+}
+
 /**
  * Procura os negócios que estão dentro da área visível do mapa.
+ *
+ * Pede à Overpass **só o retângulo dos quadrados que ainda não se conhecem** —
+ * ver `cells`. Tudo o que vier é arrumado no quadrado onde cai, e todos os
+ * quadrados do retângulo ficam dados como vistos, mesmo os que vierem vazios:
+ * um quadrado sem negócios é uma resposta, não uma falta dela.
  *
  * Quem chama isto tem de respeitar o zoom mínimo e o tempo de espera definidos
  * em `config.ts` — sem isso, cada arrastar do dedo geraria um pedido novo.
  */
-export async function searchInBounds(bounds: Bounds): Promise<Place[]> {
-  const box = boundingBox(snapToGrid(bounds));
-  return runQuery(`bounds|${box}`, taggedQuery(MAP_PIN_TAGS, box, MAP_PINS_LIMIT));
+export async function searchInBounds(
+  bounds: Bounds,
+  isWanted: Wanted = always,
+): Promise<Place[]> {
+  const range = cellRange(bounds);
+  const { missing } = fromCells(range);
+  if (missing.length === 0) {
+    return fromCells(range).places;
+  }
+
+  const pedir: CellRange = {
+    south: Math.min(...missing.map(([i]) => i)),
+    north: Math.max(...missing.map(([i]) => i)),
+    west: Math.min(...missing.map(([, j]) => j)),
+    east: Math.max(...missing.map(([, j]) => j)),
+  };
+  const g = MAP_PINS_GRID_DEG;
+  const box = boundingBox({
+    south: pedir.south * g,
+    west: pedir.west * g,
+    north: (pedir.north + 1) * g,
+    east: (pedir.east + 1) * g,
+  });
+
+  await shared(`cells|${box}`, isWanted, async (wanted) => {
+    const places = await fetchPlaces(taggedQuery(MAP_PIN_TAGS, box, MAP_PINS_LIMIT), wanted);
+
+    const porQuadrado = new Map<string, Place[]>();
+    for (let i = pedir.south; i <= pedir.north; i++) {
+      for (let j = pedir.west; j <= pedir.east; j++) {
+        porQuadrado.set(cellKey(i, j), []);
+      }
+    }
+    // Um sítio mesmo em cima da borda do retângulo pode cair no quadrado ao
+    // lado, que não foi pedido — fica de fora, e vem quando esse for pedido.
+    for (const place of places) {
+      const lista = porQuadrado.get(
+        cellKey(
+          Math.floor(place.coordinates.latitude / g),
+          Math.floor(place.coordinates.longitude / g),
+        ),
+      );
+      lista?.push(place);
+    }
+    for (const [key, lista] of porQuadrado) {
+      cells.set(key, lista);
+    }
+    return places;
+  });
+
+  return fromCells(range).places;
 }
 
 /**
- * Os negócios desta área, **se já estiverem em memória**. Não pede nada.
+ * Os negócios desta área **que já estão em memória**. Não pede nada.
  *
- * Serve para os pinos aparecerem **de imediato** ao voltar a uma zona por onde
- * já se passou. O tempo de espera do `MAP_PINS_DEBOUNCE_MS` existe para não
- * atirar um pedido à Overpass a cada arrastar do dedo — e uma resposta que já
- * está em memória não atira pedido nenhum. Esperar por ela era cumprir a letra
- * de uma regra contra a razão dela.
+ * Serve para os pinos aparecerem **de imediato**: por inteiro ao voltar a uma
+ * zona por onde já se passou, e em parte ao arrastar o mapa para o lado — o que
+ * continua à vista fica, e só a tira nova espera pela Overpass. O tempo de
+ * espera do `MAP_PINS_DEBOUNCE_MS` existe para não atirar um pedido a cada
+ * arrastar do dedo, e uma resposta que já está em memória não atira pedido
+ * nenhum. Esperar por ela era cumprir a letra de uma regra contra a razão dela.
  *
- * Devolve `null` quando não há nada guardado, para se distinguir isso de uma
- * área que se sabe estar vazia.
+ * `complete` diz se a área está toda coberta; se não estiver, falta pedir.
  */
-export function cachedInBounds(bounds: Bounds): Place[] | null {
-  return cache.get(`bounds|${boundingBox(snapToGrid(bounds))}`) ?? null;
+export function cachedInBounds(bounds: Bounds): { places: Place[]; complete: boolean } {
+  const { places, missing } = fromCells(cellRange(bounds));
+  return { places, complete: missing.length === 0 };
 }
 
 /**
@@ -278,10 +422,12 @@ export function cachedInBounds(bounds: Bounds): Place[] | null {
 export async function searchCategoryInBounds(
   category: SearchCategory,
   bounds: Bounds,
+  isWanted: Wanted = always,
 ): Promise<Place[]> {
   const box = boundingBox(bounds);
   return runQuery(
     `category|${category.id}|${box}`,
     taggedQuery(category.tags, box, MAP_PINS_LIMIT),
+    isWanted,
   );
 }

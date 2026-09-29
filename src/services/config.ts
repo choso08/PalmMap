@@ -71,6 +71,23 @@ export const OSRM_MIN_INTERVAL_MS = 1000;
 export const OVERPASS_BASE_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
+ * O segundo servidor da Overpass, para quando o primeiro recusa.
+ *
+ * O `overpass-api.de` é o servidor principal e anda muitas vezes cheio: responde
+ * 429 ou 504, ou um 200 com `remark` a dizer que a consulta não coube. Nessas
+ * vezes os pinos da zona nova simplesmente não vinham. Este é uma das instâncias
+ * públicas listadas na página da Overpass no wiki do OpenStreetMap, com os
+ * mesmos dados e sem chave.
+ *
+ * **Só se usa quando o principal falha**, nunca os dois ao mesmo tempo: pedir a
+ * dois servidores para ficar com a resposta mais rápida era gastar o dobro dos
+ * recursos de voluntários para poupar um segundo. **Não foi possível
+ * experimentá-lo a partir do ambiente de desenvolvimento** (bloqueia os dois);
+ * se deixar de existir, a falha é a mesma que já havia sem ele.
+ */
+export const OVERPASS_FALLBACK_URL = 'https://overpass.private.coffee/api/interpreter';
+
+/**
  * Horas de passagem dos transportes públicos.
  *
  * É a API aberta da Carris Metropolitana, a mesma que a aplicação oficial usa.

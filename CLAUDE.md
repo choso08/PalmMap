@@ -33,9 +33,10 @@ voz depois do filtro das manobras, o velocímetro — que precisa de um telemóv
 os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
 ambiente de desenvolvimento não chega.
 
-**Há bastante trabalho por compilar.** A última APK é a 7.0.13 e desde aí entraram, entre
-outras coisas, as estações de comboio e barco no mapa e os horários em GTFS estático. Nada
-disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
+**Há trabalho por compilar.** A última APK é a 7.0.22 (a da permissão que fechava a
+aplicação ao navegar) e desde aí entraram os trajetos de autocarro reparados, os pinos dos
+negócios por quadrado com um segundo servidor da Overpass, e a pesquisa a mostrar logo os
+guardados. Nada disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
 pedir.**
 
 **Os horários estão gerados e publicados**, na etiqueta `horarios`: **CP** (454 estações,
@@ -320,7 +321,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   └── SettingsSheet.tsx # Ecrã de definições
 │   ├── services/           # Ligação aos serviços externos
 │   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
-│   │   ├── rateLimit.ts    # Fila que espaça os pedidos, partilhada pelos serviços
+│   │   ├── rateLimit.ts    # Fila que espaça os pedidos e salta os que já ninguém quer
 │   │   ├── cameras.ts      # Radares no percurso, por tipo
 │   │   ├── crash.ts        # Guarda o que fechou a aplicação, para se ler depois
 │   │   ├── favourites.ts   # Sítios guardados no telemóvel
@@ -1958,6 +1959,16 @@ serem desfeitas sem se perceber o que se está a desligar.
   partir de 3 letras. **Não reduzir este valor.**
 - Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
   vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
+- **O que está no telemóvel não espera pelo segundo.** Enquanto se escreve, os guardados e
+  os últimos destinos que batem com o texto (sem contar acentos) aparecem logo, por cima dos
+  resultados. A regra do segundo é sobre pedidos ao Nominatim, e estes não pedem nada.
+- **Uma pesquisa já a caminho não se repete, e uma que já ninguém quer não sai.** Carregar
+  em Enter pesquisava logo e o segundo de espera, a acabar a seguir, pedia o mesmo outra
+  vez; hoje o segundo espera pela resposta do primeiro. E escrever mais enquanto uma
+  pesquisa está na fila salta-a.
+- **Escolher um resultado não pesquisa o nome dele.** O nome vai para a caixa, e isso
+  contava como texto novo: um segundo depois saía um pedido que ninguém fez, e a lista
+  voltava a aparecer por baixo do destino.
 - A pesquisa inversa (coordenadas → morada), usada pelo pino largado no mapa, passa pela
   mesma fila e pela mesma cache. Se falhar, o pino fica na mesma, só sem morada — o
   percurso não depende dela.
@@ -2026,6 +2037,24 @@ OpenStreetMap. Convém ser especialmente cuidadoso.
   cache só começava a valer depois de o primeiro **acabar**. Hoje partilha-se a promessa
   (`emCurso`, em `overpass.ts`): o segundo recebe a resposta do primeiro, sem pedido nenhum e
   sem esperar pelo intervalo.
+- **Os pinos guardam-se por quadrado da grelha, e pede-se só o que falta.** Guardados por
+  área, arrastar o mapa meio ecrã para o lado dava uma chave nova e um pedido do ecrã
+  inteiro — e até ele voltar, o que já se conhecia não ganhava os pinos da parte nova.
+  Hoje cada quadrado de `MAP_PINS_GRID_DEG` tem a sua entrada (`cells`, em `overpass.ts`):
+  o que já se conhece aparece de imediato e à Overpass pede-se só o retângulo dos quadrados
+  em falta. Numa simulação, meio ecrã ao lado passou a pedir **um terço da área** e a mostrar
+  logo dois terços dos pinos. Um quadrado que venha vazio fica guardado vazio: é uma
+  resposta, não uma falta dela.
+- **Um pedido em fila que já ninguém quer não sai.** Arrastar o mapa três vezes deixava três
+  pedidos na fila, dois segundos um atrás do outro, e o da zona que se está a ver era o
+  último. A fila (`rateLimit.ts`) pergunta agora `isWanted` quando chega a vez de cada um;
+  quem já foi substituído é saltado com `SupersededError`, e não conta para o intervalo.
+  Num pedido partilhado basta **um** dos interessados querê-lo para ele sair.
+- **Há um segundo servidor para quando o principal recusa** (`OVERPASS_FALLBACK_URL`, o
+  `overpass.private.coffee`, listado no wiki do OpenStreetMap). Só se usa depois de o
+  principal falhar — 429, 504, rede, ou 200 com `remark` — e nunca os dois ao mesmo tempo.
+  Passam por ele os pinos e os radares (`askOverpass`). **Não foi experimentado**: o
+  ambiente de desenvolvimento bloqueia os dois.
 - **`MAP_PINS_LIMIT` desceu de 100 para 40 por grupo.** Com três grupos, cem cada um eram
   trezentos lugares por consulta: trezentos conjuntos de etiquetas a resolver do lado da
   Overpass, umas centenas de kilobytes a descarregar e trezentos símbolos a desenhar. Num
@@ -2248,6 +2277,10 @@ Erros já cometidos neste projeto, para não se repetirem.
 - **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
   Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
   ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
+- **Uma fila que espaça pedidos também tem de saber desistir.** Os dois segundos da Overpass
+  cumpriam-se, mas cumpriam-se a despachar pedidos de zonas que já não estavam no ecrã, à
+  frente do único que interessava. Espaçar é proteger o serviço; saltar o que ninguém quer
+  protege-o mais e ainda poupa tempo a quem espera.
 - **Uma permissão do Android em falta pode não dar erro nenhum até ao dia em que dá.** A
   `RECEIVE_BOOT_COMPLETED` nunca fez falta enquanto não houve tarefas em segundo plano; no
   dia em que a navegação passou a usar uma, a falta dela passou a fechar a aplicação à

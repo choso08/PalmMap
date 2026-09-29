@@ -1,7 +1,7 @@
 import { CAMERA_CORRIDOR_M } from './config';
 import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
-import type { OverpassElement, OverpassResponse } from '../types/overpass';
+import type { OverpassElement } from '../types/overpass';
 import { boundsOf, locateOnRoute } from '../utils/geometry';
 
 /**
@@ -39,7 +39,7 @@ import { boundsOf, locateOnRoute } from '../utils/geometry';
  * percurso calculado enquanto o mapa procurava negócios mandava dois pedidos
  * pesados à Overpass no mesmo instante. É assim que se é bloqueado.
  */
-import { boundingBox, overpassClient, overpassSchedule } from './overpass';
+import { askOverpass, boundingBox, overpassSchedule } from './overpass';
 
 /** Que género de controlo é. Muda o que se diz em voz alta. */
 export type CameraKind = 'fixo' | 'media' | 'semaforo' | 'outro';
@@ -124,15 +124,12 @@ async function camerasInBox(box: string): Promise<Omit<SpeedCamera, 'routeIndex'
     `  node["highway"="checkpoint"]["checkpoint"="speed"](${box});\n` +
     `);\nout body 400;`;
 
-  const response = await overpassSchedule(() => overpassClient.post<OverpassResponse>('', query));
+  // O `askOverpass` tenta o segundo servidor se o primeiro falhar, e trata um
+  // 200 com `remark` como falha — guardá-lo deixava este percurso sem radares
+  // para sempre. Ver as notas em `overpass.ts`.
+  const data = await overpassSchedule(() => askOverpass(query));
 
-  if (response.data.remark) {
-    // Ver a nota igual em `overpass.ts`: um 200 com `remark` é uma falha, e
-    // guardá-la deixava este percurso sem radares para sempre.
-    throw new Error(response.data.remark);
-  }
-
-  const cameras = response.data.elements
+  const cameras = data.elements
     .map(toCamera)
     .filter((c): c is Omit<SpeedCamera, 'routeIndex'> => c !== null);
 

@@ -31,6 +31,16 @@ const cache = new Map<string, Place[]>();
 /** Garante o intervalo mínimo de 1 pedido por segundo exigido pelo Nominatim. */
 const schedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
 
+/**
+ * As pesquisas a caminho, pela mesma chave da cache, e quem espera por elas.
+ *
+ * Carregar em Enter pesquisa logo, e o segundo de espera que vinha a correr
+ * acabava a seguir e pedia **a mesma coisa outra vez** — que, por a primeira
+ * ainda não ter respondido, não estava na cache e ia para a fila, um segundo
+ * atrás. Aqui o segundo pedido espera pela resposta do primeiro.
+ */
+const emCurso = new Map<string, { pedido: Promise<Place[]>; interessados: (() => boolean)[] }>();
+
 /** Converte um resultado do Nominatim no formato que a aplicação usa. */
 function toPlace(raw: NominatimSearchResult): Place {
   const extra = raw.extratags ?? {};
@@ -74,6 +84,7 @@ export async function searchPlaces(
   query: string,
   limit = 8,
   near?: Bounds | null,
+  isWanted: () => boolean = () => true,
 ): Promise<Place[]> {
   const term = query.trim();
   if (term.length === 0) {
@@ -91,6 +102,32 @@ export async function searchPlaces(
     return cached;
   }
 
+  const aCaminho = emCurso.get(cacheKey);
+  if (aCaminho) {
+    aCaminho.interessados.push(isWanted);
+    return aCaminho.pedido;
+  }
+
+  const interessados = [isWanted];
+  const pedido = fetchSearch(term, limit, caixa, cacheKey, () =>
+    interessados.some((quer) => quer()),
+  ).finally(() => emCurso.delete(cacheKey));
+  emCurso.set(cacheKey, { pedido, interessados });
+  return pedido;
+}
+
+/**
+ * O pedido em si. Se, quando lhe chega a vez na fila, já ninguém quiser a
+ * resposta — escreveu-se mais entretanto — não sai: é menos um pedido ao
+ * Nominatim e menos um segundo à frente da pesquisa que interessa.
+ */
+async function fetchSearch(
+  term: string,
+  limit: number,
+  caixa: string,
+  cacheKey: string,
+  isWanted: () => boolean,
+): Promise<Place[]> {
   const response = await schedule(() =>
     client.get<NominatimSearchResponse>('/search', {
       // `extratags=1` traz o telefone, o horário e o sítio na Internet.
@@ -107,6 +144,7 @@ export async function searchPlaces(
         ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
       },
     }),
+    isWanted,
   );
 
   const places = response.data.map(toPlace);

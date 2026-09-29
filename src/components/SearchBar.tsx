@@ -89,7 +89,13 @@ export function SearchBar({
       // Doze e não oito: a pesquisa dá preferência ao que está à vista, e com
       // uma lista curta um negócio noutra terra era empurrado para fora por
       // ruas e lugares daqui com nome parecido.
-      const places = await searchPlaces(term, 12, getBounds());
+      const places = await searchPlaces(
+        term,
+        12,
+        getBounds(),
+        // Se entretanto se escreveu mais, esta pesquisa não chega a sair.
+        () => searchId === latestSearch.current,
+      );
       // Se entretanto já houve outra pesquisa, esta resposta não interessa.
       if (searchId === latestSearch.current) {
         setResults(places);
@@ -106,8 +112,21 @@ export function SearchBar({
     }
   }, [getBounds]);
 
+  /**
+   * O texto que a própria barra escreveu ao escolher um resultado.
+   *
+   * Escolher põe o nome do sítio na caixa, e isso contava como texto novo: um
+   * segundo depois saía uma pesquisa ao Nominatim com esse nome, que ninguém
+   * pediu, ocupava a fila e fazia a lista reaparecer por baixo do destino.
+   */
+  const escolhido = useRef<string | null>(null);
+
   // O atraso que evita pesquisar a cada tecla escrita.
   useEffect(() => {
+    if (query === escolhido.current) {
+      return;
+    }
+    escolhido.current = null;
     const timer = setTimeout(() => {
       void runSearch(query);
     }, SEARCH_DEBOUNCE_MS);
@@ -116,6 +135,10 @@ export function SearchBar({
   }, [query, runSearch]);
 
   const handleSelect = (place: Place) => {
+    escolhido.current = place.name;
+    // Uma pesquisa que ainda venha a caminho já não interessa.
+    latestSearch.current += 1;
+    setLoading(false);
     setQuery(place.name);
     setResults([]);
     setFocused(false);
@@ -128,17 +151,42 @@ export function SearchBar({
   // pesquisa não. Um sítio que seja as duas coisas aparece só uma vez, como
   // guardado — que é a marca mais forte das duas.
   const parado = query.trim().length === 0 && focused;
+  const guardadosERecentes = [
+    ...favourites.map((place) => ({ place, guardado: true, local: true })),
+    ...recents
+      .filter((r) => !favourites.some((f) => isSamePlace(f, r)))
+      .map((place) => ({ place, guardado: false, local: true })),
+  ];
+
+  // **Enquanto se escreve, o que está no telemóvel aparece logo.** A pesquisa na
+  // Internet tem de esperar o segundo do SEARCH_DEBOUNCE_MS — é regra do
+  // Nominatim e não se encurta — mas os guardados e os últimos destinos não
+  // pedem nada a ninguém. Quem escreve "casa" ou o nome de um sítio onde já foi,
+  // que é a maior parte das pesquisas de destino, tem-no à primeira letra.
+  const termo = normalizar(query.trim());
+  const locais =
+    termo.length >= 2
+      ? guardadosERecentes
+          .filter(
+            ({ place }) =>
+              normalizar(place.name).includes(termo) ||
+              normalizar(place.address).includes(termo),
+          )
+          .slice(0, MAX_LOCAL_MATCHES)
+      : [];
+
   const sugestoes = parado
-    ? [
-        ...favourites.map((place) => ({ place, guardado: true })),
-        ...recents
-          .filter((r) => !favourites.some((f) => isSamePlace(f, r)))
-          .map((place) => ({ place, guardado: false })),
-      ]
-    : results.map((place) => ({ place, guardado: false }));
+    ? guardadosERecentes
+    : [
+        ...locais,
+        ...results
+          .filter((place) => !locais.some((l) => isSamePlace(l.place, place)))
+          .map((place) => ({ place, guardado: false, local: false })),
+      ];
 
   const showingSuggestions = parado && sugestoes.length > 0;
-  const list = showingSuggestions || !parado ? sugestoes : [];
+  // Só com a caixa em uso: depois de escolher, a lista não tem nada a fazer.
+  const list = focused && (showingSuggestions || !parado) ? sugestoes : [];
 
   return (
     <View style={styles.container}>
@@ -179,10 +227,10 @@ export function SearchBar({
           data={list}
           keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item: { place, guardado } }) => (
+          renderItem={({ item: { place, guardado, local } }) => (
             <Pressable style={styles.result} onPress={() => handleSelect(place)}>
               <View style={styles.resultHeader}>
-                {parado ? (
+                {local ? (
                   <MaterialCommunityIcons
                     name={guardado ? 'star' : 'history'}
                     size={15}
@@ -206,6 +254,22 @@ export function SearchBar({
       ) : null}
     </View>
   );
+}
+
+/** Quantos guardados e recentes aparecem por cima dos resultados, ao escrever. */
+const MAX_LOCAL_MATCHES = 4;
+
+/**
+ * Minúsculas e sem acentos: "sao tome" tem de encontrar "São Tomé".
+ *
+ * O `normalize` existe no Hermes, mas confirma-se antes de o usar — sem ele,
+ * perde-se só a parte dos acentos.
+ */
+function normalizar(texto: string): string {
+  const baixo = texto.toLowerCase();
+  return typeof baixo.normalize === 'function'
+    ? baixo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    : baixo;
 }
 
 function makeStyles(theme: Theme) {
