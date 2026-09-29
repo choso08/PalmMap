@@ -33,10 +33,10 @@ voz depois do filtro das manobras, o velocímetro — que precisa de um telemóv
 os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
 ambiente de desenvolvimento não chega.
 
-**Há trabalho por compilar.** A última APK é a 7.0.22 (a da permissão que fechava a
-aplicação ao navegar) e desde aí entraram os trajetos de autocarro reparados, os pinos dos
-negócios por quadrado com um segundo servidor da Overpass, e a pesquisa a mostrar logo os
-guardados. Nada disso foi visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
+**A última APK é a 7.0.23.** Traz os trajetos de autocarro reparados, os pinos dos negócios
+por quadrado com um segundo servidor da Overpass, a pesquisa a mostrar logo os guardados, e
+o Photon como segundo recurso da pesquisa — que em setembro de 2026 falhava sempre com
+"verifique a ligação" apesar de haver rede. Nada disso foi ainda visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
 pedir.**
 
 **Os horários estão gerados e publicados**, na etiqueta `horarios`: **CP** (454 estações,
