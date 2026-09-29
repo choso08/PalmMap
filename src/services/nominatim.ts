@@ -4,16 +4,20 @@ import { acceptLanguage, activeLanguage } from '../i18n';
 import {
   NOMINATIM_BASE_URL,
   NOMINATIM_MIN_INTERVAL_MS,
+  PHOTON_BASE_URL,
   REQUEST_TIMEOUT_MS,
+  SEARCH_TIMEOUT_MS,
   USER_AGENT,
 } from './config';
-import { createRateLimiter } from './rateLimit';
+import { SupersededError, createRateLimiter } from './rateLimit';
 import type {
   NominatimReverseResponse,
   NominatimSearchResponse,
   NominatimSearchResult,
 } from '../types/nominatim';
+import type { PhotonFeature, PhotonResponse } from '../types/photon';
 import type { Bounds, Coordinates, Place } from '../types/geo';
+import { t } from '../i18n';
 import { categoryLabel } from '../utils/categories';
 
 const client = axios.create({
@@ -109,7 +113,7 @@ export async function searchPlaces(
   }
 
   const interessados = [isWanted];
-  const pedido = fetchSearch(term, limit, caixa, cacheKey, () =>
+  const pedido = fetchSearch(term, limit, caixa, near ?? null, cacheKey, () =>
     interessados.some((quer) => quer()),
   ).finally(() => emCurso.delete(cacheKey));
   emCurso.set(cacheKey, { pedido, interessados });
@@ -125,31 +129,165 @@ async function fetchSearch(
   term: string,
   limit: number,
   caixa: string,
+  near: Bounds | null,
   cacheKey: string,
   isWanted: () => boolean,
 ): Promise<Place[]> {
-  const response = await schedule(() =>
-    client.get<NominatimSearchResponse>('/search', {
-      // `extratags=1` traz o telefone, o horário e o sítio na Internet.
-      params: {
-        q: term,
-        format: 'jsonv2',
-        limit,
-        addressdetails: 0,
-        extratags: 1,
-        // Os nomes vêm na língua da aplicação onde o OpenStreetMap os tiver
-        // traduzidos: quem está em inglês vê "Lisbon" e não "Lisboa".
-        'accept-language': acceptLanguage(activeLanguage()),
-        // Ordem exigida pelo Nominatim: oeste, norte, este, sul.
-        ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
-      },
-    }),
+  let falhaNominatim: unknown;
+  try {
+    const response = await schedule(
+      () =>
+        client.get<NominatimSearchResponse>('/search', {
+          timeout: SEARCH_TIMEOUT_MS,
+          // `extratags=1` traz o telefone, o horário e o sítio na Internet.
+          params: {
+            q: term,
+            format: 'jsonv2',
+            limit,
+            addressdetails: 0,
+            extratags: 1,
+            // Os nomes vêm na língua da aplicação onde o OpenStreetMap os tiver
+            // traduzidos: quem está em inglês vê "Lisbon" e não "Lisboa".
+            'accept-language': acceptLanguage(activeLanguage()),
+            // Ordem exigida pelo Nominatim: oeste, norte, este, sul.
+            ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
+          },
+        }),
+      isWanted,
+    );
+
+    // Uma resposta que não seja uma lista não é resultado nenhum — é uma
+    // página de erro servida com 200, e tratá-la como lista rebentava adiante.
+    if (!Array.isArray(response.data)) {
+      throw new Error('resposta inesperada');
+    }
+    const places = response.data.map(toPlace);
+    cache.set(cacheKey, places);
+    return places;
+  } catch (error) {
+    if (error instanceof SupersededError) {
+      throw error;
+    }
+    falhaNominatim = error;
+  }
+
+  // **O Nominatim falhou: pergunta-se ao Photon.** Só agora, e nunca aos dois ao
+  // mesmo tempo — ver `PHOTON_BASE_URL`.
+  try {
+    const places = await searchPhoton(term, limit, near, isWanted);
+    cache.set(cacheKey, places);
+    return places;
+  } catch (error) {
+    if (error instanceof SupersededError) {
+      throw error;
+    }
+    // Os dois falharam. A mensagem diz o que o Nominatim respondeu, que é o
+    // serviço principal — ver `searchError`.
+    throw searchError(falhaNominatim);
+  }
+}
+
+/** Erro da pesquisa, com uma mensagem que diz o que falhou mesmo. */
+export class SearchError extends Error {}
+
+/**
+ * Traduz a falha do Nominatim numa mensagem que diga **o que** falhou.
+ *
+ * **"Verifique a ligação à Internet" era a mensagem para tudo**, e dizia o
+ * contrário do que se passava a quem tinha rede e o mapa a carregar: uma
+ * recusa do serviço (403, 429) ou um serviço lento ficavam iguais a estar sem
+ * rede. Com o número de resposta no ecrã, uma fotografia diz qual é — é a
+ * mesma decisão tomada nos horários (`carrisGet`).
+ */
+function searchError(error: unknown): SearchError {
+  if (axios.isAxiosError(error)) {
+    if (error.response) {
+      return new SearchError(t().search.failedStatus(error.response.status));
+    }
+    if (error.code === 'ECONNABORTED') {
+      return new SearchError(t().search.failedTimeout);
+    }
+    return new SearchError(t().search.failed);
+  }
+  return new SearchError(t().search.failedOther);
+}
+
+/** O Photon tem fila própria: é outro serviço, com o seu próprio limite. */
+const photonSchedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
+
+const photon = axios.create({
+  baseURL: PHOTON_BASE_URL,
+  timeout: SEARCH_TIMEOUT_MS,
+  headers: { 'User-Agent': USER_AGENT },
+});
+
+/**
+ * Pesquisa no Photon, o segundo recurso.
+ *
+ * A preferência pelo que está à vista faz-se com o centro do mapa (`lat`/`lon`)
+ * — o Photon não tem o `viewbox` do Nominatim, e o `bbox` dele é um limite, não
+ * uma preferência. A língua só se indica em inglês: o servidor público não tem
+ * português, e sem nada vêm os nomes locais, que em Portugal já são esses.
+ */
+async function searchPhoton(
+  term: string,
+  limit: number,
+  near: Bounds | null,
+  isWanted: () => boolean,
+): Promise<Place[]> {
+  const response = await photonSchedule(
+    () =>
+      photon.get<PhotonResponse>('/api', {
+        params: {
+          q: term,
+          limit,
+          ...(activeLanguage() === 'en' ? { lang: 'en' } : {}),
+          ...(near
+            ? {
+                lat: ((near.south + near.north) / 2).toFixed(4),
+                lon: ((near.west + near.east) / 2).toFixed(4),
+              }
+            : {}),
+        },
+      }),
     isWanted,
   );
 
-  const places = response.data.map(toPlace);
-  cache.set(cacheKey, places);
-  return places;
+  return (response.data.features ?? [])
+    .map(photonToPlace)
+    .filter((place): place is Place => place !== null);
+}
+
+/** Converte um resultado do Photon no formato que a aplicação usa. */
+function photonToPlace(feature: PhotonFeature, index: number): Place | null {
+  const coords = feature.geometry?.coordinates;
+  const p = feature.properties ?? {};
+  if (!coords || coords.length < 2) {
+    return null;
+  }
+  // Atenção à ordem: em GeoJSON é longitude primeiro.
+  const [longitude, latitude] = coords;
+
+  const rua = [p.street, p.housenumber].filter(Boolean).join(' ');
+  const partes = [rua, p.postcode, p.city ?? p.district, p.state, p.country].filter(
+    (parte): parte is string => Boolean(parte) && parte !== p.name,
+  );
+  const extra = p.extra ?? {};
+
+  return {
+    // O Photon não tem `place_id`; o número do OpenStreetMap serve, e o índice
+    // desempata os raros que venham sem ele.
+    id: p.osm_id ?? -(index + 1),
+    name: p.name || rua || partes[0] || '',
+    address: partes.join(', '),
+    coordinates: { latitude, longitude },
+    category: p.osm_key && p.osm_value ? categoryLabel({ [p.osm_key]: p.osm_value }) : undefined,
+    details: {
+      phone: extra.phone ?? extra['contact:phone'],
+      website: extra.website ?? extra['contact:website'],
+      openingHours: extra.opening_hours,
+    },
+  };
 }
 
 /**

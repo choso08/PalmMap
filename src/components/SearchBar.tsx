@@ -100,9 +100,10 @@ export function SearchBar({
       if (searchId === latestSearch.current) {
         setResults(places);
       }
-    } catch {
+    } catch (err) {
       if (searchId === latestSearch.current) {
-        setError(t().search.failed);
+        // A mensagem do serviço diz o que falhou — rede, demora ou recusa.
+        setError(err instanceof Error && err.message ? err.message : t().search.failed);
         setResults([]);
       }
     } finally {

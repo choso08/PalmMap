@@ -47,6 +47,10 @@ export const en: typeof pt = {
   search: {
     placeholder: 'Search here',
     failed: "Couldn't search. Check your Internet connection.",
+    failedStatus: (status: number) =>
+      `The search service refused (answer ${status}). Try again shortly.`,
+    failedTimeout: 'The search service took too long to answer.',
+    failedOther: 'The search service sent an answer that made no sense.',
     noResults: 'No results.',
     saved: 'Saved',
     recents: 'Recent destinations',

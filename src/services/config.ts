@@ -17,6 +17,26 @@ export const USER_AGENT = 'PalmMap/1.0 (projeto pessoal; https://github.com/chos
 export const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 /**
+ * O segundo recurso da pesquisa, para quando o Nominatim recusa ou não responde.
+ *
+ * O Photon é da Komoot, sobre os mesmos dados do OpenStreetMap, aberto e sem
+ * chave. As regras deles pedem um número de pedidos razoável; por isso só se
+ * lhe pergunta **depois** de o Nominatim falhar, e com a mesma cadência de um
+ * pedido por segundo. **Não foi experimentado** a partir do ambiente de
+ * desenvolvimento, que bloqueia os dois.
+ */
+export const PHOTON_BASE_URL = 'https://photon.komoot.io';
+
+/**
+ * Quanto se espera pelo Nominatim numa pesquisa antes de desistir dele.
+ *
+ * Mais curto do que o `REQUEST_TIMEOUT_MS` porque há a quem perguntar a seguir:
+ * quinze segundos a olhar para o indicador a rodar, e só depois ir ao Photon,
+ * era a pesquisa a parecer avariada mesmo quando acabava por responder.
+ */
+export const SEARCH_TIMEOUT_MS = 7000;
+
+/**
  * Cálculo de percursos, um endereço por meio de transporte.
  *
  * **Porque é que não é o `router.project-osrm.org`.** Esse é o servidor de

@@ -148,7 +148,7 @@ Termos que aparecem ao longo do ficheiro, explicados de forma direta:
 | Navegação em segundo plano | `expo-task-manager` (serviço em primeiro plano do `expo-location`) |
 | Pedidos à Internet | `axios` |
 | Mapa (tiles) | OpenStreetMap |
-| Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`) |
+| Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`), e o Photon quando ele falha |
 | Cálculo de percursos | OSRM da FOSSGIS (`https://routing.openstreetmap.de`), um servidor por meio de transporte |
 | Mapas offline | Protomaps (PMTiles), recortados do mapa mundial |
 
@@ -327,7 +327,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── favourites.ts   # Sítios guardados no telemóvel
 │   │   ├── recents.ts      # Últimos destinos
 │   │   ├── location.ts     # Gere o GPS do telemóvel
-│   │   ├── nominatim.ts    # Pesquisa por nome
+│   │   ├── nominatim.ts    # Pesquisa por nome (Nominatim, e o Photon de recurso)
 │   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
 │   │   ├── osrm.ts         # Cálculo de percursos e instruções
 │   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
@@ -341,6 +341,7 @@ uma das razões para o Android Auto ficar pausado.)
 │   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
 │   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
 │   │   ├── overpass.ts     # Formato exato da resposta da Overpass
+│   │   ├── photon.ts       # Formato exato da resposta do Photon
 │   │   ├── schedule.ts     # Formato dos horários convertidos do GTFS
 │   │   └── osrm.ts         # Formato exato da resposta do OSRM
 │   ├── utils/
@@ -1959,6 +1960,19 @@ serem desfeitas sem se perceber o que se está a desligar.
   partir de 3 letras. **Não reduzir este valor.**
 - Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
   vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
+- **Quando o Nominatim falha, pergunta-se ao Photon** (`PHOTON_BASE_URL`, da Komoot: dados
+  do OpenStreetMap, aberto, sem chave). Só depois de o Nominatim falhar, nunca os dois ao
+  mesmo tempo, com fila própria de um por segundo. O Nominatim tem agora um prazo mais curto
+  na pesquisa (`SEARCH_TIMEOUT_MS`, 7 s), para quem espera não ver o indicador a rodar
+  quinze segundos antes de haver segunda tentativa. Os campos do Photon foram lidos na
+  documentação deles (`docs/api-v1.md`) — está em GeoJSON, **longitude primeiro**. **Não foi
+  experimentado**: o ambiente de desenvolvimento bloqueia os dois serviços.
+- **O erro da pesquisa diz o que falhou.** Era sempre "verifique a ligação à Internet", e em
+  setembro de 2026 o autor passou a vê-lo em todas as pesquisas **com rede e o mapa a
+  carregar**. Hoje separa-se a recusa (com o número de resposta no ecrã), a demora e a falta
+  de rede — ver `searchError`. A causa dessa falha **ficou por saber**: o código da pesquisa
+  não mudava há muitas versões, o que aponta para o lado do Nominatim (bloqueio ou excesso de
+  pedidos). Se voltar a aparecer, a fotografia da mensagem nova diz qual é.
 - **O que está no telemóvel não espera pelo segundo.** Enquanto se escreve, os guardados e
   os últimos destinos que batem com o texto (sem contar acentos) aparecem logo, por cima dos
   resultados. A regra do segundo é sobre pedidos ao Nominatim, e estes não pedem nada.
@@ -2277,6 +2291,11 @@ Erros já cometidos neste projeto, para não se repetirem.
 - **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
   Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
   ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
+- **Uma mensagem de erro que diz sempre a mesma coisa esconde a avaria.** Já se tinha
+  aprendido com os horários, e a pesquisa continuava com "verifique a ligação à Internet"
+  para tudo — até o autor a ver em todas as pesquisas com a Internet a funcionar. Um serviço
+  que recusa, um que demora e uma rede em baixo pedem soluções diferentes; a mensagem tem de
+  os distinguir, com o número de resposta à vista.
 - **Uma fila que espaça pedidos também tem de saber desistir.** Os dois segundos da Overpass
   cumpriam-se, mas cumpriam-se a despachar pedidos de zonas que já não estavam no ecrã, à
   frente do único que interessava. Espaçar é proteger o serviço; saltar o que ninguém quer

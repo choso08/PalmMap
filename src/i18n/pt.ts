@@ -63,6 +63,10 @@ export const pt = {
   search: {
     placeholder: 'Pesquisar aqui',
     failed: 'Não foi possível pesquisar. Verifique a ligação à Internet.',
+    failedStatus: (status: number) =>
+      `O serviço de pesquisa recusou (resposta ${status}). Tente daqui a pouco.`,
+    failedTimeout: 'O serviço de pesquisa demorou demasiado a responder.',
+    failedOther: 'O serviço de pesquisa deu uma resposta que não se percebe.',
     noResults: 'Sem resultados.',
     saved: 'Guardados',
     recents: 'Últimos destinos',
