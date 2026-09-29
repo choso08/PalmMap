@@ -708,10 +708,24 @@ autocarro"**.
 
 - **Não há nenhum serviço aberto que responda a isso em Portugal.** Monta-se a partir do que
   há: as passagens de cada paragem. Ver `planBusTrips`, em `src/services/transit.ts`.
-- **A peça que faz isto funcionar é o `trip_id`.** Se a mesma viagem aparece numa paragem
-  perto da origem e numa paragem perto do destino, é o mesmo autocarro — e as duas horas são
-  a partida e a chegada reais. A ordem entre elas confirma o sentido da marcha, por isso não
-  é preciso ir buscar o desenho da linha nem adivinhar direções.
+- **A peça que faz isto funcionar é saber que é a mesma viagem.** Se a mesma viagem aparece
+  numa paragem perto da origem e numa paragem perto do destino, é o mesmo autocarro — e as
+  duas horas são a partida e a chegada reais. A ordem entre elas confirma o sentido da
+  marcha, por isso não é preciso ir buscar o desenho da linha nem adivinhar direções.
+- **Desde 11 de agosto de 2026 o `trip_id` já não serve para isso — e foi assim que os
+  trajetos de autocarro desapareceram.** A Carris passou as passagens a vir do *hub* da TML,
+  e o `trip_id` só vem **quando há estimativa em tempo real** (e às vezes com um prefixo
+  `[plan]`). Nas passagens só com horário vem vazio, e a comparação por `trip_id` deixava de
+  encontrar viagem nenhuma: zero trajetos, **sem erro nenhum**. Lido no código do serviço
+  (`carrismetropolitana/api`), não adivinhado.
+- **Hoje a viagem identifica-se pela ordem dentro do padrão** (`tripKeys`, em `transit.ts`).
+  Numa paragem, as passagens do mesmo `pattern_id` ordenadas pela hora do horário são as
+  viagens desse padrão pela ordem — o 1.º autocarro da manhã numa paragem é o 1.º na
+  seguinte, porque dentro do mesmo padrão não há ultrapassagens no horário. A chave é
+  `pattern_id#ordem`. **Duas confirmações** impedem casar viagens erradas: as duas paragens
+  têm de ter o mesmo número de viagens daquele padrão (`tripsPerPattern`; se não bate, o
+  padrão fica de fora), e quando os dois lados trazem `trip_id` têm de ser iguais. Provado
+  numa simulação com o formato novo: a versão antiga dava zero trajetos, esta dá os certos.
 - **`stop_sequence` é a segunda confirmação.** A paragem de entrada tem de vir antes da de
   saída dentro da viagem. Sem isto, a mesma linha em sentido contrário passava por trajeto.
 - **Uma linha aparece uma vez.** As três passagens seguintes do mesmo autocarro não são três
@@ -2260,6 +2274,12 @@ Erros já cometidos neste projeto, para não se repetirem.
   errada**. O rasto, fotografado no telemóvel, respondeu em dois minutos. A seguir a uma
   falha que não se consegue reproduzir, o primeiro pedido a quem a tem à frente é a mensagem
   de erro, antes de mais uma hipótese.
+- **Um campo que um serviço deixa de mandar não dá erro — dá uma lista vazia.** Os trajetos
+  de autocarro dependiam do `trip_id` em todas as passagens; a Carris mudou de fonte e passou
+  a mandá-lo só com tempo real. A aplicação continuou a responder, só que sempre "não há
+  autocarro direto". Quando uma funcionalidade que dependia de um serviço externo deixa de
+  dar resultados, a primeira pergunta é **o que mudou do lado de lá** — o histórico do código
+  deles responde depressa.
 - **Uma biblioteca pode apanhar o tipo de exceção errado.** O `expo-task-manager` embrulha o
   `jobScheduler.schedule()` num `try` que apanha `IllegalStateException`; o Android atira
   `IllegalArgumentException`, que não é um deles. Ter um `try` à volta não quer dizer estar

@@ -355,6 +355,96 @@ function walkSeconds(meters: number): number {
 }
 
 /**
+ * A que viagem pertence cada passagem de uma paragem.
+ *
+ * ## Porque é que isto existe
+ *
+ * **O `trip_id` deixou de vir nas passagens sem tempo real.** Até ao verão de
+ * 2026 cada passagem trazia sempre o `trip_id` do horário. A 11 de agosto a
+ * Carris reescreveu o `/arrivals/by_stop` para ir buscar os dados à TML, e desde
+ * aí ele sai do tempo real (`eta?.trip_id ?? null`, no
+ * `arrivals.endpoint.ts` deles, lido e não assumido): vem `null` em todas as
+ * passagens que ainda não têm autocarro atribuído — ou seja, quase todas. O
+ * planeamento ligava as duas pontas pelo `trip_id` e ficou sem trajetos
+ * nenhuns, **sem dar erro nenhum**.
+ *
+ * ## O que identifica a viagem agora
+ *
+ * **A ordem dentro do padrão.** Um padrão (`pattern_id`) é o percurso exato de
+ * uma linha num sentido: sempre as mesmas paragens, pela mesma ordem. Num padrão
+ * os autocarros não se ultrapassam — fazem o mesmo caminho e param nos mesmos
+ * sítios. E o serviço devolve **o dia inteiro** de cada padrão, também as horas
+ * que já passaram. Juntando as duas coisas: o quinto autocarro do dia do padrão
+ * P nesta paragem é o quinto autocarro do padrão P na paragem seguinte. A chave
+ * é `padrão#ordem`.
+ *
+ * O grupo é padrão **e** `stop_sequence`, e não só padrão: uma linha circular
+ * passa duas vezes na mesma paragem, e as duas passagens de cada viagem não são
+ * a mesma coisa.
+ *
+ * **Por isto é que não se filtra nada antes de ordenar** — nem as que já
+ * passaram, nem as sem hora. Uma passagem a menos numa das pontas desencontrava
+ * a ordem de todas as seguintes. Quem filtra é quem usa isto, depois.
+ */
+function tripKeys(passagens: CarrisArrival[]): Map<CarrisArrival, string> {
+  const grupos = new Map<string, CarrisArrival[]>();
+  for (const arrival of passagens) {
+    if (!arrival.pattern_id || typeof arrival.scheduled_arrival_unix !== 'number') {
+      continue;
+    }
+    const grupo = `${arrival.pattern_id}|${arrival.stop_sequence ?? 0}`;
+    const lista = grupos.get(grupo);
+    if (lista) {
+      lista.push(arrival);
+    } else {
+      grupos.set(grupo, [arrival]);
+    }
+  }
+
+  const chaves = new Map<CarrisArrival, string>();
+  for (const lista of grupos.values()) {
+    // Pela hora do horário, e não pela prevista: a prevista mexe com o trânsito,
+    // o horário é o que diz a ordem em que as viagens foram planeadas.
+    lista.sort(
+      (a, b) => (a.scheduled_arrival_unix as number) - (b.scheduled_arrival_unix as number),
+    );
+    lista.forEach((arrival, ordem) => {
+      chaves.set(arrival, `${arrival.pattern_id}#${ordem}`);
+    });
+  }
+  return chaves;
+}
+
+/**
+ * Quantas viagens de cada padrão passam nesta paragem hoje.
+ *
+ * Serve de verificação à chave `padrão#ordem`: a ordem só identifica a viagem se
+ * as duas pontas tiverem **as mesmas viagens** do padrão. Têm sempre — um padrão
+ * serve todas as suas paragens — mas se um dia o serviço cortar a lista numa
+ * delas, a ordem desencontrava-se em silêncio. Com números diferentes não se
+ * emparelha nada desse padrão.
+ */
+function tripsPerPattern(passagens: CarrisArrival[]): Map<string, number> {
+  const porGrupo = new Map<string, number>();
+  for (const arrival of passagens) {
+    if (!arrival.pattern_id || typeof arrival.scheduled_arrival_unix !== 'number') {
+      continue;
+    }
+    const grupo = `${arrival.pattern_id}|${arrival.stop_sequence ?? 0}`;
+    porGrupo.set(grupo, (porGrupo.get(grupo) ?? 0) + 1);
+  }
+  // O número de viagens do padrão é o de qualquer dos seus grupos; se dois
+  // grupos do mesmo padrão não baterem, o padrão fica marcado como incerto.
+  const porPadrao = new Map<string, number>();
+  for (const [grupo, n] of porGrupo) {
+    const padrao = grupo.slice(0, grupo.lastIndexOf('|'));
+    const antes = porPadrao.get(padrao);
+    porPadrao.set(padrao, antes === undefined || antes === n ? n : -1);
+  }
+  return porPadrao;
+}
+
+/**
  * Monta trajetos de autocarro entre dois pontos.
  *
  * ## Como é que isto funciona
@@ -365,10 +455,11 @@ function walkSeconds(meters: number): number {
  *
  * 1. Procuram-se as paragens a pé de distância da origem e do destino.
  * 2. Pedem-se as passagens de cada uma.
- * 3. **Se o mesmo `trip_id` aparece numa paragem de partida e numa de chegada,
- *    é o mesmo autocarro.** As duas horas são a partida e a chegada reais, e a
+ * 3. **Se a mesma viagem aparece numa paragem de partida e numa de chegada, é
+ *    o mesmo autocarro.** As duas horas são a partida e a chegada reais, e a
  *    ordem entre elas confirma o sentido da marcha — não é preciso adivinhar
- *    nem ir buscar o desenho da linha.
+ *    nem ir buscar o desenho da linha. A viagem reconhece-se pela ordem dentro
+ *    do padrão, e não pelo `trip_id` — ver `tripKeys`, que explica porquê.
  * 4. Junta-se o tempo a pé de cada ponta e ordena-se por hora de chegada.
  *
  * ## O que isto não faz, e é preciso dizer
@@ -400,7 +491,10 @@ export async function planBusTrips(
   }
 
   // As paragens de chegada primeiro: é contra elas que se procuram as viagens.
-  const porViagem = new Map<string, { stop: TransitStop; unix: number; seq: number }>();
+  const porViagem = new Map<
+    string,
+    { stop: TransitStop; unix: number; seq: number; tripId: string | null; padrao: number }
+  >();
 
   // **Uma paragem que falhe não deita o planeamento abaixo.** São meia dúzia de
   // pedidos, e o serviço recusa um de vez em quando; com um `Promise.all` puro,
@@ -420,20 +514,26 @@ export async function planBusTrips(
         return;
       }
 
+      const chaves = tripKeys(passagens);
+      const viagensDoPadrao = tripsPerPattern(passagens);
+
       for (const arrival of passagens) {
         const passa = quandoPassa(arrival);
-        if (!arrival.trip_id || !passa) {
+        const chave = chaves.get(arrival);
+        if (!chave || !passa) {
           continue;
         }
 
         // Entre duas paragens de chegada servidas pela mesma viagem, fica a que
         // deixa mais perto do destino.
-        const atual = porViagem.get(arrival.trip_id);
+        const atual = porViagem.get(chave);
         if (!atual || stop.meters < atual.stop.meters) {
-          porViagem.set(arrival.trip_id, {
+          porViagem.set(chave, {
             stop,
             unix: passa.unix,
             seq: arrival.stop_sequence ?? 0,
+            tripId: arrival.trip_id ?? null,
+            padrao: viagensDoPadrao.get(arrival.pattern_id as string) ?? -1,
           });
         }
       }
@@ -451,14 +551,36 @@ export async function planBusTrips(
     saidas.map(async (stop) => {
       const aPe = walkSeconds(stop.meters);
 
-      for (const arrival of await rawArrivalsAt(stop.id)) {
-        if (arrival.observed_arrival || !arrival.trip_id) {
+      const passagens = await rawArrivalsAt(stop.id);
+      // A ordem calcula-se sobre a lista inteira, **antes** de filtrar — ver
+      // `tripKeys`. Só a seguir se põem de lado as que já passaram.
+      const chaves = tripKeys(passagens);
+      const viagensDoPadrao = tripsPerPattern(passagens);
+
+      for (const arrival of passagens) {
+        if (arrival.observed_arrival) {
           continue;
         }
 
         const saida = quandoPassa(arrival);
-        const chegada = arrival.trip_id ? porViagem.get(arrival.trip_id) : undefined;
-        if (!saida || !chegada) {
+        const chave = chaves.get(arrival);
+        const chegada = chave ? porViagem.get(chave) : undefined;
+        if (!saida || !chave || !chegada) {
+          continue;
+        }
+
+        // As duas verificações de que a ordem identifica mesmo a mesma viagem.
+        // **As duas pontas têm de ter o mesmo número de viagens do padrão** — com
+        // uma a menos numa delas, a ordem desencontrava-se e o autocarro das
+        // 8h10 passava a chegar às 8h45 do seguinte. E **quando as duas trazem
+        // `trip_id`**, que é quando há tempo real, têm de dizer o mesmo. Se
+        // alguma coisa não bater, não se emparelha: antes trajeto nenhum do que
+        // um que manda a pessoa para a paragem à hora errada.
+        const padrao = viagensDoPadrao.get(arrival.pattern_id as string) ?? -1;
+        if (padrao < 0 || padrao !== chegada.padrao) {
+          continue;
+        }
+        if (arrival.trip_id && chegada.tripId && arrival.trip_id !== chegada.tripId) {
           continue;
         }
 
@@ -478,7 +600,7 @@ export async function planBusTrips(
         }
 
         trajetos.push({
-          tripId: arrival.trip_id,
+          tripId: chave,
           kind: 'bus',
           line: arrival.line_id ?? arrival.route_id ?? '—',
           headsign: arrival.headsign ?? '',
