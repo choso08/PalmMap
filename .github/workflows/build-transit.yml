@@ -32,7 +32,7 @@ on:
       modo:
         description: 'O que fazer'
         type: choice
-        options: [gerar, descobrir, veiculos]
+        options: [gerar, descobrir, veiculos, passagens]
         default: gerar
       operadores:
         description: 'Ids separados por espaços (ver transit-feeds.json). "todos" faz o catálogo inteiro.'
@@ -66,6 +66,12 @@ jobs:
       - name: Sondar as posições dos autocarros
         if: inputs.modo == 'veiculos'
         run: python3 scripts/build-transit.py --veiculos
+
+      # As passagens verdadeiras de duas paragens da mesma linha, e o
+      # emparelhamento de viagens que a aplicação faz, experimentado nelas.
+      - name: Sondar as passagens dos autocarros
+        if: inputs.modo == 'passagens'
+        run: python3 scripts/build-transit.py --passagens
 
       - name: Converter os horários
         if: inputs.modo == 'gerar'

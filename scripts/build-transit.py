@@ -566,6 +566,150 @@ def probe_vehicles() -> None:
         log(f"  Não deu: {erro}")
 
 
+def probe_arrivals() -> None:
+    """
+    Vê as passagens verdadeiras de duas paragens da mesma linha, e experimenta
+    nelas o emparelhamento de viagens que a aplicação faz (`tripKeys`, em
+    `src/services/transit.ts`).
+
+    Existe porque os trajetos de autocarro continuaram vazios depois da
+    correção de setembro de 2026, e o ambiente onde o código é escrito não chega
+    à API da Carris. Imprime os campos que vêm mesmo, quantas passagens trazem
+    cada um, e quantas viagens se conseguem emparelhar entre as duas paragens.
+    """
+    base = "https://api.carrismetropolitana.pt/v2"
+
+    def get(caminho: str):
+        return json.loads(fetch(base + caminho, timeout=90))
+
+    def resumo(nome: str, passagens: list) -> None:
+        log(f"  {nome}: {len(passagens)} passagens")
+        if not passagens:
+            return
+        chaves = sorted({k for p in passagens for k in p.keys()})
+        log(f"    campos: {chaves}")
+        for campo in ["trip_id", "pattern_id", "stop_sequence", "scheduled_arrival_unix",
+                      "estimated_arrival_unix", "observed_arrival", "line_id", "stop_id"]:
+            preenchidos = [p.get(campo) for p in passagens if p.get(campo) not in (None, "")]
+            tipos = sorted({type(v).__name__ for v in preenchidos})
+            exemplo = preenchidos[0] if preenchidos else None
+            log(f"    {campo}: {len(preenchidos)}/{len(passagens)} {tipos} ex={exemplo!r}")
+        log(f"    primeira: {json.dumps(passagens[0], ensure_ascii=False)[:700]}")
+
+    log("\n=== Passagens verdadeiras e emparelhamento de viagens ===")
+    try:
+        paragens = get("/stops")
+    except Exception as erro:  # noqa: BLE001
+        log(f"  /stops não deu: {erro}")
+        return
+    log(f"  /stops: {len(paragens)} paragens; campos: {sorted(paragens[0].keys())}")
+
+    # Perto do centro de Almada, que é servido pela Carris Metropolitana.
+    alvo = (38.6790, -9.1569)
+
+    def dist(p) -> float:
+        try:
+            return (float(p["lat"]) - alvo[0]) ** 2 + (float(p["lon"]) - alvo[1]) ** 2
+        except (KeyError, TypeError, ValueError):
+            return 1e9
+
+    candidatas = sorted(paragens, key=dist)[:8]
+    origem = None
+    passagens_a: list = []
+    for paragem in candidatas:
+        try:
+            passagens_a = get(f"/arrivals/by_stop/{paragem['id']}")
+        except Exception as erro:  # noqa: BLE001
+            log(f"  /arrivals/by_stop/{paragem['id']} não deu: {erro}")
+            continue
+        if passagens_a:
+            origem = paragem
+            break
+    if origem is None:
+        log("  Nenhuma paragem perto de Almada devolveu passagens.")
+        return
+    log(f"  Paragem A: {origem['id']} {origem.get('long_name')}")
+    resumo("A", passagens_a)
+
+    padrao = next((p.get("pattern_id") for p in passagens_a if p.get("pattern_id")), None)
+    if not padrao:
+        log("  Sem pattern_id nas passagens de A — o emparelhamento não pode funcionar.")
+        return
+
+    try:
+        dados_padrao = get(f"/patterns/{padrao}")
+    except Exception as erro:  # noqa: BLE001
+        log(f"  /patterns/{padrao} não deu: {erro}")
+        return
+    if isinstance(dados_padrao, list):
+        dados_padrao = dados_padrao[0] if dados_padrao else {}
+    log(f"  /patterns/{padrao}: campos {sorted(dados_padrao.keys())}")
+    caminho = dados_padrao.get("path") or []
+    ids = []
+    for passo in caminho:
+        stop = passo.get("stop") if isinstance(passo, dict) else None
+        sid = (stop or {}).get("id") if isinstance(stop, dict) else None
+        sid = sid or (passo.get("stop_id") if isinstance(passo, dict) else None)
+        if sid:
+            ids.append(str(sid))
+    log(f"  o padrão tem {len(ids)} paragens; primeira entrada: {json.dumps(caminho[:1], ensure_ascii=False)[:400]}")
+    if str(origem["id"]) not in ids:
+        log("  A paragem A não aparece no caminho do padrão.")
+        return
+    i = ids.index(str(origem["id"]))
+    j = min(i + 6, len(ids) - 1)
+    if j == i:
+        log("  A é a última paragem do padrão; nada a emparelhar.")
+        return
+    destino = ids[j]
+    passagens_b = get(f"/arrivals/by_stop/{destino}")
+    log(f"  Paragem B: {destino} (a {j - i} paragens de A no padrão {padrao})")
+    resumo("B", passagens_b)
+
+    def chaves(passagens: list) -> tuple[dict, dict]:
+        grupos: dict = {}
+        for n, p in enumerate(passagens):
+            if not p.get("pattern_id") or not isinstance(p.get("scheduled_arrival_unix"), (int, float)):
+                continue
+            grupos.setdefault(f"{p['pattern_id']}|{p.get('stop_sequence') or 0}", []).append(n)
+        resultado = {}
+        por_padrao: dict = {}
+        for grupo, lista in grupos.items():
+            lista.sort(key=lambda n: passagens[n]["scheduled_arrival_unix"])
+            for ordem, n in enumerate(lista):
+                resultado[n] = f"{passagens[n]['pattern_id']}#{ordem}"
+            pad = grupo.rsplit("|", 1)[0]
+            antes = por_padrao.get(pad)
+            por_padrao[pad] = len(lista) if antes in (None, len(lista)) else -1
+        return resultado, por_padrao
+
+    ka, pa = chaves(passagens_a)
+    kb, pb = chaves(passagens_b)
+    log(f"  viagens do padrão {padrao}: A={pa.get(padrao)} B={pb.get(padrao)}")
+    em_b = {k: n for n, k in kb.items()}
+    pares = 0
+    exemplo = None
+    for n, k in ka.items():
+        if not k.startswith(f"{padrao}#") or k not in em_b:
+            continue
+        a, b = passagens_a[n], passagens_b[em_b[k]]
+        if (a.get("stop_sequence") or 0) >= (b.get("stop_sequence") or 0):
+            continue
+        if a["scheduled_arrival_unix"] >= b["scheduled_arrival_unix"]:
+            continue
+        if a.get("trip_id") and b.get("trip_id") and a["trip_id"] != b["trip_id"]:
+            log(f"    trip_id desencontrado em {k}: {a['trip_id']} vs {b['trip_id']}")
+            continue
+        pares += 1
+        exemplo = exemplo or (k, a.get("scheduled_arrival"), b.get("scheduled_arrival"))
+    log(f"  viagens emparelhadas: {pares}; exemplo: {exemplo}")
+
+    # E como estava antes: pelo trip_id.
+    ta = {p.get("trip_id") for p in passagens_a if p.get("trip_id")}
+    tb = {p.get("trip_id") for p in passagens_b if p.get("trip_id")}
+    log(f"  pelo trip_id: {len(ta & tb)} em comum")
+
+
 # As palavras por que se procura. Uma só não chega: nem toda a gente escreve
 # "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
 CONSULTAS = [
@@ -662,6 +806,11 @@ def main() -> int:
         help="Só sonda as posições dos autocarros e sai.",
     )
     parser.add_argument(
+        "--passagens",
+        action="store_true",
+        help="Só sonda as passagens da Carris e o emparelhamento de viagens.",
+    )
+    parser.add_argument(
         "--descobrir",
         action="store_true",
         help="Só procura endereços no dados.gov.pt e sai.",
@@ -670,6 +819,10 @@ def main() -> int:
 
     if args.veiculos:
         probe_vehicles()
+        return 0
+
+    if args.passagens:
+        probe_arrivals()
         return 0
 
     if args.descobrir:
