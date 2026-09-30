@@ -42,7 +42,9 @@ import { distanceMeters } from '../utils/geometry';
  * rebentar nada.
  */
 
-const schedule = createRateLimiter(CARRIS_MIN_INTERVAL_MS);
+// Com `overlap`: o intervalo conta entre saídas, e as respostas chegam em
+// paralelo — ver a nota no `createRateLimiter`.
+const schedule = createRateLimiter(CARRIS_MIN_INTERVAL_MS, { overlap: true });
 
 const client = axios.create({
   baseURL: CARRIS_BASE_URL,
@@ -100,6 +102,8 @@ export interface TransitStop {
   lines: string[];
   /** Ligações a outros meios: `train`, `subway`, `light_rail`, `boat`. */
   connections: string[];
+  /** Os padrões que passam aqui — ver `CarrisStop.pattern_ids`. */
+  patterns: string[];
   /** A que distância está de quem está a ver, em metros. */
   meters: number;
 }
@@ -163,6 +167,7 @@ async function loadStops(): Promise<TransitStop[]> {
         coordinates: { latitude, longitude },
         lines: Array.isArray(stop.line_ids) ? stop.line_ids : [],
         connections: Array.isArray(stop.facilities) ? stop.facilities : [],
+        patterns: Array.isArray(stop.pattern_ids) ? stop.pattern_ids : [],
         meters: 0,
       });
     }
@@ -360,13 +365,106 @@ export interface TransitTrip {
 }
 
 /** As paragens a menos de uma certa distância, da mais perto para a mais longe. */
-async function stopsWithin(
+/** Todas as paragens a menos de `maxMeters`, da mais perto para a mais longe. */
+async function stopsNear(origin: Coordinates, maxMeters: number): Promise<TransitStop[]> {
+  const todas = await loadStops();
+  const perto: TransitStop[] = [];
+  for (const stop of todas) {
+    const meters = distanceMeters(origin, stop.coordinates);
+    if (meters <= maxMeters) {
+      perto.push({ ...stop, meters });
+    }
+  }
+  return perto.sort((a, b) => a.meters - b.meters);
+}
+
+/** Quantas paragens de cada ponta se perguntam, no máximo, por trajeto. */
+const TRIP_STOPS_PER_SIDE = 6;
+
+/**
+ * As paragens de partida e de chegada que vale a pena perguntar.
+ *
+ * **Não são as mais perto, são as que partilham um autocarro.** Esteve nas três
+ * mais perto de cada ponta, e nos dados verdadeiros isso quase nunca dava uma
+ * linha em comum: no centro de Almada as três mais perto são paragens de linhas
+ * que não vão para Cacilhas, e a que vai fica a duzentos metros. Resultado, zero
+ * trajetos entre dois sítios ligados por meia dúzia de autocarros — medido a 30
+ * de setembro de 2026 com o código da aplicação contra a API verdadeira.
+ *
+ * O `/stops` diz que padrões passam em cada paragem (`pattern_ids`), e já está
+ * em memória. Cruzando os das duas pontas sabe-se, **sem pedido nenhum**, que
+ * linhas fazem o caminho todo; e de cada uma fica a paragem mais perto de cada
+ * lado. Quando não há padrão nenhum em comum não se pergunta nada — é a resposta
+ * "não há autocarro direto", e chega logo.
+ *
+ * Se o serviço deixar de mandar os `pattern_ids`, volta-se às três mais perto:
+ * pior, mas não é zero.
+ */
+async function busStopsFor(
   origin: Coordinates,
-  maxMeters: number,
-  limit: number,
-): Promise<TransitStop[]> {
-  const perto = (await nearbyStops(origin, limit)) ?? [];
-  return perto.filter((stop) => stop.meters <= maxMeters);
+  destination: Coordinates,
+): Promise<{ saidas: TransitStop[]; chegadas: TransitStop[]; semLigacao: boolean }> {
+  const [todasSaidas, todasChegadas] = await Promise.all([
+    stopsNear(origin, TRANSIT_WALK_MAX_M),
+    stopsNear(destination, TRANSIT_WALK_MAX_M),
+  ]);
+
+  const temPadroes = [...todasSaidas, ...todasChegadas].some((s) => s.patterns.length > 0);
+  if (!temPadroes) {
+    return {
+      saidas: todasSaidas.slice(0, 3),
+      chegadas: todasChegadas.slice(0, 3),
+      semLigacao: false,
+    };
+  }
+
+  // De cada padrão, a paragem mais perto de cada ponta. As listas vêm ordenadas
+  // pela distância, por isso a primeira que aparece é a mais perto.
+  const maisPerto = (paragens: TransitStop[]) => {
+    const porPadrao = new Map<string, TransitStop>();
+    for (const stop of paragens) {
+      for (const padrao of stop.patterns) {
+        if (!porPadrao.has(padrao)) {
+          porPadrao.set(padrao, stop);
+        }
+      }
+    }
+    return porPadrao;
+  };
+  const deSaida = maisPerto(todasSaidas);
+  const deChegada = maisPerto(todasChegadas);
+
+  // Os padrões comuns, os de menos caminho a pé primeiro — são esses que ficam
+  // quando é preciso cortar.
+  const comuns = [...deSaida.keys()]
+    .filter((padrao) => deChegada.has(padrao))
+    .sort(
+      (a, b) =>
+        deSaida.get(a)!.meters +
+        deChegada.get(a)!.meters -
+        (deSaida.get(b)!.meters + deChegada.get(b)!.meters),
+    );
+
+  const saidas = new Map<string, TransitStop>();
+  const chegadas = new Map<string, TransitStop>();
+  for (const padrao of comuns) {
+    const s = deSaida.get(padrao)!;
+    const c = deChegada.get(padrao)!;
+    if (!saidas.has(s.id) && saidas.size >= TRIP_STOPS_PER_SIDE) {
+      continue;
+    }
+    if (!chegadas.has(c.id) && chegadas.size >= TRIP_STOPS_PER_SIDE) {
+      continue;
+    }
+    saidas.set(s.id, s);
+    chegadas.set(c.id, c);
+  }
+
+  return {
+    saidas: todasSaidas.length === 0 ? [] : [...saidas.values()],
+    chegadas: todasChegadas.length === 0 ? [] : [...chegadas.values()],
+    semLigacao: todasSaidas.length > 0 && todasChegadas.length > 0 && comuns.length === 0,
+  };
 }
 
 /** Quantos segundos leva a andar esta distância, com a volta dos quarteirões. */
@@ -501,20 +599,32 @@ export async function planBusTrips(
   destination: Coordinates,
   limit = 5,
 ): Promise<TransitTrip[] | null> {
-  const [saidas, chegadas] = await Promise.all([
-    stopsWithin(origin, TRANSIT_WALK_MAX_M, 3),
-    stopsWithin(destination, TRANSIT_WALK_MAX_M, 3),
-  ]);
+  const { saidas, chegadas, semLigacao } = await busStopsFor(origin, destination);
 
+  // Há paragens dos dois lados, mas nenhuma linha que faça o caminho todo.
+  if (semLigacao) {
+    return [];
+  }
   if (saidas.length === 0 || chegadas.length === 0) {
     return null;
   }
 
   // As paragens de chegada primeiro: é contra elas que se procuram as viagens.
-  const porViagem = new Map<
-    string,
-    { stop: TransitStop; unix: number; seq: number; tripId: string | null; padrao: number }
-  >();
+  //
+  // **Uma viagem pode passar duas vezes na mesma paragem de chegada**, e por isso
+  // guarda-se uma lista e não uma passagem só. Numa linha circular a paragem
+  // onde a viagem começa é também onde acaba — em Cacilhas, a 3005 passa na
+  // paragem 1 e na 37. Guardar só uma ficava com a primeira, e a viagem era
+  // depois deitada fora por "andar para trás": era o único trajeto que havia
+  // entre o centro de Almada e Cacilhas.
+  type Chegada = {
+    stop: TransitStop;
+    unix: number;
+    seq: number;
+    tripId: string | null;
+    padrao: number;
+  };
+  const porViagem = new Map<string, Chegada[]>();
 
   // **Uma paragem que falhe não deita o planeamento abaixo.** São meia dúzia de
   // pedidos, e o serviço recusa um de vez em quando; com um `Promise.all` puro,
@@ -544,17 +654,20 @@ export async function planBusTrips(
           continue;
         }
 
-        // Entre duas paragens de chegada servidas pela mesma viagem, fica a que
-        // deixa mais perto do destino.
-        const atual = porViagem.get(chave);
-        if (!atual || stop.meters < atual.stop.meters) {
-          porViagem.set(chave, {
-            stop,
-            unix: passa.unix,
-            seq: arrival.stop_sequence ?? 0,
-            tripId: arrival.trip_id ?? null,
-            padrao: viagensDoPadrao.get(arrival.pattern_id as string) ?? -1,
-          });
+        // Todas: qual serve só se sabe do lado da partida, que é onde se vê
+        // a ordem das paragens.
+        const entrada: Chegada = {
+          stop,
+          unix: passa.unix,
+          seq: arrival.stop_sequence ?? 0,
+          tripId: arrival.trip_id ?? null,
+          padrao: viagensDoPadrao.get(arrival.pattern_id as string) ?? -1,
+        };
+        const lista = porViagem.get(chave);
+        if (lista) {
+          lista.push(entrada);
+        } else {
+          porViagem.set(chave, [entrada]);
         }
       }
     }),
@@ -597,8 +710,28 @@ export async function planBusTrips(
 
         const saida = quandoPassa(arrival);
         const chave = chaves.get(arrival);
-        const chegada = chave ? porViagem.get(chave) : undefined;
-        if (!saida || !chave || !chegada) {
+        const possiveis = chave ? porViagem.get(chave) : undefined;
+        if (!saida || !chave || !possiveis) {
+          continue;
+        }
+        const seq = arrival.stop_sequence ?? 0;
+        const padrao = viagensDoPadrao.get(arrival.pattern_id as string) ?? -1;
+
+        // Das passagens desta viagem pelas paragens de chegada, a que põe a
+        // pessoa no destino mais cedo — e só entre as que vêm **depois** desta
+        // partida, na ordem e na hora. É isto que impede um trajeto no sentido
+        // contrário, e que escolhe a volta certa de uma linha circular.
+        let chegada: Chegada | undefined;
+        for (const c of possiveis) {
+          if (c.unix <= saida.unix || c.seq <= seq) {
+            continue;
+          }
+          const alcanca = c.unix + walkSeconds(c.stop.meters);
+          if (!chegada || alcanca < chegada.unix + walkSeconds(chegada.stop.meters)) {
+            chegada = c;
+          }
+        }
+        if (!chegada) {
           continue;
         }
 
@@ -609,19 +742,10 @@ export async function planBusTrips(
         // `trip_id`**, que é quando há tempo real, têm de dizer o mesmo. Se
         // alguma coisa não bater, não se emparelha: antes trajeto nenhum do que
         // um que manda a pessoa para a paragem à hora errada.
-        const padrao = viagensDoPadrao.get(arrival.pattern_id as string) ?? -1;
         if (padrao < 0 || padrao !== chegada.padrao) {
           continue;
         }
         if (arrival.trip_id && chegada.tripId && arrival.trip_id !== chegada.tripId) {
-          continue;
-        }
-
-        // A chegada tem de ser depois da partida. É isto que impede um trajeto
-        // no sentido contrário — a mesma viagem passa nas duas paragens, mas
-        // pela ordem errada para quem quer ir neste sentido.
-        const seq = arrival.stop_sequence ?? 0;
-        if (chegada.unix <= saida.unix || chegada.seq <= seq) {
           continue;
         }
 

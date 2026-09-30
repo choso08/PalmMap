@@ -522,6 +522,7 @@ function asStop(feed: IndexedFeed, estacao: number, meters: number): TransitStop
     coordinates: { latitude: stop?.y ?? 0, longitude: stop?.x ?? 0 },
     lines: [],
     connections: [],
+    patterns: [],
     meters,
   };
 }

@@ -34,6 +34,14 @@ export interface CarrisStop {
    * "aqui muda para o comboio" sem se ter de cruzar coordenadas à mão.
    */
   facilities?: string[];
+  /**
+   * Os padrões (percursos exatos de cada linha, num sentido) que passam aqui.
+   *
+   * É o que permite saber, sem pedir nada ao serviço, que duas paragens têm um
+   * autocarro em comum — ver `busStopsFor`, em `src/services/transit.ts`. Lido
+   * de uma resposta verdadeira a 30 de setembro de 2026.
+   */
+  pattern_ids?: string[];
 }
 
 /**

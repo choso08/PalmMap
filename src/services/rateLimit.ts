@@ -5,7 +5,23 @@
  * utilização. Isto garante que, por mais depressa que a aplicação peça coisas,
  * os pedidos saem espaçados.
  */
-export function createRateLimiter(minIntervalMs: number) {
+export function createRateLimiter(
+  minIntervalMs: number,
+  {
+    overlap = false,
+  }: {
+    /**
+     * Deixa o pedido seguinte sair sem esperar pela resposta deste — o
+     * intervalo conta entre **saídas**, não entre respostas.
+     *
+     * Por omissão a fila espera pela resposta, e para o Nominatim e a Overpass
+     * é isso que se quer: um pedido de cada vez. Para a Carris não: o
+     * planeamento de trajetos pede uma dúzia de paragens, e em fila à espera
+     * de cada resposta eram mais de dez segundos, medidos com a API verdadeira.
+     */
+    overlap?: boolean;
+  } = {},
+) {
   let queue: Promise<unknown> = Promise.resolve();
   let lastRequestAt = 0;
 
@@ -21,6 +37,21 @@ export function createRateLimiter(minIntervalMs: number) {
    * intervalo: não saiu, não pesou a ninguém.
    */
   return function schedule<T>(task: () => Promise<T>, isWanted?: () => boolean): Promise<T> {
+    if (overlap) {
+      const vez = queue.then(async () => {
+        if (isWanted && !isWanted()) {
+          throw new SupersededError();
+        }
+        const waitFor = lastRequestAt + minIntervalMs - Date.now();
+        if (waitFor > 0) {
+          await new Promise((resolve) => setTimeout(resolve, waitFor));
+        }
+        lastRequestAt = Date.now();
+      });
+      queue = vez.catch(() => undefined);
+      return vez.then(task);
+    }
+
     const result = queue.then(async () => {
       if (isWanted && !isWanted()) {
         throw new SupersededError();
