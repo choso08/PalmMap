@@ -33,6 +33,9 @@ voz depois do filtro das manobras, o velocímetro — que precisa de um telemóv
 os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
 ambiente de desenvolvimento não chega.
 
+**Há trabalho por compilar:** os trajetos de autocarro, que na 7.0.23 continuavam vazios,
+foram reparados de novo e desta vez provados contra a API verdadeira (ver "6-B-2").
+
 **A última APK é a 7.0.23.** Traz os trajetos de autocarro reparados, os pinos dos negócios
 por quadrado com um segundo servidor da Overpass, a pesquisa a mostrar logo os guardados, e
 o Photon como segundo recurso da pesquisa — que em setembro de 2026 falhava sempre com
@@ -296,7 +299,8 @@ uma das razões para o Android Auto ficar pausado.)
 │   └── glifos/*.pbf            # Tipos de letra com que o mapa escreve
 ├── scripts/
 │   ├── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
-│   └── build-transit.py    # Converte o GTFS de um operador em horários compactos
+│   ├── build-transit.py    # Converte o GTFS de um operador em horários compactos
+│   └── probe-trips.js      # Corre o planeamento de trajetos contra a API verdadeira
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
@@ -728,6 +732,29 @@ autocarro"**.
   têm de ter o mesmo número de viagens daquele padrão (`tripsPerPattern`; se não bate, o
   padrão fica de fora), e quando os dois lados trazem `trip_id` têm de ser iguais. Provado
   numa simulação com o formato novo: a versão antiga dava zero trajetos, esta dá os certos.
+- **As paragens escolhem-se pelas linhas que partilham, não pela distância** (`busStopsFor`).
+  A correção acima não chegou: **medido com o código da aplicação contra a API verdadeira**
+  (modo `trajetos` do workflow dos horários), continuavam a sair zero trajetos entre
+  quaisquer dois sítios. As três paragens mais perto de cada ponta quase nunca têm uma linha
+  em comum — no centro de Almada são de linhas que não vão a Cacilhas, e a que vai fica a
+  duzentos metros. O `/stops` traz os `pattern_ids` de cada paragem; cruzam-se os das duas
+  pontas (tudo a menos de `TRANSIT_WALK_MAX_M`) e pergunta-se só pelas paragens que têm um
+  autocarro em comum, até `TRIP_STOPS_PER_SIDE` de cada lado. **Sem padrão comum não se faz
+  pedido nenhum** e a resposta "não há autocarro direto" sai logo.
+- **Uma viagem pode passar duas vezes na mesma paragem.** Numa linha circular a paragem onde
+  começa é também onde acaba — a 3005 passa em Cacilhas na paragem 1 e na 37. Guardava-se
+  só uma passagem por viagem, ficava a primeira, e a viagem era deitada fora por "andar para
+  trás". Hoje guardam-se todas e escolhe-se a que vem depois da partida.
+- **Uma paragem com 404 é uma paragem sem passagens.** Há paragens no `/stops` para as quais
+  o `/arrivals/by_stop` responde 404 — a mais perto do centro de Almada é uma. Do lado da
+  partida isso deitava abaixo o planeamento inteiro; hoje fica de fora e as outras seguem.
+- **Os pedidos à Carris saem em paralelo**, espaçados de `CARRIS_MIN_INTERVAL_MS` entre
+  saídas (`overlap`, em `rateLimit.ts`). Em fila, à espera de cada resposta, uma dúzia de
+  paragens eram mais de dez segundos.
+- **Resultado, a 30 de setembro de 2026, com a API verdadeira:** Almada → Cacilhas dá cinco
+  trajetos em tempo real (3507, 3013, 3012, 3022, 3009); Almada → Costa da Caparica três;
+  Oeiras → Cascais um. Seixal → Barreiro e Amadora → Sintra dão zero, que é a resposta
+  certa sem transbordos. O ecrã em si ainda não foi visto num telemóvel.
 - **`stop_sequence` é a segunda confirmação.** A paragem de entrada tem de vir antes da de
   saída dentro da viagem. Sem isto, a mesma linha em sentido contrário passava por trajeto.
 - **Uma linha aparece uma vez.** As três passagens seguintes do mesmo autocarro não são três
@@ -834,7 +861,11 @@ As peças:
 - **`scripts/build-transit.py`** — a conversão. Só a biblioteca padrão do Python.
 - **`.github/workflows/build-transit.yml`** — corre a conversão e publica na etiqueta
   `horarios`. Tem também um **modo `descobrir`**, que pesquisa o dados.gov.pt e imprime os
-  endereços de GTFS que encontrar — ver o aviso mais abaixo.
+  endereços de GTFS que encontrar — ver o aviso mais abaixo. E três modos de sondagem que não
+  publicam nada: `veiculos`, `passagens` (campos verdadeiros do `/arrivals/by_stop`) e
+  **`trajetos`, que compila o `transit.ts` da aplicação e corre o `planBusTrips` contra a API
+  verdadeira** (`scripts/probe-trips.js`). É a única forma de experimentar os autocarros sem
+  telemóvel — usá-la antes de dar uma correção por feita.
 - **`src/types/schedule.ts`** e **`src/services/schedules.ts`** — o formato e as perguntas.
 - **`src/components/Schedules.tsx`** — a lista nas definições, em "Horários".
 
@@ -2326,6 +2357,11 @@ Erros já cometidos neste projeto, para não se repetirem.
   errada**. O rasto, fotografado no telemóvel, respondeu em dois minutos. A seguir a uma
   falha que não se consegue reproduzir, o primeiro pedido a quem a tem à frente é a mensagem
   de erro, antes de mais uma hipótese.
+- **Uma simulação com dados inventados prova o que se inventou.** A correção dos trajetos
+  de autocarro foi provada numa simulação — com duas paragens da mesma linha, porque foi
+  isso que se imaginou. Nos dados verdadeiros as paragens mais perto quase nunca partilham
+  uma linha, e o resultado continuou zero. Quando há como correr o código a sério contra o
+  serviço verdadeiro (aqui, pelo GitHub Actions), é isso que decide, e não a simulação.
 - **Um campo que um serviço deixa de mandar não dá erro — dá uma lista vazia.** Os trajetos
   de autocarro dependiam do `trip_id` em todas as passagens; a Carris mudou de fonte e passou
   a mandá-lo só com tempo real. A aplicação continuou a responder, só que sempre "não há
