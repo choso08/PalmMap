@@ -51,7 +51,12 @@ const client = axios.create({
 });
 
 /** Falha ao falar com o serviço dos autocarros, já com a razão por escrito. */
-export class TransitError extends Error {}
+export class TransitError extends Error {
+  /** O número de resposta do serviço, quando foi ele a recusar. */
+  constructor(message: string, readonly status?: number) {
+    super(message);
+  }
+}
 
 /**
  * Um pedido ao serviço dos autocarros, com o erro a dizer o que falhou mesmo.
@@ -70,7 +75,10 @@ async function carrisGet<T>(path: string, timeout?: number): Promise<T> {
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        throw new TransitError(t().errors.transitStatus(error.response.status));
+        throw new TransitError(
+          t().errors.transitStatus(error.response.status),
+          error.response.status,
+        );
       }
       if (error.code === 'ECONNABORTED') {
         throw new TransitError(t().errors.transitTimeout);
@@ -242,9 +250,21 @@ async function rawArrivalsAt(stopId: string): Promise<CarrisArrival[]> {
     return guardado.dados;
   }
 
-  const data = await carrisGet<CarrisArrival[]>(
-    `/arrivals/by_stop/${encodeURIComponent(stopId)}`,
-  );
+  let data: CarrisArrival[];
+  try {
+    data = await carrisGet<CarrisArrival[]>(`/arrivals/by_stop/${encodeURIComponent(stopId)}`);
+  } catch (error) {
+    // **Um 404 é uma paragem sem passagens, não uma avaria.** Há paragens na
+    // lista do `/stops` para as quais o `/arrivals/by_stop` responde 404 — visto
+    // numa sondagem a 30 de setembro de 2026, logo na paragem mais perto do
+    // centro de Almada. Tratá-lo como erro fazia uma paragem destas, se fosse
+    // das mais perto da origem, deitar abaixo o planeamento de trajetos todo.
+    if (error instanceof TransitError && error.status === 404) {
+      data = [];
+    } else {
+      throw error;
+    }
+  }
 
   const dados = Array.isArray(data) ? data : [];
   arrivalsCache.set(stopId, { quando: Date.now(), dados });
@@ -547,11 +567,24 @@ export async function planBusTrips(
   const agora = Date.now() / 1000;
   const trajetos: TransitTrip[] = [];
 
+  let falhasSaida = 0;
+  let falhaSaida: unknown = null;
+
   await Promise.all(
     saidas.map(async (stop) => {
       const aPe = walkSeconds(stop.meters);
 
-      const passagens = await rawArrivalsAt(stop.id);
+      // O mesmo cuidado do lado da chegada: uma paragem que falhe fica de fora
+      // e as outras continuam. **Faltava aqui**, e uma recusa numa paragem de
+      // partida apagava as opções todas, mesmo as que tinham vindo bem.
+      let passagens: CarrisArrival[];
+      try {
+        passagens = await rawArrivalsAt(stop.id);
+      } catch (error) {
+        falhaSaida = falhaSaida ?? error;
+        falhasSaida += 1;
+        return;
+      }
       // A ordem calcula-se sobre a lista inteira, **antes** de filtrar — ver
       // `tripKeys`. Só a seguir se põem de lado as que já passaram.
       const chaves = tripKeys(passagens);
@@ -616,6 +649,10 @@ export async function planBusTrips(
       }
     }),
   );
+
+  if (falhasSaida === saidas.length && falhaSaida) {
+    throw falhaSaida;
+  }
 
   // Chega mais cedo primeiro. Uma linha só aparece uma vez: as três passagens
   // seguintes do mesmo autocarro não são três opções, são a mesma opção.

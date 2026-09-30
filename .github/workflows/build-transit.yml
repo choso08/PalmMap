@@ -32,7 +32,7 @@ on:
       modo:
         description: 'O que fazer'
         type: choice
-        options: [gerar, descobrir, veiculos, passagens]
+        options: [gerar, descobrir, veiculos, passagens, trajetos]
         default: gerar
       operadores:
         description: 'Ids separados por espaços (ver transit-feeds.json). "todos" faz o catálogo inteiro.'
@@ -72,6 +72,30 @@ jobs:
       - name: Sondar as passagens dos autocarros
         if: inputs.modo == 'passagens'
         run: python3 scripts/build-transit.py --passagens
+
+      # O planeamento de trajetos da aplicação, o código dela e não uma cópia,
+      # a correr contra a API verdadeira. Compila-se só o que é preciso, numa
+      # pasta à parte: instalar as dependências todas da aplicação era trazer o
+      # React Native inteiro para correr um ficheiro.
+      - uses: actions/setup-node@v4
+        if: inputs.modo == 'trajetos'
+        with:
+          node-version: '22'
+
+      - name: Experimentar os trajetos de autocarro com o código da aplicação
+        if: inputs.modo == 'trajetos'
+        run: |
+          mkdir -p /tmp/t && cd /tmp/t
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund axios@1 typescript@6.0.3 > /dev/null
+          # Compila-se a partir de /tmp/t, onde não há tsconfig.json: com um
+          # ficheiro indicado à mão, o tsc recusa-se a correr ao lado de um.
+          node_modules/.bin/tsc "$GITHUB_WORKSPACE/src/services/transit.ts" \
+            --rootDir "$GITHUB_WORKSPACE/src" --outDir /tmp/t/out \
+            --module commonjs --target es2020 --skipLibCheck --esModuleInterop \
+            --moduleResolution node || true
+          cd "$GITHUB_WORKSPACE"
+          NODE_PATH=/tmp/t/node_modules node scripts/probe-trips.js /tmp/t/out
 
       - name: Converter os horários
         if: inputs.modo == 'gerar'
