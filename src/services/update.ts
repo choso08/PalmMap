@@ -9,253 +9,261 @@ import { t } from '../i18n';
 import { RELEASES_API_URL, REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
 
 /**
- * Versões novas, sem ter de ir ao GitHub à mão.
+ * New versions, without having to go to GitHub by hand.
  *
- * A aplicação pergunta ao GitHub se há versão nova, descarrega o APK e entrega-o
- * ao instalador do Android. **Sem chave nenhuma**: o repositório é público, e a
- * API de Releases responde a quem pergunte — é a mesma decisão que permite os
- * mapas dos países virem de um endereço sem autenticação.
+ * The app asks GitHub whether there is a new version, downloads the APK and
+ * hands it to Android's installer. **No key at all**: the repository is
+ * public, and the Releases API answers anyone who asks — the same decision
+ * that lets the country maps come from an address without authentication.
  *
- * ## O que isto não é, e é importante dizê-lo
+ * ## What this is not, and it matters to say so
  *
- * **Não instala sozinho.** O Android não deixa — instalar em silêncio exige ser
- * a aplicação dona do aparelho, coisa de telemóveis de empresa. O que se faz é
- * tudo o que dá para fazer: procurar, descarregar e abrir o instalador já com o
- * ficheiro na mão. Quem carrega em "Instalar" é a pessoa.
+ * **It does not install by itself.** Android does not allow it — installing
+ * silently requires being the device-owner app, something for company phones.
+ * What is done is everything that can be done: check, download and open the
+ * installer with the file already in hand. The person is the one who presses
+ * "Install".
  *
- * Na primeira vez o Android pergunta ainda se autoriza instalações vindas do
- * PalmMap. É uma autorização por aplicação, dada uma vez, e sem ela o instalador
- * fecha-se sem dizer porquê — daí a mensagem que o painel mostra.
+ * The first time, Android also asks whether to allow installs coming from
+ * PalmMap. It is a per-app permission, given once, and without it the
+ * installer closes without saying why — hence the message the panel shows.
  *
- * ## Porque é que se compara o número da compilação e não o texto da versão
+ * ## Why the build number is compared and not the version text
  *
- * A versão sai do número da execução do workflow (`7.0.16` é a décima sexta), e
- * esse mesmo número vai para o `versionCode` do Android e para a etiqueta da
- * Release (`apk-16`). Comparar números inteiros não tem casos especiais;
- * comparar `"7.0.9"` com `"7.0.10"` como texto dá a resposta errada.
+ * The version comes from the workflow run number (`7.0.16` is the sixteenth),
+ * and that same number goes into Android's `versionCode` and into the
+ * Release's tag (`apk-16`). Comparing whole numbers has no special cases;
+ * comparing `"7.0.9"` with `"7.0.10"` as text gives the wrong answer.
  */
 
 /**
- * Está-se em Wi-Fi com Internet a sério?
+ * Is the phone on Wi-Fi with real Internet?
  *
- * É o que decide se a versão nova se descarrega sozinha. **São umas dezenas de
- * megabytes**, e gastá-los nos dados móveis de alguém sem perguntar é
- * exatamente o que este projeto já decidiu não fazer com os mapas dos países.
+ * It is what decides whether the new version downloads on its own. **It is a
+ * few dozen megabytes**, and spending them on someone's mobile data without
+ * asking is exactly what this project already decided not to do with the
+ * country maps.
  *
- * `isInternetReachable` e não `isConnected`: estar ligado a um Wi-Fi não quer
- * dizer chegar lá fora. Na dúvida responde-se que não — quem quiser mesmo
- * carrega no botão, e aí é decisão dele.
+ * `isInternetReachable` and not `isConnected`: being connected to a Wi-Fi
+ * network does not mean reaching the outside. When in doubt the answer is no —
+ * whoever really wants it presses the button, and then it is their decision.
  */
 export async function onWifi(): Promise<boolean> {
   try {
-    const estado = await Network.getNetworkStateAsync();
-    return estado.type === Network.NetworkStateType.WIFI && !!estado.isInternetReachable;
+    const state = await Network.getNetworkStateAsync();
+    return state.type === Network.NetworkStateType.WIFI && !!state.isInternetReachable;
   } catch {
     return false;
   }
 }
 
-/** O que há do outro lado, quando há. */
+/** What there is on the other side, when there is something. */
 export interface UpdateInfo {
-  /** O número da compilação: 16 em `7.0.16`. É por aqui que se compara. */
+  /** The build number: 16 in `7.0.16`. This is what is compared. */
   build: number;
-  /** A versão como se lê: `7.0.16`. */
+  /** The version as it reads: `7.0.16`. */
   version: string;
-  /** De onde se descarrega o APK. */
+  /** Where the APK is downloaded from. */
   url: string;
   bytes: number;
-  /** O texto da Release, que diz o que mudou. */
+  /** The Release's text, which says what changed. */
   notes: string;
 }
 
 export class UpdateError extends Error {}
 
-/** A versão instalada, como se lê. */
+/** The installed version, as it reads. */
 export function currentVersion(): string {
   return Application.nativeApplicationVersion ?? '—';
 }
 
 /**
- * O número da compilação instalada.
+ * The installed build number.
  *
- * No Android é o `versionCode`, que o workflow põe igual ao número da execução.
- * Devolve 0 quando não se consegue saber — e aí não se anuncia nada, porque
- * anunciar uma atualização por não se saber a versão é pior do que ficar calado.
+ * On Android it is the `versionCode`, which the workflow sets equal to the run
+ * number. Returns 0 when it cannot be known — and then nothing is announced,
+ * because announcing an update for not knowing the version is worse than
+ * staying quiet.
  */
 export function currentBuild(): number {
-  const bruto = Number(Application.nativeBuildVersion);
-  return Number.isFinite(bruto) && bruto > 0 ? bruto : 0;
+  const raw = Number(Application.nativeBuildVersion);
+  return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
 /**
- * Pergunta ao GitHub qual é a última versão publicada.
+ * Asks GitHub what the latest published version is.
  *
- * Devolve `null` quando já se está na mais recente — e também quando não se sabe
- * que versão está instalada, pela razão dita em `currentBuild()`.
+ * Returns `null` when already on the latest — and also when it is not known
+ * which version is installed, for the reason given in `currentBuild()`.
  */
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
-  const instalada = currentBuild();
-  if (instalada === 0) {
+  const installed = currentBuild();
+  if (installed === 0) {
     return null;
   }
 
-  let lista: Release[];
+  let list: Release[];
   try {
-    const resposta = await axios.get<Release[]>(RELEASES_API_URL, {
+    const response = await axios.get<Release[]>(RELEASES_API_URL, {
       timeout: REQUEST_TIMEOUT_MS,
       headers: {
-        // O GitHub recusa pedidos sem User-Agent. O `Accept` fixa a versão da
-        // API, para uma mudança futura do formato não partir isto em silêncio.
+        // GitHub refuses requests without a User-Agent. `Accept` pins the API
+        // version, so a future change of format does not silently break this.
         'User-Agent': USER_AGENT,
         Accept: 'application/vnd.github+json',
       },
     });
-    lista = Array.isArray(resposta.data) ? resposta.data : [];
+    list = Array.isArray(response.data) ? response.data : [];
   } catch {
     throw new UpdateError(t().errors.updateCheckFailed);
   }
 
-  // **Só as Releases de APK.** As outras etiquetas deste repositório são os
-  // mapas dos países e os horários — ver a nota em `RELEASES_API_URL`.
+  // **Only the APK Releases.** This repository's other tags are the country
+  // maps and the timetables — see the note on `RELEASES_API_URL`.
   //
-  // Escolhe-se pelo maior número e não pela primeira da lista: a lista vem por
-  // data, e uma Release corrigida à mão pode aparecer fora de ordem.
-  let melhor: UpdateInfo | null = null;
-  for (const entrada of lista) {
-    if (entrada?.draft || entrada?.prerelease) {
+  // The highest number is chosen, not the first in the list: the list comes by
+  // date, and a Release fixed by hand may appear out of order.
+  let best: UpdateInfo | null = null;
+  for (const entry of list) {
+    if (entry?.draft || entry?.prerelease) {
       continue;
     }
 
-    // A etiqueta é `apk-16`. É daqui que sai o número, e não do nome da Release:
-    // o nome é texto escrito para se ler, a etiqueta é o que a compilação gera.
-    const tag = String(entrada?.tag_name ?? '');
+    // The tag is `apk-16`. The number comes from here, not from the Release's
+    // name: the name is text written to be read, the tag is what the build
+    // generates.
+    const tag = String(entry?.tag_name ?? '');
     if (!/^apk-\d+$/.test(tag)) {
       continue;
     }
     const build = Number(tag.slice(4));
-    if (build <= instalada || (melhor && build <= melhor.build)) {
+    if (build <= installed || (best && build <= best.build)) {
       continue;
     }
 
-    // Uma Release sem o APK lá dentro não serve para nada — e acontece se uma
-    // compilação falhar a meio do envio. Salta-se para a seguinte.
-    const apk = (entrada.assets ?? []).find((a) => a?.name?.endsWith('.apk'));
+    // A Release without the APK inside is no use — and it happens if a build
+    // fails halfway through uploading. Skip to the next.
+    const apk = (entry.assets ?? []).find((a) => a?.name?.endsWith('.apk'));
     if (!apk?.browser_download_url) {
       continue;
     }
 
-    melhor = {
+    best = {
       build,
-      version: (entrada.name ?? '').replace(/^PalmMap\s+/, '') || `7.0.${build}`,
+      version: (entry.name ?? '').replace(/^PalmMap\s+/, '') || `7.0.${build}`,
       url: apk.browser_download_url,
       bytes: apk.size ?? 0,
-      notes: (entrada.body ?? '').trim(),
+      notes: (entry.body ?? '').trim(),
     };
   }
 
-  return melhor;
+  return best;
 }
 
-/** Onde fica o APK enquanto espera por ser instalado. */
-const PASTA = new Directory(Paths.cache, 'atualizacao');
+/**
+ * Where the APK waits to be installed. The folder name (`atualizacao`,
+ * "update") is a runtime name and stays as it is.
+ */
+const FOLDER = new Directory(Paths.cache, 'atualizacao');
 
 /**
- * Descarrega o APK da versão nova.
+ * Downloads the new version's APK.
  *
- * Vai para a **cache** e não para os documentos, de propósito: é um ficheiro de
- * quarenta megabytes que só serve uma vez, e na cache o Android pode deitá-lo
- * fora sozinho se precisar de espaço. Deixá-lo nos documentos era guardar para
- * sempre o instalador de uma versão que já foi instalada.
+ * It goes into the **cache** and not the documents, on purpose: it is a
+ * forty-megabyte file that is only used once, and in the cache Android can
+ * throw it away by itself if it needs the space. Leaving it in the documents
+ * would keep forever the installer of a version already installed.
  *
- * O aviso de progresso é **por percentagem inteira e não por bocado escrito** —
- * ver a nota igual em `offlineMap.ts`, que é onde essa lição foi aprendida.
+ * Progress is reported **per whole percentage and not per chunk written** —
+ * see the same note in `offlineMap.ts`, which is where that lesson was learnt.
  */
 export async function downloadUpdate(
   info: UpdateInfo,
-  onProgress?: (fracao: number) => void,
+  onProgress?: (fraction: number) => void,
 ): Promise<File> {
-  if (!PASTA.exists) {
-    PASTA.create({ intermediates: true });
+  if (!FOLDER.exists) {
+    FOLDER.create({ intermediates: true });
   }
 
-  // Um instalador de uma versão anterior não tem nada que ficar aqui a ocupar
-  // espaço, e ter dois APKs na pasta era um convite a instalar o errado.
-  for (const antigo of PASTA.list()) {
-    antigo.delete();
+  // An installer from a previous version has no business taking up space here,
+  // and having two APKs in the folder was an invitation to install the wrong
+  // one.
+  for (const old of FOLDER.list()) {
+    old.delete();
   }
 
-  const parcial = new File(PASTA, `PalmMap-${info.build}.apk.parcial`);
-  let ultimaPercentagem = -1;
+  const partial = new File(FOLDER, `PalmMap-${info.build}.apk.parcial`);
+  let lastPercent = -1;
 
   try {
-    const descarregado = await File.downloadFileAsync(info.url, parcial, {
+    const downloaded = await File.downloadFileAsync(info.url, partial, {
       onProgress: ({ bytesWritten, totalBytes }) => {
         const total = totalBytes > 0 ? totalBytes : info.bytes;
         if (total <= 0) {
           return;
         }
-        const fracao = Math.min(1, bytesWritten / total);
-        const percentagem = Math.floor(fracao * 100);
-        if (percentagem === ultimaPercentagem) {
+        const fraction = Math.min(1, bytesWritten / total);
+        const percent = Math.floor(fraction * 100);
+        if (percent === lastPercent) {
           return;
         }
-        ultimaPercentagem = percentagem;
-        onProgress?.(fracao);
+        lastPercent = percent;
+        onProgress?.(fraction);
       },
     });
 
-    // Só ganha o nome definitivo no fim. Um APK truncado que se chamasse `.apk`
-    // era entregue ao instalador e dava "ocorreu um problema ao analisar o
-    // pacote" — erro que neste projeto já custou tempo a perceber uma vez.
-    const destino = new File(PASTA, `PalmMap-${info.build}.apk`);
-    if (destino.exists) {
-      destino.delete();
+    // It only gets its final name at the end. A truncated APK called `.apk`
+    // was handed to the installer and gave "there was a problem parsing the
+    // package" — an error that has already cost this project time to
+    // understand once.
+    const destination = new File(FOLDER, `PalmMap-${info.build}.apk`);
+    if (destination.exists) {
+      destination.delete();
     }
-    await descarregado.move(destino);
-    return destino;
-  } catch (erro) {
-    if (parcial.exists) {
-      parcial.delete();
+    await downloaded.move(destination);
+    return destination;
+  } catch (error) {
+    if (partial.exists) {
+      partial.delete();
     }
-    const detalhe = erro instanceof Error ? erro.message : String(erro);
-    throw new UpdateError(t().errors.updateDownloadFailed(detalhe));
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new UpdateError(t().errors.updateDownloadFailed(detail));
   }
 }
 
 /**
- * Entrega o APK ao instalador do Android.
+ * Hands the APK to Android's installer.
  *
- * **Tem de ser um endereço `content://`, nunca o `file://`.** Desde o Android 7
- * que passar um `file://` a outra aplicação rebenta com `FileUriExposedException`
- * — e o instalador é outra aplicação. O `getContentUriAsync` devolve o endereço
- * através do FileProvider que o Expo já configura, e a bandeira `1`
- * (`FLAG_GRANT_READ_URI_PERMISSION`) é o que dá ao instalador licença para ler
- * um ficheiro que é nosso. Sem ela o endereço existe e não abre.
+ * **It has to be a `content://` address, never `file://`.** Since Android 7,
+ * passing a `file://` to another app blows up with `FileUriExposedException` —
+ * and the installer is another app. `getContentUriAsync` returns the address
+ * through the FileProvider Expo already configures, and flag `1`
+ * (`FLAG_GRANT_READ_URI_PERMISSION`) is what gives the installer permission to
+ * read a file that is ours. Without it the address exists and does not open.
  *
- * Usa-se `ACTION_VIEW` com o tipo do pacote, e não o `INSTALL_PACKAGE`: este
- * último está desaconselhado desde o Android 10.
+ * `ACTION_VIEW` with the package type is used, not `INSTALL_PACKAGE`: the
+ * latter has been discouraged since Android 10.
  */
-export async function installUpdate(ficheiro: File): Promise<void> {
+export async function installUpdate(file: File): Promise<void> {
   try {
-    const endereco = await getContentUriAsync(ficheiro.uri);
+    const address = await getContentUriAsync(file.uri);
     await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-      data: endereco,
+      data: address,
       type: 'application/vnd.android.package-archive',
       flags: 1,
     });
-  } catch (erro) {
-    const detalhe = erro instanceof Error ? erro.message : String(erro);
-    throw new UpdateError(t().errors.updateInstallFailed(detalhe));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new UpdateError(t().errors.updateInstallFailed(detail));
   }
 }
 
 /**
- * Só os campos que se usam, da resposta do GitHub.
+ * Only the fields that are used, from GitHub's response.
  *
- * Os nomes foram lidos de uma resposta verdadeira deste repositório, não
- * adivinhados — é a regra que este projeto aprendeu à sua custa com a API da
- * Carris. Ver "Ler o código do serviço em vez de adivinhar os nomes dos campos",
- * no `CLAUDE.md`.
+ * The names were read from a real response from this repository, not guessed
+ * — the rule this project learnt the hard way with the Carris API. See "Read
+ * the service's code instead of guessing the field names", in `CLAUDE.md`.
  */
 interface Release {
   tag_name?: string;

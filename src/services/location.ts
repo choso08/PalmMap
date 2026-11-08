@@ -12,16 +12,17 @@ import {
 } from './config';
 
 /**
- * A última posição que se aceitou, e a que horas foi medida.
+ * The last position accepted, and when it was measured.
  *
- * Guarda-se aqui, e não no ecrã, porque a pergunta "isto ainda serve?" é sobre a
- * leitura em si e não sobre quem a está a usar. Os dois seguimentos escrevem
- * aqui; quem quiser centrar o mapa pergunta ao `getBestPosition()`.
+ * It is kept here, not on the screen, because the question "is this still good
+ * enough?" is about the reading itself and not about who is using it. Both
+ * trackers write here; anyone who wants to centre the map asks
+ * `getBestPosition()`.
  *
- * **O relógio que conta é o da leitura, não o de quando ela chegou.** O Android
- * entrega às vezes uma posição da cache mal se volta a subscrever o GPS — chega
- * agora, mas é de há uma hora. Comparar com a hora de chegada dava-a como
- * fresquíssima, que é precisamente a avaria que isto evita.
+ * **The clock that counts is the reading's, not when it arrived.** Android
+ * sometimes hands over a cached position as soon as the GPS is re-subscribed —
+ * it arrives now, but is from an hour ago. Comparing against the arrival time
+ * made it look brand new, which is precisely the fault this avoids.
  */
 let lastFix: { coordinates: Coordinates; at: number } | null = null;
 
@@ -30,52 +31,52 @@ function record(coordinates: Coordinates, at: number) {
 }
 
 /**
- * Quem está à espera das leituras da navegação, quando há navegação a decorrer.
+ * Who is waiting for the navigation readings, when navigation is running.
  *
- * Tem de ser uma variável do módulo: o serviço em primeiro plano entrega as
- * posições a uma tarefa registada pelo nome, e essa tarefa é definida uma vez ao
- * carregar o ficheiro — não tem forma de chegar ao componente que pediu para
- * seguir a posição. Isto é a ponte entre as duas coisas.
+ * It has to be a module variable: the foreground service delivers the
+ * positions to a task registered by name, and that task is defined once when
+ * the file loads — it has no way of reaching the component that asked to follow
+ * the position. This is the bridge between the two.
  */
 let navListener: ((position: Location.LocationObject) => void) | null = null;
 
-/** A paragem do serviço, agendada e ainda por acontecer. */
-let paragemAgendada: ReturnType<typeof setTimeout> | null = null;
+/** The service's stop, scheduled and still to happen. */
+let scheduledStop: ReturnType<typeof setTimeout> | null = null;
 
-function cancelarParagem() {
-  if (paragemAgendada) {
-    clearTimeout(paragemAgendada);
-    paragemAgendada = null;
+function cancelStop() {
+  if (scheduledStop) {
+    clearTimeout(scheduledStop);
+    scheduledStop = null;
   }
 }
 
 /**
- * Larga a subscrição e agenda o fim do serviço.
+ * Drops the subscription and schedules the end of the service.
  *
- * **Não pára já**, e é essa a razão de existir: entre duas subscrições seguidas
- * — que acontecem a cada mudança de percurso ou de ritmo do GPS — o serviço tem
- * de continuar vivo, senão o Android recusa-se a voltar a arrancá-lo com a
- * aplicação em segundo plano. Quem chegar a seguir cancela a paragem.
+ * **It does not stop straight away**, and that is the reason it exists:
+ * between two consecutive subscriptions — which happen at every change of route
+ * or GPS pace — the service has to stay alive, or Android refuses to start it
+ * again with the app in the background. Whoever comes next cancels the stop.
  *
- * Sem ouvinte, as posições que cheguem neste intervalo caem no vazio, que é o
- * que se quer.
+ * With no listener, positions arriving in this interval fall into the void,
+ * which is what is wanted.
  */
-function pararServico(): void {
+function stopService(): void {
   navListener = null;
-  cancelarParagem();
-  paragemAgendada = setTimeout(() => {
-    paragemAgendada = null;
+  cancelStop();
+  scheduledStop = setTimeout(() => {
+    scheduledStop = null;
     void Location.stopLocationUpdatesAsync(NAVIGATION_TASK).catch(() => undefined);
   }, SERVICE_STOP_GRACE_MS);
 }
 
 /**
- * A tarefa que recebe as posições enquanto se navega, mesmo de ecrã apagado.
+ * The task that receives positions while navigating, even with the screen off.
  *
- * **Define-se aqui, fora de tudo, e é de propósito.** O Android entrega as
- * leituras a uma tarefa registada pelo nome; se o registo acontecesse dentro de
- * um componente, uma aplicação que voltasse do fundo da memória não teria a
- * tarefa registada e as leituras chegavam a um sítio que já não existe.
+ * **It is defined here, outside everything, on purpose.** Android delivers the
+ * readings to a task registered by name; if the registration happened inside a
+ * component, an app coming back from deep in memory would not have the task
+ * registered and the readings would arrive somewhere that no longer exists.
  */
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
   NAVIGATION_TASK,
@@ -83,31 +84,31 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(
     if (error || !data) {
       return;
     }
-    // Vêm em lote. Só a última interessa: é onde a pessoa está agora, e as
-    // anteriores já não mudam nada do que está no ecrã.
-    const ultima = data.locations?.[data.locations.length - 1];
-    if (ultima) {
-      navListener?.(ultima);
+    // They come in batches. Only the last matters: it is where the person is
+    // now, and the earlier ones no longer change anything on screen.
+    const latest = data.locations?.[data.locations.length - 1];
+    if (latest) {
+      navListener?.(latest);
     }
   },
 );
 
 /**
- * Ao arrancar, larga a tarefa da navegação que tenha ficado da vez anterior.
+ * At start-up, drops the navigation task left over from last time.
  *
- * **O `expo-task-manager` grava as tarefas registadas e volta a registá-las
- * sozinho no arranque seguinte** — está no `restoreTasks()` do `TaskService.java`
- * deles, lido e não assumido. Serve para as tarefas que são mesmo para durar; a
- * nossa não é: só faz sentido enquanto há uma viagem a decorrer.
+ * **`expo-task-manager` saves the registered tasks and registers them again by
+ * itself on the next start-up** — it is in their `TaskService.java`'s
+ * `restoreTasks()`, read rather than assumed. That is for tasks meant to last;
+ * ours is not: it only makes sense while a trip is running.
  *
- * Se a aplicação for fechada a meio de uma navegação — pelo Android, por uma
- * falha, ou por quem a tira da lista — a tarefa fica lá registada. No arranque
- * seguinte volta a subscrever o GPS sem ninguém a ouvir, a gastar bateria, e com
- * o serviço em primeiro plano a tentar arrancar num momento em que o Android
- * pode não o permitir.
+ * If the app is closed in the middle of navigating — by Android, by a crash, or
+ * by someone swiping it away — the task stays registered. On the next start-up
+ * it subscribes to the GPS again with nobody listening, draining battery, and
+ * with the foreground service trying to start at a moment Android may not
+ * allow it.
  *
- * Largá-la aqui não estraga nada: quem for navegar volta a pedi-la a seguir, e
- * ao arrancar nunca há navegação nenhuma a decorrer.
+ * Dropping it here breaks nothing: whoever navigates asks for it again
+ * afterwards, and at start-up there is never any navigation running.
  */
 void (async () => {
   try {
@@ -115,12 +116,12 @@ void (async () => {
       await Location.stopLocationUpdatesAsync(NAVIGATION_TASK);
     }
   } catch {
-    // Não havia nada para largar, ou não se conseguiu. Nem um caso nem o outro
-    // é motivo para a aplicação não abrir.
+    // There was nothing to drop, or it could not be done. Neither is a reason
+    // for the app not to open.
   }
 })();
 
-/** Guarda uma leitura do `expo-location` e devolve só as coordenadas. */
+/** Records an `expo-location` reading and returns just the coordinates. */
 function keep(position: Location.LocationObject): Coordinates {
   const coordinates = {
     latitude: position.coords.latitude,
@@ -131,107 +132,109 @@ function keep(position: Location.LocationObject): Coordinates {
 }
 
 /**
- * Desiste de uma leitura ao fim de `POSITION_TIMEOUT_MS` e devolve `null`.
+ * Gives up on a reading after `POSITION_TIMEOUT_MS` and returns `null`.
  *
- * O `getCurrentPositionAsync` **não tem prazo nenhum**: sem sinal, fica à espera
- * indefinidamente. Dentro de casa ou sem rede isso são minutos, e nada que
- * dependa dele pode ficar preso à espera — nem o arranque, nem o botão.
+ * `getCurrentPositionAsync` **has no deadline at all**: without signal, it
+ * waits indefinitely. Indoors or without network that is minutes, and nothing
+ * that depends on it can be left stuck waiting — neither the start-up nor the
+ * button.
  */
-function comPrazo(leitura: Promise<Coordinates | null>): Promise<Coordinates | null> {
+function withTimeout(reading: Promise<Coordinates | null>): Promise<Coordinates | null> {
   return Promise.race([
-    leitura,
+    reading,
     new Promise<null>((resolve) => setTimeout(() => resolve(null), POSITION_TIMEOUT_MS)),
   ]);
 }
 
 /**
- * O pedido de permissão que está a decorrer, se houver algum.
+ * The permission request in progress, if there is one.
  *
- * **No Android não pode haver dois ao mesmo tempo.** O segundo pedido feito com
- * o primeiro ainda aberto rebenta do lado nativo — e uma exceção nativa numa
- * aplicação compilada fecha-a sem mais explicação. Isto acontecia mais do que
- * parece: ao arrancar, o seguimento da posição e a leitura inicial pedem os dois
- * quase ao mesmo tempo. Quem chegar a seguir espera pela resposta do primeiro em
- * vez de abrir outro.
+ * **On Android there cannot be two at once.** A second request made while the
+ * first is still open blows up on the native side — and a native exception in a
+ * compiled app closes it with no further explanation. This happened more than
+ * it seems: at start-up, position tracking and the initial reading both ask at
+ * almost the same time. Whoever comes second waits for the first one's answer
+ * instead of opening another.
  */
-let pedidoEmCurso: Promise<boolean> | null = null;
+let pendingRequest: Promise<boolean> | null = null;
 
 /**
- * Garante a permissão de localização, durante a utilização da aplicação.
- * Devolve true se a pessoa autorizou.
+ * Makes sure there is location permission, while the app is in use.
+ * Returns true if the person allowed it.
  *
- * **Pergunta antes de pedir.** Uma vez concedida, nunca mais se abre o diálogo:
- * as vezes seguintes ficam-se por uma consulta, que não tira o foco à aplicação
- * nem pode chocar com outro pedido. Pedir sem necessidade é a diferença entre um
- * arranque calmo e três diálogos a disputarem o mesmo ecrã.
+ * **It checks before asking.** Once granted, the dialog is never opened again:
+ * the following times stop at a check, which does not take focus away from the
+ * app nor can clash with another request. Asking needlessly is the difference
+ * between a calm start-up and three dialogs fighting over the same screen.
  */
 export async function requestPermission(): Promise<boolean> {
   try {
-    const atual = await Location.getForegroundPermissionsAsync();
-    if (atual.status === Location.PermissionStatus.GRANTED) {
+    const current = await Location.getForegroundPermissionsAsync();
+    if (current.status === Location.PermissionStatus.GRANTED) {
       return true;
     }
-    // Recusada de vez: insistir não abre diálogo nenhum e só dá trabalho.
-    if (!atual.canAskAgain) {
+    // Permanently refused: insisting opens no dialog and only causes work.
+    if (!current.canAskAgain) {
       return false;
     }
   } catch {
-    // Sem resposta à consulta, tenta-se pedir na mesma — é o que havia antes.
+    // With no answer to the check, ask anyway — which is what used to happen.
   }
 
-  if (!pedidoEmCurso) {
-    pedidoEmCurso = Location.requestForegroundPermissionsAsync()
+  if (!pendingRequest) {
+    pendingRequest = Location.requestForegroundPermissionsAsync()
       .then(({ status }) => status === Location.PermissionStatus.GRANTED)
       .catch(() => false)
       .finally(() => {
-        pedidoEmCurso = null;
+        pendingRequest = null;
       });
   }
 
-  return pedidoEmCurso;
+  return pendingRequest;
 }
 
 /**
- * Segue a posição enquanto a navegação está a decorrer.
+ * Follows the position while navigation is running.
  *
- * **Corre num serviço em primeiro plano**, com notificação permanente, e é isso
- * que faz a navegação continuar com o telemóvel no bolso ou o ecrã apagado. Sem
- * serviço, o Android corta as leituras de GPS assim que a aplicação sai da
- * frente — e a voz calava-se a meio da viagem, precisamente na situação em que
- * ela é tudo o que guia. A notificação é exigida pelo Android e não se pode
- * esconder; é a mesma que qualquer aplicação de navegação mostra.
+ * **It runs in a foreground service**, with a permanent notification, and that
+ * is what keeps navigation going with the phone in a pocket or the screen off.
+ * Without a service, Android cuts off the GPS readings as soon as the app
+ * leaves the foreground — and the voice went quiet halfway through the trip,
+ * precisely when it is all that is guiding. The notification is required by
+ * Android and cannot be hidden; it is the same one any navigation app shows.
  *
- * Se o serviço não arrancar — há fabricantes com regras próprias — volta-se à
- * subscrição normal, que funciona com a aplicação à frente. Navegar de ecrã
- * aceso é melhor do que não navegar.
+ * If the service does not start — some manufacturers have their own rules — it
+ * falls back to the normal subscription, which works with the app in front.
+ * Navigating with the screen on beats not navigating.
  *
- * Devolve uma função para parar de seguir — é obrigatório chamá-la ao sair da
- * navegação, senão o GPS fica ligado a gastar bateria.
+ * Returns a function to stop following — it must be called when leaving
+ * navigation, or the GPS stays on draining battery.
  */
 export async function watchPosition(
   onChange: (
     coordinates: Coordinates,
     accuracyMeters: number,
     /**
-     * Velocidade em metros por segundo, ou `null` quando o GPS não a soube dizer.
+     * Speed in metres per second, or `null` when the GPS could not tell.
      *
-     * **Vem do próprio recetor de GPS**, calculada pelo desvio de frequência do
-     * sinal dos satélites — não da diferença entre duas posições. A distinção é
-     * toda: com leituras a um segundo e cinco metros de incerteza em cada uma,
-     * dividir a distância pelo tempo dava um erro de quase vinte km/h a cada
-     * leitura. O efeito de Doppler mede a velocidade diretamente e erra pouco.
+     * **It comes from the GPS receiver itself**, computed from the frequency
+     * shift of the satellites' signal — not from the difference between two
+     * positions. That distinction is everything: with readings one second
+     * apart and five metres of uncertainty in each, dividing distance by time
+     * gave an error of nearly twenty km/h on every reading. The Doppler effect
+     * measures speed directly and errs little.
      *
-     * Por isso não há aqui conta nenhuma de recurso. Quando o telemóvel não diz a
-     * velocidade, fica `null` e o velocímetro desaparece — mostrar um número
-     * inventado a quem está a conduzir é pior do que não mostrar nada.
+     * So there is no fallback arithmetic here. When the phone does not give the
+     * speed, it stays `null` and the speedometer disappears — showing an
+     * invented number to someone driving is worse than showing nothing.
      */
     speedMs: number | null,
   ) => void,
   /**
-   * De quantos em quantos milissegundos se lê a posição.
+   * How often, in milliseconds, the position is read.
    *
-   * Um segundo é o normal. A poupança de bateria sobe este valor quando a
-   * manobra seguinte ainda vai longe — ver `BATTERY_SAVER_INTERVAL_MS`.
+   * One second is normal. The battery saver raises this value when the next
+   * manoeuvre is still far away — see `BATTERY_SAVER_INTERVAL_MS`.
    */
   timeIntervalMs = 1000,
 ): Promise<() => void> {
@@ -240,7 +243,7 @@ export async function watchPosition(
     return () => undefined;
   }
 
-  const entregar = (position: Location.LocationObject) => {
+  const deliver = (position: Location.LocationObject) => {
     record(
       { latitude: position.coords.latitude, longitude: position.coords.longitude },
       position.timestamp,
@@ -250,128 +253,131 @@ export async function watchPosition(
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       },
-      // O Android diz a que raio de confiança corresponde esta leitura. Sem
-      // isso, uma leitura má é indistinguível de ter mesmo saído do percurso.
+      // Android says what confidence radius this reading corresponds to.
+      // Without it, a bad reading is indistinguishable from really having left
+      // the route.
       position.coords.accuracy ?? 0,
-      // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
-      // que mandam null. Os dois querem dizer o mesmo: não sei.
+      // Android sends -1 when it has no speed to give, and some phones send
+      // null. Both mean the same: don't know.
       typeof position.coords.speed === 'number' && position.coords.speed >= 0
         ? position.coords.speed
         : null,
     );
   };
 
-  const opcoes = {
-    // Mesmo a poupar, a precisão mantém-se: o que muda é de quanto em quanto
-    // tempo se lê, não a qualidade da leitura. Baixar a precisão punha o
-    // Android a responder pelas antenas, e aí a posição deixava de servir
-    // para navegar.
+  const options = {
+    // Even when saving battery, the accuracy stays: what changes is how often
+    // it is read, not the quality of the reading. Lowering the accuracy made
+    // Android answer from the cell towers, and then the position was no longer
+    // good enough to navigate.
     accuracy: Location.Accuracy.BestForNavigation,
     timeInterval: timeIntervalMs,
-    // Zero de propósito: com um mínimo de metros, o Android cala-se enquanto a
-    // pessoa está parada — e então o painel fica preso no que dizia. Parado
-    // num semáforo, o tempo que falta tem de continuar a acertar.
+    // Zero on purpose: with a minimum distance, Android goes quiet while the
+    // person is standing still — and then the panel is stuck on what it said.
+    // Stopped at a traffic light, the remaining time has to stay right.
     distanceInterval: 0,
   };
 
-  // --- O caminho normal: serviço em primeiro plano -------------------------
+  // --- The normal path: a foreground service ------------------------------
   //
-  // **É isto que faz a navegação continuar de ecrã apagado.** Sem serviço, o
-  // Android corta as leituras de GPS assim que a aplicação sai da frente — e a
-  // voz calava-se a meio da viagem, precisamente quando o telemóvel está no
-  // bolso ou noutra aplicação e a voz é tudo o que resta.
+  // **This is what keeps navigation going with the screen off.** Without a
+  // service, Android cuts off the GPS readings as soon as the app leaves the
+  // foreground — and the voice went quiet halfway through the trip, precisely
+  // when the phone is in a pocket or in another app and the voice is all that
+  // is left.
   //
-  // A contrapartida é a notificação permanente, que o Android exige e não deixa
-  // esconder. É o mesmo que qualquer aplicação de navegação mostra.
+  // The price is the permanent notification, which Android requires and does
+  // not let be hidden. It is the same any navigation app shows.
   //
-  // **O serviço não se pára entre subscrições, e essa é a parte mais delicada
-  // disto.** O efeito da navegação volta a correr sempre que o percurso, os
-  // radares ou o ritmo do GPS mudam, e cada vez que corre larga a subscrição
-  // anterior e faz outra. Ora o Android **só deixa arrancar um serviço em
-  // primeiro plano com a aplicação à frente**, e o `expo-location` sabe-o: com a
-  // aplicação no fundo, o `maybeStartForegroundService` deles **desiste e
-  // escreve um aviso no registo** — não lança exceção nenhuma e este `await`
-  // resolve-se como se tivesse corrido bem. Ou seja, parar e voltar a começar
-  // com o telemóvel no bolso deixava a navegação sem serviço **em silêncio**,
-  // que é exatamente quando isto serve para alguma coisa. Por isso a paragem
-  // fica agendada por uns segundos e é cancelada se entretanto chegar outra
-  // subscrição — ver `SERVICE_STOP_GRACE_MS`. (Lido em
-  // `taskConsumers/LocationTaskConsumer.kt`, e não assumido.)
-  cancelarParagem();
-  const jaCorria = await Location.hasStartedLocationUpdatesAsync(NAVIGATION_TASK).catch(
+  // **The service is not stopped between subscriptions, and that is the most
+  // delicate part of this.** The navigation effect runs again whenever the
+  // route, the speed cameras or the GPS pace change, and each time it drops
+  // the previous subscription and makes another. And Android **only lets a
+  // foreground service start with the app in front**, and `expo-location`
+  // knows it: with the app in the background, their
+  // `maybeStartForegroundService` **gives up and writes a warning to the log**
+  // — it throws no exception and this `await` resolves as if it had worked.
+  // That is, stopping and starting again with the phone in a pocket left
+  // navigation without a service **silently**, exactly when this is useful.
+  // So the stop is scheduled for a few seconds and cancelled if another
+  // subscription arrives in the meantime — see `SERVICE_STOP_GRACE_MS`. (Read
+  // in `taskConsumers/LocationTaskConsumer.kt`, not assumed.)
+  cancelStop();
+  const wasRunning = await Location.hasStartedLocationUpdatesAsync(NAVIGATION_TASK).catch(
     () => false,
   );
 
   try {
-    navListener = entregar;
+    navListener = deliver;
     await Location.startLocationUpdatesAsync(NAVIGATION_TASK, {
-      ...opcoes,
+      ...options,
       foregroundService: {
         notificationTitle: t().navigation.serviceTitle,
         notificationBody: t().navigation.serviceBody,
-        // Se a aplicação for mesmo fechada, o serviço vai com ela. Uma
-        // notificação que sobrevive à aplicação é do género de coisa que
-        // ninguém consegue desligar sem ir às definições do Android.
+        // If the app is really closed, the service goes with it. A notification
+        // that outlives the app is the kind of thing nobody can turn off
+        // without going into Android's settings.
         killServiceOnDestroy: true,
       },
     });
 
-    return pararServico;
+    return stopService;
   } catch {
-    if (jaCorria) {
-      // Já havia serviço a andar e só não se conseguiu mudar-lhe as opções. O
-      // ouvinte já é o novo, por isso as posições continuam a chegar a quem as
-      // espera. Perde-se a mudança de ritmo do GPS, que é infinitamente menos
-      // do que perder a navegação.
-      return pararServico;
+    if (wasRunning) {
+      // A service was already running and only its options could not be
+      // changed. The listener is already the new one, so positions keep
+      // reaching whoever expects them. The GPS pace change is lost, which is
+      // infinitely less than losing navigation.
+      return stopService;
     }
 
-    // --- O recuo, se o serviço nunca chegou a arrancar --------------------
+    // --- The fallback, if the service never started ------------------------
     //
-    // Não se sabe de antemão o que pode correr mal num telemóvel concreto — uma
-    // autorização recusada, um fabricante com regras próprias. Melhor navegar
-    // com o ecrã aceso do que não navegar: volta-se à subscrição de sempre, que
-    // funciona com a aplicação à frente.
+    // It is not known in advance what can go wrong on a particular phone — a
+    // refused permission, a manufacturer with its own rules. Better to navigate
+    // with the screen on than not to navigate: fall back to the usual
+    // subscription, which works with the app in front.
     navListener = null;
   }
 
-  const subscription = await Location.watchPositionAsync(opcoes, entregar);
+  const subscription = await Location.watchPositionAsync(options, deliver);
 
   return () => subscription.remove();
 }
 
 /**
- * Segue a posição fora da navegação, devagar.
+ * Follows the position outside navigation, slowly.
  *
- * Serve para o ponto azul acompanhar a pessoa enquanto a aplicação está aberta,
- * como faz o Maps, em vez de ficar preso onde estava ao arrancar. É de propósito
- * muito menos frequente do que o da navegação — de dez em dez segundos, ou a
- * cada cinquenta metros — para não gastar bateria à toa.
+ * It lets the blue dot follow the person while the app is open, as Maps does,
+ * instead of staying stuck where it was at start-up. It is deliberately much
+ * less frequent than navigation's — every ten seconds, or every fifty metres —
+ * so as not to drain battery for nothing.
  *
- * **Num avião é isto que faz o mapa andar.** Sem rede não há percurso nem
- * pesquisa, mas o GPS continua a dar a posição, e com um país descarregado o
- * mapa desenha-se à volta dela.
+ * **On a plane this is what makes the map move.** Without network there is no
+ * route nor search, but the GPS keeps giving the position, and with a
+ * downloaded country the map is drawn around it.
  *
- * Devolve uma função para parar de seguir. Chamar sempre ao sair.
+ * Returns a function to stop following. Always call it on leaving.
  */
 export async function watchPositionIdle(
   onChange: (coordinates: Coordinates, speedMs: number | null) => void,
   /**
-   * De quantos em quantos milissegundos se lê a posição.
+   * How often, in milliseconds, the position is read.
    *
-   * Dez segundos é o normal e chega de sobra para o ponto azul acompanhar quem
-   * anda a pé. A andar de carro sobe-se o ritmo, para o velocímetro mostrar a
-   * velocidade de agora e não a de há um quarteirão — ver `DRIVING_GPS_INTERVAL_MS`.
+   * Ten seconds is normal and more than enough for the blue dot to follow
+   * someone on foot. When driving the pace goes up, so the speedometer shows
+   * the speed of now and not that of a block ago — see
+   * `DRIVING_GPS_INTERVAL_MS`.
    */
   timeIntervalMs = 10000,
   /**
-   * De quantos em quantos metros se lê a posição. **Zero a andar de carro.**
+   * Every how many metres the position is read. **Zero when driving.**
    *
-   * Com um mínimo de metros, o Android cala-se enquanto a pessoa está parada — e
-   * aí o velocímetro ficava preso no último número que teve. Quem trava dos 90
-   * para zero não anda os cinquenta metros que destrancariam a leitura seguinte,
-   * e o ecrã continuava a dizer 90 com o carro imóvel. É a mesma armadilha que a
-   * navegação já evita da mesma maneira.
+   * With a minimum distance, Android goes quiet while the person is standing
+   * still — and then the speedometer was stuck on its last number. Someone
+   * braking from 90 to zero does not travel the fifty metres that would unlock
+   * the next reading, and the screen kept saying 90 with the car motionless.
+   * It is the same trap navigation already avoids in the same way.
    */
   distanceIntervalMs = 50,
 ): Promise<() => void> {
@@ -382,9 +388,9 @@ export async function watchPositionIdle(
 
   const subscription = await Location.watchPositionAsync(
     {
-      // `High` obriga a usar os satélites. Com `Balanced`, o Android responde a
-      // partir das redes Wi-Fi e das antenas de telemóvel à volta — que é rápido
-      // em terra e completamente inútil a dez mil metros.
+      // `High` forces the use of the satellites. With `Balanced`, Android
+      // answers from the Wi-Fi networks and cell towers around — which is fast
+      // on the ground and completely useless at ten thousand metres.
       accuracy: Location.Accuracy.High,
       timeInterval: timeIntervalMs,
       distanceInterval: distanceIntervalMs,
@@ -397,8 +403,8 @@ export async function watchPositionIdle(
       record(coordinates, position.timestamp);
       onChange(
         coordinates,
-        // O Android manda -1 quando não tem velocidade para dar, e há telemóveis
-        // que mandam null. Os dois querem dizer o mesmo: não sei.
+        // Android sends -1 when it has no speed to give, and some phones send
+        // null. Both mean the same: don't know.
         typeof position.coords.speed === 'number' && position.coords.speed >= 0
           ? position.coords.speed
           : null,
@@ -410,44 +416,44 @@ export async function watchPositionIdle(
 }
 
 /**
- * Uma posição em que se pode confiar para centrar o mapa.
+ * A position that can be trusted to centre the map on.
  *
- * Se a última leitura ainda é recente, devolve-se essa — sem esperar por nada,
- * que é o caso normal e o que faz o botão parecer instantâneo. Se já tem idade,
- * vai-se buscar uma nova.
+ * If the last reading is still recent, that one is returned — without waiting
+ * for anything, which is the normal case and what makes the button feel
+ * instant. If it has aged, a new one is fetched.
  *
- * **É isto que resolve o mapa ir parar a um sítio onde já se esteve.** Com a
- * aplicação em segundo plano o Android deixa de entregar leituras: quem andou
- * entretanto volta com a posição de onde estava, e o mapa levava-o para lá com
- * toda a confiança. A posição guardada não estava errada — estava velha, e nada
- * no código distinguia as duas coisas.
+ * **This is what fixes the map going to a place one has already been.** With
+ * the app in the background Android stops delivering readings: someone who
+ * moved in the meantime comes back with the position of where they were, and
+ * the map took them there with complete confidence. The stored position was not
+ * wrong — it was old, and nothing in the code told the two apart.
  *
- * Nunca fica à espera para sempre: ao fim de `POSITION_TIMEOUT_MS` devolve-se o
- * que houver, mesmo que velho. Um mapa no sítio de antes é mau; um botão que não
- * responde é pior, e sem rede o GPS chega a levar minutos a acordar.
+ * It never waits forever: after `POSITION_TIMEOUT_MS` it returns whatever there
+ * is, even if old. A map at the old spot is bad; a button that does not respond
+ * is worse, and without network the GPS can take minutes to wake up.
  */
 export async function getBestPosition(): Promise<Coordinates | null> {
   if (lastFix && Date.now() - lastFix.at < POSITION_FRESH_MS) {
     return lastFix.coordinates;
   }
 
-  const fresca = await comPrazo(getFreshPosition());
+  const fresh = await withTimeout(getFreshPosition());
 
-  return fresca ?? lastFix?.coordinates ?? null;
+  return fresh ?? lastFix?.coordinates ?? null;
 }
 
 /**
- * Vai buscar uma posição nova ao GPS, sem passar pela última conhecida.
+ * Fetches a new position from the GPS, skipping the last known one.
  *
- * É o que se usa quando a aplicação volta ao ecrã. Aqui o atalho da última
- * conhecida seria contraproducente: é precisamente essa que se desconfia que
- * esteja velha.
+ * It is what is used when the app comes back to the screen. Here the
+ * last-known shortcut would backfire: it is precisely the one suspected of
+ * being old.
  *
- * **Aqui só se pergunta se há permissão — nunca se pede.** Pedir abre um diálogo
- * do sistema, e um diálogo tira o foco à aplicação: o Android dá-a por saída e
- * por reentrada, o que volta a disparar quem está à escuta dessas mudanças e
- * pede outra vez. Quem pede é o arranque, uma vez; daqui em diante só se
- * consulta.
+ * **Here permission is only checked — never requested.** Requesting opens a
+ * system dialog, and a dialog takes focus away from the app: Android counts it
+ * as leaving and coming back, which triggers again whoever is listening for
+ * those changes and asks again. Asking is the start-up's job, once; from then
+ * on it is only checked.
  */
 export async function getFreshPosition(): Promise<Coordinates | null> {
   try {
@@ -457,7 +463,7 @@ export async function getFreshPosition(): Promise<Coordinates | null> {
     }
 
     const position = await Location.getCurrentPositionAsync({
-      // Ver a nota em `watchPositionIdle`: `Balanced` depende da rede.
+      // See the note in `watchPositionIdle`: `Balanced` depends on the network.
       accuracy: Location.Accuracy.High,
     });
 
@@ -473,17 +479,18 @@ export async function getFreshPosition(): Promise<Coordinates | null> {
 }
 
 /**
- * Devolve a posição atual, ou null se não houver permissão ou o GPS falhar.
+ * Returns the current position, or null if there is no permission or the GPS
+ * fails.
  *
- * Devolver null em vez de rebentar é intencional: sem localização a aplicação
- * ainda serve para ver o mapa e pesquisar moradas.
+ * Returning null instead of blowing up is intentional: without location the
+ * app is still good for viewing the map and searching addresses.
  *
- * **Sem rede, a primeira posição demora.** O telemóvel costuma pedir à Internet
- * uma ajuda com a lista de satélites à vista; sem ela tem de a ouvir do próprio
- * sinal, o que leva de trinta segundos a dois minutos com o céu à vista. Por
- * isso devolve-se primeiro a última posição conhecida, para haver logo alguma
- * coisa no ecrã, e o seguimento contínuo trata de a corrigir quando o GPS
- * apanhar sinal.
+ * **Without network, the first position takes a while.** The phone usually asks
+ * the Internet for help with the list of satellites in view; without it, it has
+ * to hear it from the signal itself, which takes from thirty seconds to two
+ * minutes with the sky in view. So the last known position is returned first,
+ * so there is something on screen straight away, and continuous tracking
+ * corrects it when the GPS gets a signal.
  */
 export async function getCurrentPosition(): Promise<Coordinates | null> {
   try {
@@ -492,29 +499,29 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
       return null;
     }
 
-    // O `maxAge` impede o atalho de servir uma posição de ontem: o atalho existe
-    // para adiantar o arranque, não para adivinhar.
-    const conhecida = await Location.getLastKnownPositionAsync({
+    // `maxAge` stops the shortcut from serving a position from yesterday: the
+    // shortcut exists to speed up start-up, not to guess.
+    const known = await Location.getLastKnownPositionAsync({
       maxAge: LAST_KNOWN_MAX_AGE_MS,
     });
-    if (conhecida) {
-      return keep(conhecida);
+    if (known) {
+      return keep(known);
     }
 
-    // **Com prazo, sempre.** Sem rede o GPS leva de trinta segundos a dois
-    // minutos a dar a primeira posição, e sem este limite o arranque ficava à
-    // espera disso — de mapa parado e sem ponto azul. Foi assim que a aplicação
-    // passou a demorar a abrir.
-    const fresca = await comPrazo(getFreshPosition());
-    if (fresca) {
-      return fresca;
+    // **Always with a deadline.** Without network the GPS takes from thirty
+    // seconds to two minutes to give the first position, and without this
+    // limit the start-up waited for it — with the map frozen and no blue dot.
+    // That is how the app came to be slow to open.
+    const fresh = await withTimeout(getFreshPosition());
+    if (fresh) {
+      return fresh;
     }
 
-    // Nem recente nem nova a tempo: fica a última conhecida, seja de quando for.
-    // Um ponto no sítio de ontem é pouco, mas é mais do que um mapa sem ponto
-    // nenhum — e o botão de centrar já não acredita nela, que era o problema.
-    const antiga = await Location.getLastKnownPositionAsync();
-    return antiga ? keep(antiga) : null;
+    // Neither recent nor fresh in time: keep the last known one, from whenever.
+    // A dot at yesterday's spot is little, but more than a map with no dot at
+    // all — and the centre button no longer trusts it, which was the problem.
+    const old = await Location.getLastKnownPositionAsync();
+    return old ? keep(old) : null;
   } catch {
     return null;
   }
