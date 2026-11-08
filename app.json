@@ -35,7 +35,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "O PalmMap usa a sua localização para mostrar onde está no mapa e calcular percursos."
+          "locationWhenInUsePermission": "PalmMap uses your location to show where you are on the map and to plan routes."
         }
       ],
       [

@@ -1,38 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Guarda o que fechou a aplicação, para se poder ler da próxima vez que abrir.
+ * Keeps whatever closed the app, so it can be read the next time it opens.
  *
- * **Isto existe por causa do buraco que o `ErrorBoundary` já declarava.** Ele
- * apanha os erros de desenho do ecrã e mostra-os — mas um erro dentro de uma
- * promessa, de um `setTimeout` ou de uma chamada vinda do lado nativo passa-lhe
- * ao lado. Numa aplicação compilada esses não dão ecrã vermelho nenhum: vão
- * direitos ao tratador global do React Native, que em versão de lançamento os
- * entrega ao Android como erro fatal. A aplicação desaparece, e quem a estava a
- * usar fica só com "a aplicação fechou-se".
+ * **This exists because of the gap `ErrorBoundary` already admitted to.** It
+ * catches errors while drawing the screen and shows them — but an error inside
+ * a promise, a `setTimeout` or a call coming from the native side passes it by.
+ * In a compiled app those give no red screen at all: they go straight to React
+ * Native's global handler, which in a release build hands them to Android as a
+ * fatal error. The app disappears, and whoever was using it is left with just
+ * "the app closed".
  *
- * Isto não conserta nada — conserta o **relato**, que é a mesma decisão que já
- * se tomou nos erros dos horários: sem telemóvel à mão, uma mensagem numa
- * fotografia poupa várias rondas de adivinhação.
+ * This fixes nothing — it fixes the **report**, which is the same decision
+ * already taken for the timetable errors: without a phone at hand, a message in
+ * a photo saves several rounds of guessing.
  *
- * **Guarda-se e deixa-se fechar.** Tentar manter viva uma aplicação cujo estado
- * já rebentou é como continuar a conduzir com o motor partido: o que vem a
- * seguir é pior de perceber do que o que aconteceu. O texto fica no telemóvel e
- * aparece nas definições ao abrir outra vez.
+ * **It is stored and the app is let close.** Trying to keep alive an app whose
+ * state has already blown up is like carrying on driving with a broken engine:
+ * what comes next is harder to understand than what happened. The text stays
+ * on the phone and appears in the settings on the next opening.
  *
- * Não sai nada daqui para lado nenhum: fica no `AsyncStorage`, como tudo o resto.
+ * Nothing leaves this place for anywhere: it stays in `AsyncStorage`, like
+ * everything else.
  */
 
+/** The storage key. It stays in Portuguese so reports saved by older versions are still found. */
 const CRASH_KEY = 'palmmap.ultimaFalha';
 
 export interface CrashReport {
-  /** O que rebentou, já em texto. */
+  /** What blew up, already as text. */
   message: string;
-  /** Onde, se o motor de JavaScript soube dizer. */
+  /** Where, if the JavaScript engine could tell. */
   stack: string | null;
-  /** Quando, em milissegundos desde 1970. */
+  /** When, in milliseconds since 1970. */
   at: number;
-  /** De onde veio: o desenho do ecrã, ou o tratador global. */
+  /** Where it came from: drawing the screen, or the global handler. */
   origin: 'render' | 'fatal' | 'async';
 }
 
@@ -40,51 +42,51 @@ function describe(error: unknown): { message: string; stack: string | null } {
   if (error instanceof Error) {
     return {
       message: `${error.name}: ${error.message}`,
-      // A pilha inteira são dezenas de linhas de código empacotado, que num
-      // ecrã de telemóvel não se lê nem se fotografa. As primeiras é que dizem
-      // alguma coisa.
+      // The whole stack is dozens of lines of bundled code, which on a phone
+      // screen can neither be read nor photographed. The first ones are what
+      // say something.
       stack: error.stack ? error.stack.split('\n').slice(0, 12).join('\n') : null,
     };
   }
   return { message: String(error), stack: null };
 }
 
-/** Escreve a falha no telemóvel. Nunca lança — é chamada de dentro de um erro. */
+/** Writes the failure to the phone. Never throws — it is called from inside an error. */
 export function recordCrash(error: unknown, origin: CrashReport['origin']): void {
   try {
     const report: CrashReport = { ...describe(error), at: Date.now(), origin };
     void AsyncStorage.setItem(CRASH_KEY, JSON.stringify(report)).catch(() => undefined);
   } catch {
-    // Falhar a guardar um erro não pode ser um erro.
+    // Failing to store an error cannot itself be an error.
   }
 }
 
-/** O que ficou guardado da última vez, ou `null` se não houve nenhuma. */
+/** What was stored last time, or `null` if there was none. */
 export async function lastCrash(): Promise<CrashReport | null> {
   try {
-    const guardado = await AsyncStorage.getItem(CRASH_KEY);
-    return guardado ? (JSON.parse(guardado) as CrashReport) : null;
+    const stored = await AsyncStorage.getItem(CRASH_KEY);
+    return stored ? (JSON.parse(stored) as CrashReport) : null;
   } catch {
     return null;
   }
 }
 
-/** Esquece a falha guardada. É o botão no ecrã de definições. */
+/** Forgets the stored failure. It is the button on the settings screen. */
 export async function forgetCrash(): Promise<void> {
   try {
     await AsyncStorage.removeItem(CRASH_KEY);
   } catch {
-    // Nada a fazer.
+    // Nothing to do.
   }
 }
 
 /**
- * Liga o registo das falhas. Chama-se uma vez, no arranque, antes de tudo.
+ * Turns on failure recording. Called once, at start-up, before anything else.
  *
- * **Encadeia-se no tratador que já lá está em vez de o substituir.** O do React
- * Native é quem mostra o ecrã vermelho em desenvolvimento e quem entrega o erro
- * ao Android em versão de lançamento; tirá-lo do caminho trocaria um problema
- * por outro — deixávamos de ver o erro onde ele hoje se vê.
+ * **It chains onto the existing handler instead of replacing it.** React
+ * Native's is what shows the red screen in development and what hands the error
+ * to Android in a release build; taking it out of the way would swap one
+ * problem for another — we would stop seeing the error where it is seen today.
  */
 export function installCrashHandler(): void {
   try {
@@ -99,32 +101,32 @@ export function installCrashHandler(): void {
       return;
     }
 
-    const anterior = utils.getGlobalHandler();
+    const previous = utils.getGlobalHandler();
     utils.setGlobalHandler((error, isFatal) => {
       recordCrash(error, isFatal ? 'fatal' : 'async');
-      anterior?.(error, isFatal);
+      previous?.(error, isFatal);
     });
   } catch {
-    // Sem tratador global, fica-se pelo `ErrorBoundary`, como antes.
+    // Without a global handler, it falls back to `ErrorBoundary`, as before.
   }
 }
 
 /**
- * Embrulha uma função para que um erro lá dentro fique registado em vez de
- * fechar a aplicação.
+ * Wraps a function so that an error inside it is recorded instead of closing
+ * the app.
  *
- * **É para as funções que o lado nativo chama**, e só para essas: o seguimento
- * da posição, que corre a cada segundo durante uma viagem inteira. Um erro numa
- * função destas não passa por nenhum `try` nosso nem pelo `ErrorBoundary` — vai
- * direito ao tratador global e, numa aplicação compilada, fecha-a. A meio de uma
- * estrada, isso é o pior sítio possível para a aplicação desaparecer.
+ * **It is for functions the native side calls**, and only those: position
+ * tracking, which runs every second for a whole trip. An error in one of these
+ * goes through none of our `try`s nor the `ErrorBoundary` — it goes straight to
+ * the global handler and, in a compiled app, closes it. In the middle of a
+ * road, that is the worst possible place for the app to disappear.
  *
- * O que se perde é uma leitura do GPS, e a seguinte chega um segundo depois. O
- * que se ganha é a viagem continuar e ficar escrito o que rebentou — que é a
- * única forma de vir a ser corrigido.
+ * What is lost is one GPS reading, and the next arrives a second later. What is
+ * gained is the trip carrying on and a written record of what blew up — the
+ * only way it will ever get fixed.
  *
- * **Não se usa isto por todo o lado.** Engolir erros em código normal esconde
- * avarias; aqui a alternativa não é ver o erro, é a aplicação fechar-se.
+ * **Do not use this everywhere.** Swallowing errors in normal code hides bugs;
+ * here the alternative is not seeing the error, it is the app closing.
  */
 export function guarded<A extends unknown[]>(
   fn: (...args: A) => void,
@@ -134,7 +136,7 @@ export function guarded<A extends unknown[]>(
       fn(...args);
     } catch (error) {
       recordCrash(error, 'async');
-      console.error('PalmMap: erro numa leitura da posição', error);
+      console.error('PalmMap: error in a position reading', error);
     }
   };
 }

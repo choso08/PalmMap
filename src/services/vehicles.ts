@@ -10,40 +10,42 @@ import type { Coordinates } from '../types/geo';
 import type { CarrisVehicle } from '../types/transit';
 
 /**
- * Os autocarros da Carris Metropolitana, onde estão neste momento.
+ * Carris Metropolitana's buses, where they are right now.
  *
- * É o mesmo que se vê no mapa do sítio deles: os autocarros a mexer, cada um com
- * o número da linha. Vem da mesma API aberta das horas de passagem, sem chave
- * nenhuma, e **em JSON** — não em Protobuf, que teria obrigado a uma biblioteca
- * só para o descodificar.
+ * It is the same as what their website's map shows: the buses moving, each with
+ * its line number. It comes from the same open API as the arrival times, with
+ * no key at all, and **in JSON** — not in Protobuf, which would have required a
+ * library just to decode it.
  *
- * ## A armadilha, e é grande
+ * ## The trap, and it is a big one
  *
- * O serviço devolve **a frota inteira**, não os autocarros que andam. São 1679
- * veículos, dos quais 1550 trazem posição — mas essa posição é a **última
- * conhecida**, que para a maioria é de onde ficaram estacionados. Medido de
- * madrugada: a idade mediana era de **nove horas**, e a pior de doze dias.
+ * The service returns **the whole fleet**, not the buses that are moving. That
+ * is 1679 vehicles, 1550 of which carry a position — but that position is the
+ * **last known one**, which for most of them is where they were parked.
+ * Measured in the small hours: the median age was **nine hours**, the worst
+ * twelve days.
  *
- * Desenhar a lista como vem enchia o mapa de mil e quinhentos autocarros
- * parados em garagens. Por isso só entram os que deram sinal há menos de
- * `VEHICLE_MAX_AGE_S`. **Não desligar este filtro** — sem ele isto não é uma
- * funcionalidade, é um mapa errado.
+ * Drawing the list as it comes filled the map with fifteen hundred buses
+ * standing in depots. So only those that reported in less than
+ * `VEHICLE_MAX_AGE_S` ago are kept. **Do not switch this filter off** — without
+ * it this is not a feature, it is a wrong map.
  *
- * ## E o peso
+ * ## And the weight
  *
- * A resposta são cerca de **1,1 MB**, e não há forma de pedir menos: não há
- * filtro por área nem por linha (o `by_line` responde 404). Vai comprimida pela
- * rede, o que a põe na ordem dos 150 KB, mas continua a ser o pedido mais
- * pesado que esta aplicação faz.
+ * The response is about **1.1 MB**, and there is no way to ask for less: there
+ * is no filter by area or by line (`by_line` answers 404). It travels
+ * compressed, which brings it to around 150 KB, but it is still the heaviest
+ * request this app makes.
  *
- * É por isso que isto só corre **no tipo de mapa dos transportes**, **acima de
- * um zoom** e com uma definição para desligar. Ver `App.tsx`.
+ * That is why this only runs **on the transport map type**, **above a zoom
+ * level** and with a setting to turn it off. See `App.tsx`.
  *
- * ## Sobre os nomes dos campos
+ * ## About the field names
  *
- * Foram **lidos de uma resposta verdadeira**, não adivinhados — este projeto já
- * tem registado o que custou adivinhar os da mesma API. São `lat`, `lon`,
- * `bearing`, `line_id`, `trip_id`, `speed`, `timestamp` e `current_status`.
+ * They were **read from a real response**, not guessed — this project already
+ * has on record what guessing the same API's fields cost. They are `lat`,
+ * `lon`, `bearing`, `line_id`, `trip_id`, `speed`, `timestamp` and
+ * `current_status`.
  */
 
 const client = axios.create({
@@ -52,19 +54,19 @@ const client = axios.create({
   headers: { 'User-Agent': USER_AGENT },
 });
 
-/** Um autocarro em andamento, pronto para o mapa. */
+/** A moving bus, ready for the map. */
 export interface LiveVehicle {
   id: string;
-  /** O número da linha, como vem pintado no autocarro. */
+  /** The line number, as painted on the bus. */
   line: string;
   coordinates: Coordinates;
-  /** Para onde aponta, em graus. `null` quando o serviço não diz. */
+  /** Where it is pointing, in degrees. `null` when the service does not say. */
   bearing: number | null;
-  /** A que velocidade vai, em km/h. */
+  /** How fast it is going, in km/h. */
   speedKmh: number;
-  /** Se está parado numa paragem neste momento. */
+  /** Whether it is standing at a stop right now. */
   atStop: boolean;
-  /** Há quantos segundos deu sinal. */
+  /** How many seconds ago it reported in. */
   ageSeconds: number;
 }
 
@@ -74,47 +76,47 @@ function toNumber(value: unknown): number | null {
 }
 
 /**
- * Os autocarros que estão mesmo a andar agora.
+ * The buses that really are moving now.
  *
- * Devolve lista vazia quando não há nenhum — o que de madrugada é a resposta
- * certa, e não uma avaria.
+ * Returns an empty list when there are none — which in the small hours is the
+ * right answer, not a fault.
  */
 export async function liveVehicles(): Promise<LiveVehicle[]> {
   const { data } = await client.get<CarrisVehicle[]>('/vehicles');
 
-  const agora = Date.now() / 1000;
-  const andando: LiveVehicle[] = [];
+  const now = Date.now() / 1000;
+  const moving: LiveVehicle[] = [];
 
-  for (const veiculo of Array.isArray(data) ? data : []) {
-    const latitude = toNumber(veiculo.lat);
-    const longitude = toNumber(veiculo.lon);
-    const quando = toNumber(veiculo.timestamp);
+  for (const vehicle of Array.isArray(data) ? data : []) {
+    const latitude = toNumber(vehicle.lat);
+    const longitude = toNumber(vehicle.lon);
+    const reportedAt = toNumber(vehicle.timestamp);
 
-    // Sem posição é ficha da frota, não é um autocarro na rua.
-    if (latitude === null || longitude === null || quando === null || !veiculo.id) {
+    // Without a position it is a fleet record, not a bus on the street.
+    if (latitude === null || longitude === null || reportedAt === null || !vehicle.id) {
       continue;
     }
 
-    // O filtro que faz isto valer alguma coisa. Ver a nota no topo.
-    const idade = agora - quando;
-    if (idade < 0 || idade > VEHICLE_MAX_AGE_S) {
+    // The filter that makes this worth anything. See the note at the top.
+    const age = now - reportedAt;
+    if (age < 0 || age > VEHICLE_MAX_AGE_S) {
       continue;
     }
 
-    const velocidade = toNumber(veiculo.speed) ?? 0;
+    const speed = toNumber(vehicle.speed) ?? 0;
 
-    andando.push({
-      id: veiculo.id,
-      line: veiculo.line_id ?? veiculo.route_id ?? '—',
+    moving.push({
+      id: vehicle.id,
+      line: vehicle.line_id ?? vehicle.route_id ?? '—',
       coordinates: { latitude, longitude },
-      bearing: toNumber(veiculo.bearing),
-      // O serviço manda metros por segundo; o velocímetro de toda a gente está
-      // em quilómetros por hora.
-      speedKmh: Math.round(velocidade * 3.6),
-      atStop: veiculo.current_status === 'STOPPED_AT',
-      ageSeconds: Math.round(idade),
+      bearing: toNumber(vehicle.bearing),
+      // The service sends metres per second; everyone's speedometer is in
+      // kilometres per hour.
+      speedKmh: Math.round(speed * 3.6),
+      atStop: vehicle.current_status === 'STOPPED_AT',
+      ageSeconds: Math.round(age),
     });
   }
 
-  return andando;
+  return moving;
 }

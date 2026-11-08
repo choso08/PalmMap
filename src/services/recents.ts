@@ -4,20 +4,21 @@ import { isSamePlace } from './favourites';
 import type { Place } from '../types/geo';
 
 /**
- * Os últimos sítios para onde se traçou percurso.
+ * The last places a route was planned to.
  *
- * Guardados no telemóvel, tal como os favoritos, por isso continuam lá sem
- * Internet. A diferença entre os dois é quem os põe na lista: os favoritos são
- * uma escolha da pessoa, isto acontece sozinho.
+ * Kept on the phone, like the favourites, so they are still there without
+ * Internet. The difference between the two is who puts them on the list:
+ * favourites are the person's choice, this happens on its own.
  *
- * **Só entra aqui um destino escolhido de propósito.** Um pino largado no mapa
- * por engano, ou um negócio que se abriu para ver o horário e se fechou logo a
- * seguir, não conta — senão a lista enchia-se de coisas que ninguém quis.
+ * **Only a destination chosen on purpose goes in here.** A pin dropped on the
+ * map by mistake, or a business opened to check its hours and closed straight
+ * after, does not count — otherwise the list would fill up with things nobody
+ * wanted.
  */
 
 const STORAGE_KEY = 'palmmap.recents';
 
-/** Quantos se guardam. Mais do que isto ninguém percorre. */
+/** How many are kept. Nobody scrolls through more than this. */
 const LIMIT = 12;
 
 export async function loadRecents(): Promise<Place[]> {
@@ -30,30 +31,30 @@ export async function loadRecents(): Promise<Place[]> {
 }
 
 /**
- * Põe um sítio à cabeça da lista.
+ * Puts a place at the head of the list.
  *
- * Se já lá estava, sobe em vez de aparecer duas vezes — a comparação é pela
- * posição e não pelo identificador, porque o mesmo sítio pode chegar pela
- * pesquisa ou por um pino do mapa com identificadores diferentes.
+ * If it was already there, it moves up instead of appearing twice — the
+ * comparison is by position and not by identifier, because the same place can
+ * come from the search or from a map pin with different identifiers.
  */
 export async function rememberRecent(place: Place): Promise<Place[]> {
-  const atuais = await loadRecents();
-  const seguinte = [place, ...atuais.filter((p) => !isSamePlace(p, place))].slice(0, LIMIT);
+  const current = await loadRecents();
+  const next = [place, ...current.filter((p) => !isSamePlace(p, place))].slice(0, LIMIT);
 
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seguinte));
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
-    // Guardar é secundário: a lista continua a valer nesta sessão.
+    // Saving is secondary: the list still holds for this session.
   }
 
-  return seguinte;
+  return next;
 }
 
-/** Esquece tudo. Fica nas definições, para quem não queira este histórico. */
+/** Forgets everything. Lives in the settings, for anyone who does not want this history. */
 export async function clearRecents(): Promise<void> {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Sem nada guardado, não há nada a apagar.
+    // With nothing stored, there is nothing to delete.
   }
 }

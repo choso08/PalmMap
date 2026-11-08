@@ -3,15 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Place } from '../types/geo';
 
 /**
- * Sítios guardados, no telemóvel.
+ * Saved places, on the phone.
  *
- * Ficam no `AsyncStorage`, tal como as definições, por isso continuam lá
- * sem Internet — é para isso que servem.
+ * They live in `AsyncStorage`, like the settings, so they are still there
+ * without Internet — that is what they are for.
  */
 
 const STORAGE_KEY = 'palmmap.favourites';
 
-/** Quantos sítios se guardam, no máximo. */
+/** How many places are kept, at most. */
 const LIMIT = 60;
 
 export async function loadFavourites(): Promise<Place[]> {
@@ -19,7 +19,7 @@ export async function loadFavourites(): Promise<Place[]> {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     return stored ? (JSON.parse(stored) as Place[]) : [];
   } catch {
-    // Sem nada guardado, começa-se com a lista vazia.
+    // With nothing stored, start with an empty list.
     return [];
   }
 }
@@ -28,16 +28,16 @@ export async function saveFavourites(places: Place[]): Promise<void> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(places.slice(0, LIMIT)));
   } catch {
-    // Guardar é secundário: a lista continua a valer nesta sessão.
+    // Saving is secondary: the list still holds for this session.
   }
 }
 
 /**
- * Dois sítios são o mesmo se estiverem praticamente no mesmo ponto.
+ * Two places are the same if they are at practically the same point.
  *
- * Não se compara pelo identificador: o mesmo café pode chegar pela pesquisa
- * (Nominatim) ou por um pino no mapa (Overpass), e nesse caso os
- * identificadores são diferentes.
+ * They are not compared by identifier: the same café can come from the search
+ * (Nominatim) or from a pin on the map (Overpass), and then the identifiers
+ * differ.
  */
 export function isSamePlace(a: Place, b: Place): boolean {
   return (

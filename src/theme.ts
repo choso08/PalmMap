@@ -1,76 +1,79 @@
 /**
- * Cores da aplicação, em versão clara e escura.
+ * The app's colours, in light and dark versions.
  *
- * ## A ideia: Ilha
+ * ## The idea: Island
  *
- * O nome é PalmMap e o logo é uma palmeira dentro de um pin. As cores vêm daí:
- * **areia, água funda e coral**. Em claro, o ecrã é areia quente com texto cor
- * de petróleo; em escuro, água funda com areia por cima. O destaque é coral —
- * a cor que salta na areia e no mar sem ser gritante.
+ * The name is PalmMap and the logo is a palm tree inside a pin. The colours
+ * come from there: **sand, deep water and coral**. In light mode, the screen
+ * is warm sand with petrol-coloured text; in dark mode, deep water with sand on
+ * top. The accent is coral — the colour that stands out on sand and sea
+ * without shouting.
  *
- * ## O que mandou nas escolhas
+ * ## What drove the choices
  *
- * Isto usa-se a conduzir e ao sol, por isso o bonito tem de caber dentro do
- * legível. Duas regras que não se devem desfazer ao mexer aqui:
+ * This is used while driving and in the sun, so pretty has to fit inside
+ * legible. Two rules that must not be undone when changing things here:
  *
- * - **Texto sempre bem separado do fundo.** Nada de cinzentos claros sobre
- *   areia: o texto principal é quase preto, e o secundário ainda se lê ao sol.
- * - **Cada coisa importante tem cor própria.** O percurso é coral, o destino é
- *   água e os negócios são âmbar. A conduzir não há tempo para ler legendas.
+ * - **Text always clearly separated from the background.** No light greys on
+ *   sand: the main text is nearly black, and the secondary text still reads in
+ *   the sun.
+ * - **Every important thing has its own colour.** The route is coral, the
+ *   destination is water and businesses are amber. While driving there is no
+ *   time to read legends.
  *
- * As cores do **mapa** estão à parte, em `src/services/vectorStyle.ts`, e
- * acompanham esta paleta. Ao mexer numa, olhar para a outra.
+ * The **map**'s colours are separate, in `src/services/vectorStyle.ts`, and
+ * follow this palette. When changing one, look at the other.
  *
- * Só as paletas vivem aqui. Quem decide qual delas se usa é o `SettingsProvider`
- * em `src/settings.tsx`, que junta o tema do telemóvel à preferência guardada.
- * O gancho `useTheme()` também está lá.
+ * Only the palettes live here. What decides which one is used is the
+ * `SettingsProvider` in `src/settings.tsx`, which combines the phone's theme
+ * with the stored preference. The `useTheme()` hook is there too.
  */
 export interface Theme {
   dark: boolean;
-  /** Fundo do ecrã, por baixo do mapa. */
+  /** Screen background, under the map. */
   background: string;
-  /** Fundo dos painéis e da barra de pesquisa. */
+  /** Background of the panels and the search bar. */
   surface: string;
-  /** Fundo dos botões de categoria por escolher. */
+  /** Background of unselected category buttons. */
   surfaceMuted: string;
-  /** Texto principal. */
+  /** Main text. */
   text: string;
-  /** Texto secundário: moradas, legendas. */
+  /** Secondary text: addresses, captions. */
   textMuted: string;
-  /** Texto de sugestão dentro da caixa de pesquisa. */
+  /** Placeholder text inside the search box. */
   placeholder: string;
-  /** Cor de destaque: botões, percurso, ligações. */
+  /** Accent colour: buttons, route, links. */
   accent: string;
-  /** Texto por cima da cor de destaque. */
+  /** Text on top of the accent colour. */
   onAccent: string;
-  /** Linhas separadoras. */
+  /** Separator lines. */
   border: string;
-  /** Mensagens de erro. */
+  /** Error messages. */
   danger: string;
-  /** Marcador do destino. */
+  /** Destination marker. */
   destination: string;
-  /** Pinos dos negócios. */
+  /** Business pins. */
   poi: string;
-  /** Contorno dos pinos, para se destacarem do mapa. */
+  /** Pin outline, so they stand out from the map. */
   poiOutline: string;
   /**
-   * Autocarros em andamento, no mapa.
+   * Moving buses, on the map.
    *
-   * Tem de se distinguir das paragens, que são a coisa parecida mais próxima:
-   * uma paragem está sempre no mesmo sítio, um autocarro anda. Daí ser uma cor
-   * própria e não uma das que já existem.
+   * It has to stand apart from the stops, which are the closest similar thing:
+   * a stop is always in the same place, a bus moves. Hence its own colour
+   * rather than one of the existing ones.
    */
   vehicle: string;
-  /** Fundo das mensagens flutuantes por cima do mapa. */
+  /** Background of the floating messages over the map. */
   overlay: string;
-  /** Texto dessas mensagens. */
+  /** Text of those messages. */
   onOverlay: string;
   /**
-   * As cores do sinal de limite de velocidade.
+   * The colours of the speed-limit sign.
    *
-   * São iguais nas duas paletas de propósito: é um sinal de trânsito, e o que o
-   * torna legível de relance é ser sempre o mesmo. Estão aqui na mesma porque
-   * nenhum componente escreve cores à mão.
+   * They are the same in both palettes on purpose: it is a road sign, and what
+   * makes it readable at a glance is that it is always the same. They are here
+   * anyway because no component writes colours by hand.
    */
   signFace: string;
   signEdge: string;
@@ -89,7 +92,7 @@ export const light: Theme = {
   onAccent: '#FFFFFF',
   border: '#E3D8C8',
   danger: '#A8341F',
-  // Água funda. O destino tem de se distinguir do percurso, que é coral.
+  // Deep water. The destination has to stand apart from the route, which is coral.
   destination: '#0F6E70',
   poi: '#C98526',
   poiOutline: '#FCF8F2',
@@ -105,12 +108,12 @@ export const dark: Theme = {
   dark: true,
   background: '#0B1319',
   surface: '#152230',
-  // Um degrau acima do `surface`, senão os botões por escolher desapareciam.
+  // One step above `surface`, otherwise unselected buttons disappeared.
   surfaceMuted: '#1E2E3C',
   text: '#EDE5D8',
   textMuted: '#95A6B0',
   placeholder: '#6C7D87',
-  // Coral mais claro: o de dia perdia-se contra a água funda.
+  // Lighter coral: the daytime one got lost against the deep water.
   accent: '#F2846B',
   onAccent: '#0B1319',
   border: '#25384A',

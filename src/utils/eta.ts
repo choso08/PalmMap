@@ -1,20 +1,20 @@
 /**
- * O tempo estimado: como se passa do que o OSRM respondeu para o que se mostra.
+ * The estimated time: how to get from what OSRM answered to what is shown.
  *
- * São três camadas, e a ordem entre elas importa:
+ * There are three layers, and their order matters:
  *
- * 1. **O modelo do meio de transporte** (`modelSeconds`) — o que a aplicação
- *    assume para quem vai de carro, a pé ou de bicicleta.
- * 2. **O ritmo medido** — a que velocidade a pessoa anda mesmo, aprendido das
- *    viagens anteriores e afinado durante a que está a decorrer.
- * 3. **A correção manual das definições**, que só vale enquanto não houver ritmo
- *    medido nenhum.
+ * 1. **The travel mode's model** (`modelSeconds`) — what the app assumes for
+ *    someone going by car, on foot or by bike.
+ * 2. **The measured pace** — how fast the person really goes, learnt from
+ *    previous trips and refined during the current one.
+ * 3. **The manual correction in the settings**, which only applies while
+ *    there is no measured pace at all.
  *
- * **O medido ganha ao adivinhado, e não se multiplicam.** A correção manual e o
- * ritmo medido medem exatamente a mesma coisa — o quanto a estimativa do serviço
- * fica curta por aqui. Multiplicá-los contava-a duas vezes: quem tivesse escolhido
- * 1,5× numa estrada de terra e cujo ritmo medido desse 1,6 via a hora de chegada
- * inflacionada em 2,4×.
+ * **Measured beats guessed, and they are not multiplied.** The manual
+ * correction and the measured pace measure exactly the same thing — how short
+ * the service's estimate falls around here. Multiplying them counted it twice:
+ * someone who had chosen 1.5× on a dirt road and whose measured pace came out
+ * at 1.6 would see the arrival time inflated by 2.4×.
  */
 
 import {
@@ -27,17 +27,17 @@ import {
 import type { TravelMode } from '../settings';
 
 /**
- * Os segundos que a aplicação assume para um troço, antes de qualquer correção.
+ * The seconds the app assumes for a stretch, before any correction.
  *
- * De carro e a pé é o que o OSRM respondeu: o perfil de carro deles já calcula o
- * tempo à velocidade limite vezes 0,8 onde o limite está marcado — ver
- * `PACE_MIN_DRIVING`.
+ * By car and on foot it is what OSRM answered: their car profile already
+ * computes the time at the speed limit times 0.8 where the limit is tagged —
+ * see `PACE_MIN_DRIVING`.
  *
- * **De bicicleta é que não.** O OSRM assume 15 km/h, que é a velocidade de quem
- * anda de bicicleta a sério. Aqui conta-se com 12,5 — mas só como piso: onde o
- * OSRM já responde mais devagar, é porque sabe da estrada alguma coisa que uma
- * velocidade média não sabe (uma subida que se empurra, um troço de escadas), e
- * nesse caso fica a dele.
+ * **By bike it is not.** OSRM assumes 15 km/h, which is the speed of a serious
+ * cyclist. Here 12.5 is used — but only as a floor: where OSRM already answers
+ * slower, it is because it knows something about the road that an average
+ * speed does not (a climb you push up, a flight of steps), and in that case its
+ * figure stands.
  */
 export function modelSeconds(
   distanceMeters: number,
@@ -51,10 +51,10 @@ export function modelSeconds(
 }
 
 /**
- * Põe o ritmo medido dentro de limites que fazem sentido.
+ * Keeps the measured pace within limits that make sense.
  *
- * O piso do carro é 1 de propósito: uma hora de chegada que só bata certo a
- * exceder o limite não se promete. Ver `PACE_MIN_DRIVING`.
+ * The car's floor is 1 on purpose: an arrival time that only works out by
+ * exceeding the limit is not promised. See `PACE_MIN_DRIVING`.
  */
 export function clampPace(raw: number, mode: TravelMode): number {
   const floor = mode === 'driving' ? PACE_MIN_DRIVING : PACE_MIN;
@@ -65,9 +65,10 @@ export function clampPace(raw: number, mode: TravelMode): number {
 }
 
 /**
- * Junta o ritmo desta viagem ao que já estava guardado.
+ * Blends this trip's pace into the one already stored.
  *
- * Da primeira vez fica o desta viagem inteiro — não há nada com que o misturar.
+ * The first time, this trip's pace is kept whole — there is nothing to blend
+ * it with.
  */
 export function blendPace(stored: number | null | undefined, measured: number): number {
   return stored == null ? measured : stored + (measured - stored) * PACE_LEARN_WEIGHT;

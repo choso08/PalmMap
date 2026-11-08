@@ -2,24 +2,23 @@ import { t } from '../i18n';
 import type { OsrmManeuver } from '../types/osrm';
 
 /**
- * Traduz as manobras do OSRM para instruções na língua da aplicação.
+ * Turns OSRM's manoeuvres into instructions in the app's language.
  *
- * O OSRM devolve a manobra em duas partes: `type` diz o que se faz e
- * `modifier` diz para que lado. Aqui decide-se **que** manobra é; **como se
- * diz** está na tabela de cada língua, em `src/i18n`.
+ * OSRM returns the manoeuvre in two parts: `type` says what is done and
+ * `modifier` says which way. This file decides **which** manoeuvre it is; **how
+ * it is said** lives in each language's table, in `src/i18n`.
  *
- * Essa separação não é arrumação: em português diz-se "Vire à esquerda **para**
- * a Rua Augusta" e em inglês "Turn left **onto** Rua Augusta". Montar as frases
- * aqui a partir de pedaços traduzidos dava uma das línguas com a gramática da
- * outra.
+ * That split is not tidiness: Portuguese says "Vire à esquerda **para** a Rua
+ * Augusta" and English "Turn left **onto** Rua Augusta". Building the sentences
+ * here from translated pieces would give one language the other's grammar.
  *
- * Referência dos valores possíveis:
+ * Reference for the possible values:
  * https://project-osrm.org/docs/v5.24.0/api/#stepmaneuver-object
  */
 
 /**
- * Ícone que ilustra a manobra, da família MaterialCommunityIcons.
- * Serve para a lista de instruções se ler de relance.
+ * Icon that illustrates the manoeuvre, from the MaterialCommunityIcons family.
+ * It lets the instruction list be read at a glance.
  */
 export function maneuverIcon(type: string, modifier?: string): string {
   if (type === 'arrive') {
@@ -52,10 +51,10 @@ export function maneuverIcon(type: string, modifier?: string): string {
 }
 
 /**
- * Escreve a instrução de um passo do percurso.
+ * Writes out the instruction for one step of the route.
  *
- * @param maneuver A manobra tal como o OSRM a devolve.
- * @param street Nome da rua onde se segue a seguir (pode ser vazio).
+ * @param maneuver The manoeuvre exactly as OSRM returns it.
+ * @param street Name of the street followed next (may be empty).
  */
 export function describeManeuver(maneuver: OsrmManeuver, street: string): string {
   const m = t().maneuvers;
@@ -118,8 +117,8 @@ export function describeManeuver(maneuver: OsrmManeuver, street: string): string
       return onto(m.exitRoundabout);
 
     default:
-      // Não vale a pena inventar: quando o tipo é desconhecido, dá-se a
-      // indicação mais neutra possível.
+      // No point inventing anything: when the type is unknown, give the most
+      // neutral instruction possible.
       return street ? m.continueOn(street) : m.continueStraight;
   }
 }

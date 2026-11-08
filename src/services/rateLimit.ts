@@ -1,9 +1,9 @@
 /**
- * Fila que garante um intervalo mínimo entre pedidos a um serviço.
+ * A queue that guarantees a minimum interval between requests to a service.
  *
- * O Nominatim e a Overpass são mantidos por voluntários e têm limites de
- * utilização. Isto garante que, por mais depressa que a aplicação peça coisas,
- * os pedidos saem espaçados.
+ * Nominatim and Overpass are run by volunteers and have usage limits. This
+ * makes sure that, however fast the app asks for things, the requests go out
+ * spaced apart.
  */
 export function createRateLimiter(
   minIntervalMs: number,
@@ -11,13 +11,13 @@ export function createRateLimiter(
     overlap = false,
   }: {
     /**
-     * Deixa o pedido seguinte sair sem esperar pela resposta deste — o
-     * intervalo conta entre **saídas**, não entre respostas.
+     * Lets the next request go out without waiting for this one's response —
+     * the interval counts between **departures**, not between responses.
      *
-     * Por omissão a fila espera pela resposta, e para o Nominatim e a Overpass
-     * é isso que se quer: um pedido de cada vez. Para a Carris não: o
-     * planeamento de trajetos pede uma dúzia de paragens, e em fila à espera
-     * de cada resposta eram mais de dez segundos, medidos com a API verdadeira.
+     * By default the queue waits for the response, and for Nominatim and
+     * Overpass that is what is wanted: one request at a time. For Carris it is
+     * not: trip planning asks for a dozen stops, and queued up waiting for each
+     * response it took more than ten seconds, measured against the real API.
      */
     overlap?: boolean;
   } = {},
@@ -26,19 +26,19 @@ export function createRateLimiter(
   let lastRequestAt = 0;
 
   /**
-   * `isWanted`, quando existe, é perguntado **no momento de sair** — e se já
-   * ninguém quiser a resposta, o pedido não sai.
+   * `isWanted`, when given, is asked **at the moment of departure** — and if
+   * nobody wants the response any more, the request does not go out.
    *
-   * **Sem isto a fila entregava respostas a quem já tinha ido embora.** Arrastar
-   * o mapa três vezes seguidas deixava três pedidos em fila, cada um dois
-   * segundos atrás do outro; o que interessava, o da zona que se está a ver, era
-   * o último, e só saía depois de os outros dois — para áreas que já nem estavam
-   * no ecrã — terem ocupado o serviço. Um pedido saltado não conta para o
-   * intervalo: não saiu, não pesou a ninguém.
+   * **Without this the queue delivered responses to callers who had already
+   * left.** Dragging the map three times in a row left three requests queued,
+   * each two seconds behind the other; the one that mattered, for the area on
+   * screen, was the last, and only went out after the other two — for areas no
+   * longer even on screen — had occupied the service. A skipped request does
+   * not count towards the interval: it never went out, it weighed on nobody.
    */
   return function schedule<T>(task: () => Promise<T>, isWanted?: () => boolean): Promise<T> {
     if (overlap) {
-      const vez = queue.then(async () => {
+      const turn = queue.then(async () => {
         if (isWanted && !isWanted()) {
           throw new SupersededError();
         }
@@ -48,8 +48,8 @@ export function createRateLimiter(
         }
         lastRequestAt = Date.now();
       });
-      queue = vez.catch(() => undefined);
-      return vez.then(task);
+      queue = turn.catch(() => undefined);
+      return turn.then(task);
     }
 
     const result = queue.then(async () => {
@@ -60,7 +60,7 @@ export function createRateLimiter(
       if (waitFor > 0) {
         await new Promise((resolve) => setTimeout(resolve, waitFor));
       }
-      // Pergunta-se outra vez depois da espera: é nela que se costuma desistir.
+      // Ask again after the wait: that is usually when callers give up.
       if (isWanted && !isWanted()) {
         throw new SupersededError();
       }
@@ -68,11 +68,12 @@ export function createRateLimiter(
       return task();
     });
 
-    // A fila continua mesmo que este pedido falhe, senão bloqueava os seguintes.
+    // The queue carries on even if this request fails, or it would block the
+    // following ones.
     queue = result.catch(() => undefined);
     return result;
   };
 }
 
-/** Um pedido que não chegou a sair porque já ninguém queria a resposta. */
+/** A request that never went out because nobody wanted the response any more. */
 export class SupersededError extends Error {}

@@ -19,32 +19,32 @@ const client = axios.create({
 });
 
 /**
- * As condições de utilização da FOSSGIS pedem no máximo um pedido por segundo.
- * Sem isto, escolher o destino e mudar logo de meio de transporte mandava dois
- * pedidos quase ao mesmo tempo.
+ * FOSSGIS's terms of use ask for at most one request per second. Without this,
+ * choosing the destination and immediately switching travel mode sent two
+ * requests almost at once.
  */
 const schedule = createRateLimiter(OSRM_MIN_INTERVAL_MS);
 
-/** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
+/** Error with a readable message, so the screen can show something useful. */
 export class RouteError extends Error {}
 
-/** Converte uma manobra do OSRM numa instrução pronta a mostrar. */
 /**
- * Se uma manobra merece ser dita em voz alta.
+ * Whether a manoeuvre deserves to be said out loud.
  *
- * Fica de fora tudo o que não obriga a decidir nada:
+ * Everything that requires no decision is left out:
  *
- * - `continue` — segue-se pela mesma estrada, mesmo que ela descreva uma curva.
- *   É a causa de se ouvir a voz a cada curva de uma autoestrada.
- * - `new name` — a estrada muda de nome e vai-se em frente na mesma.
- * - `depart` — já se está a partir; dizê-lo não acrescenta nada.
- * - `notification` — o OSRM usa isto para avisos, não para manobras.
+ * - `continue` — the same road carries on, even if it bends. It is why the
+ *   voice was heard at every curve of a motorway.
+ * - `new name` — the road changes name and one carries straight on anyway.
+ * - `depart` — one is already setting off; saying so adds nothing.
+ * - `notification` — OSRM uses this for notices, not manoeuvres.
  */
 function worthAnnouncing(step: OsrmStep): boolean {
   const { type } = step.maneuver;
   return type !== 'continue' && type !== 'new name' && type !== 'depart' && type !== 'notification';
 }
 
+/** Turns an OSRM manoeuvre into an instruction ready to show. */
 function toRouteStep(step: OsrmStep): RouteStep {
   const [longitude, latitude] = step.maneuver.location;
 
@@ -59,21 +59,22 @@ function toRouteStep(step: OsrmStep): RouteStep {
 }
 
 /**
- * Calcula o percurso, com paragens pelo caminho e caminhos alternativos.
+ * Calculates the route, with stops along the way and alternative routes.
  *
- * Cada meio de transporte tem o seu servidor — ver `OSRM_ENDPOINTS`. É isso que
- * faz um percurso a pé ignorar os sentidos únicos e contar o tempo a passo de
- * pessoa, em vez de vir o percurso de carro com outro nome.
+ * Each travel mode has its own server — see `OSRM_ENDPOINTS`. That is what
+ * makes a walking route ignore one-way streets and count the time at a
+ * person's pace, instead of returning the car route under another name.
  *
- * São servidores comunitários e podem estar em baixo — quem chamar isto deve
- * tratar o erro e mostrar uma mensagem decente.
+ * They are community servers and may be down — whoever calls this should handle
+ * the error and show a decent message.
  *
- * Devolve sempre pelo menos um percurso. Quando há mais do que um, o primeiro é
- * o que o OSRM considera melhor — mas a escolha é de quem conduz.
+ * Always returns at least one route. When there is more than one, the first is
+ * the one OSRM considers best — but the choice belongs to the driver.
  *
- * **Alternativas e paragens não andam juntas.** O OSRM só sabe procurar caminhos
- * alternativos entre dois pontos; com paragens pelo meio responde que não está
- * implementado. Por isso só se pedem alternativas quando não há paragens.
+ * **Alternatives and stops do not go together.** OSRM can only look for
+ * alternative routes between two points; with stops in between it answers that
+ * it is not implemented. So alternatives are only requested when there are no
+ * stops.
  */
 export async function getRoutes(
   from: Coordinates,
@@ -82,11 +83,11 @@ export async function getRoutes(
   profile: 'driving' | 'walking' | 'cycling' = 'driving',
   avoidTolls = false,
 ): Promise<Route[]> {
-  // O OSRM espera as coordenadas por esta ordem: longitude,latitude.
-  const pontos = [from, ...via, to];
-  const path = pontos.map((p) => `${p.longitude},${p.latitude}`).join(';');
+  // OSRM expects the coordinates in this order: longitude,latitude.
+  const points = [from, ...via, to];
+  const path = points.map((p) => `${p.longitude},${p.latitude}`).join(';');
 
-  // `steps=true` é o que traz as manobras uma a uma.
+  // `steps=true` is what brings the manoeuvres one by one.
   const params: Record<string, string> = {
     overview: 'full',
     geometries: 'geojson',
@@ -94,31 +95,31 @@ export async function getRoutes(
   };
 
   if (via.length === 0) {
-    // Três chegam: mais do que isso são variações de metros que só confundem.
+    // Three is enough: more than that are variations of a few metres that only confuse.
     params.alternatives = '3';
   }
 
   if (avoidTolls && profile === 'driving') {
-    // O perfil de carro do OSRM marca as estradas com portagem como uma classe
-    // que se pode excluir. **Nem todos os servidores a têm ativada** — se este
-    // não tiver, responde com erro e tenta-se outra vez sem isto, que é melhor
-    // do que ficar sem percurso nenhum.
+    // OSRM's car profile marks toll roads as a class that can be excluded.
+    // **Not every server has it enabled** — if this one does not, it answers
+    // with an error and the request is repeated without it, which beats having
+    // no route at all.
     params.exclude = 'toll';
   }
 
   let response;
   try {
     const base = OSRM_ENDPOINTS[profile];
-    const perfil = OSRM_PROFILE_PATH[profile];
+    const profilePath = OSRM_PROFILE_PATH[profile];
     response = await schedule(() =>
-      client.get<OsrmRouteResponse>(`${base}/route/v1/${perfil}/${path}`, {
+      client.get<OsrmRouteResponse>(`${base}/route/v1/${profilePath}/${path}`, {
         params,
-        // **Aceitar também os erros.** O OSRM responde a um pedido inválido com
-        // 400 e um corpo JSON que explica o que se passou. Com a validação
-        // normal do axios, esse 400 virava uma exceção e o corpo perdia-se — e
-        // com ele o recuo das portagens aqui em baixo, que assim nunca chegava
-        // a correr. Quem tinha "evitar portagens" ligado ficava sem percurso
-        // nenhum e com uma mensagem a dizer que o serviço estava inacessível.
+        // **Accept the errors too.** OSRM answers an invalid request with 400
+        // and a JSON body explaining what happened. With axios's normal
+        // validation, that 400 became an exception and the body was lost — and
+        // with it the toll fallback below, which then never got to run. Anyone
+        // with "avoid tolls" on was left with no route at all and a message
+        // saying the service was unreachable.
         validateStatus: (status) => status < 500,
       }),
     );
@@ -127,9 +128,9 @@ export async function getRoutes(
   }
 
   if (params.exclude && response.data.code !== 'Ok') {
-    // Este servidor não sabe excluir portagens. Pede-se outra vez sem isso: um
-    // percurso com portagens é melhor do que percurso nenhum, e quem chamou
-    // fica a saber pelo `avoidedTolls`.
+    // This server cannot exclude tolls. Ask again without it: a route with
+    // tolls beats no route at all, and the caller finds out through
+    // `avoidedTolls`.
     return getRoutes(from, via, to, profile, false);
   }
 
@@ -138,25 +139,25 @@ export async function getRoutes(
     throw new RouteError(message ?? t().errors.noRoute);
   }
 
-  const origem = waypoints?.[0];
+  const origin = waypoints?.[0];
 
   return routes.map((route) => ({
-    // O GeoJSON vem em [longitude, latitude] — aqui inverte-se para o formato da aplicação.
+    // GeoJSON comes as [longitude, latitude] — flipped here to the app's format.
     coordinates: route.geometry.coordinates.map(([longitude, latitude]) => ({
       latitude,
       longitude,
     })),
     distanceMeters: route.distance,
     durationSeconds: route.duration,
-    // Uma "leg" por cada troço entre paragens. Juntam-se todas: a navegação
-    // segue-as de seguida, como se fosse um percurso só.
+    // One "leg" per stretch between stops. They are all joined: navigation
+    // follows them one after the other, as if it were a single route.
     steps: route.legs.flatMap((leg) => leg.steps.map(toRouteStep)),
-    startAwayMeters: origem?.distance ?? 0,
-    startsAt: origem
-      ? { longitude: origem.location[0], latitude: origem.location[1] }
+    startAwayMeters: origin?.distance ?? 0,
+    startsAt: origin
+      ? { longitude: origin.location[0], latitude: origin.location[1] }
       : null,
-    // Verdadeiro só quando o servidor mesmo aceitou evitar as portagens. Serve
-    // para o painel poder dizer a verdade em vez de prometer o que não fez.
+    // True only when the server really accepted avoiding tolls. It lets the
+    // panel tell the truth instead of promising what it did not do.
     avoidedTolls: Boolean(params.exclude),
   }));
 }

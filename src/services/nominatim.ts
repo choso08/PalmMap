@@ -27,40 +27,42 @@ const client = axios.create({
 });
 
 /**
- * Memória dos resultados já obtidos, para nunca repetir a mesma pesquisa.
- * Fica só em memória: ao fechar a aplicação, esvazia-se. Chega bem para o uso previsto.
+ * Memory of the results already obtained, so the same search is never repeated.
+ * It only lives in memory: closing the app empties it. Plenty for the intended use.
  */
 const cache = new Map<string, Place[]>();
 
-/** Garante o intervalo mínimo de 1 pedido por segundo exigido pelo Nominatim. */
+/** Guarantees the minimum interval of 1 request per second Nominatim requires. */
 const schedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
 
 /**
- * As pesquisas a caminho, pela mesma chave da cache, e quem espera por elas.
+ * The searches on their way, by the same key as the cache, and who is waiting
+ * for them.
  *
- * Carregar em Enter pesquisa logo, e o segundo de espera que vinha a correr
- * acabava a seguir e pedia **a mesma coisa outra vez** — que, por a primeira
- * ainda não ter respondido, não estava na cache e ia para a fila, um segundo
- * atrás. Aqui o segundo pedido espera pela resposta do primeiro.
+ * Pressing Enter searches straight away, and the one-second wait already
+ * running finished right after and asked for **the same thing again** — which,
+ * since the first had not answered yet, was not in the cache and went into the
+ * queue, a second behind. Here the second request waits for the first one's
+ * response.
  */
-const emCurso = new Map<string, { pedido: Promise<Place[]>; interessados: (() => boolean)[] }>();
+const inFlight = new Map<string, { request: Promise<Place[]>; interested: (() => boolean)[] }>();
 
-/** Converte um resultado do Nominatim no formato que a aplicação usa. */
+/** Converts a Nominatim result into the format the app uses. */
 function toPlace(raw: NominatimSearchResult): Place {
   const extra = raw.extratags ?? {};
 
   return {
     id: raw.place_id,
-    // Nem todos os resultados trazem `name`; nesse caso usa-se o início da morada.
+    // Not every result carries `name`; in that case the start of the address is used.
     name: raw.name || raw.display_name.split(',')[0],
     address: raw.display_name,
     coordinates: {
       latitude: Number(raw.lat),
       longitude: Number(raw.lon),
     },
-    // O Nominatim dá a categoria em duas partes ('amenity' + 'restaurant'), que
-    // é a mesma forma das etiquetas do OpenStreetMap — dá para reaproveitar a
-    // mesma tradução que se usa nos negócios vindos da Overpass.
+    // Nominatim gives the category in two parts ('amenity' + 'restaurant'),
+    // which is the same shape as OpenStreetMap tags — so the same translation
+    // used for businesses coming from Overpass can be reused.
     category: categoryLabel({ [raw.category]: raw.type }),
     details: {
       phone: extra.phone ?? extra['contact:phone'],
@@ -71,18 +73,19 @@ function toPlace(raw: NominatimSearchResult): Place {
 }
 
 /**
- * Procura locais a partir de texto escrito ("Rua Augusta" ou "Hotel Miramar").
+ * Looks places up from typed text ("Rua Augusta" or "Hotel Miramar").
  *
- * O `near` é a área que se está a ver no mapa, e faz toda a diferença ao
- * procurar negócios: sem ela, o Nominatim procura no mundo inteiro e ordena
- * pelo que é mais conhecido — escrever o nome de um café da esquina trazia um
- * homónimo do outro lado do planeta. Com ela, o que está à vista vem primeiro.
+ * `near` is the area being viewed on the map, and it makes all the difference
+ * when looking for businesses: without it, Nominatim searches the whole world
+ * and sorts by what is best known — typing the name of the café round the
+ * corner brought up a namesake on the other side of the planet. With it, what
+ * is in view comes first.
  *
- * Não é um limite, é uma preferência (`bounded=0`): quem procurar uma cidade
- * noutro país continua a encontrá-la.
+ * It is not a limit, it is a preference (`bounded=0`): someone searching for a
+ * city in another country still finds it.
  *
- * Não chamar isto a cada tecla escrita — usar sempre com o atraso definido em
- * SEARCH_DEBOUNCE_MS, ou só quando a pessoa confirmar a pesquisa.
+ * Do not call this on every keystroke — always use it with the delay set in
+ * SEARCH_DEBOUNCE_MS, or only when the person confirms the search.
  */
 export async function searchPlaces(
   query: string,
@@ -95,71 +98,72 @@ export async function searchPlaces(
     return [];
   }
 
-  // A área entra na chave arredondada: sem isso, cada pequeno arrastar do mapa
-  // fazia a mesma pesquisa contar como nova.
-  const caixa = near
+  // The area goes into the key rounded: otherwise every little drag of the map
+  // made the same search count as a new one.
+  const viewbox = near
     ? `${near.west.toFixed(1)},${near.north.toFixed(1)},${near.east.toFixed(1)},${near.south.toFixed(1)}`
     : '';
-  const cacheKey = `${term.toLowerCase()}|${limit}|${caixa}`;
+  const cacheKey = `${term.toLowerCase()}|${limit}|${viewbox}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const aCaminho = emCurso.get(cacheKey);
-  if (aCaminho) {
-    aCaminho.interessados.push(isWanted);
-    return aCaminho.pedido;
+  const pending = inFlight.get(cacheKey);
+  if (pending) {
+    pending.interested.push(isWanted);
+    return pending.request;
   }
 
-  const interessados = [isWanted];
-  const pedido = fetchSearch(term, limit, caixa, near ?? null, cacheKey, () =>
-    interessados.some((quer) => quer()),
-  ).finally(() => emCurso.delete(cacheKey));
-  emCurso.set(cacheKey, { pedido, interessados });
-  return pedido;
+  const interested = [isWanted];
+  const request = fetchSearch(term, limit, viewbox, near ?? null, cacheKey, () =>
+    interested.some((wants) => wants()),
+  ).finally(() => inFlight.delete(cacheKey));
+  inFlight.set(cacheKey, { request, interested });
+  return request;
 }
 
 /**
- * O pedido em si. Se, quando lhe chega a vez na fila, já ninguém quiser a
- * resposta — escreveu-se mais entretanto — não sai: é menos um pedido ao
- * Nominatim e menos um segundo à frente da pesquisa que interessa.
+ * The request itself. If, when its turn in the queue comes, nobody wants the
+ * response any more — more was typed in the meantime — it does not go out: one
+ * request fewer to Nominatim and one second fewer ahead of the search that
+ * matters.
  */
 async function fetchSearch(
   term: string,
   limit: number,
-  caixa: string,
+  viewbox: string,
   near: Bounds | null,
   cacheKey: string,
   isWanted: () => boolean,
 ): Promise<Place[]> {
-  let falhaNominatim: unknown;
+  let nominatimFailure: unknown;
   try {
     const response = await schedule(
       () =>
         client.get<NominatimSearchResponse>('/search', {
           timeout: SEARCH_TIMEOUT_MS,
-          // `extratags=1` traz o telefone, o horário e o sítio na Internet.
+          // `extratags=1` brings the phone number, opening hours and website.
           params: {
             q: term,
             format: 'jsonv2',
             limit,
             addressdetails: 0,
             extratags: 1,
-            // Os nomes vêm na língua da aplicação onde o OpenStreetMap os tiver
-            // traduzidos: quem está em inglês vê "Lisbon" e não "Lisboa".
+            // Names come in the app's language wherever OpenStreetMap has them
+            // translated: someone using English sees "Lisbon", not "Lisboa".
             'accept-language': acceptLanguage(activeLanguage()),
-            // Ordem exigida pelo Nominatim: oeste, norte, este, sul.
-            ...(caixa ? { viewbox: caixa, bounded: 0 } : {}),
+            // Order required by Nominatim: west, north, east, south.
+            ...(viewbox ? { viewbox, bounded: 0 } : {}),
           },
         }),
       isWanted,
     );
 
-    // Uma resposta que não seja uma lista não é resultado nenhum — é uma
-    // página de erro servida com 200, e tratá-la como lista rebentava adiante.
+    // A response that is not a list is no result at all — it is an error page
+    // served with a 200, and treating it as a list blew up further on.
     if (!Array.isArray(response.data)) {
-      throw new Error('resposta inesperada');
+      throw new Error('unexpected response');
     }
     const places = response.data.map(toPlace);
     cache.set(cacheKey, places);
@@ -168,11 +172,11 @@ async function fetchSearch(
     if (error instanceof SupersededError) {
       throw error;
     }
-    falhaNominatim = error;
+    nominatimFailure = error;
   }
 
-  // **O Nominatim falhou: pergunta-se ao Photon.** Só agora, e nunca aos dois ao
-  // mesmo tempo — ver `PHOTON_BASE_URL`.
+  // **Nominatim failed: ask Photon.** Only now, and never both at once — see
+  // `PHOTON_BASE_URL`.
   try {
     const places = await searchPhoton(term, limit, near, isWanted);
     cache.set(cacheKey, places);
@@ -181,23 +185,23 @@ async function fetchSearch(
     if (error instanceof SupersededError) {
       throw error;
     }
-    // Os dois falharam. A mensagem diz o que o Nominatim respondeu, que é o
-    // serviço principal — ver `searchError`.
-    throw searchError(falhaNominatim);
+    // Both failed. The message says what Nominatim answered, since it is the
+    // main service — see `searchError`.
+    throw searchError(nominatimFailure);
   }
 }
 
-/** Erro da pesquisa, com uma mensagem que diz o que falhou mesmo. */
+/** A search error, with a message that says what really failed. */
 export class SearchError extends Error {}
 
 /**
- * Traduz a falha do Nominatim numa mensagem que diga **o que** falhou.
+ * Turns Nominatim's failure into a message that says **what** failed.
  *
- * **"Verifique a ligação à Internet" era a mensagem para tudo**, e dizia o
- * contrário do que se passava a quem tinha rede e o mapa a carregar: uma
- * recusa do serviço (403, 429) ou um serviço lento ficavam iguais a estar sem
- * rede. Com o número de resposta no ecrã, uma fotografia diz qual é — é a
- * mesma decisão tomada nos horários (`carrisGet`).
+ * **"Check your Internet connection" was the message for everything**, and it
+ * said the opposite of what was going on to someone with network and the map
+ * loading: a refusal by the service (403, 429) or a slow service looked the
+ * same as having no network. With the response status on screen, a photo
+ * tells which — the same decision taken for the timetables (`carrisGet`).
  */
 function searchError(error: unknown): SearchError {
   if (axios.isAxiosError(error)) {
@@ -212,7 +216,7 @@ function searchError(error: unknown): SearchError {
   return new SearchError(t().search.failedOther);
 }
 
-/** O Photon tem fila própria: é outro serviço, com o seu próprio limite. */
+/** Photon has its own queue: it is another service, with its own limit. */
 const photonSchedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
 
 const photon = axios.create({
@@ -222,12 +226,13 @@ const photon = axios.create({
 });
 
 /**
- * Pesquisa no Photon, o segundo recurso.
+ * Searches Photon, the fallback.
  *
- * A preferência pelo que está à vista faz-se com o centro do mapa (`lat`/`lon`)
- * — o Photon não tem o `viewbox` do Nominatim, e o `bbox` dele é um limite, não
- * uma preferência. A língua só se indica em inglês: o servidor público não tem
- * português, e sem nada vêm os nomes locais, que em Portugal já são esses.
+ * The preference for what is in view is given by the map's centre
+ * (`lat`/`lon`) — Photon has no equivalent of Nominatim's `viewbox`, and its
+ * `bbox` is a limit, not a preference. The language is only given for
+ * English: the public server has no Portuguese, and without one the local
+ * names come, which in Portugal already are those.
  */
 async function searchPhoton(
   term: string,
@@ -258,28 +263,28 @@ async function searchPhoton(
     .filter((place): place is Place => place !== null);
 }
 
-/** Converte um resultado do Photon no formato que a aplicação usa. */
+/** Converts a Photon result into the format the app uses. */
 function photonToPlace(feature: PhotonFeature, index: number): Place | null {
   const coords = feature.geometry?.coordinates;
   const p = feature.properties ?? {};
   if (!coords || coords.length < 2) {
     return null;
   }
-  // Atenção à ordem: em GeoJSON é longitude primeiro.
+  // Mind the order: in GeoJSON longitude comes first.
   const [longitude, latitude] = coords;
 
-  const rua = [p.street, p.housenumber].filter(Boolean).join(' ');
-  const partes = [rua, p.postcode, p.city ?? p.district, p.state, p.country].filter(
-    (parte): parte is string => Boolean(parte) && parte !== p.name,
+  const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+  const parts = [street, p.postcode, p.city ?? p.district, p.state, p.country].filter(
+    (part): part is string => Boolean(part) && part !== p.name,
   );
   const extra = p.extra ?? {};
 
   return {
-    // O Photon não tem `place_id`; o número do OpenStreetMap serve, e o índice
-    // desempata os raros que venham sem ele.
+    // Photon has no `place_id`; the OpenStreetMap number will do, and the
+    // index breaks the tie for the rare ones that come without it.
     id: p.osm_id ?? -(index + 1),
-    name: p.name || rua || partes[0] || '',
-    address: partes.join(', '),
+    name: p.name || street || parts[0] || '',
+    address: parts.join(', '),
     coordinates: { latitude, longitude },
     category: p.osm_key && p.osm_value ? categoryLabel({ [p.osm_key]: p.osm_value }) : undefined,
     details: {
@@ -291,13 +296,15 @@ function photonToPlace(feature: PhotonFeature, index: number): Place | null {
 }
 
 /**
- * Descobre que morada corresponde a um ponto do mapa — o contrário da pesquisa.
+ * Works out which address corresponds to a point on the map — the opposite of
+ * the search.
  *
- * É o que dá nome ao pino que se larga com um toque longo. Devolve `null` se
- * não houver nada naquele ponto (no meio do mar, por exemplo) ou se o serviço
- * falhar: nesse caso o pino fica na mesma, só sem morada.
+ * It is what names the pin dropped with a long press. Returns `null` if there
+ * is nothing at that point (in the middle of the sea, for instance) or if the
+ * service fails: in that case the pin stays anyway, just without an address.
  *
- * Passa pela mesma fila de 1 pedido por segundo do resto do Nominatim.
+ * It goes through the same 1-request-per-second queue as the rest of
+ * Nominatim.
  */
 export async function reverseGeocode(coordinates: Coordinates): Promise<Place | null> {
   const lat = coordinates.latitude.toFixed(5);

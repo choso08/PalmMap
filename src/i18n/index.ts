@@ -4,108 +4,109 @@ import { en } from './en';
 import { pt } from './pt';
 
 /**
- * As línguas da aplicação.
+ * The app's languages.
  *
- * ## Como se escolhe
+ * ## How the language is chosen
  *
- * Em "automático" segue a **língua do telemóvel**, e não o país onde a pessoa
- * está. É de propósito: um português em viagem continua a querer a aplicação em
- * português, e é o que "automático" quer dizer em qualquer outra aplicação.
- * Quem quiser outra coisa escolhe à mão nas definições.
+ * On "automatic" it follows **the phone's language**, not the country the
+ * person is in. That is deliberate: a Portuguese person travelling still wants
+ * the app in Portuguese, and that is what "automatic" means in any other app.
+ * Anyone who wants something else picks it by hand in the settings.
  *
- * Qualquer língua que não seja o português cai no inglês. Não é preguiça — é a
- * regra normal: o inglês é a língua de recurso, e acrescentar uma língua nova é
- * só juntar um ficheiro ao lado do `en.ts`.
+ * Any language other than Portuguese falls back to English. That is not
+ * laziness — it is the usual rule: English is the fallback language, and
+ * adding a new language is just a matter of putting a file next to `en.ts`.
  *
- * ## Porque é que há duas formas de lhe chegar
+ * ## Why there are two ways to reach it
  *
- * Os componentes usam o `useT()`, que é um hook e faz o ecrã redesenhar-se
- * quando a língua muda. **Os serviços não podem usar hooks** e continuam a
- * lançar erros com mensagem — para esses há o `t()`, que lê a língua de uma
- * variável do módulo. É a mesma tabela, por dois caminhos.
+ * Components use `useT()`, which is a hook and makes the screen re-render when
+ * the language changes. **Services cannot use hooks** and still throw errors
+ * with messages — for those there is `t()`, which reads the language from a
+ * module variable. It is the same table, by two routes.
  *
- * ## Ao acrescentar texto novo
+ * ## When adding new text
  *
- * Junta-se a chave ao `pt.ts` **e** ao `en.ts`. O `en.ts` está tipado contra o
- * `pt.ts`, por isso esquecer-se de um lado é um erro de compilação e não uma
- * palavra em português a aparecer no meio do inglês. É a única verificação
- * automática que este projeto tem — vale a pena que apanhe isto.
+ * Add the key to `pt.ts` **and** to `en.ts`. `en.ts` is typed against `pt.ts`,
+ * so forgetting one side is a compile error rather than a Portuguese word
+ * appearing in the middle of English. It is the only automated check this
+ * project has — it is worth it catching this.
  */
 
 export type Language = 'pt' | 'en';
 
-/** O que se guarda nas definições: uma língua, ou seguir o telemóvel. */
+/** What is stored in the settings: a language, or follow the phone. */
 export type LanguagePreference = 'auto' | Language;
 
 export type Strings = typeof pt;
 
-const TABELAS: Record<Language, Strings> = { pt, en };
+const TABLES: Record<Language, Strings> = { pt, en };
 
-/** A língua do telemóvel, se for uma das que a aplicação fala. */
+/** The phone's language, if it is one the app speaks. */
 export function deviceLanguage(): Language {
   try {
-    // `getLocales()` vem por ordem de preferência. A primeira que se saiba falar
-    // ganha: um telemóvel em francês com português em segundo fica em português.
+    // `getLocales()` comes in order of preference. The first one the app speaks
+    // wins: a phone in French with Portuguese second ends up in Portuguese.
     for (const locale of getLocales()) {
-      const codigo = locale.languageCode?.toLowerCase();
-      if (codigo === 'pt' || codigo === 'en') {
-        return codigo;
+      const code = locale.languageCode?.toLowerCase();
+      if (code === 'pt' || code === 'en') {
+        return code;
       }
     }
   } catch {
-    // Sem informação do sistema, o inglês é o menos mau para toda a gente.
+    // With no information from the system, English is the least bad for
+    // everyone.
   }
   return 'en';
 }
 
-/** A língua a usar, já a contar com a preferência guardada. */
+/** The language to use, taking the stored preference into account. */
 export function resolveLanguage(preference: LanguagePreference): Language {
   return preference === 'auto' ? deviceLanguage() : preference;
 }
 
 /**
- * A língua com que os serviços falam.
+ * The language the services speak.
  *
- * Fica numa variável do módulo porque os serviços não têm acesso ao contexto do
- * React. Quem a põe é o `SettingsProvider`, sempre que a preferência muda.
+ * It lives in a module variable because services have no access to React's
+ * context. The `SettingsProvider` sets it whenever the preference changes.
  */
-let ativa: Language = 'pt';
+let active: Language = 'pt';
 
 export function setActiveLanguage(language: Language): void {
-  ativa = language;
+  active = language;
 }
 
 export function activeLanguage(): Language {
-  return ativa;
+  return active;
 }
 
-/** Os textos, para quem não pode usar hooks. */
+/** The strings, for code that cannot use hooks. */
 export function t(): Strings {
-  return TABELAS[ativa];
+  return TABLES[active];
 }
 
-/** Os textos de uma língua concreta. */
+/** The strings of one specific language. */
 export function stringsFor(language: Language): Strings {
-  return TABELAS[language];
+  return TABLES[language];
 }
 
 /**
- * A etiqueta de língua para a voz da navegação.
+ * The language tag for the navigation voice.
  *
- * O `expo-speech` escolhe a voz por aqui. Sem isto, as instruções em inglês
- * saíam lidas com pronúncia portuguesa — percebe-se, mas soa mal e, a conduzir,
- * o que importa é perceber-se à primeira.
+ * `expo-speech` picks the voice from this. Without it, English instructions
+ * came out read with a Portuguese accent — understandable, but it sounds wrong
+ * and, while driving, what matters is being understood the first time.
  */
 export function speechTag(language: Language): string {
   return language === 'pt' ? 'pt-PT' : 'en-GB';
 }
 
 /**
- * A língua a pedir ao Nominatim, no `accept-language`.
+ * The language to ask Nominatim for, in `accept-language`.
  *
- * Faz a pesquisa devolver os nomes na língua da aplicação onde o
- * OpenStreetMap os tiver traduzidos — "Lisbon" em vez de "Lisboa" para quem
- * está em inglês.
+ * It makes the search return names in the app's language wherever
+ * OpenStreetMap has them translated — "Lisbon" instead of "Lisboa" for someone
+ * using English.
  */
 export function acceptLanguage(language: Language): string {
   return language === 'pt' ? 'pt-PT,pt' : 'en';

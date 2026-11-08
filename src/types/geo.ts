@@ -1,14 +1,14 @@
 /**
- * Tipos base de geografia usados por toda a aplicação.
+ * Base geography types used across the whole app.
  */
 
-/** Um ponto no mapa. */
+/** A point on the map. */
 export interface Coordinates {
   latitude: number;
   longitude: number;
 }
 
-/** Uma área retangular do mapa, usada para pedir os negócios que lá estão. */
+/** A rectangular area of the map, used to ask for the businesses inside it. */
 export interface Bounds {
   south: number;
   west: number;
@@ -16,78 +16,79 @@ export interface Bounds {
   east: number;
 }
 
-/** Detalhes de um negócio, quando o OpenStreetMap os tem. */
+/** Details of a business, when OpenStreetMap has them. */
 export interface PlaceDetails {
   phone?: string;
   website?: string;
-  /** Horário tal como está no OpenStreetMap, p. ex. "Mo-Fr 09:00-19:00". */
+  /** Opening hours as written in OpenStreetMap, e.g. "Mo-Fr 09:00-19:00". */
   openingHours?: string;
 }
 
-/** Um local já tratado, pronto a mostrar no ecrã. */
+/** A place already processed, ready to show on screen. */
 export interface Place {
-  /** Identificador do local no OpenStreetMap. */
+  /** The place's identifier in OpenStreetMap. */
   id: number;
-  /** Nome curto, para a lista de resultados. */
+  /** Short name, for the results list. */
   name: string;
-  /** Morada completa, como o Nominatim a devolve. */
+  /** Full address, as Nominatim returns it. */
   address: string;
   coordinates: Coordinates;
-  /** Tipo de local em texto legível ("Restaurante"), quando se sabe. */
+  /** Kind of place as readable text ("Restaurant"), when known. */
   category?: string;
   details?: PlaceDetails;
 }
 
-/** Uma instrução do percurso ("Vire à direita para a Rua Augusta"). */
+/** One route instruction ("Turn right onto Rua Augusta"). */
 export interface RouteStep {
-  /** A instrução já escrita em português. */
+  /** The instruction, already written out in the app's language. */
   instruction: string;
-  /** Ícone que ilustra a manobra. */
+  /** Icon that illustrates the manoeuvre. */
   icon: string;
-  /** Nome da rua, quando existe. */
+  /** Street name, when there is one. */
   streetName?: string;
-  /** Distância percorrida durante este passo, em metros. */
+  /** Distance travelled during this step, in metres. */
   distanceMeters: number;
-  /** Onde acontece a manobra — serve para centrar o mapa nela. */
+  /** Where the manoeuvre happens — used to centre the map on it. */
   location: Coordinates;
   /**
-   * Se vale a pena dizer isto em voz alta.
+   * Whether this is worth saying out loud.
    *
-   * O OSRM marca uma manobra sempre que a estrada muda de nome ou faz uma curva,
-   * mesmo quando não há nada a decidir. Lidas todas, a voz não se cala numa
-   * autoestrada. Continuam todas na lista escrita — só não se anunciam.
+   * OSRM marks a manoeuvre whenever the road changes name or bends, even when
+   * there is nothing to decide. Reading them all, the voice never shuts up on a
+   * motorway. They all stay in the written list — they just aren't announced.
    */
   announce: boolean;
 }
 
-/** Um percurso já tratado, pronto a desenhar no mapa. */
+/** A route already processed, ready to draw on the map. */
 export interface Route {
-  /** Os pontos que formam a linha do percurso. */
+  /** The points that make up the route line. */
   coordinates: Coordinates[];
-  /** Distância total, em metros. */
+  /** Total distance, in metres. */
   distanceMeters: number;
-  /** Duração estimada, em segundos. */
+  /** Estimated duration, in seconds. */
   durationSeconds: number;
-  /** As instruções, pela ordem em que se seguem. */
+  /** The instructions, in the order they are followed. */
   steps: RouteStep[];
   /**
-   * A que distância a origem ficou da estrada mais próxima, em metros.
+   * How far the origin was from the nearest road, in metres.
    *
-   * O serviço de percursos só anda por estradas. Dentro de um aeroporto, de um
-   * centro comercial ou no meio do campo, ele encosta o início do percurso à
-   * estrada mais próxima — que pode ficar longe, e por vezes do outro lado de
-   * uma vedação. Guardar isto permite dizê-lo em vez de desenhar a linha como se
-   * começasse aos pés de quem a pediu.
+   * The routing service only travels on roads. Inside an airport, a shopping
+   * centre or out in the fields, it snaps the start of the route to the nearest
+   * road — which may be far away, sometimes on the other side of a fence.
+   * Keeping this lets the app say so instead of drawing the line as if it began
+   * at the feet of whoever asked for it.
    */
   startAwayMeters: number;
-  /** Onde o percurso começa mesmo, já encostado à estrada. */
+  /** Where the route really starts, already snapped to the road. */
   startsAt: Coordinates | null;
   /**
-   * Se este percurso foi mesmo calculado a evitar portagens.
+   * Whether this route was really calculated avoiding tolls.
    *
-   * É diferente de a definição estar ligada: o servidor público do OSRM pode não
-   * ter essa exclusão instalada, e nesse caso pede-se outra vez sem ela. Sem
-   * isto, o painel prometia uma coisa que não tinha sido feita.
+   * That is not the same as the setting being on: the public OSRM server may
+   * not have that exclusion installed, in which case the request is repeated
+   * without it. Without this, the panel promised something that had not been
+   * done.
    */
   avoidedTolls: boolean;
 }

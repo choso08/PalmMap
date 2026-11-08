@@ -5,58 +5,58 @@ import type { OverpassElement } from '../types/overpass';
 import { boundsOf, locateOnRoute } from '../utils/geometry';
 
 /**
- * Radares e outros controlos de velocidade, a partir do OpenStreetMap.
+ * Speed cameras and other speed enforcement, from OpenStreetMap.
  *
- * ## O que apanha
+ * ## What it catches
  *
- * Todos os tipos que estão marcados no OpenStreetMap, e não só os radares fixos:
+ * Every kind tagged in OpenStreetMap, not only fixed cameras:
  *
- * | Tipo | Como está marcado | O que se diz |
+ * | Kind | How it is tagged | What is said |
  * | --- | --- | --- |
- * | Fixo | `highway=speed_camera` | "Radar a 300 metros" |
- * | Velocidade média | `enforcement=average_speed`, `speed_camera=section` | "Início de controlo de velocidade média" |
- * | Semáforo | `enforcement=traffic_signals` | "Radar de semáforo" |
- * | Portagem, faixa BUS, acesso | `enforcement=toll|bus_lane|access` | "Controlo" |
+ * | Fixed | `highway=speed_camera` | "Speed camera in 300 metres" |
+ * | Average speed | `enforcement=average_speed`, `speed_camera=section` | "Average speed check" |
+ * | Traffic lights | `enforcement=traffic_signals` | "Red-light camera" |
+ * | Toll, bus lane, access | `enforcement=toll|bus_lane|access` | "Enforcement" |
  *
- * Quando o radar tem o limite marcado (`maxspeed`), o aviso di-lo também.
+ * When the camera has the limit tagged (`maxspeed`), the warning says it too.
  *
- * ## O que **não** apanha, e é preciso dizer com franqueza
+ * ## What it **does not** catch, and it must be said plainly
  *
- * - **Radares móveis não existem em mapa nenhum.** Mudam de sítio todos os dias;
- *   nem o Google nem o Waze os sabem — o Waze só os tem porque são as pessoas a
- *   marcá-los ao passar, e isso é outra coisa completamente diferente.
- * - **O OpenStreetMap não está completo.** Um radar que ninguém marcou não
- *   aparece aqui. Isto é uma ajuda, **não é uma garantia** — quem conduz é quem
- *   tem de ver os sinais.
+ * - **Mobile cameras are on no map at all.** They move every day; neither
+ *   Google nor Waze know them — Waze only has them because people mark them as
+ *   they drive past, which is a completely different thing.
+ * - **OpenStreetMap is not complete.** A camera nobody tagged does not show up
+ *   here. This is a help, **not a guarantee** — the driver is the one who has
+ *   to watch the signs.
  *
- * Isto é dito ao utilizador no ecrã de definições, e não só aqui.
+ * The user is told this on the settings screen, not only here.
  */
 
 /**
- * O cliente e a fila são **os mesmos** que os dos negócios.
+ * The client and the queue are **the same** as the businesses' ones.
  *
- * Ter fila própria era ter duas: cada uma cumpria os dois segundos por si, e um
- * percurso calculado enquanto o mapa procurava negócios mandava dois pedidos
- * pesados à Overpass no mesmo instante. É assim que se é bloqueado.
+ * A queue of its own would be two queues: each kept its own two seconds, and a
+ * route calculated while the map was looking for businesses sent two heavy
+ * requests to Overpass at the same instant. That is how one gets blocked.
  */
 import { askOverpass, boundingBox, overpassSchedule } from './overpass';
 
-/** Que género de controlo é. Muda o que se diz em voz alta. */
-export type CameraKind = 'fixo' | 'media' | 'semaforo' | 'outro';
+/** What kind of enforcement it is. It changes what is said out loud. */
+export type CameraKind = 'fixed' | 'average' | 'trafficSignals' | 'other';
 
 export interface SpeedCamera {
   id: number;
   kind: CameraKind;
   coordinates: Coordinates;
-  /** Limite marcado no radar, em km/h, quando existe. */
+  /** Limit tagged on the camera, in km/h, when there is one. */
   maxspeed: number | null;
-  /** Índice do ponto do percurso onde este radar fica. */
+  /** Index of the route point where this camera is. */
   routeIndex: number;
 }
 
 const cache = new Map<string, Omit<SpeedCamera, 'routeIndex'>[]>();
 
-/** Descobre o género de controlo a partir das etiquetas. */
+/** Works out the kind of enforcement from the tags. */
 function kindOf(tags: Record<string, string>): CameraKind {
   const enforcement = tags.enforcement ?? '';
 
@@ -65,18 +65,18 @@ function kindOf(tags: Record<string, string>): CameraKind {
     tags['speed_camera'] === 'section' ||
     tags['speed_camera:type'] === 'section'
   ) {
-    return 'media';
+    return 'average';
   }
   if (enforcement.includes('traffic_signals')) {
-    return 'semaforo';
+    return 'trafficSignals';
   }
   if (enforcement && !enforcement.includes('maxspeed')) {
-    return 'outro';
+    return 'other';
   }
-  return 'fixo';
+  return 'fixed';
 }
 
-/** O limite em km/h, quando está marcado e é mesmo um número. */
+/** The limit in km/h, when it is tagged and really is a number. */
 function maxspeedOf(tags: Record<string, string>): number | null {
   const raw = tags.maxspeed ?? tags['maxspeed:forward'] ?? tags['maxspeed:backward'];
   if (!raw) {
@@ -104,12 +104,11 @@ function toCamera(element: OverpassElement): Omit<SpeedCamera, 'routeIndex'> | n
 }
 
 /**
- * Vai buscar os radares dentro de uma área.
+ * Fetches the speed cameras inside an area.
  *
- * A consulta pede tanto os pontos marcados como radar como os que fazem parte de
- * uma relação de fiscalização — é essa segunda parte que apanha o controlo de
- * velocidade média e os radares de semáforo, que muitas vezes não têm a etiqueta
- * `highway=speed_camera`.
+ * The query asks both for points tagged as cameras and for those tagged with
+ * an enforcement — that second part is what catches average-speed checks and
+ * red-light cameras, which often lack the `highway=speed_camera` tag.
  */
 async function camerasInBox(box: string): Promise<Omit<SpeedCamera, 'routeIndex'>[]> {
   const cached = cache.get(box);
@@ -124,31 +123,31 @@ async function camerasInBox(box: string): Promise<Omit<SpeedCamera, 'routeIndex'
     `  node["highway"="checkpoint"]["checkpoint"="speed"](${box});\n` +
     `);\nout body 400;`;
 
-  // O `askOverpass` tenta o segundo servidor se o primeiro falhar, e trata um
-  // 200 com `remark` como falha — guardá-lo deixava este percurso sem radares
-  // para sempre. Ver as notas em `overpass.ts`.
+  // `askOverpass` tries the second server if the first one fails, and treats a
+  // 200 with a `remark` as a failure — caching it would leave this route
+  // without cameras forever. See the notes in `overpass.ts`.
   const data = await overpassSchedule(() => askOverpass(query));
 
   const cameras = data.elements
     .map(toCamera)
     .filter((c): c is Omit<SpeedCamera, 'routeIndex'> => c !== null);
 
-  // Um ponto pode vir das duas partes da consulta ao mesmo tempo.
-  const unicos = new Map(cameras.map((c) => [c.id, c]));
-  const lista = [...unicos.values()];
+  // A point can come from both parts of the query at once.
+  const unique = new Map(cameras.map((c) => [c.id, c]));
+  const list = [...unique.values()];
 
-  cache.set(box, lista);
-  return lista;
+  cache.set(box, list);
+  return list;
 }
 
 /**
- * Os radares que ficam **em cima do percurso**, já ordenados pela ordem por que
- * se passa por eles.
+ * The cameras that sit **on the route**, already sorted in the order they are
+ * passed.
  *
- * A filtragem por proximidade à linha é essencial: a área do percurso apanha
- * tudo o que está no retângulo, incluindo radares de estradas paralelas e da
- * autoestrada que passa ao lado. Avisar por causa desses seria pior do que não
- * avisar nada — ao fim de duas vezes ninguém liga ao aviso.
+ * Filtering by closeness to the line is essential: the route's area catches
+ * everything in the rectangle, including cameras on parallel roads and on the
+ * motorway running alongside. Warning about those would be worse than not
+ * warning at all — after twice, nobody pays attention to the warning.
  */
 export async function camerasAlongRoute(
   routeCoordinates: Coordinates[],
@@ -157,73 +156,73 @@ export async function camerasAlongRoute(
     return [];
   }
 
-  // Uma folga pequena à volta do percurso, para não cortar um radar mesmo na
-  // borda. O retângulo calcula-se com uma passagem só: `Math.min(...lista)`
-  // passa os pontos todos como argumentos, e num percurso longo — que com
-  // `overview=full` são dezenas de milhares — isso rebenta a pilha.
-  const margem = 0.005;
+  // A small margin around the route, so as not to cut off a camera right on
+  // the edge. The rectangle is computed in a single pass: `Math.min(...list)`
+  // passes every point as an argument, and on a long route — which with
+  // `overview=full` is tens of thousands — that blows the stack.
+  const margin = 0.005;
   const area = boundsOf(routeCoordinates);
   const box = boundingBox({
-    south: area.south - margem,
-    west: area.west - margem,
-    north: area.north + margem,
-    east: area.east + margem,
+    south: area.south - margin,
+    west: area.west - margin,
+    north: area.north + margin,
+    east: area.east + margin,
   });
 
-  const encontrados = await camerasInBox(box);
+  const found = await camerasInBox(box);
 
-  const emRota: SpeedCamera[] = [];
+  const onRoute: SpeedCamera[] = [];
 
-  // Um grau de latitude são uns 111 km. Comparar em graus antes de fazer a
-  // conta a sério tira de cima a esmagadora maioria dos radares — sem isto,
-  // eram 400 radares vezes dezenas de milhares de pontos, tudo de uma vez e a
-  // bloquear o ecrã no momento em que o percurso acaba de aparecer.
-  const grauFolga = (CAMERA_CORRIDOR_M / 111000) * 4;
+  // A degree of latitude is about 111 km. Comparing in degrees before doing the
+  // real arithmetic discards the vast majority of cameras — without this, it
+  // was 400 cameras times tens of thousands of points, all at once and blocking
+  // the screen just as the route appears.
+  const slackDegrees = (CAMERA_CORRIDOR_M / 111000) * 4;
 
-  for (const camera of encontrados) {
-    const perto =
-      camera.coordinates.latitude >= area.south - grauFolga &&
-      camera.coordinates.latitude <= area.north + grauFolga &&
-      camera.coordinates.longitude >= area.west - grauFolga &&
-      camera.coordinates.longitude <= area.east + grauFolga;
+  for (const camera of found) {
+    const near =
+      camera.coordinates.latitude >= area.south - slackDegrees &&
+      camera.coordinates.latitude <= area.north + slackDegrees &&
+      camera.coordinates.longitude >= area.west - slackDegrees &&
+      camera.coordinates.longitude <= area.east + slackDegrees;
 
-    if (!perto) {
+    if (!near) {
       continue;
     }
 
-    // O mesmo `locateOnRoute` que a navegação usa para saber onde se está: uma
-    // só regra de "ponto mais próximo do percurso" em toda a aplicação.
+    // The same `locateOnRoute` navigation uses to know where one is: a single
+    // "nearest point on the route" rule across the whole app.
     const { index, offRouteMeters } = locateOnRoute(routeCoordinates, camera.coordinates);
     if (offRouteMeters <= CAMERA_CORRIDOR_M) {
-      emRota.push({ ...camera, routeIndex: index });
+      onRoute.push({ ...camera, routeIndex: index });
     }
   }
 
-  return emRota.sort((a, b) => a.routeIndex - b.routeIndex);
+  return onRoute.sort((a, b) => a.routeIndex - b.routeIndex);
 }
 
-/** O que se diz em voz alta, conforme o género de controlo. */
+/** What is said out loud, depending on the kind of enforcement. */
 export function cameraLabel(camera: SpeedCamera): string {
   switch (camera.kind) {
-    case 'media':
+    case 'average':
       return t().cameras.average;
-    case 'semaforo':
+    case 'trafficSignals':
       return t().cameras.trafficSignals;
-    case 'outro':
+    case 'other':
       return t().cameras.traffic;
     default:
-      return 'radar';
+      return t().cameras.speed;
   }
 }
 
-/** O ícone do mapa e do painel, conforme o género. */
+/** The map and panel icon, depending on the kind. */
 export function cameraIcon(kind: CameraKind): string {
   switch (kind) {
-    case 'media':
+    case 'average':
       return 'speedometer';
-    case 'semaforo':
+    case 'trafficSignals':
       return 'traffic-light';
-    case 'outro':
+    case 'other':
       return 'shield-alert-outline';
     default:
       return 'cctv';

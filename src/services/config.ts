@@ -1,61 +1,62 @@
 /**
- * Configuração partilhada por todos os serviços externos.
+ * Configuration shared by all the external services.
  *
- * Este é o "único sítio" a que o CLAUDE.md se refere: endereços base, User-Agent
- * e intervalo mínimo entre pedidos ficam todos aqui. Se for preciso mudar alguma
- * destas regras, muda-se aqui e não espalhado pelo código.
+ * This is the "single place" CLAUDE.md refers to: base URLs, User-Agent and the
+ * minimum interval between requests all live here. If one of these rules has
+ * to change, it changes here and not scattered across the code.
  */
 
 /**
- * O Nominatim exige um User-Agent que identifique quem está a fazer os pedidos.
- * Pedidos anónimos são recusados. Se este projeto mudar de dono ou de endereço,
- * atualizar esta linha.
+ * Nominatim requires a User-Agent that identifies who is making the requests.
+ * Anonymous requests are refused. If this project changes owner or address,
+ * update this line.
  */
-export const USER_AGENT = 'PalmMap/1.0 (projeto pessoal; https://github.com/choso08/PalmMap)';
+export const USER_AGENT = 'PalmMap/1.0 (personal project; https://github.com/choso08/PalmMap)';
 
-/** Pesquisa de moradas. */
+/** Address search. */
 export const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 /**
- * O segundo recurso da pesquisa, para quando o Nominatim recusa ou não responde.
+ * The search's fallback, for when Nominatim refuses or does not answer.
  *
- * O Photon é da Komoot, sobre os mesmos dados do OpenStreetMap, aberto e sem
- * chave. As regras deles pedem um número de pedidos razoável; por isso só se
- * lhe pergunta **depois** de o Nominatim falhar, e com a mesma cadência de um
- * pedido por segundo. **Não foi experimentado** a partir do ambiente de
- * desenvolvimento, que bloqueia os dois.
+ * Photon is by Komoot, built on the same OpenStreetMap data, open and with no
+ * key. Their rules ask for a reasonable number of requests; so it is only asked
+ * **after** Nominatim fails, and at the same pace of one request per second.
+ * **It has not been tried** from the development environment, which blocks
+ * both.
  */
 export const PHOTON_BASE_URL = 'https://photon.komoot.io';
 
 /**
- * Quanto se espera pelo Nominatim numa pesquisa antes de desistir dele.
+ * How long to wait for Nominatim during a search before giving up on it.
  *
- * Mais curto do que o `REQUEST_TIMEOUT_MS` porque há a quem perguntar a seguir:
- * quinze segundos a olhar para o indicador a rodar, e só depois ir ao Photon,
- * era a pesquisa a parecer avariada mesmo quando acabava por responder.
+ * Shorter than `REQUEST_TIMEOUT_MS` because there is someone else to ask
+ * afterwards: fifteen seconds staring at a spinner, and only then going to
+ * Photon, made the search look broken even when it did end up answering.
  */
 export const SEARCH_TIMEOUT_MS = 7000;
 
 /**
- * Cálculo de percursos, um endereço por meio de transporte.
+ * Route calculation, one address per travel mode.
  *
- * **Porque é que não é o `router.project-osrm.org`.** Esse é o servidor de
- * demonstração do OSRM e só tem o perfil de carro instalado. Pedir-lhe um
- * percurso a pé devolvia na mesma o percurso de carro — com as ruas de sentido
- * único respeitadas, o que a pé não faz sentido nenhum, e com o tempo calculado
- * a velocidade de automóvel. Foi visto: 719 metros a pé davam "2 minutos".
+ * **Why it is not `router.project-osrm.org`.** That is OSRM's demo server and
+ * it only has the car profile installed. Asking it for a walking route still
+ * returned the car route — with one-way streets respected, which makes no sense
+ * on foot, and with the time calculated at car speed. It was seen: 719 metres
+ * on foot came out as "2 minutes".
  *
- * Estes são os servidores da FOSSGIS, os mesmos que o openstreetmap.org usa no
- * seu próprio painel de direções. São três instalações separadas, cada uma com
- * o seu perfil — e é por isso que o meio de transporte está no endereço e não
- * só no caminho.
+ * These are the FOSSGIS servers, the same ones openstreetmap.org uses in its
+ * own directions panel. They are three separate installations, each with its
+ * own profile — which is why the travel mode is in the base address and not
+ * only in the path.
  *
- * Tem de ser https:// — o Android bloqueia ligações não seguras desde a versão 9.
+ * It has to be https:// — Android has blocked insecure connections since
+ * version 9.
  *
- * As condições de utilização pedem no máximo um pedido por segundo, um
- * `User-Agent` válido e a atribuição ao OpenStreetMap e ao OSRM. Está tudo
- * cumprido: a fila em `osrm.ts`, o `USER_AGENT` aqui em cima e os créditos no
- * ecrã de definições.
+ * The terms of use ask for at most one request per second, a valid
+ * `User-Agent` and attribution to OpenStreetMap and OSRM. All of it is done:
+ * the queue in `osrm.ts`, the `USER_AGENT` above and the credits on the
+ * settings screen.
  */
 export const OSRM_ENDPOINTS = {
   driving: 'https://routing.openstreetmap.de/routed-car',
@@ -64,13 +65,13 @@ export const OSRM_ENDPOINTS = {
 } as const;
 
 /**
- * O nome do perfil no caminho do pedido: **sempre `driving`**.
+ * The profile name in the request path: **always `driving`**.
  *
- * Parece errado e não é. O OSRM ignora este segmento do endereço — o perfil
- * verdadeiro é o da instalação, escolhido pelo `routed-car`/`routed-foot`/
- * `routed-bike` do endereço base. Foi confirmado no código do próprio
- * openstreetmap.org, que manda `routed-foot/route/v1/driving/…` para os
- * percursos a pé. Usa-se a mesma forma por ser a que está provada em produção.
+ * It looks wrong and it isn't. OSRM ignores this segment of the address — the
+ * real profile is the installation's, chosen by the `routed-car`/`routed-foot`/
+ * `routed-bike` in the base address. This was confirmed in openstreetmap.org's
+ * own code, which sends `routed-foot/route/v1/driving/…` for walking routes.
+ * The same form is used because it is the one proven in production.
  */
 export const OSRM_PROFILE_PATH = {
   driving: 'driving',
@@ -79,534 +80,545 @@ export const OSRM_PROFILE_PATH = {
 } as const;
 
 /**
- * Intervalo mínimo entre pedidos de percurso, em milissegundos.
- * As condições de utilização da FOSSGIS pedem no máximo um por segundo.
+ * Minimum interval between route requests, in milliseconds.
+ * FOSSGIS's terms of use ask for at most one per second.
  */
 export const OSRM_MIN_INTERVAL_MS = 1000;
 
 /**
- * Consulta de negócios e pontos de interesse.
- * É o que permite perguntar "que restaurantes há aqui à volta?".
+ * Querying businesses and points of interest.
+ * It is what lets the app ask "which restaurants are around here?".
  */
 export const OVERPASS_BASE_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
- * O segundo servidor da Overpass, para quando o primeiro recusa.
+ * The second Overpass server, for when the first one refuses.
  *
- * O `overpass-api.de` é o servidor principal e anda muitas vezes cheio: responde
- * 429 ou 504, ou um 200 com `remark` a dizer que a consulta não coube. Nessas
- * vezes os pinos da zona nova simplesmente não vinham. Este é uma das instâncias
- * públicas listadas na página da Overpass no wiki do OpenStreetMap, com os
- * mesmos dados e sem chave.
+ * `overpass-api.de` is the main server and is often overloaded: it answers 429
+ * or 504, or a 200 with a `remark` saying the query did not fit. In those
+ * cases the pins for the new area simply did not come. This is one of the
+ * public instances listed on the Overpass page of the OpenStreetMap wiki, with
+ * the same data and no key.
  *
- * **Só se usa quando o principal falha**, nunca os dois ao mesmo tempo: pedir a
- * dois servidores para ficar com a resposta mais rápida era gastar o dobro dos
- * recursos de voluntários para poupar um segundo. **Não foi possível
- * experimentá-lo a partir do ambiente de desenvolvimento** (bloqueia os dois);
- * se deixar de existir, a falha é a mesma que já havia sem ele.
+ * **It is only used when the main one fails**, never both at once: asking two
+ * servers to keep the fastest answer would spend twice the volunteers'
+ * resources to save a second. **It could not be tried from the development
+ * environment** (which blocks both); if it ever disappears, the failure is the
+ * same one there was without it.
  */
 export const OVERPASS_FALLBACK_URL = 'https://overpass.private.coffee/api/interpreter';
 
 /**
- * Horas de passagem dos transportes públicos.
+ * Public transport arrival times.
  *
- * É a API aberta da Carris Metropolitana, a mesma que a aplicação oficial usa.
- * Cobre a Área Metropolitana de Lisboa e não pede chave nenhuma. Fora dessa
- * área não há equivalente aberto — ver `src/services/transit.ts`.
+ * It is Carris Metropolitana's open API, the same one their official app uses.
+ * It covers the Lisbon Metropolitan Area and needs no key at all. Outside that
+ * area there is no open equivalent — see `src/services/transit.ts`.
  */
 export const CARRIS_BASE_URL = 'https://api.carrismetropolitana.pt/v2';
 
 /**
- * Intervalo mínimo entre pedidos ao Nominatim, em milissegundos.
- * O serviço público permite no máximo 1 pedido por segundo.
+ * Minimum interval between requests to Nominatim, in milliseconds.
+ * The public service allows at most 1 request per second.
  */
 export const NOMINATIM_MIN_INTERVAL_MS = 1000;
 
 /**
- * Intervalo mínimo entre pedidos à Carris Metropolitana.
+ * Minimum interval between requests to Carris Metropolitana.
  *
- * Não há limite publicado. Trezentos milissegundos são pouco mais de três
- * pedidos por segundo — bem abaixo do que a aplicação oficial deles faz, e
- * suficientemente educado para um serviço que não nos pede nada em troca.
+ * There is no published limit. Three hundred milliseconds is just over three
+ * requests per second — well below what their own official app does, and
+ * polite enough for a service that asks nothing of us in return.
  *
- * Foi baixado de um segundo por causa do planeamento de trajetos: esse precisa
- * das horas de meia dúzia de paragens ao mesmo tempo, e a um pedido por segundo
- * eram seis segundos de espera a olhar para um indicador a rodar.
+ * It was lowered from one second because of trip planning: that needs the
+ * times for half a dozen stops at once, and at one request per second it was
+ * six seconds staring at a spinner. Since September 2026 the requests also go
+ * out in parallel — see `overlap`, in `rateLimit.ts`.
  */
 export const CARRIS_MIN_INTERVAL_MS = 300;
 
 /**
- * Quanto tempo se espera pela lista das paragens, que é a resposta mais pesada
- * de que a aplicação depende.
+ * How long to wait for the list of stops, which is the heaviest response the
+ * app depends on.
  *
- * **Os quinze segundos do resto não chegam aqui.** São milhares de paragens, com
- * nome, localidade, linhas e ligações a outros meios — megabytes de JSON, para
- * descarregar e ainda para interpretar, num telemóvel. Em Wi-Fi passa
- * despercebido; nos dados móveis fica mesmo em cima do limite, e aí falha umas
- * vezes sim outras não, sem nada que o distinga do serviço estar em baixo.
+ * **The fifteen seconds used for everything else are not enough here.** It is
+ * thousands of stops, with name, locality, lines and connections to other
+ * modes — megabytes of JSON, to download and then to parse, on a phone. On
+ * Wi-Fi it goes unnoticed; on mobile data it sits right on the limit, and there
+ * it fails some times and not others, with nothing to tell it apart from the
+ * service being down.
  *
- * Pede-se uma vez por sessão, por isso esperar um minuto não custa nada a
- * ninguém: o que a pessoa vê é o indicador a rodar mais um bocado, em vez de um
- * erro a dizer que não há transportes.
+ * It is requested once per session, so waiting a minute costs nobody
+ * anything: what the person sees is the spinner turning a little longer,
+ * instead of an error saying there is no transport.
  */
 export const CARRIS_STOPS_TIMEOUT_MS = 60000;
 
 /**
- * Até que distância se aceita ir a pé para apanhar o autocarro, em metros.
+ * How far one is willing to walk to catch the bus, in metres.
  *
- * Um quilómetro são uns doze minutos a passo normal. Mais do que isso, quem vai
- * a pé até lá já preferia ir a pé o caminho todo.
+ * A kilometre is about twelve minutes at a normal pace. Beyond that, someone
+ * walking that far would rather walk the whole way.
  */
 export const TRANSIT_WALK_MAX_M = 1000;
 
 /**
- * A que velocidade se anda a pé, em metros por segundo.
+ * Walking speed, in metres per second.
  *
- * 1,35 m/s são uns 4,9 km/h, o passo normal de um adulto. É o mesmo valor que o
- * perfil de peão do OSRM usa.
+ * 1.35 m/s is about 4.9 km/h, an adult's normal pace. It is the same value
+ * OSRM's pedestrian profile uses.
  */
 export const WALK_SPEED_MS = 1.35;
 
 /**
- * Quanto se acrescenta à distância em linha reta para chegar à distância real.
+ * How much is added to the straight-line distance to get the real one.
  *
- * Entre dois pontos de uma cidade anda-se sempre mais do que a linha reta,
- * porque há quarteirões pelo meio. Um terço a mais é a aproximação habitual — e
- * chega, porque isto só serve para ordenar opções e dizer "cinco minutos a pé".
+ * Between two points in a city one always walks more than the straight line,
+ * because there are blocks in between. A third more is the usual approximation
+ * — and it is enough, because this only serves to rank options and to say
+ * "five minutes' walk".
  */
 export const WALK_DETOUR = 1.3;
 
 /**
- * De quanto em quanto tempo se voltam a pedir as horas de passagem, enquanto o
- * painel está aberto. Trinta segundos chega para o número de minutos acertar
- * sem se estar a pedir à toa.
+ * How often the arrival times are requested again while the panel is open.
+ * Thirty seconds is enough for the number of minutes to stay right without
+ * requesting for nothing.
  */
 export const ARRIVALS_REFRESH_MS = 30000;
 
 /**
- * Há quanto tempo, no máximo, um autocarro pode ter dado sinal para ainda contar
- * como estando a andar.
+ * At most how long ago a bus can have reported in for it to still count as
+ * moving.
  *
- * **Isto é o que faz a funcionalidade valer alguma coisa.** O serviço devolve a
- * frota inteira com a última posição conhecida de cada veículo, e não só os que
- * andam. Medido de madrugada: 1550 veículos com posição, idade mediana de nove
- * horas, a pior de doze dias — quase todos parados em garagens.
+ * **This is what makes the feature worth anything.** The service returns the
+ * whole fleet with each vehicle's last known position, not just the ones that
+ * are moving. Measured in the small hours: 1550 vehicles with a position,
+ * median age nine hours, the worst twelve days — almost all parked in depots.
  *
- * Dois minutos são generosos para uma posição que costuma vir de trinta em
- * trinta segundos, e apertados o suficiente para deixar de fora tudo o que está
- * estacionado.
+ * Two minutes is generous for a position that usually comes every thirty
+ * seconds, and tight enough to leave out everything that is parked.
  */
 export const VEHICLE_MAX_AGE_S = 120;
 
 /**
- * De quanto em quanto tempo se voltam a pedir as posições dos autocarros.
+ * How often the bus positions are requested again.
  *
- * Vinte segundos é o compromisso: mais depressa não traz posições novas, porque
- * é mais ou menos a esse ritmo que os autocarros as dão, e mais devagar dava a
- * impressão de estarem a saltar em vez de andarem.
+ * Twenty seconds is the compromise: faster brings no new positions, because
+ * that is roughly the rate at which the buses report them, and slower made them
+ * look like they were jumping rather than moving.
  */
 export const VEHICLES_REFRESH_MS = 20000;
 
 /**
- * Zoom mínimo para se mostrarem os autocarros a andar.
+ * Minimum zoom for showing the moving buses.
  *
- * **A razão principal é o peso, não o ecrã.** A resposta é a frota toda —
- * 1,1 MB, sem forma de pedir menos, porque não há filtro por área nem por linha.
- * É o pedido mais pesado desta aplicação, e não deve estar a repetir-se quando
- * se está a olhar para o país inteiro.
+ * **The main reason is weight, not the screen.** The response is the whole
+ * fleet — 1.1 MB, with no way to ask for less, because there is no filter by
+ * area or by line. It is this app's heaviest request, and it should not be
+ * repeating while one is looking at the whole country.
  */
 export const VEHICLES_MIN_ZOOM = 12;
 
 /**
- * Intervalo mínimo entre pedidos à Overpass.
- * É um serviço partilhado e pesado de correr — convém ser generoso aqui.
+ * Minimum interval between requests to Overpass.
+ * It is a shared service and heavy to run — it pays to be generous here.
  */
 export const OVERPASS_MIN_INTERVAL_MS = 2000;
 
 /**
- * Tempo de espera depois de o mapa parar de se mexer, antes de ir buscar os
- * negócios que estão à vista. Evita um pedido por cada arrastar do dedo.
+ * How long to wait after the map stops moving before fetching the businesses
+ * in view. Avoids one request per finger drag.
  */
 export const MAP_PINS_DEBOUNCE_MS = 1200;
 
 /**
- * Nível de zoom a partir do qual se mostram negócios no mapa.
- * Mais afastado do que isto, a área é enorme e o pedido seria pesadíssimo
- * para devolver pinos que nem se distinguiriam no ecrã.
+ * Zoom level from which businesses are shown on the map.
+ * Further out than this, the area is huge and the request would be extremely
+ * heavy, returning pins that could not even be told apart on screen.
  */
 export const MAP_PINS_MIN_ZOOM = 15;
 
 /**
- * Número máximo de negócios pedidos **por grupo de etiquetas**.
+ * Maximum number of businesses requested **per tag group**.
  *
- * **Não é por consulta, e a diferença era a avaria.** A Overpass tinha um `out`
- * só no fim de uma união de vários grupos — restaurantes e afins, depois as
- * lojas, depois o alojamento — e o limite aplicava-se ao conjunto. Ela preenche
- * a quota pela ordem dos grupos e, dentro de cada um, **por número de
- * identificação no OpenStreetMap**, que não tem nada que ver com onde as coisas
- * ficam. Numa zona com gente, os 80 lugares iam todos para o primeiro grupo,
- * escolhidos de um lado ao outro da área pedida: das lojas não vinha nenhuma, e
- * dos restaurantes vinham oitenta espalhados pelos quilómetros da consulta, a
- * maior parte fora do que se estava a ver. O ecrã ficava sem pinos **sem erro
- * nenhum** — e numa zona vazia aparecia tudo, o que fazia parecer que às vezes
- * funcionava.
+ * **Not per query, and that difference was the bug.** Overpass had a single
+ * `out` at the end of a union of several groups — restaurants and the like,
+ * then shops, then accommodation — and the limit applied to the whole. It
+ * fills the quota in group order and, within each group, **by OpenStreetMap
+ * id**, which has nothing to do with where things are. In a busy area, all 80
+ * places went to the first group, picked from one side of the requested area
+ * to the other: no shops came at all, and the restaurants came as eighty spread
+ * across the query's kilometres, most of them outside what was on screen. The
+ * screen was left without pins **with no error at all** — and in an empty area
+ * everything showed, which made it look like it sometimes worked.
  *
- * Hoje cada grupo leva o seu próprio `out`, e este número é o que cada um pode
- * trazer. Ver `searchInBounds`.
+ * Today each group has its own `out`, and this number is how many each one may
+ * bring. See `searchInBounds`.
  *
- * **Quarenta e não cem, e isso é sobre o tempo que se espera.** Com três grupos,
- * cem cada um são trezentos lugares por consulta: trezentos conjuntos de
- * etiquetas a resolver do lado da Overpass, umas centenas de kilobytes a
- * descarregar e trezentos símbolos a desenhar no mapa. Num quadrado de meio
- * quilómetro, cento e vinte pinos já é mais do que cabe no ecrã sem se taparem
- * uns aos outros — o que passa disso é trabalho feito para não se ver.
+ * **Forty and not a hundred, and that is about waiting time.** With three
+ * groups, a hundred each is three hundred places per query: three hundred tag
+ * sets to resolve on Overpass's side, a few hundred kilobytes to download and
+ * three hundred symbols to draw on the map. In a half-kilometre square, a
+ * hundred and twenty pins is already more than fits on screen without them
+ * covering each other — anything beyond that is work done not to be seen.
  */
 export const MAP_PINS_LIMIT = 40;
 
 /**
- * A que grelha se encaixa a área dos pinos automáticos, em graus.
+ * The grid the automatic-pin area snaps to, in degrees.
  *
- * **É isto que faz a cache servir para alguma coisa.** A chave da cache é a área
- * pedida, com quatro casas decimais — ou seja, ao metro. Sem grelha, arrastar o
- * dedo um bocadinho dava uma área diferente, uma chave diferente e **um pedido
- * novo à Overpass**, que é o serviço mais pesado dos três e é mantido por
- * voluntários. A cache existia e quase nunca acertava.
+ * **This is what makes the cache good for anything.** The cache key is the
+ * requested area, with four decimal places — that is, to the metre. Without a
+ * grid, dragging the finger a little gave a different area, a different key
+ * and **a new request to Overpass**, the heaviest of the three services and one
+ * run by volunteers. The cache existed and almost never hit.
  *
- * Com a grelha, todas as vistas que caem no mesmo quadrado partilham o mesmo
- * pedido. Pede-se um bocado mais do que se vê, e em troca andar às voltas na
- * mesma zona deixa de pedir seja o que for.
+ * With the grid, every view that falls in the same square shares the same
+ * request. A little more than what is seen is requested, and in return moving
+ * around the same area stops requesting anything.
  *
- * **O quadrado não pode ser muito maior do que o ecrã.** Tudo o que se pede a
- * mais são lugares que não se vão ver e que ainda assim ocupam lugar no limite
- * da resposta — ver `MAP_PINS_LIMIT`. 0,005° são uns 550 metros, o que acrescenta
- * no máximo um quadrado de cada lado ao que se está a ver. Esteve no dobro disto
- * e pedia-se uma área com quatro vezes a do ecrã.
+ * **The square cannot be much bigger than the screen.** Everything requested
+ * beyond it is places that won't be seen and that still take up room in the
+ * response's limit — see `MAP_PINS_LIMIT`. 0.005° is about 550 metres, which
+ * adds at most one square on each side to what is in view. It used to be
+ * double this and requested an area four times the screen's.
  */
 export const MAP_PINS_GRID_DEG = 0.005;
 
-/** Raio, em metros, das pesquisas por categoria ("restaurantes perto de mim"). */
+/** Radius, in metres, of category searches ("restaurants near me"). */
 export const CATEGORY_SEARCH_RADIUS_M = 1500;
 
 /**
- * Zoom mínimo para os botões de categoria funcionarem.
+ * Minimum zoom for the category buttons to work.
  *
- * Mais afastado do que isto, a área visível é de dezenas de quilómetros: a
- * consulta seria pesadíssima e devolveria milhares de resultados que nem se
- * distinguiriam no ecrã. Abaixo deste zoom mostra-se um aviso a pedir para
- * aproximar, em vez de fazer o pedido.
+ * Further out than this, the visible area is tens of kilometres: the query
+ * would be extremely heavy and return thousands of results that could not even
+ * be told apart on screen. Below this zoom a notice asks the person to zoom in,
+ * instead of making the request.
  */
 export const CATEGORY_MIN_ZOOM = 12;
 
-/** Distância a que se considera que a pessoa saiu do percurso, em metros. */
+/** Distance at which the person is considered to have left the route, in metres. */
 export const OFF_ROUTE_METERS = 60;
 
 /**
- * Quantas leituras seguidas fora do percurso antes de recalcular.
+ * How many consecutive readings off the route before recalculating.
  *
- * Durante a navegação lê-se uma vez por segundo, por isso isto são oito
- * segundos seguidos a andar longe da linha. Já foi três, e recalculava sozinho
- * a meio de uma viagem: três segundos de mau sinal — um túnel curto, um viaduto,
- * uma rua estreita entre prédios — chegavam.
+ * During navigation the position is read once a second, so this is eight
+ * seconds in a row travelling away from the line. It used to be three, and it
+ * recalculated on its own in the middle of a trip: three seconds of bad signal
+ * — a short tunnel, a flyover, a narrow street between buildings — were enough.
  *
- * A precisão que o GPS declara também conta, em `App.tsx`: uma leitura que se
- * assume imprecisa não serve para afirmar que se saiu do caminho.
+ * The accuracy the GPS reports also counts, in `App.tsx`: a reading known to be
+ * imprecise cannot be used to claim one has left the route.
  */
 export const OFF_ROUTE_STRIKES = 8;
 
-/** Distância ao destino a partir da qual se considera que se chegou. */
+/** Distance to the destination at which one is considered to have arrived. */
 export const ARRIVAL_METERS = 35;
 
 /**
- * A que distância da linha do percurso um radar ainda conta como sendo "deste
- * caminho".
+ * How far from the route line a speed camera still counts as being "on this
+ * route".
  *
- * A consulta traz tudo o que está no retângulo do percurso, incluindo radares de
- * estradas paralelas e da autoestrada que passa ao lado. Avisar por causa desses
- * é pior do que não avisar: ao fim de duas vezes ninguém liga ao aviso.
+ * The query brings everything in the route's rectangle, including cameras on
+ * parallel roads and on the motorway running alongside. Warning about those is
+ * worse than not warning: after twice, nobody pays attention to the warning.
  */
 export const CAMERA_CORRIDOR_M = 40;
 
 /**
- * A que distância se avisa de um radar, em metros.
+ * How far ahead a speed camera is announced, in metres.
  *
- * Trezentos metros a 90 km/h são doze segundos — dá para ver o velocímetro e
- * abrandar sem travar de repente.
+ * Three hundred metres at 90 km/h is twelve seconds — enough to glance at the
+ * speedometer and slow down without braking hard.
  */
 export const CAMERA_WARN_METERS = 300;
 
 /**
- * Poupança de bateria: de quantos em quantos segundos se lê o GPS quando a
- * manobra seguinte ainda vai longe.
+ * Battery saver: every how many milliseconds the GPS is read while the next
+ * manoeuvre is still far away.
  *
- * A cada segundo, o GPS é a coisa que mais gasta numa viagem longa. Numa reta de
- * autoestrada, ler quatro vezes menos não muda nada do que se vê no ecrã — o que
- * falta continua a acertar e a manobra seguinte está a dez quilómetros.
+ * Every second, the GPS is what drains the most on a long trip. On a straight
+ * motorway, reading four times less changes nothing on screen — the remaining
+ * time stays right and the next manoeuvre is ten kilometres away.
  */
 export const BATTERY_SAVER_INTERVAL_MS = 4000;
 
 /**
- * A partir de que distância à manobra seguinte se pode abrandar as leituras.
+ * From what distance to the next manoeuvre the readings may slow down.
  *
- * Abaixo disto volta-se ao segundo a segundo, porque é aí que a posição tem de
- * estar certa: é o que decide se o aviso de virar sai a tempo.
+ * Below this it goes back to every second, because that is where the position
+ * has to be right: it decides whether the turn warning comes in time.
  */
 export const BATTERY_SAVER_MIN_METERS = 1500;
 
-/** Distâncias a que se anuncia a próxima manobra, em metros. */
+/** Distances at which the next manoeuvre is announced, in metres. */
 export const ANNOUNCE_AT_METERS = [400, 80];
 
 /**
- * A partir de que idade uma posição deixa de servir para centrar o mapa.
+ * From what age a position stops being good enough to centre the map on.
  *
- * Fora da navegação o GPS é lido de dez em dez segundos, e só quando a pessoa se
- * mexe — parada, pode passar muito mais tempo sem leitura nenhuma, e isso é
- * normal. **Com a aplicação em segundo plano, o Android corta as leituras de
- * vez**, e é aí que isto conta: quem andou com a aplicação fechada volta com uma
- * posição do sítio onde estava antes. Passado este tempo, vai-se buscar uma nova
- * em vez de se acreditar na que está guardada.
+ * Outside navigation the GPS is read every ten seconds, and only when the
+ * person moves — standing still, much longer can pass without any reading, and
+ * that is normal. **With the app in the background, Android cuts the readings
+ * off entirely**, and that is where this matters: someone who moved about with
+ * the app closed comes back with a position from where they were before. Past
+ * this age, a new one is fetched instead of trusting the stored one.
  */
 export const POSITION_FRESH_MS = 20000;
 
 /**
- * Quanto tempo se espera por uma posição nova antes de desistir dela.
+ * How long to wait for a new position before giving up on it.
  *
- * Sem rede, o GPS pode levar minutos a dar a primeira posição — esperar por ela
- * de botão carregado era deixar a aplicação a parecer encravada. Ao fim disto
- * usa-se o que houver.
+ * Without network, the GPS can take minutes to give the first position —
+ * waiting for it with the button pressed would leave the app looking stuck.
+ * After this, whatever is available is used.
  */
 export const POSITION_TIMEOUT_MS = 4000;
 
 /**
- * Que idade máxima pode ter a última posição conhecida para servir no arranque.
+ * The maximum age the last known position may have to be used at start-up.
  *
- * O atalho existe para haver logo alguma coisa no ecrã enquanto o GPS acorda, e
- * isso continua a valer. Mas sem limite nenhum ele servia uma posição de ontem:
- * quem usou a aplicação em casa e a abre no trabalho via o mapa a abrir em casa,
- * com toda a confiança.
+ * The shortcut exists so there is something on screen straight away while the
+ * GPS wakes up, and that still holds. But with no limit at all it served a
+ * position from yesterday: someone who used the app at home and opens it at
+ * work would see the map open at home, with complete confidence.
  */
 export const LAST_KNOWN_MAX_AGE_MS = 120000;
 
 /**
- * A partir de que velocidade se assume que se vai de carro, em metros por segundo.
+ * Speed from which one is assumed to be driving, in metres per second.
  *
- * Cinco metros por segundo são 18 km/h — acima do passo de qualquer pessoa e de
- * quase qualquer bicicleta a subir. É o que liga o velocímetro fora da navegação
- * e acelera as leituras do GPS.
+ * Five metres per second is 18 km/h — above anyone's walking pace and almost
+ * any bike going uphill. It is what turns on the speedometer outside
+ * navigation and speeds up the GPS readings.
  */
 export const DRIVING_SPEED_MS = 5;
 
 /**
- * Abaixo de que velocidade se deixa de assumir que se vai de carro.
+ * Speed below which one stops being assumed to be driving.
  *
- * **De propósito diferente do de cima**, e pela mesma razão do travão da
- * poupança de bateria: mudar de ritmo obriga a voltar a subscrever o GPS, e com
- * um único limiar isso ficava a ligar e a desligar em cada semáforo. Dois metros
- * por segundo são 7 km/h.
+ * **Deliberately different from the one above**, for the same reason as the
+ * battery saver's brake: changing pace means re-subscribing to the GPS, and
+ * with a single threshold it would switch on and off at every traffic light.
+ * Two metres per second is 7 km/h.
  */
 export const DRIVING_STOP_MS = 2;
 
 /**
- * Quanto tempo se continua "de carro" depois de a velocidade cair.
+ * How long one stays "driving" after the speed drops.
  *
- * **Sem isto, o velocímetro desaparecia em cada semáforo** e voltava ao
- * arrancar. Um velocímetro mostra zero quando se pára — não se esconde. Um minuto
- * e meio cobre com folga um semáforo, uma fila ou uma paragem para deixar
- * alguém, e continua a desligar-se pouco depois de se estacionar.
+ * **Without this, the speedometer disappeared at every traffic light** and came
+ * back on pulling away. A speedometer shows zero when you stop — it does not
+ * hide. A minute and a half comfortably covers a traffic light, a queue or a
+ * stop to drop someone off, and it still switches off shortly after parking.
  *
- * O custo é ficar mais um minuto e meio a ler o GPS depressa depois de parar,
- * que não se nota na bateria.
+ * The cost is reading the GPS quickly for another minute and a half after
+ * stopping, which does not show on the battery.
  */
 export const DRIVING_LINGER_MS = 90000;
 
 /**
- * De quanto em quanto tempo se lê o GPS a andar de carro, fora da navegação.
+ * How often the GPS is read while driving, outside navigation.
  *
- * O seguimento normal é de dez em dez segundos, que chega de sobra para o ponto
- * azul acompanhar quem anda a pé. Para um velocímetro não chega: a 90 km/h, dez
- * segundos são duzentos e cinquenta metros, e o número mostrava a velocidade de
- * há um quarteirão. Dois segundos dão um número que se lê como velocímetro.
+ * Normal tracking is every ten seconds, plenty for the blue dot to follow
+ * someone walking. For a speedometer it is not enough: at 90 km/h, ten seconds
+ * is two hundred and fifty metres, and the number showed the speed from a block
+ * ago. Two seconds give a number that reads like a speedometer.
  *
- * **Só acontece a andar depressa e com o velocímetro ligado.** Parado ou a pé,
- * volta-se aos dez segundos.
+ * **It only happens when moving fast with the speedometer on.** Standing still
+ * or walking, it goes back to ten seconds.
  */
 export const DRIVING_GPS_INTERVAL_MS = 2000;
 
 /**
- * Até quantos milissegundos entre dois toques ainda contam como um toque duplo.
+ * Up to how many milliseconds between two taps they still count as a double
+ * tap.
  *
- * Trezentos é o valor que o próprio Android usa para o duplo toque. Não convém
- * baixá-lo: quem tem menos destreza nos dedos deixa de conseguir acertar, e o
- * segundo toque passa a valer como um toque simples — que aqui faz outra coisa.
+ * Three hundred is the value Android itself uses for double tap. It is best not
+ * lowered: people with less dexterity in their fingers stop being able to hit
+ * it, and the second tap starts counting as a single tap — which does
+ * something else here.
  */
 export const DOUBLE_TAP_MS = 300;
 
 /**
- * Nota sobre a velocidade, para não se voltar a mexer nela sem pensar.
+ * A note about the speed, so nobody touches it again without thinking.
  *
- * **Vai para o ecrã como o GPS a deu, sem mínimo nem arredondamento para zero.**
- * Houve aqui um limiar que mostrava zero abaixo de meio metro por segundo, para
- * o número não oscilar entre 0 e 2 km/h com o carro parado. O autor pediu o
- * contrário, e tem razão: um velocímetro que mente um bocadinho quando está
- * parado é um velocímetro em que se acredita um bocadinho menos quando anda. O
- * que o recetor mede pelo efeito de Doppler é o que se mostra.
+ * **It goes to the screen as the GPS gave it, with no minimum and no rounding
+ * to zero.** There used to be a threshold here that showed zero below half a
+ * metre per second, so the number would not flicker between 0 and 2 km/h with
+ * the car stopped. The author asked for the opposite, and is right: a
+ * speedometer that lies a little when stopped is a speedometer one believes a
+ * little less when moving. What the receiver measures through the Doppler
+ * effect is what is shown.
  *
- * A única coisa que continua a não ser um número é o `null`: quando o Android
- * não sabe dizer a velocidade — num túnel, por exemplo — o velocímetro
- * desaparece em vez de dizer zero.
+ * The only thing that still isn't a number is `null`: when Android cannot tell
+ * the speed — in a tunnel, for instance — the speedometer disappears instead
+ * of saying zero.
  */
 
 /**
- * Quanto se pode passar do limite antes de o velocímetro ficar vermelho, em km/h.
+ * How far over the limit one can go before the speedometer turns red, in km/h.
  *
- * Não é permissividade: é a margem do próprio velocímetro. A velocidade do GPS
- * tem alguns km/h de incerteza, e um aviso que acende exatamente no limite
- * acendia-se sozinho a velocidade constante — e um aviso que se acende sem razão
- * deixa de ser lido.
+ * It is not leniency: it is the speedometer's own margin. GPS speed has a few
+ * km/h of uncertainty, and a warning that lights up exactly at the limit would
+ * light up on its own at a constant speed — and a warning that lights up for
+ * no reason stops being read.
  */
 export const SPEED_OVER_LIMIT_KMH = 5;
 
 /**
- * A que velocidade se anda de bicicleta, em metros por segundo. São 12,5 km/h.
+ * Cycling speed, in metres per second. It is 12.5 km/h.
  *
- * O OSRM assume **15 km/h** para uma bicicleta (o `default_speed` do perfil
- * `bicycle.lua`, confirmado no código deles), com um teto de 21. É a velocidade
- * de quem anda de bicicleta a sério; não é a de quem vai para o trabalho, com
- * semáforos, passeios e uma mochila às costas. Daí este valor, pedido pelo autor.
+ * OSRM assumes **15 km/h** for a bike (the `default_speed` of the
+ * `bicycle.lua` profile, confirmed in their code), capped at 21. That is the
+ * speed of a serious cyclist; not of someone riding to work, with traffic
+ * lights, pavements and a backpack. Hence this value, requested by the author.
  *
- * **É um piso, não uma substituição:** onde o OSRM já responde mais devagar —
- * uma subida em que se empurra a bicicleta, um caminho de escadas — fica o dele,
- * que sabe da estrada o que este número não sabe. Ver `modelSeconds`.
+ * **It is a floor, not a replacement:** where OSRM already answers slower — a
+ * climb where the bike is pushed, a path with steps — its figure stands, since
+ * it knows something about the road that this number does not. See
+ * `modelSeconds`.
  */
 export const CYCLING_SPEED_MS = 12.5 / 3.6;
 
 /**
- * Quanto tempo é preciso andar antes de o ritmo medido valer alguma coisa.
+ * How long one must travel before the measured pace is worth anything.
  *
- * Nos primeiros metros o ritmo não mede nada: um semáforo à saída de casa dava
- * um fator de cinco e a hora de chegada saltava para o dobro. Três minutos
- * chegam para a conta deixar de ser sobre um semáforo e passar a ser sobre a
- * viagem.
+ * In the first metres the pace measures nothing: a traffic light outside the
+ * front door gave a factor of five and the arrival time jumped to double.
+ * Three minutes is enough for the arithmetic to stop being about a traffic
+ * light and start being about the trip.
  */
 export const PACE_MIN_MS = 180000;
 
 /**
- * E quantos metros, pela mesma razão vista pelo outro lado: três minutos parado
- * num nível de passagem não dizem nada sobre o resto do caminho.
+ * And how many metres, for the same reason seen from the other side: three
+ * minutes stopped at a level crossing say nothing about the rest of the way.
  */
 export const PACE_MIN_METERS = 500;
 
-/** O máximo que o ritmo medido pode esticar o tempo estimado. */
+/** The most the measured pace can stretch the estimated time. */
 export const PACE_MAX = 3;
 
-/** E o mínimo que o pode encolher, fora do carro. */
+/** And the least it can shrink it, outside the car. */
 export const PACE_MIN = 0.5;
 
 /**
- * O piso do fator de carro, e é uma decisão e não um número escolhido a esmo.
+ * The floor of the driving factor, and it is a decision, not a number picked
+ * at random.
  *
- * **A aplicação não promete uma hora de chegada que obrigue a exceder o limite.**
- * O OSRM já calcula o tempo à **velocidade limite vezes 0,8** onde o limite está
- * marcado no OpenStreetMap (o `speed_reduction` do `car.lua` deles), e abaixo
- * disso onde não está — 90 numa autoestrada, 55 numa estrada secundária. Ou seja,
- * o tempo dele já é o de quem anda ao limite ou um pouco abaixo, que é o que o
- * autor pediu.
+ * **The app does not promise an arrival time that requires exceeding the
+ * limit.** OSRM already computes the time at **the speed limit times 0.8**
+ * where the limit is tagged in OpenStreetMap (the `speed_reduction` in their
+ * `car.lua`), and below that where it is not — 90 on a motorway, 55 on a
+ * secondary road. That is, its time is already that of someone driving at the
+ * limit or a little under, which is what the author asked for.
  *
- * Sem este piso, quem conduz depressa ensinava a aplicação a contar com isso, e
- * a hora de chegada passava a só bater certo a passar dos limites. O ritmo medido
- * pode alargar o tempo à vontade — o que não pode é encolhê-lo.
+ * Without this floor, someone who drives fast would teach the app to count on
+ * it, and the arrival time would only work out by breaking the limits. The
+ * measured pace can widen the time as much as it likes — what it cannot do is
+ * shrink it.
  */
 export const PACE_MIN_DRIVING = 1;
 
 /**
- * Quanto do ritmo desta viagem entra no que fica guardado para a próxima.
+ * How much of this trip's pace goes into what is stored for the next one.
  *
- * Um terço: uma viagem estranha — um dia de chuva, uma fila que não é normal —
- * mexe no valor guardado sem o virar do avesso, e três ou quatro viagens
- * parecidas chegam para o mudar mesmo.
+ * A third: one odd trip — a rainy day, an unusual queue — moves the stored
+ * value without turning it upside down, and three or four similar trips are
+ * enough to really change it.
  */
 export const PACE_LEARN_WEIGHT = 0.3;
 
 /**
- * Nome do pedido para o ecrã não se apagar durante a navegação.
+ * Name of the request that keeps the screen on during navigation.
  *
- * É preciso ser sempre o mesmo para ligar e desligar: o Android conta os pedidos
- * por nome, e um que fique por levantar deixava o ecrã aceso para sempre.
+ * It has to always be the same to switch it on and off: Android counts the
+ * requests by name, and one left unreleased would keep the screen on forever.
+ * The value stays in Portuguese because it is a runtime name, not text.
  */
 export const KEEP_AWAKE_TAG = 'palmmap-navegacao';
 
 /**
- * O nome por que o Android conhece a tarefa que recebe as posições a navegar.
+ * The name Android knows the task that receives positions while navigating
+ * by.
  *
- * **Tem de ser sempre o mesmo**, e é por ele que se liga e desliga o serviço em
- * primeiro plano. Trocá-lo entre versões deixava o serviço antigo a correr, com
- * uma notificação que a aplicação nova já não sabe desligar.
+ * **It has to always be the same**, and it is by this name that the foreground
+ * service is switched on and off. Changing it between versions would leave the
+ * old service running, with a notification the new app no longer knows how to
+ * switch off — which is why the value stays in Portuguese.
  */
 export const NAVIGATION_TASK = 'palmmap-navegacao-posicao';
 
 /**
- * Quanto tempo o serviço da navegação continua vivo depois de se largar a
- * subscrição.
+ * How long the navigation service stays alive after the subscription is
+ * dropped.
  *
- * **Não é folga a mais: é o que impede a navegação de morrer no bolso.** O
- * efeito que segue a posição volta a correr sempre que o percurso, os radares ou
- * o ritmo do GPS mudam, e de cada vez larga a subscrição e faz outra. E o
- * Android **só deixa arrancar um serviço em primeiro plano com a aplicação à
- * frente** — com o ecrã bloqueado, parar e voltar a começar acabava em exceção e
- * a viagem ficava sem posição, precisamente quando só a voz é que guia.
+ * **It is not excess slack: it is what stops navigation dying in the pocket.**
+ * The effect that follows the position runs again whenever the route, the
+ * speed cameras or the GPS pace change, and each time it drops the subscription
+ * and makes another. And Android **only lets a foreground service start with
+ * the app in front** — with the screen locked, stopping and starting again
+ * ended in an exception and the trip was left without a position, exactly when
+ * only the voice is guiding.
  *
- * Dois segundos cobrem com folga uma troca de subscrição e são curtos demais
- * para alguém dar pela notificação a ficar mais um bocado.
+ * Two seconds comfortably cover a subscription swap and are too short for
+ * anyone to notice the notification lingering a little.
  */
 export const SERVICE_STOP_GRACE_MS = 2000;
 
 /**
- * Quanto tempo esperar depois de a pessoa parar de escrever, antes de pesquisar.
- * O Nominatim proíbe pesquisar a cada tecla escrita, por isso este valor não deve
- * ser reduzido sem se perceber bem o que se está a fazer.
+ * How long to wait after the person stops typing, before searching.
+ * Nominatim forbids searching on every keystroke, so this value must not be
+ * reduced without fully understanding what is being done.
  */
 export const SEARCH_DEBOUNCE_MS = 1000;
 
-/** Tempo máximo à espera de resposta, em milissegundos. */
+/** Maximum time waiting for a response, in milliseconds. */
 export const REQUEST_TIMEOUT_MS = 15000;
 
 /**
- * De onde a aplicação sabe se há versão nova.
+ * Where the app finds out whether there is a new version.
  *
- * É a API pública do GitHub, e **responde sem chave nenhuma** porque o
- * repositório é público — o que não é acaso: é a mesma decisão que permite os
- * mapas dos países serem descarregados de um endereço sem autenticação. Ver a
- * nota sobre o repositório ser público, no `CLAUDE.md`.
+ * It is GitHub's public API, and **it answers without any key** because the
+ * repository is public — which is no accident: it is the same decision that
+ * lets the countries' maps be downloaded from an address without
+ * authentication. See the note about the repository being public, in
+ * `CLAUDE.md`.
  *
- * **Não se usa o `/releases/latest`, e a razão é uma armadilha.** Esse endereço
- * devolve a Release publicada mais recentemente, **seja ela qual for** — e neste
- * repositório as Releases não são só APKs: os mapas dos países estão na etiqueta
- * `mapas` e os horários na `horarios`. Bastava gerar mapas depois de compilar
- * para o "latest" passar a ser a Release dos mapas, e a procura de versões
- * deixava de encontrar seja o que fosse. Sem erro nenhum: respondia 200, com uma
- * Release verdadeira que só não era a que interessava.
+ * **`/releases/latest` is not used, and the reason is a trap.** That address
+ * returns the most recently published Release, **whichever it is** — and in
+ * this repository Releases are not only APKs: the country maps are under the
+ * `mapas` tag and the timetables under `horarios`. Generating maps after a
+ * build was enough for "latest" to become the maps Release, and the version
+ * check would stop finding anything at all. With no error: it answered 200,
+ * with a real Release that just wasn't the one that mattered.
  *
- * Por isso pede-se a lista e escolhe-se a de maior número entre as `apk-*`.
- * Vinte chegam de sobra: as outras etiquetas são sempre as mesmas quatro, porque
- * cada corrida desses workflows reescreve a sua em vez de criar uma nova.
+ * So the list is requested and the highest-numbered `apk-*` is picked. Twenty
+ * is plenty: the other tags are always the same four, because each run of
+ * those workflows rewrites its own instead of creating a new one.
  */
 export const RELEASES_API_URL =
   'https://api.github.com/repos/choso08/PalmMap/releases?per_page=20';
 
 /**
- * Quanto tempo tem de passar entre duas procuras automáticas de versão nova.
+ * How long has to pass between two automatic checks for a new version.
  *
- * **Procura-se a cada arranque**, que foi o que o autor pediu: abrir a aplicação
- * é o momento em que atualizar não interrompe nada. Esteve uma vez por dia, e
- * isso queria dizer abrir a aplicação de manhã, sair versão à tarde e só dar por
- * ela no dia seguinte.
+ * **It checks on every start-up**, which is what the author asked for: opening
+ * the app is the moment when updating interrupts nothing. It used to be once a
+ * day, which meant opening the app in the morning, a version coming out in the
+ * afternoon and only noticing it the next day.
  *
- * O quarto de hora é só um travão contra o disparate. A API do GitHub dá 60
- * pedidos por hora a quem não se identifica com uma chave, contados **por
- * endereço IP** — partilhados com tudo o que esteja na mesma rede. Abrir e
- * fechar a aplicação seis vezes seguidas, que é coisa que acontece, não pode
- * valer seis pedidos.
+ * The quarter of an hour is only a brake against nonsense. GitHub's API gives
+ * 60 requests an hour to anyone not identifying with a key, counted **per IP
+ * address** — shared with everything on the same network. Opening and closing
+ * the app six times in a row, which does happen, cannot be worth six requests.
  *
- * Procurar à mão, no botão das definições, não passa por aqui — quem carrega
- * quer saber agora.
+ * Checking by hand, with the button in the settings, does not go through this
+ * — whoever presses it wants to know now.
  */
 export const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;

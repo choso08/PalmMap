@@ -1,41 +1,41 @@
 /**
- * Tipos da resposta do OSRM (cálculo de percursos).
+ * Types for OSRM's response (route calculation).
  *
- * Correspondem ao pedido feito com `geometries=geojson` e `steps=true`, que
- * devolve a linha do percurso em GeoJSON e as manobras uma a uma.
+ * They match a request made with `geometries=geojson` and `steps=true`, which
+ * returns the route line as GeoJSON and the manoeuvres one by one.
  *
- * Documentação: https://project-osrm.org/docs/v5.24.0/api/
+ * Documentation: https://project-osrm.org/docs/v5.24.0/api/
  */
 
-/** A linha do percurso, em GeoJSON. */
+/** The route line, in GeoJSON. */
 export interface OsrmGeometry {
   type: 'LineString';
   /**
-   * Atenção à ordem: o GeoJSON usa [longitude, latitude], ao contrário do
-   * resto da aplicação, que usa { latitude, longitude }.
+   * Mind the order: GeoJSON uses [longitude, latitude], unlike the rest of the
+   * app, which uses { latitude, longitude }.
    */
   coordinates: [number, number][];
 }
 
 /**
- * A manobra em si.
+ * The manoeuvre itself.
  *
- * `type` diz o que se faz ('turn', 'roundabout', 'arrive', …) e `modifier`
- * diz para que lado ('left', 'slight right', …). A tradução para português
- * está em `src/utils/maneuvers.ts`.
+ * `type` says what is done ('turn', 'roundabout', 'arrive', …) and `modifier`
+ * says which way ('left', 'slight right', …). The translation into words is in
+ * `src/utils/maneuvers.ts`.
  */
 export interface OsrmManeuver {
   type: string;
   modifier?: string;
-  /** [longitude, latitude] do ponto onde a manobra acontece. */
+  /** [longitude, latitude] of the point where the manoeuvre happens. */
   location: [number, number];
-  /** Nas rotundas, o número da saída a tomar. */
+  /** At roundabouts, the number of the exit to take. */
   exit?: number;
 }
 
 export interface OsrmStep {
   maneuver: OsrmManeuver;
-  /** Nome da rua onde se segue depois da manobra. Pode vir vazio. */
+  /** Name of the street followed after the manoeuvre. May be empty. */
   name: string;
   distance: number;
   duration: number;
@@ -47,35 +47,36 @@ export interface OsrmLeg {
 
 export interface OsrmRoute {
   geometry: OsrmGeometry;
-  /** Só vem preenchido quando se pede `steps=true`. */
+  /** Only filled in when `steps=true` is requested. */
   legs: OsrmLeg[];
-  /** Distância total, em metros. */
+  /** Total distance, in metres. */
   distance: number;
-  /** Duração estimada, em segundos. */
+  /** Estimated duration, in seconds. */
   duration: number;
 }
 
 /**
- * Onde o OSRM encostou cada ponto que lhe pedimos.
+ * Where OSRM snapped each point we asked for.
  *
- * O serviço só sabe andar por estradas, por isso encosta a origem e o destino à
- * estrada mais próxima. O `distance` diz a quantos metros ficou do sítio pedido
- * — e é isso que permite avisar quem está longe de qualquer estrada.
+ * The service can only travel on roads, so it snaps the origin and the
+ * destination to the nearest road. `distance` says how many metres away from
+ * the requested spot it ended up — which is what lets the app warn someone who
+ * is far from any road.
  */
 export interface OsrmWaypoint {
-  /** Ponto encostado à estrada, em [longitude, latitude]. */
+  /** The point snapped to the road, as [longitude, latitude]. */
   location: [number, number];
-  /** A que distância ficou do ponto pedido, em metros. */
+  /** How far it ended up from the requested point, in metres. */
   distance: number;
   name: string;
 }
 
 export interface OsrmRouteResponse {
-  /** 'Ok' quando correu bem. Qualquer outro valor é um erro. */
+  /** 'Ok' when it went well. Any other value is an error. */
   code: string;
-  /** Mensagem de erro, só presente quando `code` não é 'Ok'. */
+  /** Error message, only present when `code` is not 'Ok'. */
   message?: string;
   routes: OsrmRoute[];
-  /** A origem e o destino, já encostados à estrada mais próxima. */
+  /** The origin and destination, already snapped to the nearest road. */
   waypoints?: OsrmWaypoint[];
 }

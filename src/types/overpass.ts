@@ -1,18 +1,18 @@
 /**
- * Tipos da resposta da Overpass API (consulta de locais do OpenStreetMap).
+ * Types for the Overpass API's response (querying OpenStreetMap places).
  *
- * A Overpass é o que permite perguntar "que restaurantes há aqui à volta?",
- * coisa que o Nominatim não faz bem.
+ * Overpass is what lets the app ask "which restaurants are around here?",
+ * something Nominatim does not do well.
  *
- * Documentação: https://wiki.openstreetmap.org/wiki/Overpass_API
+ * Documentation: https://wiki.openstreetmap.org/wiki/Overpass_API
  */
 
 /**
- * Um elemento devolvido pela Overpass.
+ * An element returned by Overpass.
  *
- * Os `node` (pontos) trazem `lat`/`lon` diretamente. Os `way` e `relation`
- * (linhas e áreas, como o edifício de um supermercado) só trazem o centro,
- * em `center`, e só porque a consulta pede `out center`.
+ * `node`s (points) carry `lat`/`lon` directly. `way`s and `relation`s (lines
+ * and areas, like a supermarket's building) only carry their centre, in
+ * `center`, and only because the query asks for `out center`.
  */
 export interface OverpassElement {
   type: 'node' | 'way' | 'relation';
@@ -25,11 +25,11 @@ export interface OverpassElement {
 
 export interface OverpassResponse {
   /**
-   * Explicação quando a consulta não correu bem.
+   * Explanation when the query did not go well.
    *
-   * A Overpass responde **200** mesmo quando rebenta pelo tempo ou pela
-   * memória, e mete a razão aqui. Sem olhar para isto, uma falha passava por
-   * "não há nada nesta zona".
+   * Overpass answers **200** even when it blows up on time or memory, and puts
+   * the reason here. Without looking at this, a failure passed for "there is
+   * nothing in this area".
    */
   remark?: string;
   elements: OverpassElement[];

@@ -3,218 +3,222 @@ import * as Speech from 'expo-speech';
 import { activeLanguage, speechTag, type Language } from '../i18n';
 
 /**
- * Leitura das instruções em voz alta, na língua da aplicação.
+ * Reading the instructions out loud, in the app's language.
  *
- * **A língua é a da aplicação e não a do telemóvel.** Quem põe a aplicação em
- * inglês quer as instruções em inglês, e ouvir uma frase inglesa lida com
- * pronúncia portuguesa é pior do que não a ouvir — a conduzir, o que interessa é
- * perceber-se à primeira.
+ * **The language is the app's, not the phone's.** Someone who sets the app to
+ * English wants the instructions in English, and hearing an English sentence
+ * read with a Portuguese accent is worse than not hearing it — while driving,
+ * what matters is being understood the first time.
  *
- * Nunca deixamos um erro daqui interromper a navegação: falhar a falar é chato,
- * mas o ecrã continua a mostrar tudo.
+ * An error here is never allowed to interrupt navigation: failing to speak is
+ * annoying, but the screen still shows everything.
  *
- * ## Porque é que a voz se escolhe à mão
+ * ## Why the voice is picked by hand
  *
- * Dizer só `language: 'pt-PT'` e deixar o sistema escolher **não chega**, e era
- * daí que vinha a voz estranha. Duas razões, e as duas se ouvem:
+ * Saying only `language: 'pt-PT'` and letting the system choose **is not
+ * enough**, and that is where the odd voice came from. Two reasons, and both
+ * can be heard:
  *
- * 1. **A região.** Se o telemóvel não tiver português de Portugal instalado, o
- *    Android serve o que tiver — e o português do Brasil lê "Rua Augusta" com
- *    outra pronúncia e outra entoação. A língua bate certo e o sotaque não.
- * 2. **A qualidade.** O Android costuma trazer duas vozes por língua: uma
- *    pequena, que vive no telemóvel, e uma que vem da Internet, bastante mais
- *    natural. A que responde por omissão é quase sempre a pequena.
+ * 1. **The region.** If the phone does not have European Portuguese installed,
+ *    Android serves whatever it has — and Brazilian Portuguese reads "Rua
+ *    Augusta" with a different pronunciation and intonation. The language
+ *    matches and the accent does not.
+ * 2. **The quality.** Android usually ships two voices per language: a small
+ *    one that lives on the phone, and one that comes from the Internet, quite a
+ *    lot more natural. The one that answers by default is almost always the
+ *    small one.
  *
- * Por isso pergunta-se ao telemóvel que vozes tem e fica-se com a melhor —
- * primeiro a região certa, depois a qualidade. Se não houver nenhuma que sirva,
- * volta-se ao comportamento de antes: diz-se a língua e o sistema que escolha.
+ * So the phone is asked which voices it has and the best one is kept — the
+ * right region first, then quality. If none fits, it falls back to the old
+ * behaviour: give the language and let the system choose.
  *
- * ## ⚠️ Não se pergunta nada ao motor de voz antes de ele responder
+ * ## ⚠️ Ask the speech engine nothing before it has answered
  *
- * **Isto é a parte mais importante deste ficheiro, e custou uma versão inteira.**
- * A primeira tentativa perguntava a lista das vozes no arranque, e a aplicação
- * passou a fechar-se sozinha — ora mal abria, ora uns segundos depois, ora ao
- * calcular um percurso. Três sintomas, uma causa.
+ * **This is the most important part of this file, and it cost a whole
+ * release.** The first attempt asked for the list of voices at start-up, and
+ * the app started closing on its own — sometimes as it opened, sometimes a few
+ * seconds later, sometimes while calculating a route. Three symptoms, one
+ * cause. (In the end the crash had a different cause — see section "10-B" of
+ * CLAUDE.md — but this trap is real and stays guarded.)
  *
- * O `SpeechModule.kt` do `expo-speech` faz isto: o motor de voz do Android só
- * arranca à primeira utilização e leva alguns segundos a ficar pronto. Quem lhe
- * pedir alguma coisa antes disso **fica numa fila**, e essa fila é despejada
- * dentro do `onInit` — que é uma função de retorno simples, **sem `try` nenhum à
- * volta**. Uma exceção ali não é uma promessa recusada: é uma exceção por apanhar
- * numa linha de execução do Android, e isso fecha a aplicação sem mais.
+ * `expo-speech`'s `SpeechModule.kt` does this: Android's speech engine only
+ * starts on first use and takes a few seconds to be ready. Anyone who asks it
+ * something before that **is put in a queue**, and that queue is flushed inside
+ * `onInit` — a plain callback, **with no `try` around it**. An exception there
+ * is not a rejected promise: it is an uncaught exception on an Android thread,
+ * and that closes the app outright.
  *
- * E há mesmo o que rebentar: `textToSpeech.voices` **atira exceção** em vários
- * motores de voz do Android — é um defeito conhecido, e o `expo-speech` embrulha-o
- * num `SpeechUnableToGetVoicesException`. Dentro de um `AsyncFunction` isso
- * vira uma promessa recusada, que o nosso `catch` trata; dentro do `onInit` é
- * uma aplicação fechada.
+ * And there really is something to blow up: `textToSpeech.voices` **throws** on
+ * several Android speech engines — it is a known defect, and `expo-speech`
+ * wraps it in a `SpeechUnableToGetVoicesException`. Inside an `AsyncFunction`
+ * that becomes a rejected promise, which our `catch` handles; inside `onInit`
+ * it is a closed app.
  *
- * **Duas coisas nossas tocavam nessa propriedade**, e as duas podiam cair na
- * fila: pedir a lista das vozes, e **mandar falar com uma voz escolhida** — o
- * `speakOut` também percorre o `textToSpeech.voices` para encontrar a que se lhe
- * indicou.
+ * **Two things of ours touched that property**, and both could land in the
+ * queue: asking for the list of voices, and **asking it to speak with a chosen
+ * voice** — `speakOut` also walks `textToSpeech.voices` to find the one it was
+ * given.
  *
- * A regra que fica, e que **não se deve desfazer**:
+ * The rule that stays, and that **must not be undone**:
  *
- * > Enquanto o motor de voz não tiver dado um sinal de vida, não se lhe pergunta
- * > a lista das vozes nem se lhe indica nenhuma. Diz-se só a língua, que é o
- * > caminho que nunca toca no `voices`.
+ * > Until the speech engine has given a sign of life, do not ask it for the
+ * > list of voices nor point it at one. Give only the language, which is the
+ * > path that never touches `voices`.
  *
- * O sinal de vida é qualquer um dos avisos de uma leitura — começou, acabou, foi
- * calada ou falhou. Qualquer deles prova que o motor já arrancou, e a partir daí
- * perguntar é seguro, porque a resposta já não passa pela fila.
+ * The sign of life is any of an utterance's callbacks — started, done, stopped
+ * or failed. Any of them proves the engine has started, and from then on
+ * asking is safe, because the answer no longer goes through the queue.
  *
- * **O que isto custa é a primeira frase**, lida com a voz que o sistema
- * escolher. A segunda já vai com a escolhida. É um preço pequeno ao pé de a
- * aplicação fechar-se a meio de uma estrada.
+ * **What it costs is the first sentence**, read with whatever voice the system
+ * chooses. The second already goes with the chosen one. A small price next to
+ * the app closing in the middle of a road.
  */
 
 /**
- * Se o motor de voz já deu sinal de vida.
+ * Whether the speech engine has already given a sign of life.
  *
- * Enquanto for falso, não se lhe pergunta nada nem se lhe indica voz nenhuma —
- * ver a nota grande acima. Passa a verdadeiro no primeiro aviso de uma leitura.
+ * While false, it is asked nothing and pointed at no voice — see the big note
+ * above. It becomes true on the first callback of an utterance.
  */
-let motorPronto = false;
+let engineReady = false;
 
-/** A voz escolhida para cada língua. `null` quer dizer "não há nenhuma boa". */
-const escolhidas = new Map<Language, string | null>();
+/** The voice chosen for each language. `null` means "there is no good one". */
+const chosenVoices = new Map<Language, string | null>();
 
 /**
- * Se a voz escolhida é mesmo da região certa — português **de Portugal**, e não
- * do Brasil.
+ * Whether the chosen voice really is from the right region — Portuguese **from
+ * Portugal**, not from Brazil.
  *
- * Interessa saber porque é a diferença que se ouve, e porque a aplicação não
- * pode fazer nada quanto a isso: instalar vozes é coisa das definições do
- * Android. O que dá para fazer é dizê-lo a quem está a ouvir um sotaque que não
- * pediu — ver o ecrã de definições.
+ * It is worth knowing because it is the difference that can be heard, and
+ * because the app can do nothing about it: installing voices belongs to
+ * Android's settings. What it can do is tell someone who is hearing an accent
+ * they did not ask for — see the settings screen.
  */
-const regiaoCerta = new Map<Language, boolean>();
+const rightRegion = new Map<Language, boolean>();
 
-/**
- * Quão bem esta voz serve para esta língua. Negativo quer dizer "não serve".
- *
- * Os pesos são propositadamente desiguais: **a região vale mais do que a
- * qualidade**. Uma voz portuguesa pequena é preferível a uma voz brasileira
- * bonita, porque o que se está a ler são nomes de ruas portuguesas.
- */
-function quaoBoa(voz: Speech.Voice, alvo: string): number {
-  const lingua = (voz.language ?? '').replace('_', '-').toLowerCase();
-  const pretendida = alvo.toLowerCase();
-  const raiz = pretendida.split('-')[0];
+/** How well this voice suits this language. Negative means "it doesn't". */
+function voiceScore(voice: Speech.Voice, target: string): number {
+  const language = (voice.language ?? '').replace('_', '-').toLowerCase();
+  const wanted = target.toLowerCase();
+  const root = wanted.split('-')[0];
 
-  if (lingua !== pretendida && !lingua.startsWith(`${raiz}-`) && lingua !== raiz) {
+  if (language !== wanted && !language.startsWith(`${root}-`) && language !== root) {
     return -1;
   }
 
-  let pontos = lingua === pretendida ? 100 : 10;
-  if (voz.quality === Speech.VoiceQuality.Enhanced) {
-    pontos += 20;
+  // The weights are deliberately uneven: **the region is worth more than the
+  // quality**. A small Portuguese voice beats a pretty Brazilian one, because
+  // what is being read is Portuguese street names.
+  let points = language === wanted ? 100 : 10;
+  if (voice.quality === Speech.VoiceQuality.Enhanced) {
+    points += 20;
   }
-  // No Android as vozes que vêm da Internet dizem-no no identificador, e são as
-  // que soam a gente. A qualidade declarada não as distingue — quase todas se
-  // dizem `Default`.
-  if ((voz.identifier ?? '').toLowerCase().includes('network')) {
-    pontos += 15;
+  // On Android the voices that come from the Internet say so in their
+  // identifier, and they are the ones that sound like people. The declared
+  // quality does not tell them apart — almost all say `Default`.
+  if ((voice.identifier ?? '').toLowerCase().includes('network')) {
+    points += 15;
   }
-  return pontos;
+  return points;
 }
 
 /**
- * Descobre a melhor voz de cada língua e guarda-a.
+ * Works out the best voice for each language and keeps it.
  *
- * Corre-se uma vez, no arranque. **Não se pode fazer isto dentro do `speak()`**:
- * pedir a lista das vozes é assíncrono e o `speak()` é chamado de dentro do
- * motor de navegação, que não pode esperar por nada. Enquanto não estiver
- * resolvido, fala-se como antes — o que se perde é a escolha, não a voz.
+ * Runs once. **This cannot be done inside `speak()`**: asking for the list of
+ * voices is asynchronous and `speak()` is called from inside the navigation
+ * engine, which cannot wait for anything. Until it is resolved, speech works as
+ * before — what is lost is the choice, not the voice.
  */
 export async function prepareVoices(): Promise<void> {
-  // **Nunca antes de o motor responder.** Ver a nota grande no cimo do ficheiro:
-  // antes disso o pedido fica numa fila que é despejada sem proteção nenhuma, e
-  // uma lista de vozes que rebente ali fecha a aplicação.
-  if (!motorPronto || escolhidas.size > 0) {
+  // **Never before the engine answers.** See the big note at the top of the
+  // file: before that the request goes into a queue flushed with no protection
+  // at all, and a voice list that blows up there closes the app.
+  if (!engineReady || chosenVoices.size > 0) {
     return;
   }
 
   try {
-    const vozes = await Speech.getAvailableVoicesAsync();
+    const voices = await Speech.getAvailableVoicesAsync();
 
-    for (const lingua of ['pt', 'en'] as Language[]) {
-      const alvo = speechTag(lingua);
-      let melhor: { id: string; pontos: number } | null = null;
+    for (const language of ['pt', 'en'] as Language[]) {
+      const target = speechTag(language);
+      let best: { id: string; points: number } | null = null;
 
-      for (const voz of vozes) {
-        const pontos = quaoBoa(voz, alvo);
-        if (pontos >= 0 && (!melhor || pontos > melhor.pontos)) {
-          melhor = { id: voz.identifier, pontos };
+      for (const voice of voices) {
+        const points = voiceScore(voice, target);
+        if (points >= 0 && (!best || points > best.points)) {
+          best = { id: voice.identifier, points };
         }
       }
 
-      escolhidas.set(lingua, melhor?.id ?? null);
-      // Cem pontos é o que só a região exata dá — ver `quaoBoa`.
-      regiaoCerta.set(lingua, (melhor?.pontos ?? 0) >= 100);
+      chosenVoices.set(language, best?.id ?? null);
+      // A hundred points is what only the exact region gives — see
+      // `voiceScore`.
+      rightRegion.set(language, (best?.points ?? 0) >= 100);
     }
   } catch {
-    // Sem lista de vozes, fica tudo como estava: diz-se a língua e o sistema
-    // escolhe. Não é motivo para ficar sem voz.
+    // Without a voice list, everything stays as it was: give the language and
+    // the system chooses. No reason to go without a voice.
   }
 }
 
 /**
- * Se o telemóvel tem voz da região desta língua.
+ * Whether the phone has a voice from this language's region.
  *
- * `null` enquanto a lista de vozes ainda não foi lida — nesse caso não se diz
- * nada, que é melhor do que avisar de um problema que pode não existir.
+ * `null` while the voice list has not been read yet — in that case nothing is
+ * said, which beats warning about a problem that may not exist.
  */
 export function hasRegionVoice(language: Language): boolean | null {
-  return regiaoCerta.has(language) ? (regiaoCerta.get(language) as boolean) : null;
+  return rightRegion.has(language) ? (rightRegion.get(language) as boolean) : null;
 }
 
 /**
- * O motor acabou de dar sinal de vida. A partir daqui já se lhe pode perguntar.
+ * The engine has just given a sign of life. From here on it can be asked.
  *
- * Serve os quatro avisos — começou, acabou, foi calada, falhou — porque qualquer
- * um deles prova a mesma coisa: o motor arrancou. Até o erro serve.
+ * It serves the four callbacks — started, done, stopped, failed — because any
+ * of them proves the same thing: the engine has started. Even the error will
+ * do.
  */
-function aoResponder(): void {
-  if (motorPronto) {
+function onEngineAnswer(): void {
+  if (engineReady) {
     return;
   }
-  motorPronto = true;
+  engineReady = true;
   void prepareVoices();
 }
 
 export function speak(text: string): void {
   try {
-    const lingua = activeLanguage();
-    // A voz escolhida só entra depois de o motor ter respondido: indicá-la antes
-    // punha o `speakOut` a percorrer o `textToSpeech.voices` de dentro da fila,
-    // que é o caminho que fecha a aplicação. A primeira frase vai com a voz que
-    // o sistema escolher, e é a única.
-    const voz = motorPronto ? escolhidas.get(lingua) : null;
+    const language = activeLanguage();
+    // The chosen voice only comes in after the engine has answered: giving it
+    // earlier made `speakOut` walk `textToSpeech.voices` from inside the queue,
+    // which is the path that closes the app. The first sentence goes with the
+    // voice the system picks, and it is the only one.
+    const voice = engineReady ? chosenVoices.get(language) : null;
     Speech.speak(text, {
-      language: speechTag(lingua),
+      language: speechTag(language),
       rate: 1.0,
-      ...(voz ? { voice: voz } : {}),
-      ...(motorPronto
+      ...(voice ? { voice } : {}),
+      ...(engineReady
         ? {}
         : {
-            onStart: aoResponder,
-            onDone: aoResponder,
-            onStopped: aoResponder,
-            onError: aoResponder,
+            onStart: onEngineAnswer,
+            onDone: onEngineAnswer,
+            onStopped: onEngineAnswer,
+            onError: onEngineAnswer,
           }),
     });
   } catch {
-    // Sem voz, segue-se pelo ecrã.
+    // Without a voice, the screen carries on guiding.
   }
 }
 
-/** Cala o que estiver a ser dito. Usar ao terminar a navegação. */
+/** Silences whatever is being said. Use when navigation ends. */
 export function stopSpeaking(): void {
   try {
     void Speech.stop();
   } catch {
-    // Nada a fazer.
+    // Nothing to do.
   }
 }

@@ -1,26 +1,27 @@
 import { t } from '../i18n';
 
 /**
- * Funções para transformar números em texto legível.
+ * Functions that turn numbers into readable text.
  *
- * Lêem a língua no momento em que são chamadas. **O separador decimal é o que
- * mais se nota**: em português escreve-se 12,4 km e em inglês 12.4 km — deixar
- * a vírgula num ecrã inglês é daquelas coisas que fazem uma aplicação parecer
- * mal traduzida mesmo com tudo o resto certo.
+ * They read the language at the moment they are called. **The decimal
+ * separator is what shows the most**: Portuguese writes 12,4 km and English
+ * 12.4 km — leaving the comma on an English screen is one of those things that
+ * make an app look badly translated even with everything else right.
  */
 
-/** Põe o separador decimal da língua num número já formatado. */
+/** Puts the language's decimal separator into an already formatted number. */
 function decimal(text: string): string {
   return text.replace('.', t().units.decimal);
 }
 
 /**
- * 850 -> "850 metros"; 12400 -> "12,4 quilómetros". A mesma distância, para a voz.
+ * 850 -> "850 metres"; 12400 -> "12.4 kilometres". The same distance, for the
+ * voice.
  *
- * **As abreviaturas não se dizem.** "850 m" lê-se num instante escrito e sai
- * "oitocentos e cinquenta eme" quando é a voz a dizê-lo — que é o género de
- * pormenor que faz uma aplicação soar a robô mal programado, precisamente no
- * momento em que se está a conduzir e só se tem os ouvidos.
+ * **Abbreviations are not spoken.** "850 m" reads in an instant when written
+ * and comes out as "eight hundred and fifty em" when the voice says it — the
+ * kind of detail that makes an app sound like a badly programmed robot,
+ * precisely when one is driving and only has one's ears.
  */
 export function formatDistanceSpoken(meters: number): string {
   const u = t().units;
@@ -35,17 +36,17 @@ export function formatDistanceSpoken(meters: number): string {
 }
 
 /**
- * 1.3 -> "1,3×". O ritmo aprendido, para o ecrã de definições.
+ * 1.3 -> "1.3×". The learnt pace, for the settings screen.
  *
- * Uma casa decimal chega: a diferença entre 1,32 e 1,35 não muda decisão nenhuma
- * de quem está a ler, e dois algarismos dão ao número um ar de precisão que ele
- * não tem.
+ * One decimal place is enough: the difference between 1.32 and 1.35 changes no
+ * decision for whoever is reading, and two digits give the number an air of
+ * precision it does not have.
  */
 export function formatFactor(factor: number): string {
   return `${decimal(factor.toFixed(1))}\u00d7`;
 }
 
-/** 850 -> "850 m"; 12400 -> "12,4 km" */
+/** 850 -> "850 m"; 12400 -> "12.4 km" */
 export function formatDistance(meters: number): string {
   const u = t().units;
 
@@ -54,7 +55,7 @@ export function formatDistance(meters: number): string {
   }
 
   const km = meters / 1000;
-  // Abaixo de 10 km mostra-se uma casa decimal; acima disso não vale a pena.
+  // Below 10 km one decimal place is shown; above that it isn't worth it.
   const text = km < 10 ? km.toFixed(1) : Math.round(km).toString();
   return `${decimal(text)} ${u.kilometres}`;
 }
@@ -76,11 +77,11 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Área em texto: 340 m², 1,2 ha, 4,5 km².
+ * Area as text: 340 m², 1.2 ha, 4.5 km².
  *
- * O hectare entra de propósito no meio: é a unidade em que se fala de terrenos
- * em Portugal, e "12 000 m²" não diz nada a ninguém que compre terra. Em inglês
- * o hectare também se usa para terreno, por isso fica nas duas línguas.
+ * The hectare sits in the middle on purpose: it is the unit land is talked
+ * about in, in Portugal, and "12 000 m²" means nothing to anyone buying land.
+ * In English the hectare is also used for land, so it stays in both languages.
  */
 export function formatArea(squareMeters: number): string {
   const u = t().units;

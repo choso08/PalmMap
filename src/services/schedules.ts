@@ -17,47 +17,51 @@ export type { ScheduleFeedInfo };
 import { distanceMeters } from '../utils/geometry';
 
 /**
- * Horários de comboio, metro e barco, guardados no telemóvel.
+ * Train, metro and ferry timetables, stored on the phone.
  *
- * ## Porque é que isto é diferente dos autocarros
+ * ## Why this is different from the buses
  *
- * Os autocarros da Carris Metropolitana têm uma API aberta com **tempo real**: o
- * `transit.ts` pergunta-lhe as horas e recebe a hora a que o autocarro passa
- * mesmo, com o atraso já contado. Melhor do que isso não há.
+ * Carris Metropolitana's buses have an open API with **real time**:
+ * `transit.ts` asks it for the times and gets the time the bus actually
+ * passes, with the delay already counted. It doesn't get better than that.
  *
- * O comboio, o metro e o barco não têm nada assim. O que têm é **GTFS estático**
- * — um ZIP com o horário todo, publicado de vez em quando. Não se pode usar
- * diretamente: o da CP tem centenas de milhares de linhas e o telemóvel teria de
- * o ler inteiro para responder a uma pergunta simples.
+ * Trains, the metro and ferries have nothing like it. What they have is
+ * **static GTFS** — a ZIP with the whole timetable, published every now and
+ * then. It cannot be used directly: CP's has hundreds of thousands of lines
+ * and the phone would have to read all of it to answer a simple question.
  *
- * Por isso a conversão é feita no GitHub Actions
- * (`.github/workflows/build-transit.yml`), o resultado vai para uma Release, e
- * aqui só se descarrega um ficheiro pequeno e se lhe fazem perguntas. É o mesmo
- * caminho dos mapas offline, pela mesma razão.
+ * So the conversion is done in GitHub Actions
+ * (`.github/workflows/build-transit.yml`), the result goes to a Release, and
+ * here a small file is just downloaded and asked questions. It is the same path
+ * as the offline maps, for the same reason.
  *
- * ## O que isto é, e o que não é
+ * ## What this is, and what it is not
  *
- * **É o horário, não é o tempo real.** Diz a que horas o comboio devia passar.
- * Se estiver atrasado, isto não sabe. A aplicação marca a diferença: os
- * autocarros levam ponto verde, os comboios não. Não prometer o que não se tem.
+ * **It is the timetable, not real time.** It says when the train should pass.
+ * If it is late, this does not know. The app marks the difference: buses get a
+ * green dot, trains do not. Don't promise what you don't have.
  *
- * **Tem validade.** Cada ficheiro cobre uma janela de dias a partir de quando
- * foi gerado. Passada essa data deixa de responder, e diz porquê em vez de
- * mostrar uma lista vazia.
+ * **It has an expiry date.** Each file covers a window of days from when it
+ * was generated. Past that date it stops answering, and says why instead of
+ * showing an empty list.
  *
- * **Funciona sem rede**, que é meia razão para existir: o ficheiro está no
- * telemóvel.
+ * **It works without network**, which is half the reason it exists: the file
+ * is on the phone.
+ *
+ * The Release tag `horarios`, the on-device folder `horarios` and the
+ * Portuguese field names of the published files stay as they are, so copies
+ * of the app already installed keep finding them.
  */
 
 const BASE_URL = 'https://github.com/choso08/PalmMap/releases/download/horarios';
 
-/** Onde ficam os horários descarregados. */
+/** Where the downloaded timetables are kept. */
 const FOLDER = new Directory(Paths.document, 'horarios');
 
-/** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
+/** Error with a readable message, so the screen can show something useful. */
 export class ScheduleError extends Error {}
 
-// --- Descarregar e guardar ----------------------------------------------------
+// --- Downloading and storing ----------------------------------------------------
 
 function ensureFolder(): void {
   if (!FOLDER.exists) {
@@ -70,10 +74,10 @@ function dataFile(info: ScheduleFeedInfo): File {
 }
 
 /**
- * O ficheiro de identificação.
+ * The identification file.
  *
- * Tem de ser `.info.json` e não `.json` como nos mapas: aqui o ficheiro de dados
- * já é um `.json`, e os dois davam-se ao mesmo nome.
+ * It has to be `.info.json` and not `.json` as with the maps: here the data
+ * file is already a `.json`, and the two would end up with the same name.
  */
 function infoFile(id: string): File {
   return new File(FOLDER, `${id}.info.json`);
@@ -83,31 +87,31 @@ export function isInstalled(info: ScheduleFeedInfo): boolean {
   return dataFile(info).exists;
 }
 
-/** Os horários que estão mesmo no telemóvel. Lê a pasta, para funcionar sem rede. */
+/** The timetables actually on the phone. Reads the folder, so it works without network. */
 export function installedFeeds(): ScheduleFeedInfo[] {
   if (!FOLDER.exists) {
     return [];
   }
 
   const feeds: ScheduleFeedInfo[] = [];
-  for (const entrada of FOLDER.list()) {
-    if (!(entrada instanceof File) || !entrada.uri.endsWith('.info.json')) {
+  for (const entry of FOLDER.list()) {
+    if (!(entry instanceof File) || !entry.uri.endsWith('.info.json')) {
       continue;
     }
     try {
-      const info = JSON.parse(entrada.textSync()) as ScheduleFeedInfo;
+      const info = JSON.parse(entry.textSync()) as ScheduleFeedInfo;
       if (new File(FOLDER, info.ficheiro).exists) {
         feeds.push(info);
       }
     } catch {
-      // Identificação estragada: ignora-se esse operador em vez de deixar a
-      // aplicação sem horário nenhum.
+      // Broken identification: that operator is ignored instead of leaving the
+      // app with no timetable at all.
     }
   }
   return feeds;
 }
 
-/** A lista do que há para descarregar. */
+/** The list of what there is to download. */
 export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
   try {
     const response = await axios.get<{ horarios: ScheduleFeedInfo[] }>(
@@ -115,15 +119,16 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
       { timeout: REQUEST_TIMEOUT_MS, headers: { 'User-Agent': USER_AGENT } },
     );
 
-    // O `naApp: false` tira da lista o que não faz sentido descarregar — hoje só
-    // a Carris Metropolitana, que tem tempo real por API e não precisa de um
-    // horário de papel. **Não se filtra por `kind`**: um autocarro de Braga não
-    // tem tempo real nenhum, e para esse o horário é tudo o que há.
+    // `naApp: false` removes from the list what makes no sense to download —
+    // today only Carris Metropolitana, which has real time through an API and
+    // needs no paper timetable. **It does not filter by `kind`**: a bus in
+    // Braga has no real time at all, and for that one the timetable is all
+    // there is.
     return (response.data.horarios ?? []).filter((f) => f.naApp !== false);
   } catch {
-    const guardados = installedFeeds();
-    if (guardados.length > 0) {
-      return guardados;
+    const stored = installedFeeds();
+    if (stored.length > 0) {
+      return stored;
     }
     throw new ScheduleError(
       t().errors.scheduleListFailed,
@@ -131,104 +136,108 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
   }
 }
 
-/** Descarrega o horário de um operador. */
+/** Downloads one operator's timetable. */
 export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
   ensureFolder();
 
-  const parcial = new File(FOLDER, `${info.ficheiro}.parcial`);
-  if (parcial.exists) {
-    parcial.delete();
+  // The `.parcial` ("partial") suffix stays in Portuguese so leftovers from
+  // older versions are still recognised and cleaned up.
+  const partial = new File(FOLDER, `${info.ficheiro}.parcial`);
+  if (partial.exists) {
+    partial.delete();
   }
 
   try {
-    const descarregado = await File.downloadFileAsync(
+    const downloaded = await File.downloadFileAsync(
       `${BASE_URL}/${info.ficheiro}`,
-      parcial,
+      partial,
     );
 
-    const destino = dataFile(info);
-    if (destino.exists) {
-      destino.delete();
+    const destination = dataFile(info);
+    if (destination.exists) {
+      destination.delete();
     }
-    await descarregado.move(destino);
+    await downloaded.move(destination);
     infoFile(info.id).write(JSON.stringify(info));
     cache.delete(info.id);
-  } catch (erro) {
-    if (parcial.exists) {
-      parcial.delete();
+  } catch (error) {
+    if (partial.exists) {
+      partial.delete();
     }
-    const detalhe = erro instanceof Error ? erro.message : String(erro);
+    const detail = error instanceof Error ? error.message : String(error);
     throw new ScheduleError(
-      t().errors.scheduleDownloadFailed(info.nome, detalhe),
+      t().errors.scheduleDownloadFailed(info.nome, detail),
     );
   }
 }
 
-/** Apaga o horário guardado de um operador. */
+/** Deletes one operator's stored timetable. */
 export function removeFeed(info: ScheduleFeedInfo): void {
-  for (const ficheiro of [dataFile(info), infoFile(info.id)]) {
-    if (ficheiro.exists) {
-      ficheiro.delete();
+  for (const file of [dataFile(info), infoFile(info.id)]) {
+    if (file.exists) {
+      file.delete();
     }
   }
   cache.delete(info.id);
 }
 
-/** Quanto ocupam, ao todo, os horários guardados. */
+/** How much the stored timetables take up, in total. */
 export function usedBytes(): number {
   if (!FOLDER.exists) {
     return 0;
   }
   return FOLDER.list().reduce(
-    (total, entrada) => (entrada instanceof File ? total + (entrada.size ?? 0) : total),
+    (total, entry) => (entry instanceof File ? total + (entry.size ?? 0) : total),
     0,
   );
 }
 
-// --- Ler e indexar -------------------------------------------------------------
+// --- Reading and indexing -------------------------------------------------------
 
 /**
- * Um horário já lido e preparado para responder depressa.
+ * A timetable already read and prepared to answer quickly.
  *
- * A preparação faz-se uma vez, ao abrir o ficheiro. Sem ela, cada pergunta
- * obrigava a percorrer as viagens todas — e há operadores com milhares.
+ * The preparation is done once, when the file is opened. Without it, every
+ * question would mean walking through all the trips — and some operators have
+ * thousands.
  */
 interface IndexedFeed {
   info: ScheduleFeedInfo;
   data: ScheduleFeed;
-  /** As horas de cada viagem em minutos absolutos, com os deltas já somados. */
-  minutos: number[][];
-  /** Os dias de cada serviço, em conjunto, para não se procurar numa lista. */
-  dias: Set<string>[];
-  /** Em que viagens aparece cada estação, e em que posição do percurso. */
-  porEstacao: Map<number, { trip: number; pos: number }[]>;
+  /** Each trip's times in absolute minutes, with the deltas already added up. */
+  minutes: number[][];
+  /** Each service's days, as a set, so they need not be searched in a list. */
+  days: Set<string>[];
+  /** Which trips each station appears in, and at which position of the route. */
+  byStation: Map<number, { trip: number; pos: number }[]>;
 }
 
 const cache = new Map<string, IndexedFeed>();
 
 function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
-  const minutos: number[][] = [];
-  const porEstacao = new Map<number, { trip: number; pos: number }[]>();
+  const minutes: number[][] = [];
+  const byStation = new Map<number, { trip: number; pos: number }[]>();
 
   data.trips.forEach((trip, i) => {
-    const padrao = data.patterns[trip.p] ?? [];
+    const pattern = data.patterns[trip.p] ?? [];
 
-    // Os deltas voltam a ser horas absolutas. É a conta inversa da que o script
-    // de conversão faz, e faz-se uma vez em vez de a cada pergunta.
-    const horas: number[] = [];
-    let acumulado = 0;
+    // The deltas go back to being absolute times. It is the inverse of the
+    // arithmetic the conversion script does, done once instead of on every
+    // question.
+    const times: number[] = [];
+    let running = 0;
     for (const delta of trip.t) {
-      acumulado += delta;
-      horas.push(acumulado);
+      running += delta;
+      times.push(running);
     }
-    minutos.push(horas);
+    minutes.push(times);
 
-    padrao.forEach((estacao, pos) => {
-      const lista = porEstacao.get(estacao);
-      if (lista) {
-        lista.push({ trip: i, pos });
+    pattern.forEach((station, pos) => {
+      const list = byStation.get(station);
+      if (list) {
+        list.push({ trip: i, pos });
       } else {
-        porEstacao.set(estacao, [{ trip: i, pos }]);
+        byStation.set(station, [{ trip: i, pos }]);
       }
     });
   });
@@ -236,59 +245,60 @@ function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
   return {
     info,
     data,
-    minutos,
-    dias: data.services.map((datas) => new Set(datas)),
-    porEstacao,
+    minutes,
+    days: data.services.map((dates) => new Set(dates)),
+    byStation,
   };
 }
 
 /**
- * Abre um horário guardado.
+ * Opens a stored timetable.
  *
- * Fica em memória depois da primeira vez: é um ficheiro de centenas de
- * kilobytes e lê-lo a cada pergunta seria bem pior do que o guardar.
+ * It stays in memory after the first time: it is a file of hundreds of
+ * kilobytes and reading it on every question would be much worse than keeping
+ * it.
  */
 export function loadFeed(info: ScheduleFeedInfo): IndexedFeed | null {
-  const guardado = cache.get(info.id);
-  if (guardado) {
-    return guardado;
+  const stored = cache.get(info.id);
+  if (stored) {
+    return stored;
   }
 
-  const ficheiro = dataFile(info);
-  if (!ficheiro.exists) {
+  const file = dataFile(info);
+  if (!file.exists) {
     return null;
   }
 
   try {
-    const data = JSON.parse(ficheiro.textSync()) as ScheduleFeed;
+    const data = JSON.parse(file.textSync()) as ScheduleFeed;
     if (!Array.isArray(data.trips) || !Array.isArray(data.stops)) {
       return null;
     }
-    const preparado = index(info, data);
-    cache.set(info.id, preparado);
-    return preparado;
+    const prepared = index(info, data);
+    cache.set(info.id, prepared);
+    return prepared;
   } catch {
-    // Ficheiro estragado: vale mais não ter horários deste operador do que
-    // rebentar o painel inteiro.
+    // Broken file: better to have no timetable for this operator than to blow
+    // up the whole panel.
     return null;
   }
 }
 
-/** Todos os horários guardados, já preparados. */
+/** All the stored timetables, already prepared. */
 function loadedFeeds(): IndexedFeed[] {
-  const abertos: IndexedFeed[] = [];
+  const open: IndexedFeed[] = [];
   for (const info of installedFeeds()) {
     const feed = loadFeed(info);
     if (feed) {
-      abertos.push(feed);
+      open.push(feed);
     }
   }
-  return abertos;
+  return open;
 }
 
-// --- Contas com datas -----------------------------------------------------------
+// --- Date arithmetic ------------------------------------------------------------
 
-/** Uma data em AAAAMMDD, no fuso do telemóvel. */
+/** A date as YYYYMMDD, in the phone's time zone. */
 function ymd(d: Date): string {
   return (
     `${d.getFullYear()}` +
@@ -298,225 +308,225 @@ function ymd(d: Date): string {
 }
 
 /**
- * A que horas acontece, em segundos desde 1970, uma passagem de um dia de
- * serviço.
+ * When, in seconds since 1970, a call on a service day happens.
  *
- * Os minutos podem passar dos 1440 — `1505` é a uma e cinco da manhã seguinte,
- * ainda a contar como serviço do dia anterior. O `Date` normaliza isso sozinho,
- * **e é de propósito que se lhe entregam os minutos em vez de se somar segundos
- * à meia-noite**: assim o dia em que os relógios mudam continua certo.
+ * The minutes can go past 1440 — `1505` is five past one the next morning,
+ * still counted as the previous day's service. `Date` normalises that on its
+ * own, **and the minutes are handed to it on purpose instead of adding seconds
+ * to midnight**: that way the day the clocks change stays right.
  */
-function unixAt(dia: string, minutos: number): number {
-  const ano = Number(dia.slice(0, 4));
-  const mes = Number(dia.slice(4, 6)) - 1;
-  const diaDoMes = Number(dia.slice(6, 8));
-  return new Date(ano, mes, diaDoMes, 0, minutos, 0, 0).getTime() / 1000;
+function unixAt(day: string, minutes: number): number {
+  const year = Number(day.slice(0, 4));
+  const month = Number(day.slice(4, 6)) - 1;
+  const dayOfMonth = Number(day.slice(6, 8));
+  return new Date(year, month, dayOfMonth, 0, minutes, 0, 0).getTime() / 1000;
 }
 
 /**
- * Os dias de serviço a considerar para uma dada altura.
+ * The service days to consider for a given moment.
  *
- * São três: ontem, hoje e amanhã. **Ontem entra por causa das viagens que passam
- * da meia-noite** — às 00:30 o comboio que se quer apanhar ainda é serviço de
- * ontem. E amanhã entra pela razão simétrica: às 23:50 já interessa o que sai
- * logo a seguir.
+ * There are three: yesterday, today and tomorrow. **Yesterday comes in because
+ * of the trips that go past midnight** — at 00:30 the train one wants to catch
+ * is still yesterday's service. And tomorrow comes in for the symmetric reason:
+ * at 23:50 what leaves right after already matters.
  */
-function candidateDays(agora: Date): string[] {
-  const dias: string[] = [];
+function candidateDays(now: Date): string[] {
+  const days: string[] = [];
   for (let offset = -1; offset <= 1; offset += 1) {
-    dias.push(ymd(new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + offset)));
+    days.push(ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset)));
   }
-  return dias;
+  return days;
 }
 
-/** Se o horário deste operador ainda é válido nesta data. */
-export function isExpired(info: ScheduleFeedInfo, agora = new Date()): boolean {
-  return typeof info.fim === 'string' && info.fim.length === 8 && ymd(agora) > info.fim;
+/** Whether this operator's timetable has expired by this date. */
+export function isExpired(info: ScheduleFeedInfo, now = new Date()): boolean {
+  return typeof info.fim === 'string' && info.fim.length === 8 && ymd(now) > info.fim;
 }
 
-// --- Perguntas -------------------------------------------------------------------
+// --- Questions -------------------------------------------------------------------
 
-/** Uma passagem prevista numa estação. */
+/** An expected departure at a station. */
 export interface ScheduleDeparture {
-  /** Identifica esta passagem na lista. */
+  /** Identifies this departure in the list. */
   key: string;
-  /** Que operador. */
+  /** Which operator. */
   operator: string;
-  /** Comboio, metro, metro de superfície ou barco. */
+  /** Train, metro, light rail or ferry. */
   kind: string;
-  /** Em que estação. */
+  /** At which station. */
   station: string;
-  /** O nome da linha, como o operador lhe chama. */
+  /** The line's name, as the operator calls it. */
   line: string;
-  /** Para onde vai. */
+  /** Where it is going. */
   destination: string;
-  /** Quantos minutos faltam. */
+  /** How many minutes to go. */
   minutes: number;
-  /** A hora a que passa, em `HH:MM`. */
+  /** The time it departs, as `HH:MM`. */
   time: string;
 }
 
-/** `HH:MM` a partir de segundos desde 1970. */
+/** `HH:MM` from seconds since 1970. */
 function clockOf(unix: number): string {
   const d = new Date(unix * 1000);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** As estações de um horário a menos de uma certa distância de um ponto. */
+/** A timetable's stations within a certain distance of a point. */
 function stopsNear(
   feed: IndexedFeed,
   origin: Coordinates,
   maxMeters: number,
 ): Map<number, number> {
-  const perto = new Map<number, number>();
+  const near = new Map<number, number>();
 
   feed.data.stops.forEach((stop, i) => {
     const meters = distanceMeters(origin, { latitude: stop.y, longitude: stop.x });
     if (meters <= maxMeters) {
-      perto.set(i, meters);
+      near.set(i, meters);
     }
   });
 
-  return perto;
+  return near;
 }
 
 /**
- * A estação **mais próxima** de um ponto, num horário — e só essa.
+ * The station **nearest** to a point, in one timetable — and only that one.
  *
- * É o que se usa para as horas de passagem, e a diferença em relação a apanhar
- * todas as que estão dentro de um raio é importante:
+ * It is what is used for the departure times, and the difference from taking
+ * every station inside a radius matters:
  *
- * - **Um raio apertado falha.** As localizações vêm da API da Carris e as horas
- *   do GTFS do operador, e os dois pontos da mesma estação não coincidem. Com um
- *   raio de 400 metros, Cascais ficava de fora por trinta metros — visto nos
- *   dados reais, não em teoria.
- * - **Um raio largo mente.** As estações de metro de Lisboa ficam a uns
- *   quinhentos metros umas das outras; alargar o raio punha na Rotunda os
- *   comboios do Marquês.
+ * - **A tight radius fails.** The locations come from the Carris API and the
+ *   times from the operator's GTFS, and the two points for the same station do
+ *   not coincide. With a 400-metre radius, Cascais was left out by thirty
+ *   metres — seen in the real data, not in theory.
+ * - **A wide radius lies.** Lisbon's metro stations are about five hundred
+ *   metres apart; widening the radius put Marquês's trains at Rotunda.
  *
- * Ficar com a mais próxima resolve as duas: pode-se ser generoso na distância
- * sem nunca misturar duas estações. E como se faz por horário, numa interface
- * como o Oriente o comboio vem do ficheiro da CP e o metro do do Metro, cada um
- * com a sua estação — que é exatamente o que se quer ver.
+ * Keeping the nearest one solves both: the distance can be generous without
+ * ever mixing up two stations. And since it is done per timetable, at an
+ * interchange like Oriente the train comes from CP's file and the metro from
+ * the Metro's, each with its own station — which is exactly what one wants to
+ * see.
  */
 function nearestStop(
   feed: IndexedFeed,
   origin: Coordinates,
   maxMeters: number,
-): { indice: number; meters: number } | null {
-  let melhor: { indice: number; meters: number } | null = null;
+): { index: number; meters: number } | null {
+  let best: { index: number; meters: number } | null = null;
 
   feed.data.stops.forEach((stop, i) => {
     const meters = distanceMeters(origin, { latitude: stop.y, longitude: stop.x });
-    if (meters <= maxMeters && (!melhor || meters < melhor.meters)) {
-      melhor = { indice: i, meters };
+    if (meters <= maxMeters && (!best || meters < best.meters)) {
+      best = { index: i, meters };
     }
   });
 
-  return melhor;
+  return best;
 }
 
 /**
- * O nome da linha, encurtado para caber no ecrã.
+ * The line's name, shortened to fit on screen.
  *
- * A CP escreve `Linha de Sintra` e `Linha da Azambuja` no nome curto — que de
- * curto não tem nada, e não cabe na etiqueta ao lado do destino. Tira-se o
- * "Linha de", que fica "Sintra" e "Azambuja": é como toda a gente lhes chama.
+ * CP writes `Linha de Sintra` and `Linha da Azambuja` in the short name — which
+ * is anything but short, and does not fit in the label next to the
+ * destination. The "Linha de" ("Line of") is removed, leaving "Sintra" and
+ * "Azambuja": what everyone calls them.
  *
- * Os outros nomes já são códigos (`AP`, `IC`, `IR`, `R`, `U`) e ficam como estão.
+ * The other names are already codes (`AP`, `IC`, `IR`, `R`, `U`) and stay as
+ * they are.
  */
-function shortLine(nome: string): string {
-  return nome.replace(/^Linha\s+d[eoa]s?\s+/i, '');
+function shortLine(name: string): string {
+  return name.replace(/^Linha\s+d[eoa]s?\s+/i, '');
 }
 
 /**
- * As próximas passagens numa estação.
+ * The next departures at a station.
  *
- * Recebe coordenadas e não um nome: as estações vêm da API da Carris (as
- * localizações) e os horários vêm do GTFS de cada operador, que são duas fontes
- * diferentes e escrevem os nomes de maneiras diferentes. **Comparar por
- * proximidade é muito mais seguro do que comparar nomes** — "Lisboa Oriente" e
- * "Oriente" são a mesma estação, e nenhuma comparação de texto acerta nisso sem
- * inventar regras.
+ * It takes coordinates and not a name: the stations come from the Carris API
+ * (the locations) and the timetables from each operator's GTFS, which are two
+ * different sources and write names in different ways. **Comparing by
+ * proximity is much safer than comparing names** — "Lisboa Oriente" and
+ * "Oriente" are the same station, and no text comparison gets that right
+ * without inventing rules.
  *
- * O raio é apertado de propósito. As estações de metro de Lisboa ficam a uns
- * quinhentos metros umas das outras, e um raio generoso punha na estação errada
- * comboios da estação do lado — o que é pior do que não mostrar nada.
+ * See `nearestStop` for why only the nearest station of each timetable is
+ * used.
  */
 export function departuresNear(
   origin: Coordinates,
   maxMeters = 900,
   limit = 8,
-  agora = new Date(),
+  now = new Date(),
 ): ScheduleDeparture[] {
-  const nowUnix = agora.getTime() / 1000;
-  const dias = candidateDays(agora);
-  const passagens: ScheduleDeparture[] = [];
+  const nowUnix = now.getTime() / 1000;
+  const days = candidateDays(now);
+  const departures: ScheduleDeparture[] = [];
 
   for (const feed of loadedFeeds()) {
-    if (isExpired(feed.info, agora)) {
+    if (isExpired(feed.info, now)) {
       continue;
     }
 
-    const maisPerto = nearestStop(feed, origin, maxMeters);
-    if (!maisPerto) {
+    const nearest = nearestStop(feed, origin, maxMeters);
+    if (!nearest) {
       continue;
     }
 
     {
-      const estacao = maisPerto.indice;
-      for (const { trip, pos } of feed.porEstacao.get(estacao) ?? []) {
-        const viagem = feed.data.trips[trip];
-        const minuto = feed.minutos[trip]?.[pos];
-        if (minuto === undefined) {
+      const station = nearest.index;
+      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+        const scheduled = feed.data.trips[trip];
+        const minute = feed.minutes[trip]?.[pos];
+        if (minute === undefined) {
           continue;
         }
 
-        // A última estação de uma viagem não é uma partida — é o fim da linha.
-        // Anunciá-la punha no painel comboios em que não se pode entrar.
-        if (pos >= (feed.data.patterns[viagem.p]?.length ?? 0) - 1) {
+        // A trip's last station is not a departure — it is the end of the line.
+        // Announcing it put trains on the panel that cannot be boarded.
+        if (pos >= (feed.data.patterns[scheduled.p]?.length ?? 0) - 1) {
           continue;
         }
 
-        for (const dia of dias) {
-          if (!feed.dias[viagem.s]?.has(dia)) {
+        for (const day of days) {
+          if (!feed.days[scheduled.s]?.has(day)) {
             continue;
           }
 
-          const quando = unixAt(dia, minuto);
-          const faltam = Math.round((quando - nowUnix) / 60);
-          if (faltam < 0 || faltam > 120) {
+          const when = unixAt(day, minute);
+          const minutesLeft = Math.round((when - nowUnix) / 60);
+          if (minutesLeft < 0 || minutesLeft > 120) {
             continue;
           }
 
-          passagens.push({
-            key: `${feed.info.id}-${trip}-${dia}`,
+          departures.push({
+            key: `${feed.info.id}-${trip}-${day}`,
             operator: feed.info.nome,
             kind: feed.info.kind,
-            station: feed.data.stops[estacao]?.n ?? '',
-            line: shortLine(feed.data.routes[viagem.r]?.[0] || feed.info.nome),
-            destination: feed.data.headsigns[viagem.h] ?? '',
-            minutes: faltam,
-            time: clockOf(quando),
+            station: feed.data.stops[station]?.n ?? '',
+            line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+            destination: feed.data.headsigns[scheduled.h] ?? '',
+            minutes: minutesLeft,
+            time: clockOf(when),
           });
         }
       }
     }
   }
 
-  return passagens.sort((a, b) => a.minutes - b.minutes).slice(0, limit);
+  return departures.sort((a, b) => a.minutes - b.minutes).slice(0, limit);
 }
 
-/** Quantos segundos leva a andar esta distância, com a volta dos quarteirões. */
+/** How many seconds it takes to walk this distance, counting the way round the blocks. */
 function walkSeconds(meters: number): number {
   return (meters * WALK_DETOUR) / WALK_SPEED_MS;
 }
 
-/** Uma estação, na forma que o resto da aplicação já sabe mostrar. */
-function asStop(feed: IndexedFeed, estacao: number, meters: number): TransitStop {
-  const stop = feed.data.stops[estacao];
+/** A station, in the shape the rest of the app already knows how to show. */
+function asStop(feed: IndexedFeed, station: number, meters: number): TransitStop {
+  const stop = feed.data.stops[station];
   return {
-    id: `${feed.info.id}:${estacao}`,
+    id: `${feed.info.id}:${station}`,
     name: stop?.n ?? '',
     locality: feed.info.nome,
     coordinates: { latitude: stop?.y ?? 0, longitude: stop?.x ?? 0 },
@@ -528,148 +538,148 @@ function asStop(feed: IndexedFeed, estacao: number, meters: number): TransitStop
 }
 
 /**
- * Trajetos de comboio, metro ou barco entre dois pontos.
+ * Train, metro or ferry trips between two points.
  *
- * É a mesma ideia do `planBusTrips`, e mais simples de fazer: aqui tem-se a
- * viagem inteira escrita no ficheiro, com as estações por que passa e por que
- * ordem. Não é preciso cruzar passagens de paragens diferentes à procura do
- * mesmo `trip_id` — basta procurar as viagens que passam numa estação de
- * partida e, **mais à frente no mesmo percurso**, numa estação de chegada.
+ * The same idea as `planBusTrips`, and simpler to do: here the whole trip is
+ * written in the file, with the stations it calls at and in what order. There
+ * is no need to cross-match departures from different stops looking for the
+ * same trip — it is enough to look for the trips that call at a departure
+ * station and, **further along the same route**, at an arrival station.
  *
- * Continua **sem transbordos**, pela mesma razão de sempre: um trajeto com
- * mudança mal feito é pior do que não existir.
+ * Still **without changes**, for the usual reason: a badly done trip with a
+ * change is worse than none at all.
  */
 export function planScheduledTrips(
   origin: Coordinates,
   destination: Coordinates,
   limit = 4,
-  agora = new Date(),
+  now = new Date(),
 ): TransitTrip[] {
-  const nowUnix = agora.getTime() / 1000;
-  const dias = candidateDays(agora);
-  const trajetos: TransitTrip[] = [];
+  const nowUnix = now.getTime() / 1000;
+  const days = candidateDays(now);
+  const trips: TransitTrip[] = [];
 
   for (const feed of loadedFeeds()) {
-    if (isExpired(feed.info, agora)) {
+    if (isExpired(feed.info, now)) {
       continue;
     }
 
-    const saidas = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
-    const chegadas = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
-    if (saidas.size === 0 || chegadas.size === 0) {
+    const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
+    const arrivals = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
+    if (departures.size === 0 || arrivals.size === 0) {
       continue;
     }
 
-    // As viagens que passam por alguma estação de partida à mão. Guardam-se
-    // **todas** as posições onde se pode entrar, e não só a primeira: a melhor
-    // pode não ser a primeira, e é a comparação que decide.
-    const candidatas = new Map<number, number[]>();
-    for (const estacao of saidas.keys()) {
-      for (const { trip, pos } of feed.porEstacao.get(estacao) ?? []) {
-        const lista = candidatas.get(trip);
-        if (lista) {
-          lista.push(pos);
+    // The trips that call at some departure station within reach. **Every**
+    // position where one can board is kept, not just the first: the best may
+    // not be the first, and the comparison is what decides.
+    const candidates = new Map<number, number[]>();
+    for (const station of departures.keys()) {
+      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+        const list = candidates.get(trip);
+        if (list) {
+          list.push(pos);
         } else {
-          candidatas.set(trip, [pos]);
+          candidates.set(trip, [pos]);
         }
       }
     }
 
-    for (const [trip, entradas] of candidatas) {
-      const viagem = feed.data.trips[trip];
-      const padrao = feed.data.patterns[viagem.p] ?? [];
-      const horas = feed.minutos[trip] ?? [];
+    for (const [trip, boardings] of candidates) {
+      const scheduled = feed.data.trips[trip];
+      const pattern = feed.data.patterns[scheduled.p] ?? [];
+      const times = feed.minutes[trip] ?? [];
 
-      for (const dia of dias) {
-        if (!feed.dias[viagem.s]?.has(dia)) {
+      for (const day of days) {
+        if (!feed.days[scheduled.s]?.has(day)) {
           continue;
         }
 
         /**
-         * A melhor forma de fazer esta viagem neste dia.
+         * The best way to make this trip on this day.
          *
-         * **Escolhe-se por hora de chegada ao destino, não pela ordem do
-         * percurso.** A primeira versão ficava com a primeira estação de saída
-         * que estivesse a pé de distância, e nos dados reais isso apanhou-se a
-         * sair em Portela de Sintra — a 831 metros do destino — quando o mesmo
-         * comboio parava em Sintra a seguir, a quatro metros. Chegava mais cedo
-         * à estação e mais tarde ao sítio.
+         * **It is chosen by arrival time at the destination, not by the order
+         * of the route.** The first version kept the first departure station
+         * within walking distance, and in the real data it was caught getting
+         * off at Portela de Sintra — 831 metres from the destination — when the
+         * same train stopped at Sintra next, four metres away. It reached the
+         * station earlier and the place later.
          */
-        let melhor: TransitTrip | null = null;
+        let best: TransitTrip | null = null;
 
-        for (const entradaPos of entradas) {
-          const estacaoEntrada = padrao[entradaPos];
-          const aPe = walkSeconds(saidas.get(estacaoEntrada) ?? 0);
-          const parte = unixAt(dia, horas[entradaPos]);
-          const leaveAt = parte - aPe;
+        for (const boardPos of boardings) {
+          const boardStation = pattern[boardPos];
+          const walk = walkSeconds(departures.get(boardStation) ?? 0);
+          const departs = unixAt(day, times[boardPos]);
+          const leaveAt = departs - walk;
 
-          // Um minuto de folga, para quem já está à porta da estação. E nada
-          // para lá de quatro horas: isso já não é esperar pelo comboio.
-          if (leaveAt < nowUnix - 60 || parte - nowUnix > 4 * 3600) {
+          // A minute's slack, for someone already at the station door. And
+          // nothing beyond four hours: that is no longer waiting for the train.
+          if (leaveAt < nowUnix - 60 || departs - nowUnix > 4 * 3600) {
             continue;
           }
 
-          // A saída tem de vir depois da entrada no mesmo percurso. É isto que
-          // impede um trajeto no sentido contrário: a linha passa nas duas
-          // estações, mas pela ordem errada para quem quer ir neste sentido.
-          for (let pos = entradaPos + 1; pos < padrao.length; pos += 1) {
-            const noFim = chegadas.get(padrao[pos]);
-            if (noFim === undefined) {
+          // Getting off has to come after boarding on the same route. That is
+          // what prevents a trip in the opposite direction: the line calls at
+          // both stations, but in the wrong order for someone going this way.
+          for (let pos = boardPos + 1; pos < pattern.length; pos += 1) {
+            const walkAtEnd = arrivals.get(pattern[pos]);
+            if (walkAtEnd === undefined) {
               continue;
             }
 
-            const chega = unixAt(dia, horas[pos]);
-            const reachAt = chega + walkSeconds(noFim);
-            if (melhor && reachAt >= melhor.reachAt) {
+            const arrives = unixAt(day, times[pos]);
+            const reachAt = arrives + walkSeconds(walkAtEnd);
+            if (best && reachAt >= best.reachAt) {
               continue;
             }
 
-            melhor = {
-              tripId: `${feed.info.id}:${trip}:${dia}`,
+            best = {
+              tripId: `${feed.info.id}:${trip}:${day}`,
               kind: feed.info.kind,
-              line: shortLine(feed.data.routes[viagem.r]?.[0] || feed.info.nome),
-              headsign: feed.data.headsigns[viagem.h] ?? '',
-              from: asStop(feed, estacaoEntrada, saidas.get(estacaoEntrada) ?? 0),
-              to: asStop(feed, padrao[pos], noFim),
-              departsAt: parte,
-              arrivesAt: chega,
+              line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+              headsign: feed.data.headsigns[scheduled.h] ?? '',
+              from: asStop(feed, boardStation, departures.get(boardStation) ?? 0),
+              to: asStop(feed, pattern[pos], walkAtEnd),
+              departsAt: departs,
+              arrivesAt: arrives,
               leaveAt,
               reachAt,
-              stops: pos - entradaPos,
-              // Nunca. Isto é o horário, não é o comboio a andar.
+              stops: pos - boardPos,
+              // Never. This is the timetable, not the train moving.
               live: false,
             };
           }
         }
 
-        if (melhor) {
-          trajetos.push(melhor);
+        if (best) {
+          trips.push(best);
         }
       }
     }
   }
 
-  // Chega mais cedo primeiro, e cada linha aparece uma vez: os três comboios
-  // seguintes da mesma linha não são três opções, são a mesma opção.
-  const porLinha = new Map<string, TransitTrip>();
-  for (const t of trajetos.sort((a, b) => a.reachAt - b.reachAt)) {
-    if (!porLinha.has(t.line)) {
-      porLinha.set(t.line, t);
+  // Arrives earliest first, and each line appears once: the next three trains
+  // on the same line are not three options, they are the same option.
+  const byLine = new Map<string, TransitTrip>();
+  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt)) {
+    if (!byLine.has(t.line)) {
+      byLine.set(t.line, t);
     }
   }
 
-  return [...porLinha.values()].slice(0, limit);
+  return [...byLine.values()].slice(0, limit);
 }
 
-/** Se há algum horário guardado que cubra este ponto. */
+/** Whether some stored timetable covers this point. */
 export function hasCoverage(point: Coordinates): boolean {
   return loadedFeeds().some((feed) => {
-    const [oeste, sul, este, norte] = feed.data.bbox ?? [0, 0, 0, 0];
+    const [west, south, east, north] = feed.data.bbox ?? [0, 0, 0, 0];
     return (
-      point.longitude >= oeste &&
-      point.longitude <= este &&
-      point.latitude >= sul &&
-      point.latitude <= norte
+      point.longitude >= west &&
+      point.longitude <= east &&
+      point.latitude >= south &&
+      point.latitude <= north
     );
   });
 }

@@ -1,11 +1,11 @@
 # AGENTS.md — PalmMap
 
-O guia do projeto está em [CLAUDE.md](./CLAUDE.md): objetivo, estrutura,
-comandos, convenções e regras de utilização dos serviços externos.
-Ler esse ficheiro antes de mexer no código.
+The project guide is in [CLAUDE.md](./CLAUDE.md): goals, structure, commands,
+conventions and the usage rules of the external services. Read that file before
+touching the code.
 
-## Nota sobre o Expo
+## A note on Expo
 
-Este projeto usa o Expo SDK 57. O Expo muda bastante entre versões — consultar
-a documentação da versão certa, em https://docs.expo.dev/versions/v57.0.0/,
-antes de escrever código.
+This project uses Expo SDK 57. Expo changes a lot between versions — check the
+documentation for the right version, at https://docs.expo.dev/versions/v57.0.0/,
+before writing code.

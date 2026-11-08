@@ -1,41 +1,41 @@
 /**
- * Tipos da resposta do Nominatim (pesquisa de moradas).
+ * Types for Nominatim's response (address search).
  *
- * Correspondem ao formato `jsonv2`, pedido com `extratags=1` para vir também o
- * telefone, o horário e o sítio na Internet. Só estão aqui os campos que a
- * aplicação usa — o Nominatim devolve mais do que isto.
+ * They match the `jsonv2` format, requested with `extratags=1` so that the
+ * phone number, opening hours and website come too. Only the fields the app
+ * uses are here — Nominatim returns more than this.
  *
- * Documentação: https://nominatim.org/release-docs/develop/api/Search/
+ * Documentation: https://nominatim.org/release-docs/develop/api/Search/
  */
 
-/** Um resultado tal como vem do Nominatim, sem tratamento. */
+/** A result exactly as it comes from Nominatim, unprocessed. */
 export interface NominatimSearchResult {
   place_id: number;
   osm_type: string;
   osm_id: number;
-  /** Atenção: o Nominatim devolve as coordenadas como texto, não como número. */
+  /** Careful: Nominatim returns the coordinates as text, not as numbers. */
   lat: string;
   lon: string;
-  /** Nome curto do local. Pode vir vazio nalguns resultados. */
+  /** Short name of the place. May be empty in some results. */
   name: string;
-  /** Morada completa, separada por vírgulas. */
+  /** Full address, comma-separated. */
   display_name: string;
-  /** Família do local ('amenity', 'shop', 'highway', …). */
+  /** The place's family ('amenity', 'shop', 'highway', …). */
   category: string;
-  /** Valor dentro dessa família ('restaurant', 'supermarket', …). */
+  /** The value within that family ('restaurant', 'supermarket', …). */
   type: string;
   importance: number;
-  /** Etiquetas extra do OpenStreetMap. Só vem com `extratags=1`. */
+  /** Extra OpenStreetMap tags. Only present with `extratags=1`. */
   extratags?: Record<string, string>;
 }
 
-/** A pesquisa devolve uma lista destes resultados. */
+/** The search returns a list of these results. */
 export type NominatimSearchResponse = NominatimSearchResult[];
 
 /**
- * A pesquisa inversa (coordenadas → morada) devolve um só resultado, não uma
- * lista. Quando não há nada naquele ponto — no meio do mar, por exemplo —
- * devolve um objeto só com `error`.
+ * The reverse search (coordinates → address) returns a single result, not a
+ * list. When there is nothing at that point — in the middle of the sea, for
+ * instance — it returns an object with only `error`.
  */
 export type NominatimReverseResponse =
   | NominatimSearchResult

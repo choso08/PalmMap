@@ -1,20 +1,20 @@
 /**
- * Tipos da resposta do Photon (pesquisa de moradas, segundo recurso).
+ * Types for Photon's response (address search, the fallback service).
  *
- * É GeoJSON: uma lista de `features`, cada uma com um ponto e as propriedades.
- * Os nomes dos campos são os da documentação deles
- * (https://github.com/komoot/photon/blob/master/docs/api-v1.md), lidos e não
- * adivinhados. Quase todos podem faltar — um resultado que seja uma cidade não
- * tem rua nem número.
+ * It is GeoJSON: a list of `features`, each with a point and its properties.
+ * The field names are the ones in their documentation
+ * (https://github.com/komoot/photon/blob/master/docs/api-v1.md), read rather
+ * than guessed. Almost all of them can be missing — a result that is a city has
+ * no street and no house number.
  */
 
 export interface PhotonProperties {
   osm_id?: number;
-  /** 'N', 'W' ou 'R' — nó, linha ou relação. */
+  /** 'N', 'W' or 'R' — node, way or relation. */
   osm_type?: string;
-  /** Família da etiqueta principal ('amenity', 'shop', 'place', …). */
+  /** Family of the main tag ('amenity', 'shop', 'place', …). */
   osm_key?: string;
-  /** Valor dessa etiqueta ('restaurant', 'city', …). */
+  /** Value of that tag ('restaurant', 'city', …). */
   osm_value?: string;
   name?: string;
   street?: string;
@@ -25,7 +25,7 @@ export interface PhotonProperties {
   county?: string;
   state?: string;
   country?: string;
-  /** Etiquetas adicionais, quando o servidor as inclui. */
+  /** Additional tags, when the server includes them. */
   extra?: Record<string, string>;
 }
 

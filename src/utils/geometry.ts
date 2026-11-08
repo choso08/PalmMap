@@ -1,13 +1,13 @@
 import type { Bounds, Coordinates } from '../types/geo';
 
 /**
- * Contas de distância sobre o mapa.
+ * Distance arithmetic on the map.
  *
- * Nota sobre a precisão: o percurso do OSRM vem com `overview=full`, ou seja com
- * pontos de poucos em poucos metros. Por isso, em vez de projetar a posição
- * perpendicularmente sobre cada troço — que dá mais trabalho e mais erros —
- * basta encontrar o ponto do percurso mais próximo. A diferença é de metros e
- * não se nota na prática.
+ * A note on precision: the OSRM route comes with `overview=full`, that is with
+ * points every few metres. So instead of projecting the position
+ * perpendicularly onto each segment — more work and more room for error — it
+ * is enough to find the nearest point of the route. The difference is a matter
+ * of metres and does not show in practice.
  */
 
 const EARTH_RADIUS_M = 6371000;
@@ -16,7 +16,7 @@ function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-/** Distância em metros entre dois pontos, sobre a superfície da Terra. */
+/** Distance in metres between two points, over the Earth's surface. */
 export function distanceMeters(a: Coordinates, b: Coordinates): number {
   const dLat = toRadians(b.latitude - a.latitude);
   const dLon = toRadians(b.longitude - a.longitude);
@@ -30,13 +30,13 @@ export function distanceMeters(a: Coordinates, b: Coordinates): number {
 }
 
 export interface RoutePosition {
-  /** Índice do ponto do percurso mais próximo da posição atual. */
+  /** Index of the route point nearest to the current position. */
   index: number;
-  /** A que distância se está da linha do percurso, em metros. */
+  /** How far one is from the route line, in metres. */
   offRouteMeters: number;
 }
 
-/** Descobre em que ponto do percurso a pessoa está. */
+/** Works out where along the route the person is. */
 export function locateOnRoute(
   routeCoordinates: Coordinates[],
   position: Coordinates,
@@ -55,7 +55,7 @@ export function locateOnRoute(
   return { index, offRouteMeters: best };
 }
 
-/** Comprimento do percurso entre dois dos seus pontos, em metros. */
+/** Length of the route between two of its points, in metres. */
 export function distanceAlong(
   routeCoordinates: Coordinates[],
   fromIndex: number,
@@ -68,7 +68,7 @@ export function distanceAlong(
   return total;
 }
 
-/** Índice do ponto do percurso mais próximo de um dado sítio. */
+/** Index of the route point nearest to a given spot. */
 export function nearestIndex(routeCoordinates: Coordinates[], target: Coordinates): number {
   let index = 0;
   let best = Infinity;
@@ -85,45 +85,47 @@ export function nearestIndex(routeCoordinates: Coordinates[], target: Coordinate
 }
 
 /**
- * Área de um polígono desenhado no mapa, em metros quadrados.
+ * Area of a polygon drawn on the map, in square metres.
  *
- * Serve a fita métrica: três ou mais pontos fecham uma forma, e a área é o que
- * interessa a quem está a medir um terreno ou um telhado.
+ * Used by the measuring tape: three or more points close a shape, and the area
+ * is what matters to someone measuring a plot of land or a roof.
  *
- * **Como se faz.** A fórmula do sapateiro (shoelace) só funciona em coordenadas
- * planas, e latitude e longitude não o são: um grau de longitude vale 111 km no
- * equador e quase nada perto dos polos. Por isso projeta-se primeiro para metros
- * à volta do centro da forma — a longitude encolhe pelo cosseno da latitude. Num
- * terreno, ou mesmo num bairro, o erro dessa aproximação é desprezável.
+ * **How it is done.** The shoelace formula only works on flat coordinates, and
+ * latitude and longitude are not flat: a degree of longitude is worth 111 km at
+ * the equator and almost nothing near the poles. So the points are first
+ * projected into metres around the shape's centre — longitude shrinks by the
+ * cosine of the latitude. For a plot of land, or even a neighbourhood, the
+ * error of that approximation is negligible.
  *
- * O polígono fecha-se sozinho: não é preciso repetir o primeiro ponto no fim.
+ * The polygon closes itself: the first point does not need repeating at the
+ * end.
  */
 export function polygonAreaM2(points: Coordinates[]): number {
   if (points.length < 3) {
     return 0;
   }
 
-  const latMedia =
-    points.reduce((soma, p) => soma + p.latitude, 0) / points.length;
-  const metrosPorGrauLat = (Math.PI / 180) * EARTH_RADIUS_M;
-  const metrosPorGrauLon = metrosPorGrauLat * Math.cos(toRadians(latMedia));
+  const meanLat =
+    points.reduce((sum, p) => sum + p.latitude, 0) / points.length;
+  const metresPerDegreeLat = (Math.PI / 180) * EARTH_RADIUS_M;
+  const metresPerDegreeLon = metresPerDegreeLat * Math.cos(toRadians(meanLat));
 
-  const planos = points.map((p) => ({
-    x: p.longitude * metrosPorGrauLon,
-    y: p.latitude * metrosPorGrauLat,
+  const flat = points.map((p) => ({
+    x: p.longitude * metresPerDegreeLon,
+    y: p.latitude * metresPerDegreeLat,
   }));
 
-  let soma = 0;
-  for (let i = 0; i < planos.length; i += 1) {
-    const a = planos[i];
-    const b = planos[(i + 1) % planos.length];
-    soma += a.x * b.y - b.x * a.y;
+  let sum = 0;
+  for (let i = 0; i < flat.length; i += 1) {
+    const a = flat[i];
+    const b = flat[(i + 1) % flat.length];
+    sum += a.x * b.y - b.x * a.y;
   }
 
-  return Math.abs(soma) / 2;
+  return Math.abs(sum) / 2;
 }
 
-/** Comprimento total de uma linha desenhada ponto a ponto, em metros. */
+/** Total length of a line drawn point by point, in metres. */
 export function pathLengthMeters(points: Coordinates[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) {
@@ -133,12 +135,12 @@ export function pathLengthMeters(points: Coordinates[]): number {
 }
 
 /**
- * Perímetro de uma forma fechada, em metros.
+ * Perimeter of a closed shape, in metres.
  *
- * **Não é o mesmo que o comprimento da linha.** Marcar os quatro cantos de um
- * terreno dá quatro pontos e três troços desenhados; o quarto lado — o que volta
- * ao princípio — existe na área mas não na linha. Sem o somar aqui, a aplicação
- * dava a área certa e um perímetro a menos um lado.
+ * **It is not the same as the length of the line.** Marking the four corners
+ * of a plot gives four points and three drawn segments; the fourth side — the
+ * one back to the start — exists in the area but not in the line. Without
+ * adding it here, the app gave the right area and a perimeter one side short.
  */
 export function perimeterMeters(points: Coordinates[]): number {
   if (points.length < 3) {
@@ -148,11 +150,11 @@ export function perimeterMeters(points: Coordinates[]): number {
 }
 
 /**
- * O retângulo que contém todos estes pontos.
+ * The rectangle that contains all these points.
  *
- * Numa passagem só, de propósito: `Math.min(...pontos)` passa cada ponto como
- * argumento da função, e um percurso longo — que com `overview=full` traz
- * dezenas de milhares — rebenta a pilha com `RangeError`.
+ * In a single pass, on purpose: `Math.min(...points)` passes every point as a
+ * function argument, and a long route — which with `overview=full` carries
+ * tens of thousands — blows the stack with a `RangeError`.
  */
 export function boundsOf(points: Coordinates[]): Bounds {
   let south = Infinity;

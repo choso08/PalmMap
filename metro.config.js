@@ -1,8 +1,8 @@
-// Configuração do empacotador do Expo.
+// Configuration for Expo's bundler.
 //
-// O `.pmtiles` é o mapa de um país inteiro e os `.pbf` são os tipos de letra do
-// mapa. Nenhuma das duas extensões vem reconhecida de origem — sem isto, o
-// empacotador tentava lê-las como código e a compilação falhava.
+// The `.pmtiles` file is a whole country's map and the `.pbf` files are the
+// map's fonts. Neither extension is recognised out of the box — without this,
+// the bundler tried to read them as code and the build failed.
 
 const { getDefaultConfig } = require('expo/metro-config');
 

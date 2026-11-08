@@ -1,26 +1,27 @@
 import { t } from '../i18n';
 
 /**
- * Categorias de negócios e locais.
+ * Categories of businesses and places.
  *
- * Dois papéis:
- * - `SEARCH_CATEGORIES` são os botões de pesquisa rápida ("Restaurantes", …)
- *   e sabem como se perguntam à Overpass.
- * - `categoryLabel()` traduz as etiquetas do OpenStreetMap para texto legível,
- *   e serve tanto para a Overpass como para o Nominatim.
+ * Two roles:
+ * - `SEARCH_CATEGORIES` are the quick-search buttons ("Restaurants", …) and
+ *   know how to ask Overpass for them.
+ * - `categoryLabel()` turns OpenStreetMap tags into readable text, and serves
+ *   both Overpass and Nominatim.
  *
- * **Os nomes não estão aqui.** Estão nas tabelas de cada língua, e estas
- * estruturas só guardam a chave — senão trocar de língua obrigava a mexer nesta
- * lista, que é sobre outra coisa: sobre o que se pergunta ao OpenStreetMap.
+ * **The names are not here.** They are in each language's table, and these
+ * structures only keep the key — otherwise switching language would mean
+ * touching this list, which is about something else: what to ask
+ * OpenStreetMap.
  */
 
 export interface SearchCategory {
   id: string;
-  /** A chave do nome na tabela da língua. Ver `categoryTitle()`. */
+  /** The name's key in the language table. See `categoryTitle()`. */
   labelKey: keyof ReturnType<typeof t>['categories'];
-  /** Nome do ícone, da família MaterialCommunityIcons. */
+  /** Icon name, from the MaterialCommunityIcons family. */
   icon: string;
-  /** Etiquetas do OpenStreetMap que correspondem a esta categoria. */
+  /** OpenStreetMap tags that correspond to this category. */
   tags: { key: string; values: string[] }[];
 }
 
@@ -76,9 +77,9 @@ export const SEARCH_CATEGORIES: SearchCategory[] = [
 ];
 
 /**
- * Etiquetas que interessam quando se mostram negócios automaticamente no mapa.
- * Propositadamente limitado: mostrar tudo o que o OpenStreetMap tem enche o
- * ecrã e obriga a pedidos muito maiores.
+ * Tags that matter when businesses are shown automatically on the map.
+ * Deliberately limited: showing everything OpenStreetMap has fills the screen
+ * and forces much bigger requests.
  */
 export const MAP_PIN_TAGS: { key: string; values: string[] | null }[] = [
   {
@@ -100,14 +101,14 @@ export const MAP_PIN_TAGS: { key: string; values: string[] | null }[] = [
       'post_office',
     ],
   },
-  // `null` quer dizer "qualquer valor" — qualquer loja conta.
+  // `null` means "any value" — any shop counts.
   { key: 'shop', values: null },
   { key: 'tourism', values: ['hotel', 'hostel', 'guest_house', 'museum'] },
 ];
 
 /**
- * Devolve o tipo de local em texto legível, a partir das etiquetas do
- * OpenStreetMap. Devolve `undefined` quando não se reconhece nada de útil.
+ * Returns the kind of place as readable text, from the OpenStreetMap tags.
+ * Returns `undefined` when nothing useful is recognised.
  */
 export function categoryLabel(tags: Record<string, string> | undefined): string | undefined {
   if (!tags) {
@@ -119,19 +120,19 @@ export function categoryLabel(tags: Record<string, string> | undefined): string 
     if (!value) {
       continue;
     }
-    const conhecido = (t().placeKinds as Record<string, string>)[value];
-    if (conhecido) {
-      return conhecido;
+    const known = (t().placeKinds as Record<string, string>)[value];
+    if (known) {
+      return known;
     }
-    // Sem tradução conhecida: usa-se o próprio valor, com o underscore trocado
-    // por espaço, que é melhor do que não mostrar nada.
+    // No known translation: use the value itself, with underscores turned
+    // into spaces, which beats showing nothing.
     return value.replace(/_/g, ' ');
   }
 
   return undefined;
 }
 
-/** O nome de uma categoria, na língua atual. */
+/** A category's name, in the current language. */
 export function categoryTitle(category: SearchCategory): string {
   return t().categories[category.labelKey];
 }

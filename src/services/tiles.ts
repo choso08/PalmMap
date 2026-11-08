@@ -8,12 +8,12 @@ import type { MapType, SatelliteDetail } from '../settings';
 import { buildVectorStyle, regionMinZoom } from './vectorStyle';
 
 /**
- * Configuração dos tiles do mapa (as imagens que formam o mapa no ecrã).
+ * Configuration of the map tiles (the images that make up the map on screen).
  */
 
 /**
- * Faz com que os pedidos de tiles levem o nosso User-Agent, como o OpenStreetMap
- * exige. Chamar uma vez, no arranque da aplicação.
+ * Makes tile requests carry our User-Agent, as OpenStreetMap requires. Call
+ * once, at app start-up.
  */
 export function configureTileRequests(): void {
   TransformRequestManager.addHeader({
@@ -25,78 +25,80 @@ export function configureTileRequests(): void {
 }
 
 /**
- * Define quanto do mapa já visto se guarda no telemóvel.
+ * Sets how much of the map already seen is kept on the phone.
  *
- * Isto é cache normal: só fica o que a pessoa chegou mesmo a ver, à medida que
- * o vê. **Não é descarregar uma área** — as regras do OpenStreetMap proíbem
- * expressamente ir buscar tiles à frente para uso offline.
+ * This is ordinary caching: only what the person actually got to see is kept,
+ * as they see it. **It is not downloading an area** — OpenStreetMap's rules
+ * expressly forbid fetching tiles ahead of time for offline use.
  *
- * Não há forma de dizer "guarda durante um mês": a API do MapLibre só tem
- * tamanho. Na prática é o tamanho que manda no tempo — quando enche, vai
- * deitando fora o que há mais tempo não se vê. Quanto maior, mais tempo as
- * zonas por onde se passou continuam disponíveis.
+ * There is no way to say "keep it for a month": MapLibre's API only has size.
+ * In practice size governs time — when it fills up, it discards what has gone
+ * unseen the longest. The bigger it is, the longer the areas one has passed
+ * through stay available.
  */
 export function setMapCacheSize(megabytes: number): void {
   void OfflineManager.setMaximumAmbientCacheSize(megabytes * 1024 * 1024).catch(
     () => undefined,
   );
 
-  // Com o tamanho a zero, o que já lá estava continuaria guardado. Quem desliga
-  // isto quer o espaço de volta, por isso esvazia-se de caminho.
+  // With the size at zero, what was already there would stay stored. Whoever
+  // turns this off wants the space back, so it is emptied along the way.
   if (megabytes === 0) {
     void OfflineManager.clearAmbientCache().catch(() => undefined);
   }
 }
 
-/** Esquece o mapa guardado. Usar quando se quer libertar espaço. */
+/** Forgets the cached map. Use when space needs freeing. */
 export async function clearMapCache(): Promise<void> {
   await OfflineManager.clearAmbientCache();
 }
 
 /**
- * Último nível de zoom que se vai mesmo buscar ao servidor.
+ * The last zoom level actually fetched from the server.
  *
- * Acima disto o MapLibre amplia os tiles deste nível em vez de pedir novos. Fica
- * um pouco menos nítido quando se aproxima muito, mas há duas vantagens grandes:
+ * Above this MapLibre enlarges this level's tiles instead of requesting new
+ * ones. It gets a little less sharp when zooming in a lot, but there are two
+ * big advantages:
  *
- * - **Offline:** os níveis 18 e 19 passam a funcionar a partir dos tiles do 17,
- *   que já estão guardados. Sem isto, aproximar-se sem rede dava mapa em branco.
- * - **Menos pedidos:** cada nível de zoom a mais quadruplica o número de tiles.
- *   Cortar dois níveis tira cerca de dezasseis vezes o peso posto no servidor do
- *   OpenStreetMap, que é mantido por donativos.
+ * - **Offline:** the higher levels work from the tiles of this one, which are
+ *   already cached. Without this, zooming in without network gave a blank map.
+ * - **Fewer requests:** each extra zoom level quadruples the number of tiles.
+ *   Cutting two levels removes about sixteen times the load put on the
+ *   OpenStreetMap server, which runs on donations.
  *
- * **Porque é que está no 18 e não mais baixo.** Ao 17 as letras dos tiles ficavam
- * enormes e moles assim que se aproximava um pouco mais: os nomes vêm desenhados
- * dentro da imagem, por isso ampliar o mapa amplia-os também. O 18 corta essa
- * ampliação a metade e é o compromisso que se aguenta a olhar.
+ * **Why it is at 18 and not lower.** At 17 the tiles' lettering became huge and
+ * blurry as soon as one zoomed in a bit further: the names are drawn into the
+ * image, so enlarging the map enlarges them too. 18 halves that enlargement and
+ * is the compromise that is bearable to look at.
  *
- * Isto não acontece nos mapas guardados: aí o texto é desenhado por nós, ao
- * tamanho certo, seja qual for o zoom. É mais uma razão para descarregar o país.
+ * This does not happen with downloaded maps: there the text is drawn by us, at
+ * the right size, whatever the zoom. One more reason to download the country.
  */
 const MAX_TILE_ZOOM = 18;
 
 /**
- * A cor por baixo dos tiles, para quando eles não chegam.
+ * The colour under the tiles, for when they do not arrive.
  *
- * Sem isto, um tile que falta deixa ver o vazio, que o MapLibre desenha a preto.
- * Foi o que deu o "fica tudo preto" ao afastar sem rede. Com uma cor por baixo,
- * a falta de um tile parece um mapa por carregar em vez de uma avaria.
+ * Without this, a missing tile shows the void, which MapLibre draws black.
+ * That is what caused the "everything goes black" when zooming out without
+ * network. With a colour underneath, a missing tile looks like a map still
+ * loading instead of a fault.
  */
-const VAZIO_CLARO = '#EFE6D9';
-const VAZIO_ESCURO = '#0B1319';
+const EMPTY_LIGHT = '#EFE6D9';
+const EMPTY_DARK = '#0B1319';
 
 function rasterStyle(
   tiles: string[],
   attribution: string,
   maxzoom = MAX_TILE_ZOOM,
   paint?: Record<string, number>,
-  fundo = VAZIO_CLARO,
+  background = EMPTY_LIGHT,
 ): StyleSpecification {
   return {
     version: 8,
-    // Os estilos de imagem também declaram os tipos de letra. Sem isto, escrever
-    // o nome de um negócio por cima do mapa não desenhava nada — foi o que
-    // aconteceu da primeira vez que se tentou.
+    // The image styles declare the fonts too. Without this, writing a
+    // business's name over the map drew nothing — which is what happened the
+    // first time it was tried.
     glyphs: glyphsTemplate(),
     sources: {
       base: {
@@ -108,13 +110,13 @@ function rasterStyle(
       },
     },
     layers: [
-      { id: 'fundo', type: 'background', paint: { 'background-color': fundo } },
+      { id: 'background', type: 'background', paint: { 'background-color': background } },
       { id: 'base', type: 'raster', source: 'base', ...(paint ? { paint } : {}) },
     ],
   };
 }
 
-/** Os endereços dos tiles, à parte: o mapa guardado também os usa ao longe. */
+/** The tile addresses, kept apart: the downloaded map also uses them when zoomed out. */
 const OSM_TILES = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'];
 const CARTO_TILES = [
   'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
@@ -123,58 +125,59 @@ const CARTO_TILES = [
   'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
 ];
 
-/** Ver a nota em `DARK_STYLE`: o "dark matter" do CARTO precisa de ser levantado. */
+/** See the note on `DARK_STYLE`: CARTO's "dark matter" needs lifting. */
 const CARTO_PAINT = { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 };
 
 /**
- * Mapa claro: tiles do OpenStreetMap.
+ * Light map: OpenStreetMap tiles.
  *
- * Nota: usa-se `tile.openstreetmap.org` diretamente. A forma antiga com
- * subdomínios (`a.`, `b.`, `c.`) está desaconselhada pelo próprio OpenStreetMap.
+ * Note: `tile.openstreetmap.org` is used directly. The old form with
+ * subdomains (`a.`, `b.`, `c.`) is discouraged by OpenStreetMap itself.
  */
 const LIGHT_STYLE = rasterStyle(OSM_TILES, '© OpenStreetMap');
 
 /**
- * Mapa escuro: tiles "dark matter" do CARTO, que são feitos a partir dos dados
- * do OpenStreetMap.
+ * Dark map: CARTO's "dark matter" tiles, which are made from OpenStreetMap
+ * data.
  *
- * O OpenStreetMap não tem versão escura dos seus tiles, por isso é preciso outra
- * fonte. O CARTO é gratuito para uso não comercial, desde que se dê a atribuição
- * — e o documento original do projeto já o referia como opção. Continua sem
- * chaves de API e sem nada do Google.
+ * OpenStreetMap has no dark version of its tiles, so another source is needed.
+ * CARTO is free for non-commercial use, as long as attribution is given — and
+ * the project's original brief already mentioned it as an option. Still no API
+ * keys and nothing from Google.
  *
- * Os quatro endereços são o mesmo serviço: distribuir os pedidos por vários
- * subdomínios permite ao telemóvel descarregar mais tiles em paralelo.
+ * The four addresses are the same service: spreading the requests over several
+ * subdomains lets the phone download more tiles in parallel.
  */
-// O "dark matter" do CARTO é escuro de propósito, mas de noite ao volante os
-// nomes das ruas quase não se liam. Levantar os pretos e abrir o contraste
-// torna-os legíveis sem estragar o tema — não se mexe mais do que isto, senão
-// deixa de ser um mapa escuro.
+// CARTO's "dark matter" is dark on purpose, but at night behind the wheel the
+// street names were barely readable. Lifting the blacks and opening up the
+// contrast makes them legible without spoiling the theme — no more than this,
+// or it stops being a dark map.
 const DARK_STYLE = rasterStyle(
   CARTO_TILES,
   '© OpenStreetMap © CARTO',
   MAX_TILE_ZOOM,
   CARTO_PAINT,
-  VAZIO_ESCURO,
+  EMPTY_DARK,
 );
 
 /**
- * Imagem de satélite: Sentinel-2 cloudless, da EOX.
+ * Satellite imagery: Sentinel-2 cloudless, by EOX.
  *
- * É um mosaico do satélite Sentinel-2, do programa Copernicus da União
- * Europeia, com as nuvens removidas. É livre, sem chaves de API, com licença
- * Creative Commons — encaixa nas regras do projeto.
+ * It is a mosaic from the Sentinel-2 satellite, of the European Union's
+ * Copernicus programme, with the clouds removed. It is free, with no API keys,
+ * under a Creative Commons licence — it fits the project's rules.
  *
- * **O detalhe tem um limite físico.** O Sentinel-2 vê a Terra a 10 metros por
- * pixel, o que corresponde mais ou menos ao zoom 14. Vê-se a costa, a floresta,
- * as roças e os terrenos abertos; não se veem casas uma a uma. Isto não é uma
- * limitação do código: é o que o satélite consegue ver, e não há nenhuma fonte
- * livre e mundial que veja melhor.
+ * **The detail has a physical limit.** Sentinel-2 sees the Earth at 10 metres
+ * per pixel, which corresponds roughly to zoom 14. The coast, the forest, the
+ * plantations and open land can be seen; individual houses cannot. This is not
+ * a limitation of the code: it is what the satellite can see, and there is no
+ * free, worldwide source that sees better.
  *
- * O `maxzoom` fica no 14 de propósito: acima disso o MapLibre amplia o que já
- * tem, em vez de pedir tiles que não trazem mais informação nenhuma.
+ * `maxzoom` stays at 14 on purpose: above that MapLibre enlarges what it
+ * already has, instead of requesting tiles that bring no more information.
  *
- * A atribuição é exigida pela licença e tem de aparecer tal como está aqui.
+ * The attribution is required by the licence and has to appear exactly as it
+ * is here.
  */
 const SATELLITE_STYLE = rasterStyle(
   ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg'],
@@ -183,50 +186,54 @@ const SATELLITE_STYLE = rasterStyle(
 );
 
 /**
- * Ortofotos oficiais da Direção-Geral do Território, **só de Portugal**.
+ * Official orthophotos from Portugal's Directorate-General for the Territory
+ * (DGT), **Portugal only**.
  *
- * O Sentinel-2 vê a 10 metros por pixel. Estas são fotografias tiradas de avião,
- * publicadas pelo Estado como dados abertos, e vêem a menos de um metro — dá
- * para distinguir casas, carros e as marcas da estrada. É a única forma de ter
- * mais detalhe sem pagar e sem chaves de API.
+ * Sentinel-2 sees at 10 metres per pixel. These are high-resolution images
+ * published by the State as open data, and they see at under a metre — enough
+ * to tell houses, cars and road markings apart. It is the only way to get more
+ * detail without paying and without API keys.
  *
- * **Vai por cima do Sentinel-2, não em vez dele.** Isso resolve duas coisas ao
- * mesmo tempo: fora de Portugal continua a ver-se o mundo todo, e se este
- * serviço estiver em baixo ou mudar de endereço, o que aparece é a imagem de
- * sempre em vez de um ecrã vazio.
+ * **It goes on top of Sentinel-2, not instead of it.** That solves two things
+ * at once: outside Portugal the whole world is still visible, and if this
+ * service is down or changes address, what appears is the usual imagery
+ * instead of an empty screen.
  *
- * São imagens do satélite Pléiades-Neo de 2023, de muito alta resolução,
- * publicadas pela Direção-Geral do Território para todo o Portugal continental.
+ * They are very-high-resolution 2023 images from the Pléiades-Neo satellite,
+ * published by the DGT for the whole of mainland Portugal.
  *
- * **Atenção ao nome da camada.** Este serviço publica duas, e a diferença não é
- * cosmética:
+ * **Mind the layer name.** This service publishes two, and the difference is
+ * not cosmetic:
  *
- * - `ortoSat2023-CorVerdadeira` — as cores como o olho as vê. **É esta.**
- * - `ortoSat2023-FalsaCor` — infravermelho próximo no lugar do vermelho. Serve
- *   para estudar vegetação, e **põe todo o campo e todas as árvores a vermelho
- *   vivo**. Foi o que aconteceu à primeira: pedir só `ortoSat2023` dava esta.
+ * - `ortoSat2023-CorVerdadeira` — true colour, as the eye sees it. **This is
+ *   the one.**
+ * - `ortoSat2023-FalsaCor` — near infrared in place of red. It is for studying
+ *   vegetation, and **turns every field and every tree bright red**. That is
+ *   what happened the first time: asking only for `ortoSat2023` gave this one.
  *
- * O nome não pôde ser lido daqui — o ambiente de desenvolvimento não chega a
- * este servidor. Saiu da documentação da própria Direção-Geral do Território.
+ * The name could not be read from here — the development environment cannot
+ * reach this server. It came from the DGT's own documentation.
  */
 const DGT_ORTOS =
   'https://ortos.dgterritorio.gov.pt/wms/ortosat2023' +
   '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
   '&LAYERS=ortoSat2023-CorVerdadeira&STYLES=' +
   '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
-  // 512 pixéis para um quadrado que se desenha a 256: cada tile chega com o
-  // dobro da resolução em cada lado, ou seja quatro vezes mais pixéis. Num ecrã
-  // de telemóvel, que já é de dois ou três pontos por pixel, a diferença vê-se.
+  // 512 pixels for a square drawn at 256: each tile arrives with double the
+  // resolution on each side, that is four times as many pixels. On a phone
+  // screen, which already has two or three dots per pixel, the difference
+  // shows.
   //
-  // Isto é melhor do que pedir mais um nível de zoom: dá o mesmo detalhe com um
-  // quarto dos pedidos feitos a um serviço público.
+  // This beats requesting one more zoom level: the same detail with a quarter
+  // of the requests made to a public service.
   '&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false';
 
 /**
- * Satélite com o detalhe das ortofotos onde as houver.
+ * Satellite with the orthophotos' detail wherever there are any.
  *
- * O teto de zoom 18 é por educação: cada nível a mais quadruplica os pedidos
- * feitos a um serviço público, e ao 18 já se distingue o que é preciso.
+ * The zoom ceiling of 18 is out of politeness: each extra level quadruples the
+ * requests made to a public service, and at 18 what is needed can already be
+ * told apart.
  */
 const SATELLITE_DETAILED_STYLE: StyleSpecification = {
   version: 8,
@@ -246,31 +253,31 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       tiles: [DGT_ORTOS],
       tileSize: 256,
       maxzoom: 18,
-      // **Só Portugal continental.** Sem isto o MapLibre pedia estas imagens em
-      // todo o mundo, e como o serviço responde em JPEG opaco — sem
-      // transparência — o que voltava era um retângulo de fundo por cima da
-      // imagem de satélite, em vez de nada.
+      // **Mainland Portugal only.** Without this MapLibre requested these images
+      // all over the world, and since the service answers with opaque JPEG —
+      // no transparency — what came back was a background rectangle over the
+      // satellite imagery, instead of nothing.
       bounds: [-9.6, 36.9, -6.1, 42.2],
       attribution: t().attributions.orthophotos,
     },
   },
   layers: [
-    // A mesma cor por baixo que o `rasterStyle` põe: um tile em falta deixava
-    // ver o vazio, que o MapLibre desenha a preto.
-    { id: 'fundo', type: 'background', paint: { 'background-color': VAZIO_CLARO } },
+    // The same colour underneath that `rasterStyle` puts in: a missing tile
+    // showed the void, which MapLibre draws black.
+    { id: 'background', type: 'background', paint: { 'background-color': EMPTY_LIGHT } },
     { id: 'base', type: 'raster', source: 'base' },
-    // Só se pede a partir do 12: mais longe do que isso o Sentinel-2 chega, e
-    // não vale a pena incomodar o serviço das ortofotos.
+    // Only requested from 12: further out Sentinel-2 is enough, and it is not
+    // worth bothering the orthophoto service.
     //
-    // **Entram a desvanecer, ao longo de um nível de zoom inteiro.** Antes
-    // apareciam de uma vez, com opacidade total, no instante em que se passava o
-    // 12 — e por baixo delas estava o Sentinel-2, que vê a dez metros por pixel
-    // contra o menos de um metro destas. O salto de nitidez era enorme e parecia
-    // uma avaria do mapa, quando é só a troca de duas fontes muito diferentes.
+    // **They fade in over a whole zoom level.** They used to appear all at
+    // once, at full opacity, the instant zoom 12 was passed — and under them
+    // was Sentinel-2, which sees at ten metres per pixel against under a metre
+    // for these. The jump in sharpness was huge and looked like a map fault,
+    // when it is just the swap between two very different sources.
     //
-    // Espalhar a troca por um nível resolve sem custar **um único pedido a
-    // mais**: o `minzoom` continua no 12, o que muda é a opacidade com que se
-    // desenha o que já se estava a pedir.
+    // Spreading the swap over a level solves it without costing **a single
+    // extra request**: `minzoom` stays at 12, what changes is the opacity with
+    // which what was already being requested is drawn.
     {
       id: 'ortos',
       type: 'raster',
@@ -282,40 +289,40 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
 };
 
 /**
- * A rede de transportes públicos: a ÖPNVKarte.
+ * The public transport network: ÖPNVKarte.
  *
- * Desenha os **percursos** dos autocarros, comboios, metros, elétricos e barcos,
- * cada linha com a sua cor, mais as paragens e as estações. É feita a partir dos
- * dados do OpenStreetMap e é uma das camadas oficiais do openstreetmap.org.
+ * It draws the **routes** of buses, trains, metros, trams and ferries, each
+ * line in its own colour, plus the stops and stations. It is made from
+ * OpenStreetMap data and is one of openstreetmap.org's official layers.
  *
- * É um mapa completo, e não uma camada por cima: traz a sua própria base, mais
- * apagada de propósito, para os percursos se destacarem. É por isso que entra
- * como um tipo de mapa e não como um interruptor.
+ * It is a complete map, not a layer on top: it brings its own base, faded on
+ * purpose, so the routes stand out. That is why it comes in as a map type and
+ * not as a toggle.
  *
- * Sem chaves de API, com licença aberta — encaixa nas regras do projeto. **A
- * atribuição é exigida pela licença** e tem de aparecer tal como está aqui.
+ * No API keys, open licence — it fits the project's rules. **The attribution
+ * is required by the licence** and has to appear exactly as it is here.
  *
- * Uma ressalva honesta: mostra por onde as linhas passam, não a que horas
- * passam. Horários a sério obrigariam a dados GTFS de cada operador, que não
- * existem num sítio só nem de forma aberta em todo o lado.
+ * An honest caveat: it shows where the lines run, not when they run. Real
+ * timetables would need GTFS data from each operator, which does not exist in
+ * one place nor openly everywhere.
  */
 const TRANSIT_STYLE = rasterStyle(
   ['https://tileserver.memomaps.de/tilegen/{z}/{x}/{y}.png'],
   'Mapa memomaps.de CC-BY-SA · dados © OpenStreetMap',
-  // A ÖPNVKarte não desenha acima do 18. Pedir mais era pedir o que não há.
+  // ÖPNVKarte does not draw above 18. Asking for more would be asking for what isn't there.
   18,
 );
 
 /**
- * Devolve o estilo do mapa conforme o tipo escolhido e o tema do telemóvel.
+ * Returns the map style for the chosen type and the phone's theme.
  *
- * O `offline` é o mapa guardado que cobre a zona onde a pessoa está, se houver
- * algum. Quando há, ganha aos tiles da Internet: é mais rápido, não gasta dados
- * e continua a funcionar sem rede.
+ * `offline` is the downloaded map covering the area the person is in, if there
+ * is one. When there is, it beats the Internet tiles: it is faster, uses no
+ * data and keeps working without network.
  *
- * **O satélite e os transportes mandam sempre**, porque são os dois únicos que
- * não têm substituto guardado: um é fotografia, o outro traz informação que o
- * mapa vetorial não tem. Escolher um deles é escolher precisar de rede.
+ * **Satellite and transport always win**, because they are the only two with
+ * no downloaded substitute: one is imagery, the other carries information the
+ * vector map does not have. Choosing one of them is choosing to need network.
  */
 export function mapStyleFor(
   dark: boolean,
@@ -330,10 +337,11 @@ export function mapStyleFor(
     return TRANSIT_STYLE;
   }
   if (offline) {
-    // Ao afastar muito, o país guardado deixa de encher o ecrã e o resto ficava
-    // liso. Por baixo desse zoom mostram-se os tiles da Internet por cima do
-    // mapa guardado — quando não há rede não aparecem, e o que fica à vista é o
-    // país outra vez, que é o melhor que se consegue sem rede.
+    // When zooming far out, the downloaded country stops filling the screen
+    // and the rest was left blank. Below that zoom the Internet tiles are shown
+    // over the downloaded map — when there is no network they do not appear,
+    // and what remains in view is the country again, which is the best one can
+    // do without network.
     return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark, {
       tiles: dark ? CARTO_TILES : OSM_TILES,
       attribution: dark ? '© OpenStreetMap © CARTO' : '© OpenStreetMap',

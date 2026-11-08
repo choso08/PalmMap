@@ -199,7 +199,7 @@ export const en: typeof pt = {
 
   offline: {
     loading: 'Getting the list of maps…',
-    empty: 'No maps published yet. Run the "Gerar mapa offline" workflow on GitHub.',
+    empty: 'No maps published yet. Run the "Generate offline map" workflow on GitHub.',
     searchIn: (n: number) => `Search among ${n} countries`,
     noMatch: 'No country by that name.',
     outdated: 'out of date',
@@ -208,7 +208,7 @@ export const en: typeof pt = {
 
   schedules: {
     loading: 'Getting the list of timetables…',
-    empty: 'No timetables published yet. Run the "Gerar horários" workflow on GitHub.',
+    empty: 'No timetables published yet. Run the "Generate timetables" workflow on GitHub.',
     stationCount: (n: number) => (n === 1 ? '1 station' : `${n} stations`),
     expired: 'out of date, download again',
     until: (date: string) => `until ${date}`,
@@ -456,15 +456,15 @@ export const en: typeof pt = {
     fork: 'At the fork, carry on',
     endOfRoadTurn: (direction: string) => `At the end of the road, turn ${direction}`,
     endOfRoad: 'At the end of the road, carry on',
-    // 1st, 2nd, 3rd, 4th — e o 11.º ao 13.º são "th", que é onde uma regra
-    // ingénua costuma falhar.
+    // 1st, 2nd, 3rd, 4th — and the 11th to 13th are "th", which is where a
+    // naive rule usually fails.
     roundaboutExit: (exit: number) => {
-      const resto = exit % 100;
-      const sufixo =
-        resto >= 11 && resto <= 13
+      const lastTwo = exit % 100;
+      const suffix =
+        lastTwo >= 11 && lastTwo <= 13
           ? 'th'
           : { 1: 'st', 2: 'nd', 3: 'rd' }[exit % 10] ?? 'th';
-      return `At the roundabout, take the ${exit}${sufixo} exit`;
+      return `At the roundabout, take the ${exit}${suffix} exit`;
     },
     roundabout: 'At the roundabout, carry on',
     roundaboutTurn: (direction: string) => `At the roundabout, turn ${direction}`,

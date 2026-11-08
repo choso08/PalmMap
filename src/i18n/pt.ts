@@ -1,21 +1,23 @@
 /**
- * Os textos em português de Portugal. **É esta a tabela de origem.**
+ * The strings in European Portuguese. **This is the source table.**
  *
- * O `en.ts` está tipado contra este ficheiro, por isso uma chave que se
- * acrescente aqui e se esqueça lá é um erro de compilação. Ao mexer, mexer nos
- * dois.
+ * `en.ts` is typed against this file, so a key added here and forgotten there
+ * is a compile error. When changing one, change both.
  *
- * ## Porque é que há funções e não só texto
+ * The text itself stays in Portuguese — it is what the app shows to Portuguese
+ * speakers. Only these comments are in English.
  *
- * Onde entra um número ou um nome, a chave é uma função. Não é enfeite: em
- * português diz-se "Vire à esquerda **para** a Rua Augusta" e em inglês "Turn
- * left **onto** Rua Augusta". Se as frases fossem montadas por fora com pedaços
- * traduzidos, uma das línguas ficava com a gramática da outra. Assim cada
- * língua constrói as suas frases inteiras.
+ * ## Why there are functions and not only text
+ *
+ * Wherever a number or a name goes in, the key is a function. That is not
+ * decoration: Portuguese says "Vire à esquerda **para** a Rua Augusta" and
+ * English "Turn left **onto** Rua Augusta". If the sentences were assembled
+ * outside from translated pieces, one language would end up with the other's
+ * grammar. This way each language builds its own whole sentences.
  */
 
 export const pt = {
-  /** Nomes das próprias línguas, para o ecrã de definições. */
+  /** The languages' own names, for the settings screen. */
   languages: {
     auto: 'Automático',
     pt: 'Português',
@@ -23,11 +25,11 @@ export const pt = {
   },
 
   /**
-   * Unidades e forma de escrever números.
+   * Units and the way numbers are written.
    *
-   * O separador decimal é o que mais se nota: em português escreve-se 12,4 km e
-   * em inglês 12.4 km. Trocar isto sozinho é o género de pormenor que faz uma
-   * aplicação parecer mal traduzida.
+   * The decimal separator is what shows the most: Portuguese writes 12,4 km and
+   * English 12.4 km. Getting this wrong is the kind of detail that makes an app
+   * look badly translated.
    */
   units: {
     decimal: ',',
@@ -40,10 +42,10 @@ export const pt = {
     squareKilometres: 'km²',
     kmh: 'km/h',
     /**
-     * As mesmas unidades por extenso, para a voz.
+     * The same units spelt out, for the voice.
      *
-     * Um "m" escrito lê-se num instante; lido em voz alta sai "eme". É o género
-     * de pormenor que faz uma voz soar a robô mal programado.
+     * A written "m" reads in an instant; read aloud it comes out as "em". The
+     * kind of detail that makes a voice sound like a badly programmed robot.
      */
     metresSpoken: 'metros',
     kilometresSpoken: 'quilómetros',
@@ -73,7 +75,7 @@ export const pt = {
     mapPoint: 'Ponto no mapa',
   },
 
-  /** Os botões das categorias, e o nome do que se encontra em cada pino. */
+  /** The category buttons, and the name of what is found at each pin. */
   categories: {
     restaurants: 'Restaurantes',
     cafes: 'Cafés',
@@ -85,7 +87,7 @@ export const pt = {
     health: 'Saúde',
   },
 
-  /** O que cada etiqueta do OpenStreetMap quer dizer, para a ficha do sítio. */
+  /** What each OpenStreetMap tag means, for the place card. */
   placeKinds: {
     restaurant: 'Restaurante',
     fast_food: 'Comida rápida',
@@ -161,25 +163,25 @@ export const pt = {
     finish: 'Terminar',
     arrived: 'Chegou ao destino.',
     /**
-     * O que a voz diz, e que **não é** o que está escrito no ecrã.
+     * What the voice says, which **is not** what is written on screen.
      *
-     * No ecrã cabe "A recalcular o percurso…", com reticências, porque é um
-     * estado que se vê. Dito em voz alta, as reticências não existem e a frase
-     * acaba com um ponto.
+     * The screen has room for "A recalcular o percurso…", with an ellipsis,
+     * because it is a state one sees. Spoken aloud, the ellipsis does not exist
+     * and the sentence ends with a full stop.
      */
     recalculatingVoice: 'A recalcular o percurso.',
-    /** "Daqui a duzentos metros, vire à esquerda para a Rua Augusta." */
+    /** "In two hundred metres, turn left onto Rua Augusta." */
     inDistance: (distance: string, instruction: string) =>
       `Daqui a ${distance}, ${instruction}.`,
     cameraAhead: (label: string, distance: string) =>
       `Atenção: ${label} a ${distance}.`,
     cameraAheadLimit: (label: string, distance: string, limit: number) =>
       `Atenção: ${label} a ${distance}, limite ${limit}.`,
-    /** A notificação do serviço que mantém a navegação viva em segundo plano. */
+    /** The notification of the service that keeps navigation alive in the background. */
     serviceTitle: 'PalmMap a navegar',
     serviceBody: 'A seguir o percurso, mesmo com o ecrã apagado.',
     speedLimit: (kmh: number) => `${kmh}`,
-    /** A unidade por baixo do número do velocímetro. */
+    /** The unit under the speedometer's number. */
     speedUnit: 'km/h',
   },
 
@@ -203,7 +205,7 @@ export const pt = {
       'Horário publicado pelo operador, sem tempo real: se estiver atrasado, isto não sabe.',
     now: 'agora',
     inMinutes: (n: number) => `${n} min`,
-    /** Os meios com que uma paragem liga a outra rede. */
+    /** The modes a stop connects with on another network. */
     kinds: {
       bus: 'Autocarro',
       train: 'Comboio',
@@ -230,7 +232,7 @@ export const pt = {
 
   offline: {
     loading: 'A obter a lista de mapas…',
-    empty: 'Ainda não há mapas publicados. Corra o workflow "Gerar mapa offline" no GitHub.',
+    empty: 'Ainda não há mapas publicados. Corra o workflow "Generate offline map" no GitHub.',
     searchIn: (n: number) => `Procurar entre ${n} países`,
     noMatch: 'Nenhum país com esse nome.',
     outdated: 'desatualizado',
@@ -239,15 +241,15 @@ export const pt = {
 
   schedules: {
     loading: 'A obter a lista de horários…',
-    empty: 'Ainda não há horários publicados. Corra o workflow "Gerar horários" no GitHub.',
+    empty: 'Ainda não há horários publicados. Corra o workflow "Generate timetables" no GitHub.',
     stationCount: (n: number) => `${n} estações`,
     expired: 'fora de prazo, descarregue outra vez',
     until: (date: string) => `até ${date}`,
     note:
       'Estes operadores só publicam o horário, não o tempo real: as horas são as previstas, e um atraso não aparece aqui. Depois de descarregados funcionam sem rede. Os autocarros da Carris Metropolitana não precisam disto — esses têm tempo real.',
-    /** `20261005` fica "5 de outubro". */
+    /** `20261005` becomes "5 de outubro". */
     date: (day: number, month: number) => {
-      const meses = [
+      const months = [
         'janeiro',
         'fevereiro',
         'março',
@@ -261,8 +263,8 @@ export const pt = {
         'novembro',
         'dezembro',
       ];
-      const nome = meses[month - 1];
-      return nome ? `${day} de ${nome}` : '';
+      const name = months[month - 1];
+      return name ? `${day} de ${name}` : '';
     },
   },
 
@@ -432,11 +434,12 @@ export const pt = {
   },
 
   /**
-   * As atribuições que aparecem no mapa.
+   * The attributions that appear on the map.
    *
-   * **São exigidas por licença, não são cortesia.** Os nomes das entidades não
-   * se traduzem; a parte descritiva sim. Para o Sentinel-2 usa-se, em inglês, a
-   * frase oficial que a EOX pede — traduzi-la seria pior do que copiá-la.
+   * **They are required by licence, not a courtesy.** The organisations' names
+   * are not translated; the descriptive part is. For Sentinel-2 the English
+   * version uses the official wording EOX asks for — translating it would be
+   * worse than copying it.
    */
   attributions: {
     sentinel:
@@ -448,7 +451,7 @@ export const pt = {
     longPress: 'Toque sem largar no mapa para marcar um ponto e ir até lá.',
   },
 
-  /** Os tipos de radar, tal como aparecem no aviso. */
+  /** The kinds of speed camera, as they appear in the warning. */
   cameras: {
     speed: 'radar de velocidade',
     average: 'controlo de velocidade média',
@@ -457,12 +460,12 @@ export const pt = {
   },
 
   /**
-   * As manobras da navegação.
+   * The navigation manoeuvres.
    *
-   * A gramática vive aqui e não em `maneuvers.ts` de propósito: em português
-   * diz-se "Vire à esquerda **para** a Rua Augusta" e em inglês "Turn left
-   * **onto** Rua Augusta". O ficheiro decide **que** manobra é; a língua decide
-   * como se diz.
+   * The grammar lives here and not in `maneuvers.ts` on purpose: Portuguese
+   * says "Vire à esquerda **para** a Rua Augusta" and English "Turn left
+   * **onto** Rua Augusta". That file decides **which** manoeuvre it is; the
+   * language decides how it is said.
    */
   maneuvers: {
     directions: {

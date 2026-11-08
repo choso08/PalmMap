@@ -7,243 +7,258 @@ import * as Network from 'expo-network';
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
 
 /**
- * Mapas de países, descarregados a pedido e guardados no telemóvel.
+ * Country maps, downloaded on request and stored on the phone.
  *
- * A pessoa escolhe o país nas definições e o ficheiro fica lá até o apagar. A
- * partir daí esse país funciona sem rede nenhuma, a qualquer zoom e em sítios
- * onde nunca esteve — que é o que a cache do mapa não consegue dar.
+ * The person picks the country in the settings and the file stays there until
+ * they delete it. From then on that country works without any network, at any
+ * zoom and in places they have never been — which is what the map cache cannot
+ * give.
  *
- * Cada país é um ficheiro só. Ao lado dele fica um pequeno ficheiro de
- * identificação com o nome e a área que cobre: é o que permite saber, sem rede,
- * se a posição atual está dentro de um mapa guardado.
+ * Each country is a single file. Next to it sits a small identification file
+ * with the name and the area it covers: that is what makes it possible to
+ * know, without network, whether the current position is inside a downloaded
+ * map.
  *
- * **Isto não é o mesmo que descarregar tiles do OpenStreetMap.** Cada ficheiro
- * é um recorte do mapa mundial do Protomaps, que é publicado precisamente para
- * ser usado assim.
+ * **This is not the same as downloading OpenStreetMap tiles.** Each file is a
+ * cut-out of Protomaps' world map, which is published precisely to be used this
+ * way.
  *
- * Os **tipos de letra** são o único que vem dentro da aplicação. São 410 KB e
- * não podiam ser de outra maneira: sem eles o mapa desenha-se mas fica sem nome
- * nenhum, e ir busca-los a um servidor estragava o offline.
+ * The **fonts** are the only thing that comes inside the app. They are 410 KB
+ * and could not be otherwise: without them the map is drawn but has no names
+ * at all, and fetching them from a server would spoil offline use.
+ *
+ * **Some names here are in Portuguese on purpose**: the Release tag `mapas`,
+ * the manifest's fields (`regioes`, `nome`, `ficheiro`, `gerado`) and the
+ * on-device folders `mapas` and `glifos`. They are already published or
+ * already on installed phones, and renaming them would break every copy of the
+ * app out there.
  */
 
 const BASE_URL = 'https://github.com/choso08/PalmMap/releases/download/mapas';
 
-/** Onde ficam os mapas e os tipos de letra com que o mapa escreve. */
+/** Where the maps and the fonts the map writes with are kept. */
 const MAPS = new Directory(Paths.document, 'mapas');
 const GLYPHS = new Directory(Paths.document, 'glifos');
 
-/** Uma região disponível, tal como vem do manifesto ou de dentro da aplicação. */
+/** An available region, as it comes from the manifest or from inside the app. */
 export interface OfflineRegion {
   id: string;
+  /** The region's name. */
   nome: string;
+  /** The map file's name. */
   ficheiro: string;
   bytes: number;
   maxzoom: number;
-  /** Área abrangida: oeste, sul, este, norte. */
+  /** Area covered: west, south, east, north. */
   bbox: [number, number, number, number];
   /**
-   * Quando este ficheiro foi gerado, em `AAAA-MM-DD`.
+   * When this file was generated, as `YYYY-MM-DD`.
    *
-   * É o que permite saber que o mapa guardado no telemóvel já é mais velho do
-   * que o publicado. Opcional porque os mapas gerados antes disto existir não a
-   * têm — e sem ela trata-se o mapa como estando em dia, que é o mais prudente:
-   * mais vale não dizer nada do que mandar descarregar 325 MB por engano.
+   * It is what tells that the map stored on the phone is already older than
+   * the published one. Optional because maps generated before this existed do
+   * not have it — and without it the map is treated as up to date, which is
+   * the prudent choice: better to say nothing than to trigger a 325 MB download
+   * by mistake.
    */
   gerado?: string;
 }
 
 interface Manifest {
+  /** The regions. */
   regioes: OfflineRegion[];
 }
 
-/** Erro com mensagem legível, para o ecrã poder mostrar algo de útil. */
+/** Error with a readable message, so the screen can show something useful. */
 export class OfflineMapError extends Error {}
 
-// --- Os tipos de letra ------------------------------------------------------
+// --- The fonts ---------------------------------------------------------------
 
 /**
- * Os tipos de letra com que o mapa escreve os nomes.
+ * The fonts the map writes names with.
  *
- * Cada ficheiro cobre 256 caracteres. Os dois primeiros blocos chegam para o
- * português: o primeiro tem o alfabeto e os acentos mais comuns, o segundo o
- * resto dos caracteres latinos. Os nomes das pastas **têm de ser exatamente**
- * os que o estilo pede em `text-font`.
+ * Each file covers 256 characters. The first two blocks are enough for
+ * Portuguese: the first has the alphabet and the most common accents, the
+ * second the rest of the Latin characters. The folder names **have to be
+ * exactly** the ones the style asks for in `text-font`.
  */
 const FONTS = [
-  { stack: 'Noto Sans Regular', range: '0-255', asset: require('../../assets/glifos/Noto_Sans_Regular_0-255.pbf') },
-  { stack: 'Noto Sans Regular', range: '256-511', asset: require('../../assets/glifos/Noto_Sans_Regular_256-511.pbf') },
-  { stack: 'Noto Sans Medium', range: '0-255', asset: require('../../assets/glifos/Noto_Sans_Medium_0-255.pbf') },
-  { stack: 'Noto Sans Medium', range: '256-511', asset: require('../../assets/glifos/Noto_Sans_Medium_256-511.pbf') },
+  { stack: 'Noto Sans Regular', range: '0-255', asset: require('../../assets/glyphs/Noto_Sans_Regular_0-255.pbf') },
+  { stack: 'Noto Sans Regular', range: '256-511', asset: require('../../assets/glyphs/Noto_Sans_Regular_256-511.pbf') },
+  { stack: 'Noto Sans Medium', range: '0-255', asset: require('../../assets/glyphs/Noto_Sans_Medium_0-255.pbf') },
+  { stack: 'Noto Sans Medium', range: '256-511', asset: require('../../assets/glyphs/Noto_Sans_Medium_256-511.pbf') },
 ];
 
 /**
- * Põe os tipos de letra no sítio onde o mapa os vai procurar.
+ * Puts the fonts where the map will look for them.
  *
- * Dentro do APK os ficheiros não têm um caminho normal que o MapLibre consiga
- * abrir, por isso copiam-se uma vez para a pasta da aplicação. São 410 KB e só
- * acontece no primeiro arranque — depois já lá estão e a função não faz nada.
+ * Inside the APK the files have no ordinary path MapLibre can open, so they are
+ * copied once into the app's folder. It is 410 KB and only happens on the
+ * first start-up — afterwards they are already there and the function does
+ * nothing.
  *
- * Chamar no arranque. Falhar aqui não deve impedir a aplicação de abrir: sem
- * isto perdem-se os nomes no mapa offline, não o resto.
+ * Call at start-up. Failing here must not stop the app from opening: without
+ * this the names on the offline map are lost, not the rest.
  */
 export async function installBundledAssets(): Promise<void> {
   ensureFolder(MAPS);
 
   for (const font of FONTS) {
-    const pasta = new Directory(GLYPHS, font.stack);
-    ensureFolder(pasta);
+    const folder = new Directory(GLYPHS, font.stack);
+    ensureFolder(folder);
 
-    const ficheiro = new File(pasta, `${font.range}.pbf`);
-    if (!ficheiro.exists) {
-      await copyAsset(font.asset, ficheiro);
+    const file = new File(folder, `${font.range}.pbf`);
+    if (!file.exists) {
+      await copyAsset(font.asset, file);
     }
   }
 }
 
 /**
- * O endereço dos tipos de letra, no formato que o estilo do mapa espera.
+ * The fonts' address, in the format the map style expects.
  *
- * O MapLibre substitui `{fontstack}` e `{range}` sozinho, conforme os
- * caracteres de que precisa.
+ * MapLibre replaces `{fontstack}` and `{range}` itself, according to the
+ * characters it needs.
  */
 export function glyphsTemplate(): string {
   return `${withSlash(GLYPHS.uri)}{fontstack}/{range}.pbf`;
 }
 
-// --- Os mapas guardados ------------------------------------------------------
+// --- The downloaded maps -----------------------------------------------------
 
-/** O ficheiro local de uma região, exista ele ou não. */
+/** A region's local file, whether it exists or not. */
 export function localFile(region: OfflineRegion): File {
   return new File(MAPS, region.ficheiro);
 }
 
-/** Se a região já está no telemóvel. */
+/** Whether the region is already on the phone. */
 export function isDownloaded(region: OfflineRegion): boolean {
   return localFile(region).exists;
 }
 
 /**
- * O endereço que o MapLibre usa para ler o mapa guardado.
+ * The address MapLibre uses to read the downloaded map.
  *
- * O prefixo `pmtiles://` diz-lhe que o ficheiro é um mapa inteiro num só
- * ficheiro, em vez de um servidor de tiles.
+ * The `pmtiles://` prefix tells it the file is a whole map in a single file,
+ * instead of a tile server.
  *
- * Se um dia isto não funcionar, a outra forma de escrever o mesmo é
- * `pmtiles:///caminho/absoluto`, sem o `file://` pelo meio — há bibliotecas que
- * só aceitam uma das duas.
+ * If this ever stops working, the other way to write the same thing is
+ * `pmtiles:///absolute/path`, without the `file://` in between — some
+ * libraries only accept one of the two.
  */
 export function localStyleSource(region: OfflineRegion): string {
   return `pmtiles://${localFile(region).uri}`;
 }
 
 /**
- * As regiões que estão mesmo no telemóvel neste momento.
+ * The regions actually on the phone right now.
  *
- * Lê a pasta em vez de perguntar à Internet, para funcionar sem rede — que é o
- * ponto de tudo isto.
+ * It reads the folder instead of asking the Internet, so it works without
+ * network — which is the whole point of this.
  */
 export function installedRegions(): OfflineRegion[] {
   if (!MAPS.exists) {
     return [];
   }
 
-  const regioes: OfflineRegion[] = [];
-  for (const entrada of MAPS.list()) {
-    if (!(entrada instanceof File) || !entrada.uri.endsWith('.json')) {
+  const regions: OfflineRegion[] = [];
+  for (const entry of MAPS.list()) {
+    if (!(entry instanceof File) || !entry.uri.endsWith('.json')) {
       continue;
     }
     try {
-      const regiao = JSON.parse(entrada.textSync()) as OfflineRegion;
-      if (new File(MAPS, regiao.ficheiro).exists) {
-        regioes.push(regiao);
+      const region = JSON.parse(entry.textSync()) as OfflineRegion;
+      if (new File(MAPS, region.ficheiro).exists) {
+        regions.push(region);
       }
     } catch {
-      // Ficheiro de identificação estragado: ignora-se essa região em vez de
-      // deixar a aplicação sem mapa nenhum.
+      // Broken identification file: that region is ignored instead of leaving
+      // the app with no map at all.
     }
   }
-  return regioes;
+  return regions;
 }
 
-/** Uma região só entra em conta se souber que área cobre. */
-function temArea(r: OfflineRegion): boolean {
+/** A region only counts if it knows what area it covers. */
+function hasArea(r: OfflineRegion): boolean {
   return Array.isArray(r.bbox) && r.bbox.length === 4;
 }
 
 /**
- * A região guardada que serve para o que se está a ver.
+ * The downloaded region that serves what is being viewed.
  *
- * Escolhe-se em dois tempos, e o segundo existe por uma razão prática:
+ * It is chosen in two steps, and the second exists for a practical reason:
  *
- * 1. **A que cobre o centro do ecrã.** É o caso normal — está-se dentro do país.
- * 2. **Senão, qualquer uma que apareça no ecrã.** Ao afastar o mapa, o centro
- *    sai facilmente de um país pequeno e cai no mar. Com só a primeira regra, a
- *    aplicação largava o mapa guardado e voltava aos tiles da Internet — que em
- *    modo de avião não existem, e o ecrã ficava preto. Enquanto o país guardado
- *    estiver à vista, continua a ser ele a desenhar.
+ * 1. **The one that covers the centre of the screen.** That is the normal case
+ *    — one is inside the country.
+ * 2. **Otherwise, any one that appears on screen.** When zooming the map out,
+ *    the centre easily leaves a small country and falls into the sea. With only
+ *    the first rule, the app dropped the downloaded map and went back to the
+ *    Internet tiles — which in flight mode do not exist, and the screen went
+ *    black. As long as the downloaded country is in view, it keeps drawing.
  *
- * Havendo várias à vista, ganha a mais próxima do centro do ecrã, que é a que a
- * pessoa está a olhar.
+ * With several in view, the one nearest the centre of the screen wins, as it is
+ * the one the person is looking at.
  */
 export function regionForView(
   bounds: { west: number; south: number; east: number; north: number },
-  regioes = installedRegions(),
+  regions = installedRegions(),
 ): OfflineRegion | null {
-  const disponiveis = regioes.filter(temArea);
-  const centroLon = (bounds.west + bounds.east) / 2;
-  const centroLat = (bounds.south + bounds.north) / 2;
+  const available = regions.filter(hasArea);
+  const centreLon = (bounds.west + bounds.east) / 2;
+  const centreLat = (bounds.south + bounds.north) / 2;
 
-  for (const r of disponiveis) {
-    const [oeste, sul, este, norte] = r.bbox;
-    if (centroLon >= oeste && centroLon <= este && centroLat >= sul && centroLat <= norte) {
+  for (const r of available) {
+    const [west, south, east, north] = r.bbox;
+    if (centreLon >= west && centreLon <= east && centreLat >= south && centreLat <= north) {
       return r;
     }
   }
 
-  let melhor: OfflineRegion | null = null;
-  let maisPerto = Infinity;
+  let best: OfflineRegion | null = null;
+  let nearest = Infinity;
 
-  for (const r of disponiveis) {
-    const [oeste, sul, este, norte] = r.bbox;
-    const separados =
-      este < bounds.west || oeste > bounds.east || norte < bounds.south || sul > bounds.north;
-    if (separados) {
+  for (const r of available) {
+    const [west, south, east, north] = r.bbox;
+    const apart =
+      east < bounds.west || west > bounds.east || north < bounds.south || south > bounds.north;
+    if (apart) {
       continue;
     }
 
-    // Distância em graus, que chega de sobra para escolher entre duas regiões.
-    const dLon = (oeste + este) / 2 - centroLon;
-    const dLat = (sul + norte) / 2 - centroLat;
-    const distancia = dLon * dLon + dLat * dLat;
-    if (distancia < maisPerto) {
-      maisPerto = distancia;
-      melhor = r;
+    // Distance in degrees, which is more than enough to choose between two regions.
+    const dLon = (west + east) / 2 - centreLon;
+    const dLat = (south + north) / 2 - centreLat;
+    const distance = dLon * dLon + dLat * dLat;
+    if (distance < nearest) {
+      nearest = distance;
+      best = r;
     }
   }
 
-  return melhor;
+  return best;
 }
 
-/** Vai buscar a lista de mapas disponíveis para descarregar. */
+/** Fetches the list of maps available for download. */
 export async function listRegions(): Promise<OfflineRegion[]> {
   try {
     const response = await axios.get<Manifest>(`${BASE_URL}/mapas.json`, {
       timeout: REQUEST_TIMEOUT_MS,
       headers: { 'User-Agent': USER_AGENT },
-      // **O endereço do manifesto nunca muda, mas o conteúdo sim.** Cada corrida
-      // do workflow substitui o ficheiro na mesma Release, no mesmo endereço; e
-      // o GitHub serve estes ficheiros por uma rede de distribuição que os
-      // guarda. Sem isto, um país acabado de gerar podia não aparecer durante
-      // horas — sem erro nenhum, só uma lista velha com ar de estar certa.
+      // **The manifest's address never changes, but its content does.** Each
+      // workflow run replaces the file in the same Release, at the same
+      // address; and GitHub serves these files through a content delivery
+      // network that caches them. Without this, a freshly generated country
+      // could fail to appear for hours — with no error, just an old list
+      // looking right.
       params: { t: Date.now() },
     });
     return response.data.regioes ?? [];
   } catch {
-    // Sem rede, mostra-se pelo menos o que já está guardado. Um menu vazio
-    // daria a entender que se perderam os mapas descarregados, e não se perderam.
-    const guardadas = installedRegions();
-    if (guardadas.length > 0) {
-      return guardadas;
+    // Without network, at least what is already stored is shown. An empty menu
+    // would suggest the downloaded maps were lost, and they were not.
+    const stored = installedRegions();
+    if (stored.length > 0) {
+      return stored;
     }
     throw new OfflineMapError(
       t().errors.mapListFailed,
@@ -252,164 +267,168 @@ export async function listRegions(): Promise<OfflineRegion[]> {
 }
 
 /**
- * Descarrega o mapa de uma região.
+ * Downloads a region's map.
  *
- * Descarrega para um nome temporário e só no fim lhe dá o nome definitivo: se a
- * ligação cair a meio, não fica um ficheiro incompleto a fazer-se passar por
- * bom.
+ * It downloads to a temporary name and only gives it its final name at the
+ * end: if the connection drops halfway, no incomplete file is left passing for
+ * a good one.
  */
 export async function downloadRegion(
   region: OfflineRegion,
-  onProgress?: (fracao: number) => void,
+  onProgress?: (fraction: number) => void,
 ): Promise<void> {
   ensureFolder(MAPS);
 
-  const parcial = new File(MAPS, `${region.ficheiro}.parcial`);
-  if (parcial.exists) {
-    parcial.delete();
+  // The `.parcial` ("partial") suffix stays in Portuguese so leftovers from
+  // older versions are still recognised and cleaned up.
+  const partial = new File(MAPS, `${region.ficheiro}.parcial`);
+  if (partial.exists) {
+    partial.delete();
   }
 
   /**
-   * A última percentagem inteira já comunicada.
+   * The last whole percentage already reported.
    *
-   * **O sistema avisa a cada bocado que escreve no disco**, e num ficheiro de
-   * centenas de megabytes isso são milhares de avisos por segundo. Cada um
-   * chegava ao ecrã e redesenhava a lista inteira — a barra andava na mesma, mas
-   * o telemóvel passava o tempo a desenhar em vez de a descarregar, e com várias
-   * descargas ao mesmo tempo era o suficiente para a aplicação deixar de
-   * responder. Só se avisa quando o número que se vê muda mesmo.
+   * **The system reports every chunk it writes to disk**, and for a file of
+   * hundreds of megabytes that is thousands of reports a second. Each one
+   * reached the screen and redrew the whole list — the bar still moved, but the
+   * phone spent its time drawing instead of downloading, and with several
+   * downloads at once it was enough for the app to stop responding. It only
+   * reports when the number one sees actually changes.
    */
-  let ultimaPercentagem = -1;
+  let lastPercent = -1;
 
   try {
-    const descarregado = await File.downloadFileAsync(
+    const downloaded = await File.downloadFileAsync(
       `${BASE_URL}/${region.ficheiro}`,
-      parcial,
+      partial,
       {
         onProgress: ({ bytesWritten, totalBytes }) => {
-          // O servidor nem sempre diz o tamanho à partida — nesse caso vem -1 e
-          // usa-se o do manifesto, que é o valor real medido ao gerar o ficheiro.
+          // The server does not always say the size up front — then it comes as
+          // -1 and the manifest's is used, the real value measured when the
+          // file was generated.
           const total = totalBytes > 0 ? totalBytes : region.bytes;
           if (total <= 0) {
             return;
           }
 
-          const fracao = Math.min(1, bytesWritten / total);
-          const percentagem = Math.floor(fracao * 100);
-          if (percentagem === ultimaPercentagem) {
+          const fraction = Math.min(1, bytesWritten / total);
+          const percent = Math.floor(fraction * 100);
+          if (percent === lastPercent) {
             return;
           }
-          ultimaPercentagem = percentagem;
-          onProgress?.(fracao);
+          lastPercent = percent;
+          onProgress?.(fraction);
         },
       },
     );
 
-    const destino = localFile(region);
-    if (destino.exists) {
-      destino.delete();
+    const destination = localFile(region);
+    if (destination.exists) {
+      destination.delete();
     }
-    await descarregado.move(destino);
+    await downloaded.move(destination);
     writeMetadata(region);
-  } catch (erro) {
-    if (parcial.exists) {
-      parcial.delete();
+  } catch (error) {
+    if (partial.exists) {
+      partial.delete();
     }
-    // A mensagem do sistema vai junto. Sem ela ficava-se sem saber se foi a
-    // rede, o espaço em disco ou o servidor — e num ficheiro de centenas de
-    // megabytes é quase sempre a rede a cair a meio.
-    const detalhe = erro instanceof Error ? erro.message : String(erro);
+    // The system's message goes along. Without it there was no telling whether
+    // it was the network, the disk space or the server — and for a file of
+    // hundreds of megabytes it is almost always the network dropping halfway.
+    const detail = error instanceof Error ? error.message : String(error);
     throw new OfflineMapError(
-      t().errors.mapDownloadFailed(region.nome, detalhe),
+      t().errors.mapDownloadFailed(region.nome, detail),
     );
   }
 }
 
 /**
- * As regiões guardadas que já têm versão mais recente publicada.
+ * The downloaded regions that already have a newer version published.
  *
- * Compara a data do ficheiro que está no telemóvel com a do manifesto. Sem data
- * de um dos lados, **não se conclui nada**: um mapa gerado antes de isto existir
- * não traz data, e tratá-lo como velho mandava descarregar 325 MB por engano.
+ * Compares the date of the file on the phone with the manifest's. Without a
+ * date on either side, **nothing is concluded**: a map generated before this
+ * existed carries no date, and treating it as old would trigger a 325 MB
+ * download by mistake.
  */
 export function outdatedRegions(published: OfflineRegion[]): OfflineRegion[] {
-  const guardadas = new Map(installedRegions().map((r) => [r.id, r]));
+  const stored = new Map(installedRegions().map((r) => [r.id, r]));
 
-  return published.filter((nova) => {
-    const antiga = guardadas.get(nova.id);
-    return Boolean(antiga?.gerado && nova.gerado && nova.gerado > antiga.gerado);
+  return published.filter((fresh) => {
+    const old = stored.get(fresh.id);
+    return Boolean(old?.gerado && fresh.gerado && fresh.gerado > old.gerado);
   });
 }
 
 /**
- * Renova sozinha os mapas guardados que já têm versão mais recente.
+ * Refreshes on its own the downloaded maps that already have a newer version.
  *
- * **Só por Wi-Fi, e é uma decisão e não um esquecimento.** Um país são centenas
- * de megabytes — Portugal continental são 325 MB. Descarregar isso sozinho pelos
- * dados móveis de alguém seria gastar-lhe o plafond sem lho perguntar, e ninguém
- * agradece uma aplicação que faz isso. Por Wi-Fi não custa nada a ninguém e é
- * exatamente o que se quer: o mapa vai-se mantendo em dia sem ser preciso pensar
- * nele.
+ * **Only over Wi-Fi, and that is a decision, not an oversight.** A country is
+ * hundreds of megabytes — mainland Portugal is 325 MB. Downloading that on its
+ * own over someone's mobile data would spend their allowance without asking,
+ * and nobody thanks an app that does that. Over Wi-Fi it costs nobody anything
+ * and it is exactly what is wanted: the map keeps itself up to date without
+ * anyone having to think about it.
  *
- * Fora do Wi-Fi não se descarrega nada — mas o ecrã dos mapas **marca-os como
- * desatualizados**, para quem quiser o possa fazer à mão.
+ * Away from Wi-Fi nothing is downloaded — but the maps screen **marks them as
+ * outdated**, so anyone who wants to can do it by hand.
  *
- * Devolve quantos renovou. Falhar não é motivo para dizer nada a ninguém: quem
- * não pediu isto não tem de saber que correu mal, e na vez seguinte tenta outra
- * vez.
+ * Returns how many it refreshed. Failing is no reason to tell anyone anything:
+ * whoever did not ask for this does not need to know it went wrong, and next
+ * time it tries again.
  */
 export async function refreshOutdatedOnWifi(): Promise<number> {
   try {
-    const estado = await Network.getNetworkStateAsync();
-    if (estado.type !== Network.NetworkStateType.WIFI || !estado.isInternetReachable) {
+    const state = await Network.getNetworkStateAsync();
+    if (state.type !== Network.NetworkStateType.WIFI || !state.isInternetReachable) {
       return 0;
     }
 
-    const porRenovar = outdatedRegions(await listRegions());
-    let feitas = 0;
-    for (const regiao of porRenovar) {
+    const toRefresh = outdatedRegions(await listRegions());
+    let done = 0;
+    for (const region of toRefresh) {
       try {
-        await downloadRegion(regiao);
-        feitas += 1;
+        await downloadRegion(region);
+        done += 1;
       } catch {
-        // Um país que falhe não pode impedir os outros de serem renovados.
+        // One country failing cannot stop the others from being refreshed.
       }
     }
-    return feitas;
+    return done;
   } catch {
     return 0;
   }
 }
 
-/** Apaga o mapa guardado de uma região. */
+/** Deletes a region's downloaded map. */
 export function removeRegion(region: OfflineRegion): void {
-  const ficheiro = localFile(region);
-  if (ficheiro.exists) {
-    ficheiro.delete();
+  const file = localFile(region);
+  if (file.exists) {
+    file.delete();
   }
 
-  const identificacao = metadataFile(region);
-  if (identificacao.exists) {
-    identificacao.delete();
+  const identification = metadataFile(region);
+  if (identification.exists) {
+    identification.delete();
   }
 }
 
-/** Quanto ocupam, ao todo, os mapas guardados. */
+/** How much the downloaded maps take up, in total. */
 export function usedBytes(): number {
   if (!MAPS.exists) {
     return 0;
   }
 
-  return MAPS.list().reduce((total, entrada) => {
-    return entrada instanceof File ? total + (entrada.size ?? 0) : total;
+  return MAPS.list().reduce((total, entry) => {
+    return entry instanceof File ? total + (entry.size ?? 0) : total;
   }, 0);
 }
 
-// --- Ajudas ------------------------------------------------------------------
+// --- Helpers -----------------------------------------------------------------
 
-function ensureFolder(pasta: Directory): void {
-  if (!pasta.exists) {
-    pasta.create({ intermediates: true });
+function ensureFolder(folder: Directory): void {
+  if (!folder.exists) {
+    folder.create({ intermediates: true });
   }
 }
 
@@ -425,11 +444,11 @@ function writeMetadata(region: OfflineRegion): void {
   metadataFile(region).write(JSON.stringify(region));
 }
 
-/** Copia um ficheiro que veio dentro da aplicação para um sítio utilizável. */
-async function copyAsset(module: number, destino: File): Promise<void> {
+/** Copies a file that came inside the app to a usable place. */
+async function copyAsset(module: number, destination: File): Promise<void> {
   const [asset] = await Asset.loadAsync(module);
   if (!asset?.localUri) {
     throw new OfflineMapError(t().errors.bundledAssetFailed);
   }
-  await new File(asset.localUri).copy(destino);
+  await new File(asset.localUri).copy(destination);
 }
