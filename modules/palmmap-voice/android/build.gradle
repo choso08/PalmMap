@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'pt.palmmap'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.palmmapvoice"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

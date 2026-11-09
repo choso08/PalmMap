@@ -307,6 +307,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── build-pois.py       # Business file for a downloaded country (from Geofabrik)
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
+├── modules/
+│   └── palmmap-voice/      # Our only native code: the speech recogniser, safely (Kotlin)
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
@@ -1647,9 +1649,14 @@ timeouts are all in `src/services/config.ts`.
   out.**
 - **Choosing a result does not search its name** (`escolhido`, in `SearchBar`).
 - **Voice search** (microphone in the bar, with the box empty): opens Android's own speech
-  recogniser (`RECOGNIZE_SPEECH`, through `expo-intent-launcher`, which was already here — no
-  new library or key), and what was heard is searched at once, as with Enter. See
-  `voiceInput.ts`. JavaScript cannot ask Android whether a recogniser exists without a new
+  recogniser (`RECOGNIZE_SPEECH`) — no new library or key — and what was heard is searched at
+  once, as with Enter. See `voiceInput.ts`. **It goes through our own small native module,
+  `modules/palmmap-voice`** (Kotlin, autolinked from `./modules`, built by `expo prebuild`
+  like the rest), not `expo-intent-launcher`: that one hands the whole result Bundle to
+  JavaScript, and when Google's recogniser did not understand, converting its extras failed
+  in a native callback and **closed the app** (author's report, November 2026). The module
+  reads only `EXTRA_RESULTS`, inside a `try`. `expo-intent-launcher` stays for the updater
+  and as the fallback when the module is missing. JavaScript cannot ask Android whether a recogniser exists without a new
   library, so it is learnt: the first time the screen fails to open, it is stored
   (`palmmap.semReconhecimentoVoz`) and **the microphone never shows again** on that phone (the
   author's request). Practically every Android phone has one (the Google app's).
@@ -1882,6 +1889,9 @@ Mistakes already made in this project, so they are not repeated.
   another `id`, and `useFrozenId` throws "`id` cannot be changed" — a red screen. It happened
   with the compass cone (it hides while following) moving the blue dot onto its slot. A key
   keeps each layer its own element.
+- **A library that hands a whole Android result to JavaScript can crash on extras it cannot
+  convert** — natively, past every `try`. When another app's result is involved (Google's
+  speech recogniser), read only the field needed, natively (`modules/palmmap-voice`).
 - **An identifier can arrive in a different unit after the provider changes.** TML sends
   `timestamp` in milliseconds where Carris sent seconds; every bus was "from the future".
 

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requireOptionalNativeModule } from 'expo';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 import { activeLanguage, speechTag, t } from '../i18n';
@@ -22,6 +23,17 @@ export async function voiceAvailable(): Promise<boolean> {
   }
 }
 
+/**
+ * Our own small native module (`modules/palmmap-voice`), which returns only the
+ * sentence heard. Through `expo-intent-launcher` the whole result Bundle went to
+ * JavaScript, and when Google's recogniser did not understand, its extras could
+ * not be converted — a native error, out of reach of any `try`, that closed the
+ * app (November 2026).
+ */
+interface PalmMapVoiceModule {
+  listen(language: string, prompt: string): Promise<string | null>;
+}
+
 /** Thrown when the phone has no speech recogniser at all. */
 export class VoiceUnavailableError extends Error {}
 
@@ -38,6 +50,20 @@ export class VoiceUnavailableError extends Error {}
  */
 export async function listenOnce(): Promise<string | null> {
   const language = speechTag(activeLanguage());
+  const native = requireOptionalNativeModule<PalmMapVoiceModule>('PalmMapVoice');
+  if (native) {
+    try {
+      const heard = await native.listen(language, t().search.voicePrompt);
+      return typeof heard === 'string' && heard.trim() ? heard.trim() : null;
+    } catch (error) {
+      if ((error as { code?: string }).code === 'E_NO_RECOGNIZER') {
+        await AsyncStorage.setItem(NO_VOICE_KEY, '1').catch(() => undefined);
+        throw new VoiceUnavailableError('no speech recogniser');
+      }
+      return null;
+    }
+  }
+  // Only for a build without the module below (it ships in the APK).
   let result: IntentLauncher.IntentLauncherResult;
   try {
     result = await IntentLauncher.startActivityAsync('android.speech.action.RECOGNIZE_SPEECH', {
