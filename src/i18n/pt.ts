@@ -62,6 +62,25 @@ export const pt = {
     listFailed: 'Não foi possível obter a lista.',
   },
 
+  tabs: {
+    explore: 'Explorar',
+    go: 'Ir',
+    saved: 'Guardados',
+    settings: 'Definições',
+  },
+  layers: {
+    open: 'Camadas do mapa',
+    mapType: 'Tipo de mapa',
+    details: 'Detalhes do mapa',
+    tools: 'Ferramentas',
+    measure: 'Medir distância ou área',
+  },
+  saved: {
+    title: 'Guardados',
+    favourites: 'Sítios guardados',
+    recents: 'Recentes',
+    empty: 'Ainda não guardou nenhum sítio. Abra um sítio e toque na estrela para o guardar aqui.',
+  },
   directions: {
     title: 'Direções',
     open: 'Direções',

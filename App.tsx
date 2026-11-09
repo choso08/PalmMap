@@ -38,7 +38,10 @@ import { SettingsSheet } from './src/components/SettingsSheet';
 import { DraggableSheet } from './src/components/DraggableSheet';
 import { Reveal } from './src/components/Reveal';
 import { MeasureSheet, type MeasureMode } from './src/components/MeasureSheet';
+import { BottomTabs, TAB_BAR_HEIGHT, type Tab } from './src/components/BottomTabs';
 import { DirectionsSheet } from './src/components/DirectionsSheet';
+import { LayersSheet } from './src/components/LayersSheet';
+import { SavedSheet } from './src/components/SavedSheet';
 import { StepsList } from './src/components/StepsList';
 import { TransitSheet } from './src/components/TransitSheet';
 import {
@@ -108,10 +111,8 @@ import {
   type TransitStop,
 } from './src/services/transit';
 import {
-  MAP_TYPES,
   SettingsProvider,
   cacheMegabytesFor,
-  nextMapType,
   osrmProfile,
   useLearnedPace,
   useSettings,
@@ -263,6 +264,10 @@ function PalmMap() {
    */
   const [routeOrigin, setRouteOrigin] = useState<Place | null>(null);
   const [directionsVisible, setDirectionsVisible] = useState(false);
+  const [layersVisible, setLayersVisible] = useState(false);
+  const [savedVisible, setSavedVisible] = useState(false);
+  /** The search is open and covers the screen — see `SearchBar`. */
+  const [searchFocused, setSearchFocused] = useState(false);
   /**
    * Paragens pelo caminho, pela ordem por que se passa por elas.
    *
@@ -406,37 +411,6 @@ function PalmMap() {
   const [hintVisible, setHintVisible] = useState(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /**
-   * O nome do tipo de mapa, logo depois de se trocar.
-   *
-   * Com três tipos, o ícone sozinho já não chega para se perceber ao que se vai
-   * — sobretudo entre o mapa normal e o dos transportes, que à primeira vista
-   * são os dois mapas desenhados.
-   */
-  const [mapTypeLabel, setMapTypeLabel] = useState<string | null>(null);
-  const mapTypeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const mostrarTipoDeMapa = useCallback((tipo: MapType) => {
-    // `t()` e não o `strings` do componente: esta função tem a lista de
-    // dependências vazia, e com o `strings` ficava presa à língua do arranque —
-    // trocar para inglês deixava o aviso a dizer "Transportes" para sempre.
-    setMapTypeLabel(t().settings.mapTypes[tipo]);
-    if (mapTypeTimer.current) {
-      clearTimeout(mapTypeTimer.current);
-    }
-    mapTypeTimer.current = setTimeout(() => setMapTypeLabel(null), 1800);
-  }, []);
-
-  // O contador tem de ser cancelado ao sair, senão mexia no estado depois de a
-  // aplicação já ter fechado o ecrã.
-  useEffect(
-    () => () => {
-      if (mapTypeTimer.current) {
-        clearTimeout(mapTypeTimer.current);
-      }
-    },
-    [],
-  );
 
   /**
    * As paragens perto, sempre que se está no mapa dos transportes.
@@ -1567,7 +1541,7 @@ function PalmMap() {
    */
   const compassBottom =
     selectedPlace || destination || measuring
-      ? insets.bottom + 322
+      ? insets.bottom + 260
       : navigating
         ? // A navegar, este canto tem o velocímetro, que o `NavigationPanel`
           // põe a 130. A bússola vai para cima dele — estavam as duas à mesma
@@ -1575,7 +1549,39 @@ function PalmMap() {
           // sempre à vista, por isso ficavam uma em cima da outra a viagem
           // toda. Entre as duas, quem manda no sítio mais baixo é o velocímetro.
           insets.bottom + 192
-        : insets.bottom + 90;
+        : // Above the tab bar. The ruler that used to share this corner now
+          // lives in the layers panel.
+          insets.bottom + TAB_BAR_HEIGHT + 16;
+
+  /**
+   * Whether the tab bar shows: only on the plain map. Every bottom panel sits
+   * where it would be, and so does navigation.
+   */
+  const tabsVisible =
+    !navigating &&
+    !selectedPlace &&
+    !destination &&
+    !measuring &&
+    !transitVisible &&
+    !searchFocused;
+
+  const activeTab: Tab = savedVisible
+    ? 'saved'
+    : settingsVisible
+      ? 'settings'
+      : directionsVisible
+        ? 'go'
+        : 'explore';
+
+  const handleTabPress = useCallback((tab: Tab) => {
+    if (tab === 'go') {
+      setDirectionsVisible(true);
+    } else if (tab === 'saved') {
+      setSavedVisible(true);
+    } else if (tab === 'settings') {
+      setSettingsVisible(true);
+    }
+  }, []);
 
   const handleTapEmpty = useCallback((coordinates: Coordinates) => {
     // Com a fita métrica ligada, o toque põe um ponto e mais nada.
@@ -1968,7 +1974,10 @@ function PalmMap() {
       />
 
       {!navigating ? (
-      <View style={styles.top} pointerEvents="box-none">
+      <View
+        style={[styles.top, searchFocused && styles.searchBackdrop]}
+        pointerEvents="box-none"
+      >
         <SearchBar
           onSelect={(place) => {
             // A destination picked from the main search starts from the GPS,
@@ -1976,15 +1985,32 @@ function PalmMap() {
             setRouteOrigin(null);
             handleSearchSelect(place);
           }}
-          onOpenSettings={() => setSettingsVisible(true)}
-          onOpenDirections={() => setDirectionsVisible(true)}
-          updateAvailable={updateInfo !== null}
+          onFocusChange={setSearchFocused}
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}
         />
 
-        <CategoryBar selected={category} onSelect={setCategory} />
+        {searchFocused ? null : (
+          <>
+            <CategoryBar selected={category} onSelect={setCategory} />
+
+            {/*
+              The map layers button, under the search bar on the right, where
+              people look for it. It replaces the corner button that cycled
+              through the map types.
+            */}
+            {!navigating ? (
+              <Pressable
+                style={({ pressed }) => [styles.layersTop, pressed && styles.buttonPressed]}
+                onPress={() => setLayersVisible(true)}
+                accessibilityLabel={t().layers.open}
+              >
+                <MaterialCommunityIcons name="layers-outline" size={22} color={theme.text} />
+              </Pressable>
+            ) : null}
+          </>
+        )}
 
         {locationDenied ? (
           <Text style={styles.notice}>
@@ -2075,37 +2101,6 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {/*
-        A fita métrica. Fica à esquerda de propósito: o lado direito já tem três
-        botões empilhados, e este liga um modo em vez de fazer uma coisa — vale a
-        pena estar noutro sítio.
-      */}
-      {!navigating ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.measureButton,
-            measuring ? styles.measureButtonOn : null,
-            // **Sobe com qualquer painel de baixo, e não só com o da fita.**
-            // Subia só com o dela, e por isso ficava por baixo do painel de um
-            // sítio ou de um percurso — a tapar-lhe o texto, como se vê assim
-            // que se escolhe um destino. A condição é a mesma dos três botões
-            // do outro lado e da bússola: onde há painel, sobem todos.
-            selectedPlace || destination || measuring ? styles.measureRaised : null,
-            pressed ? styles.buttonPressed : null,
-          ]}
-          onPress={() => {
-            setMeasuring((atual) => !atual);
-            setMeasurePoints([]);
-          }}
-        >
-          <MaterialCommunityIcons
-            name="ruler"
-            size={22}
-            color={measuring ? theme.onAccent : theme.accent}
-          />
-        </Pressable>
-      ) : null}
-
       {measuring ? (
         <Reveal style={styles.bottom}>
           <DraggableSheet>
@@ -2128,37 +2123,6 @@ function PalmMap() {
       ) : null}
 
       {/*
-        Percorre os tipos de mapa: desenhado, satélite e transportes.
-
-        O ícone é o do **seguinte**, não o do atual — é o que se vai buscar ao
-        carregar. E aparece o nome durante uns segundos, porque com três já não
-        se adivinha ao que se vai.
-      */}
-      {!navigating ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.layersButton,
-            selectedPlace || destination || measuring ? styles.layersRaised : null,
-            pressed ? styles.buttonPressed : null,
-          ]}
-          onPress={() => {
-            const seguinte = nextMapType(settings.mapType);
-            update('mapType', seguinte);
-            mostrarTipoDeMapa(seguinte);
-          }}
-        >
-          <MaterialCommunityIcons
-            name={
-              (MAP_TYPES.find((t) => t.id === nextMapType(settings.mapType))?.icon ??
-                'map-outline') as never
-            }
-            size={22}
-            color={theme.accent}
-          />
-        </Pressable>
-      ) : null}
-
-      {/*
         As horas de passagem. Só aparece no mapa dos transportes: fora daí seria
         mais um botão a tapar o mapa a quem anda de carro.
       */}
@@ -2175,19 +2139,19 @@ function PalmMap() {
         </Pressable>
       ) : null}
 
-      {!navigating ? (
-        <Reveal
-          style={[
-            styles.mapTypeLabel,
-            selectedPlace || destination || measuring
-              ? styles.mapTypeLabelRaised
-              : null,
-          ]}
-          visible={!!mapTypeLabel}
-          from={0}
+      {/*
+        The Directions button, bottom right, the most used action of a maps
+        app. Only on the plain map: with a panel open there is already a route
+        or a place on screen.
+      */}
+      {tabsVisible ? (
+        <Pressable
+          style={({ pressed }) => [styles.directionsFab, pressed && styles.buttonPressed]}
+          onPress={() => setDirectionsVisible(true)}
+          accessibilityLabel={t().directions.open}
         >
-          <Text style={styles.mapTypeLabelText}>{mapTypeLabel}</Text>
-        </Reveal>
+          <MaterialCommunityIcons name="directions" size={28} color={theme.onAccent} />
+        </Pressable>
       ) : null}
 
       {/*
@@ -2330,6 +2294,34 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
+      {tabsVisible ? (
+        <BottomTabs
+          active={activeTab}
+          onPress={handleTabPress}
+          updateAvailable={updateInfo !== null}
+        />
+      ) : null}
+
+      <LayersSheet
+        visible={layersVisible}
+        onClose={() => setLayersVisible(false)}
+        onMeasure={() => {
+          setMeasuring(true);
+          setMeasurePoints([]);
+        }}
+      />
+
+      <SavedSheet
+        visible={savedVisible}
+        favourites={favourites}
+        recents={recents}
+        onClose={() => setSavedVisible(false)}
+        onSelect={(place) => {
+          setRouteOrigin(null);
+          handleSearchSelect(place);
+        }}
+      />
+
       <DirectionsSheet
         visible={directionsVisible}
         origin={routeOrigin}
@@ -2382,6 +2374,45 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       backgroundColor: theme.background,
     },
+    /** The search open: the header covers the whole screen. */
+    searchBackdrop: {
+      bottom: 0,
+      backgroundColor: theme.surface,
+    },
+    /** The map layers button, right-aligned under the category chips. */
+    layersTop: {
+      alignSelf: 'flex-end',
+      marginRight: 14,
+      marginTop: 2,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.14,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+    },
+    /** The main action: a larger, filled button on the tab bar's right. */
+    directionsFab: {
+      position: 'absolute',
+      right: 14,
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 14,
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+      elevation: 8,
+      shadowColor: '#000000',
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+    },
     top: {
       position: 'absolute',
       top: 0,
@@ -2419,56 +2450,11 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.onOverlay,
       fontSize: 12,
     },
-    layersButton: {
-      position: 'absolute',
-      right: 16,
-      // Mesmo tamanho e alinhamento do botão de recentrar, mas por cima dele.
-      bottom: insets.bottom + 90,
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.surface,
-      elevation: 6,
-      shadowColor: '#000000',
-      shadowOpacity: 0.14,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-    },
-    measureButton: {
-      position: 'absolute',
-      left: 16,
-      bottom: insets.bottom + 28,
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.surface,
-      elevation: 6,
-      shadowColor: '#000000',
-      shadowOpacity: 0.14,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
-    },
-    /**
-     * A régua, levantada para cima do painel da fita métrica.
-     *
-     * Mesma altura a que sobem os botões do outro lado quando há um painel
-     * aberto: os quatro têm de ficar alinhados, senão vê-se o degrau.
-     */
-    measureRaised: {
-      bottom: insets.bottom + 260,
-    },
-    measureButtonOn: {
-      backgroundColor: theme.accent,
-    },
     transitButton: {
       position: 'absolute',
       right: 16,
-      // Por cima do botão dos tipos de mapa, que já está por cima do de centrar.
-      bottom: insets.bottom + 152,
+      // Above the locate button, which is above the Directions button.
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 16 + 64 + 64,
       width: 52,
       height: 52,
       borderRadius: 26,
@@ -2481,42 +2467,15 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
     },
-    mapTypeLabel: {
-      position: 'absolute',
-      right: 76,
-      // À altura do botão dos tipos de mapa, para se ler ao lado do ícone.
-      bottom: insets.bottom + 104,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 10,
-      backgroundColor: theme.overlay,
-    },
-    mapTypeLabelText: {
-      color: theme.onOverlay,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    layersRaised: {
-      bottom: insets.bottom + 322,
-    },
-    /**
-     * O nome do tipo de mapa acompanha o botão, e não o chão do botão.
-     *
-     * São os 322 do `layersRaised` mais os mesmos 14 que o separam dele quando
-     * não há painel nenhum aberto. Com o `layersRaised` à letra, o texto subia
-     * catorze pontos a menos e ficava desalinhado do ícone que explica.
-     */
-    mapTypeLabelRaised: {
-      bottom: insets.bottom + 336,
-    },
     transitRaised: {
-      // Mesmo afastamento entre os dois botões de quando não há painel aberto.
-      bottom: insets.bottom + 384,
+      // Same gap between the two buttons as when no panel is open.
+      bottom: insets.bottom + 322,
     },
     locateButton: {
       position: 'absolute',
       right: 16,
-      bottom: insets.bottom + 28,
+      // Above the Directions button, which sits on the tab bar.
+      bottom: insets.bottom + TAB_BAR_HEIGHT + 16 + 64,
       width: 52,
       height: 52,
       borderRadius: 26,

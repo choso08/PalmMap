@@ -62,6 +62,15 @@ telemóvel ainda:
   recentes publicadas (sondado).
 - **Lista de mapas:** tenta duas vezes, guarda a última lista inteira, está por ordem alfabética, e
   mapas e horários ficaram em secções que abrem e fecham nas definições.
+- **Ecrã principal à maneira do Google Maps** (fase 1 de 4, pedido do autor: "imitar o Google Maps
+  na grande maioria das coisas"). Barra de separadores em baixo (`BottomTabs`: Explorar, Ir,
+  Guardados, Definições), que se esconde com qualquer painel aberto ou a navegar; botão grande de
+  Direções em baixo à direita, com o de centrar por cima; botão de camadas por baixo dos botões de
+  categoria (`LayersSheet`: tipo de mapa com miniaturas, negócios no mapa, autocarros ao vivo e a
+  fita métrica — a régua saiu do mapa); ecrã de Guardados (`SavedSheet`); e a pesquisa ocupa o
+  ecrã inteiro enquanto está em uso. As alturas dos botões flutuantes continuam todas no
+  `App.tsx` (`compassBottom`, `TAB_BAR_HEIGHT`). Fases seguintes por fazer: ficha do sítio
+  ("Aberto · Fecha às…", fila de botões), Direções com o tempo de cada meio, navegação.
 - **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
   outros. Partes antigas deste ficheiro ainda dizem o contrário.
 

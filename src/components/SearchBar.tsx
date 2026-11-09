@@ -28,7 +28,7 @@ interface SearchBarProps {
    * pesquisa — se fosse um valor, cada arrastar do mapa redesenhava isto tudo.
    */
   getBounds: () => Bounds | null;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
   /** Opens the Directions screen (start and destination). */
   onOpenDirections?: () => void;
   /**
@@ -39,6 +39,12 @@ interface SearchBarProps {
    * nada. Um ponto e não um número: não é urgente, é só novidade.
    */
   updateAvailable?: boolean;
+  /**
+   * Tells the screen the search is open, so it can cover the map behind it —
+   * the search takes the whole screen while in use, as people expect from a
+   * maps app, instead of a short list over the map.
+   */
+  onFocusChange?: (focused: boolean) => void;
   /** Sítios guardados, mostrados enquanto não se escreve nada. */
   favourites: Place[];
   /** Últimos destinos, mostrados a seguir aos guardados. */
@@ -60,6 +66,7 @@ export function SearchBar({
   recents,
   getBounds,
   updateAvailable = false,
+  onFocusChange,
 }: SearchBarProps) {
   const theme = useTheme();
   const strings = useT();
@@ -67,7 +74,14 @@ export function SearchBar({
 
   const [query, setQuery] = useState('');
   /** Verdadeiro enquanto a caixa está em uso, para mostrar os favoritos. */
-  const [focused, setFocused] = useState(false);
+  const [focused, setFocusedState] = useState(false);
+  const setFocused = useCallback(
+    (value: boolean) => {
+      setFocusedState(value);
+      onFocusChange?.(value);
+    },
+    [onFocusChange],
+  );
   const [results, setResults] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,9 +207,22 @@ export function SearchBar({
   const list = focused && (showingSuggestions || !parado) ? sugestoes : [];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, focused && styles.containerFocused]}>
       <View style={styles.inputRow}>
-        <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
+        {focused ? (
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              setFocused(false);
+              Keyboard.dismiss();
+            }}
+            accessibilityLabel={strings.common.close}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
+          </Pressable>
+        ) : (
+          <MaterialCommunityIcons name="magnify" size={22} color={theme.textMuted} />
+        )}
 
         <TextInput
           style={styles.input}
@@ -217,7 +244,7 @@ export function SearchBar({
           </Pressable>
         ) : null}
 
-        {onOpenDirections ? (
+        {onOpenDirections && !focused ? (
           <Pressable
             onPress={onOpenDirections}
             hitSlop={10}
@@ -227,17 +254,19 @@ export function SearchBar({
             <MaterialCommunityIcons name="directions" size={22} color={theme.accent} />
           </Pressable>
         ) : null}
-        <Pressable onPress={onOpenSettings} hitSlop={10} style={styles.settingsButton}>
-          <MaterialCommunityIcons name="tune-variant" size={20} color={theme.textMuted} />
-          {updateAvailable ? <View style={styles.updateDot} /> : null}
-        </Pressable>
+        {onOpenSettings && !focused ? (
+          <Pressable onPress={onOpenSettings} hitSlop={10} style={styles.settingsButton}>
+            <MaterialCommunityIcons name="tune-variant" size={20} color={theme.textMuted} />
+            {updateAvailable ? <View style={styles.updateDot} /> : null}
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {list.length > 0 ? (
         <FlatList
-          style={styles.results}
+          style={[styles.results, focused && styles.resultsFocused]}
           data={list}
           keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
@@ -300,6 +329,21 @@ function makeStyles(theme: Theme) {
       shadowOpacity: 0.18,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 3 },
+    },
+    /**
+     * The search open: no pill, no shadow, the whole width and height — the
+     * screen behind is covered by `searchBackdrop` in `App.tsx`.
+     */
+    containerFocused: {
+      marginHorizontal: 0,
+      borderRadius: 0,
+      elevation: 0,
+      shadowOpacity: 0,
+      flex: 1,
+    },
+    resultsFocused: {
+      maxHeight: undefined,
+      flex: 1,
     },
     inputRow: {
       flexDirection: 'row',

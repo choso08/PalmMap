@@ -44,6 +44,25 @@ export const en: typeof pt = {
     listFailed: "Couldn't get the list.",
   },
 
+  tabs: {
+    explore: 'Explore',
+    go: 'Go',
+    saved: 'Saved',
+    settings: 'Settings',
+  },
+  layers: {
+    open: 'Map layers',
+    mapType: 'Map type',
+    details: 'Map details',
+    tools: 'Tools',
+    measure: 'Measure distance or area',
+  },
+  saved: {
+    title: 'Saved',
+    favourites: 'Saved places',
+    recents: 'Recent',
+    empty: "You haven't saved any places yet. Open a place and tap the star to keep it here.",
+  },
   directions: {
     title: 'Directions',
     open: 'Directions',
