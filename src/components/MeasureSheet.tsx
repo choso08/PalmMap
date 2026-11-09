@@ -10,15 +10,15 @@ import type { Coordinates } from '../types/geo';
 import { formatArea, formatDistance } from '../utils/format';
 import { pathLengthMeters, perimeterMeters, polygonAreaM2 } from '../utils/geometry';
 
-/** Medir ao longo de uma linha, ou medir uma forma fechada. */
+/** Measure along a line, or measure a closed shape. */
 export type MeasureMode = 'linha' | 'area';
 
 interface MeasureSheetProps {
   /**
-   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
+   * The gestures of the handle at the top, so the panel can be shrunk.
    *
-   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
-   * painel inteiro.
+   * They come from `DraggableSheet` — see there why they live on the handle
+   * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
   points: Coordinates[];
@@ -30,15 +30,14 @@ interface MeasureSheetProps {
 }
 
 /**
- * Fita métrica: mede distâncias e áreas tocando no mapa.
+ * Measuring tape: measures distances and areas by tapping the map.
  *
- * Cada toque põe um ponto. Dois pontos dão uma distância; três ou mais fecham
- * uma forma e dão também a área — que é o que interessa a quem está a medir um
- * terreno, um telhado ou um campo.
+ * Each tap places a point. Two points give a distance; three or more close a
+ * shape and give its area too — which is what someone measuring a plot, a
+ * roof or a field is after.
  *
- * **Não é topografia.** A precisão é a do mapa e a do dedo: um toque no ecrã, a
- * um zoom normal, vale alguns metros. Serve para ter uma ideia, não para marcar
- * uma estrema. Isso está dito no painel, para ninguém se enganar.
+ * **It is not surveying.** The precision is the map's and the finger's: a tap
+ * at a normal zoom is worth a few metres. It gives an idea, not a boundary.
  */
 export function MeasureSheet({
   points,
@@ -58,7 +57,7 @@ export function MeasureSheet({
   const perimetro = useMemo(() => perimeterMeters(points), [points]);
   const area = useMemo(() => polygonAreaM2(points), [points]);
 
-  /** A forma só existe a partir de três pontos. */
+  /** The shape exists from three points on. */
   const fechada = mode === 'area' && points.length >= 3;
 
   return (
@@ -86,10 +85,10 @@ export function MeasureSheet({
       </View>
 
       {/*
-        Linha ou área, como no Google Earth — e pela mesma razão: medir o caminho
-        de casa ao trabalho e medir um terreno são duas coisas diferentes, e a
-        primeira não se fecha. Fechar sozinho dava um número errado a quem estava
-        só a medir um percurso.
+        Line or area, as in Google Earth — and for the same reason: measuring
+        the way from home to work and measuring a plot are different things,
+        and the first does not close. Closing it automatically gave a wrong
+        number to someone only measuring a path.
       */}
       <View style={styles.modos}>
         {(['linha', 'area'] as const).map((m) => {
@@ -124,8 +123,7 @@ export function MeasureSheet({
         </View>
 
         {/*
-          A área só existe a partir de três pontos. Com dois, mostrar "0 m²" era
-          só ruído.
+          An area needs three points. With two, showing "0 m²" was just noise.
         */}
         {fechada ? (
           <>
@@ -178,8 +176,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOffset: { width: 0, height: -3 },
     },
     handleZone: {
-      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
-      // de altura e ninguém acerta nisso com o polegar.
+      // A generous touch area around the handle: the visible target is 4 points
+      // tall and nobody hits that with a thumb.
       alignItems: 'center',
       paddingTop: 10,
       marginTop: -10,

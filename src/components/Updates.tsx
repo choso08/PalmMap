@@ -8,7 +8,7 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { useUpdateDownload } from '../useUpdateDownload';
 
-/** Megabytes em texto, na forma da língua atual. */
+/** Megabytes as text, written the current language's way. */
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(mb < 10 ? 1 : 0).replace('.', t().units.decimal)} MB`;
@@ -16,22 +16,22 @@ function formatBytes(bytes: number): string {
 
 interface UpdatesProps {
   /**
-   * A atualização que a procura automática já encontrou, se encontrou alguma.
+   * The update the automatic check already found, if it found one.
    *
-   * Vem de fora porque quem procura sozinho é a aplicação, ao arrancar — e o
-   * resultado também serve para marcar o botão das definições. Duas cópias da
-   * mesma resposta acabariam por divergir.
+   * It comes from outside because the app checks on its own at startup — and
+   * the result also marks the Settings button. Two copies of the same answer
+   * would end up drifting apart.
    */
   found: UpdateInfo | null;
   onFound: (info: UpdateInfo | null) => void;
 }
 
 /**
- * Procurar, descarregar e instalar versões novas, sem sair da aplicação.
+ * Check for, download and install new versions without leaving the app.
  *
- * **O último passo é sempre da pessoa.** O Android não deixa uma aplicação
- * instalar-se a si própria em silêncio; o que se faz aqui é chegar com o
- * ficheiro à porta do instalador. Está escrito no ecrã, e deve continuar lá.
+ * **The last step is always the person's.** Android does not let an app
+ * install itself silently; what this does is bring the file to the
+ * installer's door. Android's own "Install" button makes that obvious.
  */
 export function Updates({ found, onFound }: UpdatesProps) {
   const theme = useTheme();
@@ -39,10 +39,10 @@ export function Updates({ found, onFound }: UpdatesProps) {
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [checking, setChecking] = useState(false);
-  /** Já se procurou nesta sessão e não havia nada de novo. */
+  /** Already checked this session, and there was nothing new. */
   const [upToDate, setUpToDate] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
-  // Descarregar e instalar é o mesmo aqui e no aviso do arranque.
+  // Downloading and installing is the same here and in the startup notice.
   const descarga = useUpdateDownload();
 
   const handleCheck = useCallback(async () => {
@@ -104,8 +104,8 @@ export function Updates({ found, onFound }: UpdatesProps) {
           ) : null}
 
           {/*
-            O texto da Release diz o que mudou. Vem escrito por quem compilou e
-            não é traduzido: é a lista dos commits desta versão.
+            The Release text says what changed. It is written by whoever built
+            it and is not translated: it is this version's list of commits.
           */}
           {found.notes.length > 0 && !aDescarregar ? (
             <>

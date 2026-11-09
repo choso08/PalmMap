@@ -16,15 +16,14 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 
 /**
- * Horários de comboio, metro e barco para guardar no telemóvel.
+ * Train, metro and boat timetables to keep on the phone.
  *
- * São ficheiros pequenos — centenas de kilobytes, contra os centenas de
- * megabytes dos mapas — por isso não levam barra de progresso: descarregam num
- * instante.
+ * They are small files — hundreds of kilobytes, against the maps' hundreds of
+ * megabytes — so they get no progress bar: they download in an instant.
  *
- * **Isto não é o mesmo que os autocarros.** Os autocarros da Carris
- * Metropolitana têm tempo real por API e não precisam de descarregar nada. Estes
- * operadores só publicam o horário, e é o horário que fica aqui guardado.
+ * **This is not the same as the buses.** Carris Metropolitana's buses have
+ * real time through an API and need nothing downloaded. These operators only
+ * publish the timetable, and the timetable is what is kept here.
  */
 
 /** Bytes em texto: 320 KB / 2,1 MB. */
@@ -35,7 +34,7 @@ function formatBytes(bytes: number): string {
     : `${(kb / 1024).toFixed(1).replace('.', t().units.decimal)} MB`;
 }
 
-/** `20261005` na forma de cada língua. */
+/** `20261005` written each language's way. */
 function formatDate(aaaammdd: string): string {
   if (typeof aaaammdd !== 'string' || aaaammdd.length !== 8) {
     return '';
@@ -54,11 +53,11 @@ export function Schedules() {
   /**
    * Os horários a descarregar neste momento.
    *
-   * Vários ao mesmo tempo, como nos mapas: são ficheiros pequenos, mas esperar
-   * pelo primeiro para pedir o segundo não fazia sentido nenhum.
+   * Several at once, as with the maps: they are small files, but waiting for
+   * the first before asking for the second made no sense at all.
    */
   const [busy, setBusy] = useState<string[]>([]);
-  /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
+  /** Changes on every download or delete, so the list redraws. */
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
@@ -113,7 +112,7 @@ export function Schedules() {
       ) : null}
 
       {feeds.map((info) => {
-        // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
+        // `revision` is here so the state is read again after the files change.
         const guardado = revision >= 0 && isInstalled(info);
         const ocupado = busy.includes(info.id);
         const fora = isExpired(info);
@@ -138,8 +137,8 @@ export function Schedules() {
                 {stationLabel(info.kind as StationKind)} · {formatBytes(info.bytes)} ·{' '}
                 {strings.schedules.stationCount(info.estacoes)}
                 {/*
-                  A validade tem de estar à vista. Um horário fora de prazo não
-                  responde, e sem isto escrito ficava-se sem perceber porquê.
+                  The expiry date has to be visible. An expired timetable gives
+                  no answers, and without this one would not know why.
                 */}
                 {fora
                   ? ` · ${strings.schedules.expired}`

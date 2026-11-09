@@ -4,27 +4,26 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { recordCrash } from '../services/crash';
 
 /**
- * Apanha os erros que acontecem a desenhar o ecrã.
+ * Catches the errors that happen while drawing the screen.
  *
- * **Numa aplicação compilada, um erro destes fecha a aplicação sem dizer nada.**
- * Em desenvolvimento aparece o ecrã vermelho com a explicação; no APK a
- * aplicação simplesmente desaparece, e quem estava a usá-la fica sem forma de
- * dizer o que aconteceu — que é exatamente o pior caso para quem a tem de
- * arranjar.
+ * **In a compiled app, an error like this closes the app without a word.** In
+ * development the red screen explains it; in the APK the app just vanishes,
+ * and whoever was using it has no way of saying what happened — the worst case
+ * for whoever has to fix it.
  *
- * Isto não conserta nada: conserta o **relato**. Em vez de a aplicação fechar,
- * fica no ecrã o que correu mal, para se poder ler e contar. Não é preciso
- * nenhum serviço de fora nem nada que saia do telemóvel.
+ * This fixes nothing: it fixes the **report**. Instead of the app closing,
+ * what went wrong stays on screen, to be read and passed on. No outside
+ * service is needed and nothing leaves the phone.
  *
- * **Só apanha erros de desenho.** Um erro dentro de uma promessa, ou uma avaria
- * do lado nativo, passa ao lado disto — é uma limitação do React e não uma
- * escolha. Serve para a classe de erro mais comum, não para todas. O que lhe
- * escapa fica guardado pelo `installCrashHandler()`, e aparece nas definições
- * da vez seguinte que a aplicação abrir — ver `src/services/crash.ts`.
+ * **It only catches drawing errors.** An error inside a promise, or a fault on
+ * the native side, goes past it — a React limitation, not a choice. It covers
+ * the most common kind of error, not all of them. What escapes it is kept by
+ * `installCrashHandler()` and shows in Settings the next time the app opens —
+ * see `src/services/crash.ts`.
  *
- * Os textos aqui não passam pela tabela das línguas de propósito: se o que
- * rebentou foi o desenho do ecrã, o contexto que serve os textos pode ser
- * precisamente o que está em falta.
+ * The texts here skip the language table on purpose: if what blew up was the
+ * drawing of the screen, the context that serves the texts may be exactly
+ * what is missing.
  */
 
 interface Props {
@@ -49,11 +48,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
-    // Fica no registo do sistema, para quem conseguir ligar o telemóvel ao
-    // computador. Quem não conseguir tem o texto no ecrã, que é o essencial.
+    // It goes to the system log, for whoever can plug the phone into a
+    // computer. Whoever cannot has the text on screen, which is what matters.
     console.error('PalmMap: erro a desenhar o ecrã', error, info.componentStack);
-    // E fica guardado no telemóvel, para o caso de a pessoa fechar a aplicação
-    // sem fotografar este ecrã. Lê-se depois nas definições.
+    // And it is kept on the phone, in case the person closes the app without
+    // photographing this screen. It can be read later in Settings.
     recordCrash(error, 'render');
   }
 
@@ -89,9 +88,9 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 /*
- * As cores estão escritas à mão, ao contrário de toda a restante aplicação.
- * É a única exceção, e por uma razão: este ecrã tem de conseguir desenhar-se
- * quando o resto falhou — incluindo o contexto de onde vem o tema.
+ * The colours are written by hand, unlike everywhere else in the app. It is
+ * the only exception, and for a reason: this screen has to be able to draw
+ * itself when the rest has failed — including the context the theme comes from.
  */
 const styles = StyleSheet.create({
   screen: {

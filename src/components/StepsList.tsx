@@ -16,10 +16,10 @@ interface StepsListProps {
 }
 
 /**
- * Lista com as instruções todas do percurso, de cima a baixo.
+ * Every instruction of the route, top to bottom.
  *
- * É para consultar antes de arrancar — não segue a posição nem se atualiza
- * durante a viagem. Essa parte fica para uma versão seguinte.
+ * It is for reading before setting off — it does not follow the position or
+ * update during the trip. That is left for a later version.
  */
 export function StepsList({ visible, route, onClose }: StepsListProps) {
   const theme = useTheme();
@@ -35,9 +35,9 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
       visible={visible}
       animationType="slide"
       onRequestClose={onClose}
-      // Sem isto, a margem em cima dependeria de o ecrã desenhar ou não por
-      // baixo da barra de estado, que varia. Assim desenha sempre por baixo e
-      // é a nossa margem que manda.
+      // Without this, the top margin would depend on whether the screen draws
+      // under the status bar, which varies. This way it always does, and our
+      // margin is the one that counts.
       statusBarTranslucent
       navigationBarTranslucent
     >
@@ -69,13 +69,13 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
                   size={20}
                   color={theme.accent}
                 />
-                {/* A linha vertical que liga as manobras umas às outras. */}
+                {/* The vertical line joining the manoeuvres. */}
                 {index < steps.length - 1 ? <View style={styles.thread} /> : null}
               </View>
 
               <View style={styles.stepText}>
                 <Text style={styles.instruction}>{item.instruction}</Text>
-                {/* O último passo é a chegada e não tem distância a percorrer. */}
+                {/* The last step is the arrival and has no distance to cover. */}
                 {item.distanceMeters > 0 ? (
                   <Text style={styles.distance}>{formatDistance(item.distanceMeters)}</Text>
                 ) : null}
@@ -96,7 +96,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     container: {
       flex: 1,
       backgroundColor: theme.surface,
-      // Abaixo da barra de estado e da câmara.
+      // Below the status bar and the camera cut-out.
       paddingTop: insets.top + 14,
     },
     header: {
@@ -126,7 +126,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     list: {
       paddingTop: 4,
-      // Para o último passo não ficar por baixo da barra de navegação.
+      // So the last step does not end up under the navigation bar.
       paddingBottom: insets.bottom + 24,
     },
     step: {
