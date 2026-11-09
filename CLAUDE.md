@@ -446,8 +446,8 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 ### 3. O logo
 
-- O logo é **uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia com duas
-  ondas por baixo, sobre fundo branco** (`island_layer`), com uma faixa de **areia molhada**, mais escura, onde a ilha toca na água, e as **ondas a bater** — uma fiada de espuma clara logo abaixo da areia molhada e gotas a saltar nas pontas da ilha. As duas coisas foram pedidas pelo autor como sinal de atenção ao pormenor; não as tirar por parecerem enfeite. A espuma não vai na versão de uma cor (a preto confundia-se com a areia). Para dar volume sem formas novas: folhas de trás num verde mais escuro, anéis no tronco, três cocos, a sombra da palmeira na areia e a fila de ondas de trás mais clara (`detail`, em `draw_palm`). **Não é um pin de mapa, de
+- O logo é **uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia, assente no
+  mar, sobre fundo branco** (`island_layer`), com uma faixa de **areia molhada**, mais escura, onde a ilha toca na água, e as **ondas a bater** — festões de espuma ao longo da linha da água, a lamber a areia molhada, gotas a saltar nas pontas e uma ondulação mais clara dentro de água. A ilha assenta numa lente de mar; as filas de ondas soltas que havia por baixo saíram a pedido do autor (pareciam penduradas no vazio). As duas coisas foram pedidas pelo autor como sinal de atenção ao pormenor; não as tirar por parecerem enfeite. A espuma não vai na versão de uma cor (a preto confundia-se com a areia). Para dar volume sem formas novas: folhas de trás num verde mais escuro, anéis no tronco, três cocos, a sombra da palmeira na areia (`detail`, em `draw_palm`). **Não é um pin de mapa, de
   propósito**: foi um pin com a palmeira lá dentro até novembro de 2026, e o autor achou-o
   parecido com o do Google Maps. O fundo do ícone adaptativo e do ecrã de arranque é branco no
   `app.json`.

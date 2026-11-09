@@ -220,26 +220,20 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
     cx = size / 2
     wet = wet or WET_SAND
 
-    # As ondas: dois arcos de cada vez, lado a lado, por baixo da ilha.
-    stroke = max(2, int(size * 0.035))
-    for row, (y, half) in enumerate(((0.875, 0.30), (0.95, 0.20))):
-        yy = size * y
-        n = 3 if row == 0 else 2
-        width = size * half * 2 / n
-        x0 = cx - size * half
-        for i in range(n):
-            left = x0 + i * width
-            draw.arc(
-                [left, yy - width * 0.35, left + width, yy + width * 0.35],
-                200,
-                340,
-                fill=sea if row == 0 or sea[:3] == (0, 0, 0) else SEA_LIGHT,
-                width=stroke,
-            )
-
     # A ilhota: meia elipse de areia.
     mound_w, mound_h = size * 0.56, size * 0.20
-    mound_y = size * 0.76
+    mound_y = size * 0.79
+
+    # O mar onde a ilha assenta: uma lente de água, mais larga do que a ilha,
+    # só a metade de baixo. Substitui as filas de ondas soltas por baixo, que
+    # pareciam penduradas no vazio.
+    water_w, water_h = mound_w * 1.34, mound_h * 0.95
+    draw.pieslice(
+        [cx - water_w / 2, mound_y - water_h / 2, cx + water_w / 2, mound_y + water_h / 2],
+        0,
+        180,
+        fill=sea,
+    )
     # Primeiro a areia molhada, mais escura, onde a ilha toca na água; depois a
     # seca por cima, um pouco mais estreita e mais alta, deixando uma faixa
     # molhada à volta da base. É um pormenor pequeno, e é de propósito.
@@ -264,16 +258,32 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
     # umas gotas a saltar nas pontas. Na versão de uma cor não vai — a espuma
     # é feita de contraste, e a preto confundia-se com a areia.
     if sea[:3] != (0, 0, 0):
-        # Uma fiada de pequenas ondas de espuma logo abaixo da areia molhada.
-        foam_stroke = max(2, int(size * 0.013))
-        n = 7
-        span = mound_w * 0.96
+        # A rebentação: festões de espuma ao longo da linha da água, de ponta a
+        # ponta do mar, a lamber a areia molhada.
+        foam_stroke = max(2, int(size * 0.016))
+        n = 9
+        span = water_w * 0.94
         w = span / n
         left0 = cx - span / 2
         for i in range(n):
             left = left0 + i * w
-            top = mound_y + size * 0.004
-            draw.arc([left, top, left + w, top + w * 0.55], 200, 340, fill=FOAM, width=foam_stroke)
+            draw.arc(
+                [left, mound_y - w * 0.18, left + w, mound_y + w * 0.42],
+                200,
+                340,
+                fill=FOAM,
+                width=foam_stroke,
+            )
+        # Uma ondulação mais clara dentro de água, que dá a ideia de a onda
+        # seguinte já vir a caminho.
+        inner = water_w * 0.62
+        draw.arc(
+            [cx - inner / 2, mound_y + water_h * 0.08, cx + inner / 2, mound_y + water_h * 0.40],
+            200,
+            340,
+            fill=SEA_LIGHT,
+            width=max(2, int(size * 0.014)),
+        )
         # Gotas de espuma a saltar nas duas pontas da ilha.
         r = size * 0.009
         for dx, dy in ((-0.52, -0.05), (-0.47, -0.11), (0.50, -0.07), (0.45, -0.12)):
