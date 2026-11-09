@@ -1241,9 +1241,9 @@ function PalmMap() {
     warnedCameras.current.clear();
     setCameraAhead(null);
 
-    // Os índices dos radares são posições na linha do percurso **anterior**.
-    // Deixá-los enquanto o pedido novo não chega fazia anunciar radares a
-    // distâncias inventadas, medidas contra a linha errada.
+    // The camera indices are positions on the **previous** route line. Keeping
+    // them until the new request arrives announced cameras at made-up
+    // distances, measured against the wrong line.
     setCameras([]);
 
     if (!route || !settings.speedCameraAlerts) {
@@ -1268,7 +1268,7 @@ function PalmMap() {
     };
   }, [route, settings.speedCameraAlerts]);
 
-  /** Segue a posição enquanto a navegação decorre. */
+  /** Follows the position while navigation runs. */
   useEffect(() => {
     if (!navigating || !route || !destination) {
       return;
@@ -1278,16 +1278,16 @@ function PalmMap() {
     let cancelled = false;
 
     void (async () => {
-      // **Embrulhado.** Isto é chamado pelo lado nativo a cada segundo, durante
-      // uma viagem inteira: um erro aqui não passa por `try` nenhum nosso nem
-      // pelo `ErrorBoundary`, vai direito ao tratador global e, num APK, fecha a
-      // aplicação — a meio de uma estrada. Ver `guarded`, em `services/crash.ts`.
+      // **Wrapped.** The native side calls this every second for a whole trip:
+      // an error here goes through none of our `try`s nor the `ErrorBoundary`,
+      // it goes straight to the global handler and, in an APK, closes the app —
+      // in the middle of a road. See `guarded`, in `services/crash.ts`.
       const stop = await watchPosition(
         guarded((position, accuracyMeters, speedMs) => {
           setUserLocation(position);
 
-          // A velocidade sai da mesma leitura, sem custo nenhum, e vai para o
-          // ecrã tal como o GPS a deu — ver a nota no seguimento lento.
+          // The speed comes from the same reading, at no cost, and goes on screen
+          // exactly as the GPS gave it — see the note on slow tracking.
           setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
           const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
@@ -1300,9 +1300,9 @@ function PalmMap() {
 
           // Chegada.
           if (remainingMeters < ARRIVAL_METERS) {
-            // A voz sai **depois** de a navegação fechar, e não antes: sair da
-            // navegação desfaz este efeito, e a limpeza dele chama `stopSpeaking`
-            // — que calava o "chegou ao destino" a meio da primeira sílaba.
+            // The voice speaks **after** navigation closes, not before: leaving
+            // navigation undoes this effect, and its cleanup calls `stopSpeaking` —
+            // which cut "you have arrived" off in the middle of the first syllable.
             const dizer = settings.voiceGuidance;
             setNavigating(false);
             if (dizer) {
@@ -1311,12 +1311,12 @@ function PalmMap() {
             return;
           }
 
-          // Saiu do percurso? Só se confirma ao fim de algumas leituras seguidas,
-          // porque uma isolada pode ser apenas imprecisão do GPS.
-          // Só se conta como "fora do percurso" o que a leitura consegue mesmo
-          // afirmar. Entre prédios, o GPS dá facilmente cinquenta metros de erro;
-          // sem esta margem, estar parado num semáforo bastava para a aplicação
-          // julgar que se tinha saído do caminho e recalcular do nada.
+          // Off the route? Only confirmed after a few readings in a row, because a
+          // single one may just be GPS inaccuracy.
+          // Only what the reading can really assert counts as "off the route".
+          // Between buildings the GPS easily errs by fifty metres; without this
+          // margin, standing at a traffic light was enough for the app to think it
+          // had left the route and recalculate out of nowhere.
           const margem = OFF_ROUTE_METERS + Math.min(accuracyMeters, 100);
           if (offRouteMeters > margem) {
             offRouteStrikes.current += 1;
@@ -1334,8 +1334,8 @@ function PalmMap() {
 
             void (async () => {
               try {
-                // Só as paragens que ainda faltam. As que já ficaram para trás
-                // mandariam o percurso dar meia-volta.
+                // Only the stops still to come. Those already passed would send the
+                // route on a U-turn.
                 const emFalta = waypoints.filter((_, i) => waypointIndices[i] > index);
 
                 const [fresh] = await getRoutes(
@@ -1347,22 +1347,22 @@ function PalmMap() {
                 );
                 setRoute(fresh);
                 announced.current.clear();
-      // Sem isto, voltar a navegar o mesmo percurso não voltava a avisar de
-      // nenhum radar por onde já se tinha passado.
+      // Without this, navigating the same route again never warned about any
+      // camera already passed.
       warnedCameras.current.clear();
       setCameraAhead(null);
-      // E começava com o GPS ao ritmo lento em que a viagem anterior acabou.
+      // And it started with the GPS at the slow pace the previous trip ended on.
       setSlowGps(false);
-                // Percurso novo, contagem nova: sem isto, a linha aparecia
-                // apagada até onde ia o percurso antigo.
+                // New route, new count: without this, the line showed faded as far as
+                // the old route had got.
                 setProgressIndex(0);
-                // E o ritmo volta a contar do zero, porque o percurso novo tem
-                // outra distância total — "quanto já andei" deixava de bater certo.
-                // O que já se mediu não se perde: continua no `livePace` até haver
-                // medida nova.
+                // And the pace counts from zero again, because the new route has another
+                // total distance — "how far have I gone" would stop adding up. What was
+                // measured is not lost: it stays in `livePace` until there is a new
+                // measurement.
                 paceStart.current = null;
               } catch {
-                // Sem ligação, continua-se com o percurso antigo em vez de ficar sem nada.
+                // With no connection, carry on with the old route instead of having nothing.
               } finally {
                 setRecalculating(false);
                 recalculating_.current = false;
@@ -1371,7 +1371,7 @@ function PalmMap() {
             return;
           }
 
-          // A próxima manobra é a primeira que ainda está à frente.
+          // The next manoeuvre is the first one still ahead.
           const ahead = stepIndices.findIndex((stepIndex) => stepIndex > index);
           const step = ahead >= 0 ? route.steps[ahead] : route.steps[route.steps.length - 1];
           const toStep =
@@ -1379,11 +1379,11 @@ function PalmMap() {
               ? distanceAlong(route.coordinates, index, stepIndices[ahead])
               : remainingMeters;
 
-          // --- Radares -------------------------------------------------------
+          // --- Speed cameras -------------------------------------------------
           //
-          // O radar seguinte é o primeiro que ainda está à frente na linha. Como a
-          // lista já vem ordenada, basta encontrar o primeiro cujo ponto do
-          // percurso é maior do que aquele onde se está.
+          // The next camera is the first one still ahead on the line. Since the list
+          // comes sorted, it is enough to find the first whose route point is past
+          // the current one.
           if (settings.speedCameraAlerts && cameras.length > 0) {
             const seguinte = cameras.find((c) => c.routeIndex > index);
 
@@ -1411,12 +1411,12 @@ function PalmMap() {
             }
           }
 
-          // --- Poupança de bateria -------------------------------------------
+          // --- Battery saving ------------------------------------------------
           //
-          // Numa reta longa não é preciso ler a posição a cada segundo: o que
-          // falta continua a acertar e a manobra seguinte está a quilómetros.
-          // Perto da manobra volta-se ao ritmo normal, porque é aí que a posição
-          // decide se o aviso de virar sai a tempo.
+          // On a long straight road the position does not need reading every
+          // second: what is left stays right and the next manoeuvre is kilometres
+          // away. Near the manoeuvre it goes back to the normal pace, because there
+          // the position decides whether the turn warning comes in time.
           if (settings.batterySaver) {
             if (toStep > BATTERY_SAVER_MIN_METERS && !slowGps) {
               setSlowGps(true);
@@ -1425,13 +1425,14 @@ function PalmMap() {
             }
           }
 
-          // --- O ritmo a que se vai mesmo ------------------------------------
+          // --- The pace actually being kept ----------------------------------
           //
-          // Compara-se o tempo que o troço já andado levou mesmo com o que o
-          // percurso previa para ele. O resultado multiplica o que falta, e é isso
-          // que faz a hora de chegada acertar com quem a está a ler. O modelo tem
-          // de ser o mesmo que o ecrã usa — daí o `modelSeconds` aqui também,
-          // senão de bicicleta media-se contra uma previsão e mostrava-se outra.
+          // The time the stretch already covered really took is compared with what
+          // the route predicted for it. The result multiplies what is left, and that
+          // is what makes the arrival time right for whoever reads it. The model has
+          // to be the same one the screen uses — hence `modelSeconds` here too,
+          // otherwise on a bike it measured against one prediction and showed
+          // another.
           const coveredMeters = route.distanceMeters - remainingMeters;
           const assumedTotal = modelSeconds(
             route.distanceMeters,
@@ -1454,8 +1455,8 @@ function PalmMap() {
             const andados = coveredMeters - paceStart.current.coveredMeters;
             const previstos = assumedCovered - paceStart.current.assumedSeconds;
 
-            // Os dois mínimos são o que impede um semáforo à saída de casa de
-            // valer por uma viagem inteira — ver `PACE_MIN_MS`.
+            // The two minimums are what stop a traffic light outside the house from
+            // counting as a whole trip — see `PACE_MIN_MS`.
             if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
               const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
               setLivePace(medido);
@@ -1506,8 +1507,8 @@ function PalmMap() {
                 : 0,
           });
 
-          // Anúncios em voz, uma vez por manobra e por distância. As manobras que
-          // não obrigam a decidir nada ficam de fora — ver `worthAnnouncing`.
+          // Spoken announcements, once per manoeuvre and distance. Manoeuvres that
+          // need no decision are left out — see `worthAnnouncing`.
           if (settings.voiceGuidance && step?.announce) {
             for (const threshold of ANNOUNCE_AT_METERS) {
               const key = `${ahead}|${threshold}`;
@@ -1538,13 +1539,13 @@ function PalmMap() {
       }
     })();
 
-    // **Aqui não se cala a voz nem se apaga o velocímetro**, e isso mudou por
-    // uma razão que se ouvia. Esta limpeza corre sempre que o percurso, os
-    // radares ou o ritmo do GPS mudam — e não só ao sair da navegação. Com o
-    // `stopSpeaking()` aqui dentro, recalcular o percurso dizia "a recalcular o
-    // percurso" e cortava-se a si próprio a meio: o percurso novo chegava, o
-    // efeito voltava a correr e a limpeza calava a frase. Quem as duas coisas
-    // são para fazer é o efeito que vê a navegação acabar, mais abaixo.
+    // **The voice is not silenced nor the speedometer cleared here**, and that
+    // changed for a reason one could hear. This cleanup runs whenever the
+    // route, the cameras or the GPS pace change — not only when leaving
+    // navigation. With `stopSpeaking()` in here, recalculating said
+    // "recalculating" and cut itself off: the new route arrived, the effect ran
+    // again and the cleanup silenced the sentence. Those two things belong to
+    // the effect that sees navigation end, further down.
     return () => {
       cancelled = true;
       stopWatching?.();
@@ -1566,13 +1567,13 @@ function PalmMap() {
   ]);
 
   /**
-   * O que há a fazer ao entrar e ao sair da navegação: calar a voz, apagar o
-   * velocímetro e guardar o ritmo da viagem.
+   * What to do when entering and leaving navigation: silence the voice, clear
+   * the speedometer and store the trip's pace.
    *
-   * Vive num efeito só seu, e não na limpeza do efeito da navegação, porque
-   * aquele volta a correr sempre que o percurso, os radares ou o ritmo do GPS
-   * mudam — e aí guardava-se o mesmo ritmo meia dúzia de vezes a meio da viagem,
-   * cada uma a puxar o valor guardado mais para o desta.
+   * It lives in an effect of its own, not in the navigation effect's cleanup,
+   * because that one runs again whenever the route, the cameras or the GPS pace
+   * change — and then the same pace was stored half a dozen times mid-trip, each
+   * pulling the stored value further towards this trip's.
    */
   useEffect(() => {
     if (navigating) {
@@ -1582,9 +1583,9 @@ function PalmMap() {
       return;
     }
 
-    // Calar a voz e apagar o velocímetro são coisas de **acabar** a navegação, e
-    // vivem aqui por isso: na limpeza do efeito que segue a posição corriam a
-    // cada mudança de percurso e cortavam os anúncios a meio.
+    // Silencing the voice and clearing the speedometer belong to **ending**
+    // navigation, and live here for that: in the tracking effect's cleanup
+    // they ran on every route change and cut the announcements off.
     stopSpeaking();
     setSpeedKmh(null);
 
@@ -1599,34 +1600,35 @@ function PalmMap() {
   }, [navigating, learnPace]);
 
   /**
-   * A área visível, para a pesquisa preferir o que está por perto.
+   * The visible area, so the search prefers what is nearby.
    *
-   * Estável de propósito: lê de uma `ref`, por isso nunca muda de identidade. Se
-   * fosse criada em cada desenho, a `SearchBar` repetia a pesquisa sem parar.
+   * Stable on purpose: it reads from a `ref`, so its identity never changes. If
+   * it were created on every render, the `SearchBar` would repeat the search
+   * endlessly.
    */
   const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
 
   /**
-   * A que altura fica a bússola do mapa, no canto inferior esquerdo.
+   * How high the map's compass sits, in the bottom-left corner.
    *
-   * Vive aqui e não no `MapView` porque **o canto é partilhado**: é o da régua,
-   * e é tapado pelos painéis de baixo. A bússola tem de seguir as mesmas três
-   * alturas que os botões flutuantes, senão fica por baixo de um deles ou atrás
-   * de um painel — e como só aparece com o mapa rodado, o desalinho passa
-   * despercebido a quem nunca roda o mapa.
+   * It lives here and not in `MapView` because **the corner is shared** and
+   * covered by the bottom panels. The compass has to follow the same three
+   * heights as the floating buttons, otherwise it ends up under one of them or
+   * behind a panel — and since it only shows with the map rotated, the
+   * misalignment goes unnoticed by anyone who never rotates the map.
    *
-   * Os números são os mesmos de `measureRaised`, `locateNavigating` e
-   * `measureButton`, por essa ordem.
+   * The numbers are the same as `measureRaised`, `locateNavigating` and
+   * `measureButton`, in that order.
    */
   const compassBottom =
     selectedPlace || destination || measuring
       ? insets.bottom + 260
       : navigating
-        ? // A navegar, este canto tem o velocímetro, que o `NavigationPanel`
-          // põe a 130. A bússola vai para cima dele — estavam as duas à mesma
-          // altura, e com o mapa a rodar no sentido da marcha a bússola está
-          // sempre à vista, por isso ficavam uma em cima da outra a viagem
-          // toda. Entre as duas, quem manda no sítio mais baixo é o velocímetro.
+        ? // While navigating, this corner has the speedometer, which `NavigationPanel`
+          // puts at 130. The compass goes above it — they were at the same height,
+          // and with the map turning with the heading the compass is always in
+          // view, so they sat on top of each other the whole trip. Of the two, the
+          // speedometer owns the lower spot.
           insets.bottom + 192
         : // Above the tab bar. The ruler that used to share this corner now
           // lives in the layers panel.
@@ -1663,7 +1665,7 @@ function PalmMap() {
   }, []);
 
   const handleTapEmpty = useCallback((coordinates: Coordinates) => {
-    // Com a fita métrica ligada, o toque põe um ponto e mais nada.
+    // With the measuring tape on, a tap adds a point and nothing else.
     if (measuringRef.current) {
       setMeasurePoints((atuais) => [...atuais, coordinates]);
       return;
@@ -1677,16 +1679,15 @@ function PalmMap() {
   }, []);
 
   /**
-   * A fita métrica lida de uma `ref` e não do estado.
+   * The measuring tape read from a `ref`, not from state.
    *
-   * Se `handleTapEmpty` dependesse de `measuring`, mudava de identidade sempre
-   * que se ligasse ou desligasse — e o `MapView` voltava a desenhar-se por
-   * causa disso.
+   * If `handleTapEmpty` depended on `measuring`, its identity changed whenever
+   * it was turned on or off — and `MapView` re-rendered because of it.
    */
   const measuringRef = useRef(false);
   measuringRef.current = measuring;
 
-  // Sem isto, sair do ecrã com a dica a contar deixava um temporizador solto.
+  // Without this, leaving the screen with the hint counting left a stray timer.
   useEffect(() => () => {
     if (hintTimer.current) {
       clearTimeout(hintTimer.current);
@@ -1703,10 +1704,11 @@ function PalmMap() {
     setStepsVisible(false);
     setProgressIndex(0);
 
-    // Calcula-se já o que falta, com a posição que se tem. Sem isto o painel
-    // arrancava a zero e só se corrigia na primeira leitura do GPS — que, com a
-    // pessoa parada à espera de arrancar, podia nunca chegar. Era o que fazia
-    // aparecer "1 min · 0 m" num percurso de quilómetros.
+    // What is left is worked out now, with the position at hand. Without this
+    // the panel started at zero and only corrected itself on the first GPS
+    // reading — which, with the person standing still waiting to set off,
+    // might never come. That is what showed "1 min · 0 m" on a route of
+    // kilometres.
     if (route && route.coordinates.length > 0) {
       const aqui = userLocationRef.current;
       const inicio = aqui ? locateOnRoute(route.coordinates, aqui).index : 0;
@@ -1759,23 +1761,23 @@ function PalmMap() {
   }, []);
 
   /**
-   * O botão do GPS: um toque centra uma vez, dois toques põem a câmara a andar
-   * com a pessoa.
+   * The GPS button: one tap centres once, two taps make the camera move with
+   * the person.
    *
-   * **O toque simples age já, sem esperar para ver se vem outro atrás.** Esperar
-   * trezentos milissegundos por um segundo toque que quase nunca vem era pôr a
-   * ação mais usada a parecer lenta para servir a menos usada. Assim o segundo
-   * toque promove o que o primeiro já fez: o primeiro leva a câmara à posição, o
-   * segundo manda-a lá ficar.
+   * **A single tap acts at once, without waiting to see if another follows.**
+   * Waiting three hundred milliseconds for a second tap that hardly ever comes
+   * made the most used action feel slow to serve the least used. So the second
+   * tap promotes what the first already did: the first takes the camera to the
+   * position, the second tells it to stay there.
    *
-   * Com o seguimento ligado, qualquer toque o desliga. O botão está aceso,
-   * carrega-se nele e apaga-se — que é o que se espera de um botão aceso, e evita
-   * ter de acertar noutro toque duplo para o desfazer.
+   * With following on, any tap turns it off. The button is lit, you press it and
+   * it goes off — what one expects from a lit button, and no need to hit another
+   * double tap to undo it.
    */
   const handleLocatePress = useCallback(() => {
-    // A navegação tem o seu próprio seguimento, que roda o mapa no sentido da
-    // marcha. Aqui o botão serve só para voltar a prender a câmara ao carro
-    // depois de se ter arrastado o mapa para espreitar o que vem a seguir.
+    // Navigation has its own following, which turns the map with the heading.
+    // Here the button only ties the camera to the car again after the map was
+    // dragged to peek at what comes next.
     if (navigating) {
       mapRef.current?.followAgain();
       setNavCameraFree(false);
@@ -1784,9 +1786,9 @@ function PalmMap() {
 
     const agora = Date.now();
     const duplo = agora - lastLocateTap.current < DOUBLE_TAP_MS;
-    // Zero e não `agora`: senão o terceiro toque de uma série contava como um
-    // segundo duplo, e três toques seguidos ligavam e desligavam o seguimento
-    // sem que se percebesse porquê.
+    // Zero and not `now`: otherwise the third tap in a row counted as a second
+    // double tap, and three taps in a row turned following on and off without
+    // anyone understanding why.
     lastLocateTap.current = duplo ? 0 : agora;
 
     if (followUser) {
@@ -1799,17 +1801,16 @@ function PalmMap() {
       return;
     }
 
-    // Não se centra no que está em estado: pergunta-se ao serviço, que só
-    // devolve a posição guardada se ela ainda for recente e vai buscar uma nova
-    // se não for. É isto que evita o mapa ir parar a um sítio onde já se esteve
-    // depois de a aplicação ter passado pelo segundo plano — ver
-    // `getBestPosition`.
+    // Do not centre on what is in state: ask the service, which only returns
+    // the stored position if it is still recent and fetches a new one if not.
+    // That is what stops the map going to a place one has already been after
+    // the app passed through the background — see `getBestPosition`.
     void (async () => {
       const posicao = await getBestPosition();
       if (!posicao) {
-        // Não fazer nada é o pior que este botão podia fazer: quem carrega fica
-        // sem saber se a aplicação o ouviu. Dentro de casa o GPS demora mesmo,
-        // e dizê-lo evita a pessoa ficar a carregar à espera de nada.
+        // Doing nothing is the worst this button could do: whoever presses it is
+        // left not knowing whether the app heard. Indoors the GPS really is slow,
+        // and saying so saves the person pressing and waiting for nothing.
         setPlacesError(t().errors.locationUnavailable);
         return;
       }
@@ -1820,11 +1821,11 @@ function PalmMap() {
   }, [navigating, followUser]);
 
   /**
-   * Escolher um destino desliga o seguimento.
+   * Choosing a destination turns following off.
    *
-   * Com um destino escolhido, o mapa enquadra o percurso todo — e uma câmara
-   * presa à pessoa desfazia esse enquadramento à primeira leitura do GPS. Quem
-   * escolhe um destino quer ver o caminho, não o seu próprio ponto.
+   * With a destination chosen, the map frames the whole route — and a camera
+   * tied to the person undid that framing on the first GPS reading. Whoever
+   * chooses a destination wants to see the way, not their own dot.
    */
   useEffect(() => {
     if (destination || navigating) {
@@ -1869,14 +1870,14 @@ function PalmMap() {
   );
 
   /**
-   * Toque longo no mapa: larga um pino ali e abre a ficha.
+   * Long press on the map: drops a pin there and opens its card.
    *
-   * A ficha aparece logo, com as coordenadas, e a morada entra depois — assim
-   * não se fica à espera do Nominatim para poder traçar o percurso.
+   * The card shows at once, with the coordinates, and the address comes later —
+   * so there is no waiting for Nominatim to be able to draw the route.
    */
   const handleDropPin = useCallback((coordinates: Coordinates) => {
     const fallback: Place = {
-      // Identificador negativo para nunca chocar com os do OpenStreetMap.
+      // Negative id so it never clashes with OpenStreetMap's.
       id: -Date.now(),
       name: t().search.mapPoint,
       address: `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`,
@@ -1892,7 +1893,7 @@ function PalmMap() {
       if (!found) {
         return;
       }
-      // Só se substitui se a pessoa ainda estiver a ver este mesmo pino.
+      // Only replaced if the person is still looking at this same pin.
       setSelectedPlace((current) =>
         current?.id === fallback.id
           ? { ...found, id: fallback.id, coordinates: fallback.coordinates }
@@ -1905,17 +1906,18 @@ function PalmMap() {
     setCategory(null);
     setSelectedPlace(null);
     setDroppedPin(null);
-    // Destino novo, viagem nova: as paragens do percurso anterior não têm nada
-    // que ver com este.
+    // New destination, new trip: the previous route's stops have nothing to
+    // do with this one.
     setWaypoints([]);
     setDestination(place);
   }, []);
 
   /**
-   * Acrescenta uma paragem ao percurso que já existe.
+   * Adds a stop to the existing route.
    *
-   * Vai para o fim da lista, antes do destino: é a ordem natural de quem vai
-   * juntando sítios pelo caminho. Reordenar seria mais um ecrã para pouco uso.
+   * It goes at the end of the list, before the destination: the natural order
+   * for someone adding places along the way. Reordering would be one more screen
+   * for little use.
    */
   const handleAddWaypoint = useCallback((place: Place) => {
     setWaypoints((atuais) =>
@@ -1926,11 +1928,11 @@ function PalmMap() {
   }, []);
 
   /**
-   * Traçar o caminho até uma paragem, a partir do painel dos transportes.
+   * Draws the way to a stop, from the transport panel.
    *
-   * O meio de transporte não se mexe aqui de propósito: quem vai apanhar o
-   * autocarro costuma ir a pé, mas pode ir de bicicleta ou deixar o carro lá
-   * perto. Trocar a definição por baixo do nariz da pessoa era decidir por ela.
+   * The travel mode is not touched here on purpose: someone catching the bus
+   * usually walks, but may cycle or leave the car nearby. Changing the setting
+   * behind the person's back would be deciding for them.
    */
   // Switching to the transport map draws the stops already in view, without
   // waiting for the map to move.
@@ -1998,8 +2000,8 @@ function PalmMap() {
   const handleGoToStop = useCallback((stop: TransitStop) => {
     setTransitVisible(false);
     setSelectedStopId(null);
-    // Destino novo, viagem nova: as paragens do percurso anterior não têm nada
-    // que ver com este.
+    // New destination, new trip: the previous route's stops have nothing to
+    // do with this one.
     setWaypoints([]);
     setSelectedPlace(null);
     setDroppedPin(null);
@@ -2014,12 +2016,12 @@ function PalmMap() {
 
   const handleRouteToSelected = useCallback(() => {
     if (selectedPlace) {
-      // Como na pesquisa: destino novo, viagem nova. Sem isto, o percurso para
-      // o sítio novo continuava a ser forçado pela paragem do percurso antigo.
+      // As with search: new destination, new trip. Without this, the route to the
+      // new place was still forced through the old route's stop.
       setWaypoints([]);
       setDestination(selectedPlace);
       setSelectedPlace(null);
-      // O destino passa a ter marcador próprio, por isso o pino sai.
+      // The destination gets its own marker, so the pin goes.
       setDroppedPin(null);
     }
   }, [selectedPlace]);
@@ -2033,7 +2035,7 @@ function PalmMap() {
     setDroppedPin(null);
   }, []);
 
-  // Ver a nota junto aos painéis, mais abaixo.
+  // See the note by the panels, further down.
   const lastPlace = useLastValue(selectedPlace);
   const lastDestination = useLastValue(destination);
 
@@ -2147,12 +2149,12 @@ function PalmMap() {
       ) : null}
 
       {/*
-        A ficha do negócio tem prioridade sobre o painel do percurso.
+        The business card takes priority over the route panel.
 
-        Os dois desenham-se a partir do último valor que tiveram, e não do atual:
-        assim que se fecha, o valor passa a nulo, e sem isto não havia nada para
-        animar — o painel desaparecia num instante. Quem trata de o tirar do ecrã
-        é o `visible`.
+        Both draw from the last value they had, not the current one: as soon as one
+        closes, the value becomes null, and without this there was nothing to
+        animate — the panel vanished in an instant. `visible` is what takes it off
+        screen.
       */}
       {lastPlace ? (
         <Reveal style={styles.bottom} visible={!navigating && !!selectedPlace}>
@@ -2238,8 +2240,8 @@ function PalmMap() {
       ) : null}
 
       {/*
-        As horas de passagem. Só aparece no mapa dos transportes: fora daí seria
-        mais um botão a tapar o mapa a quem anda de carro.
+        The arrival times. Only on the transport map: elsewhere it would be one more
+        button covering the map for someone driving.
       */}
       {!navigating && settings.mapType === 'transit' ? (
         <Pressable
@@ -2270,23 +2272,22 @@ function PalmMap() {
       ) : null}
 
       {/*
-        Botão de voltar à posição atual.
+        Button to go back to the current position.
 
-        Um toque centra, dois toques põem a câmara a andar com a pessoa — ver
-        `handleLocatePress`. Enquanto está a seguir fica aceso, como o botão da
-        fita métrica, porque é um modo em que se entra e não uma ação que se faz.
+        One tap centres, two taps make the camera move with the person — see
+        `handleLocatePress`. While following it stays lit, like the measuring tape
+        button, because it is a mode one enters and not an action one does.
 
-        Durante a navegação faz falta na mesma: basta arrastar o mapa uma vez
-        para ver o que vem a seguir e a câmara larga o carro. Aí o que se quer é
-        voltar a prendê-la, não só centrar uma vez — daí serem dois caminhos.
+        While navigating it is replaced by "Re-centre", which ties the camera to the
+        car again after the map was dragged.
 
-        **O botão não depende de já se saber onde a pessoa está**, e isso já
-        esteve ao contrário: aparecia só depois da primeira posição. Bastava o
-        GPS não responder — dentro de casa, ou parado, onde o seguimento lento
-        pode nunca chegar a dar uma leitura — para não haver botão nenhum, que é
-        exatamente quando ele faz mais falta. Sem posição, carregar nele é o que
-        manda o GPS procurar. Só desaparece se a permissão tiver sido recusada,
-        porque aí não há nada que ele possa fazer.
+        **The button does not depend on the position being known yet**, and that was
+        once the other way round: it only appeared after the first position. The GPS
+        not answering — indoors, or standing still, where slow tracking may never
+        give a reading — was enough for there to be no button at all, which is
+        exactly when it is needed most. With no position, pressing it is what sends
+        the GPS looking. It only disappears if the permission was refused, because
+        then there is nothing it can do.
       */}
       {!locationDenied && !navigating ? (
         <Pressable
@@ -2311,15 +2312,14 @@ function PalmMap() {
       ) : null}
 
       {/*
-        O velocímetro a andar de carro, **sem estar a navegar**.
+        The speedometer when driving, **without navigating**.
 
-        Só aparece acima de `DRIVING_SPEED_MS`: parado ou a pé seria um zero
-        permanente a ocupar o canto. Fica por cima da bússola, que por sua vez
-        está por cima da régua — as três alturas do canto esquerdo estão todas
-        aqui e em `compassBottom`, de propósito.
+        Only above `DRIVING_SPEED_MS`: standing or walking it would be a permanent
+        zero taking up the corner. It sits above the compass — the heights of the
+        left corner are all here and in `compassBottom`, on purpose.
 
-        Durante a navegação quem o desenha é o `NavigationPanel`, que o põe mais
-        abaixo porque aí a régua e a bússola não existem.
+        While navigating `NavigationPanel` draws it, lower down, because there the
+        other buttons and the compass are not shown.
       */}
       {!navigating && drivingGps && settings.showSpeed ? (
         <SpeedBadge kmh={speedKmh} bottom={compassBottom + 52} />
@@ -2357,8 +2357,8 @@ function PalmMap() {
       ) : null}
 
       {/*
-        O aviso da versão nova. Aparece por cima de tudo mal a procura responda,
-        e só quando aquela versão ainda não foi mandada embora.
+        The new-version notice. It shows on top of everything as soon as the check
+        answers, and only when that version has not been dismissed.
       */}
       <UpdateSplash
         info={
@@ -2367,7 +2367,7 @@ function PalmMap() {
             : null
         }
         unfinished={installUnfinished}
-        // Não se abre o instalador sozinho a quem acabou de o ver falhar.
+        // The installer is not opened by itself for someone who just saw it fail.
         autoDownload={updateOnWifi && !installUnfinished}
         onDismiss={() => {
           if (!updateInfo) {
@@ -2392,15 +2392,15 @@ function PalmMap() {
         onUpdateFound={setUpdateInfo}
         onClose={() => {
           setSettingsVisible(false);
-          // Pode ter-se descarregado ou apagado um país lá dentro.
+          // A country may have been downloaded or deleted in there.
           setOfflineRegions(installedRegions());
         }}
       />
 
       {/*
-        As horas de passagem. Fica montado só enquanto está aberto: quando fecha,
-        o contador de trinta em trinta segundos que atualiza os minutos tem de
-        parar, e desmontar é a forma mais segura de garantir isso.
+        The arrival times. Mounted only while open: when it closes, the
+        thirty-second timer that updates the minutes has to stop, and unmounting is
+        the surest way to guarantee it.
       */}
       {transitVisible ? (
         <Reveal style={styles.bottom}>
@@ -2487,11 +2487,11 @@ function PalmMap() {
 }
 
 /**
- * Guarda o último valor que não foi nulo.
+ * Keeps the last value that was not null.
  *
- * Serve para um painel poder sair do ecrã a desvanecer: no instante em que se
- * fecha, aquilo que ele mostrava deixa de existir, e sem uma cópia não havia
- * nada para desenhar durante a animação de saída.
+ * So a panel can fade off screen: the moment it closes, what it showed no
+ * longer exists, and without a copy there was nothing to draw during the exit
+ * animation.
  */
 function useLastValue<T>(value: T | null): T | null {
   const last = useRef<T | null>(value);
@@ -2551,10 +2551,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       top: 0,
       left: 0,
       right: 0,
-      // Sem margem lateral aqui de propósito. A barra de pesquisa quer margem
-      // dos dois lados; os botões de categoria querem começar alinhados com ela
-      // mas poder sair pela direita, para se perceber que há mais para o lado.
-      // Cada um trata da sua.
+      // No side padding here on purpose. The search bar wants a margin on both
+      // sides; the category buttons want to start aligned with it but run off
+      // the right edge, to show there is more to the side. Each handles its own.
       paddingTop: insets.top + 12,
     },
     notice: {
@@ -2621,13 +2620,13 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
     },
-    // Com um painel aberto em baixo, o botão sobe para não ficar tapado.
+    // With a panel open at the bottom, the button moves up so it is not covered.
     /**
-     * Resposta ao toque nos botões redondos.
+     * Touch feedback for the round buttons.
      *
-     * Feita à mão de propósito. A onda do Android (`android_ripple`) passa a ser
-     * o fundo do botão e apaga o `backgroundColor` — foi assim que os círculos
-     * brancos destes dois desapareceram e os ícones ficaram soltos no mapa.
+     * Done by hand on purpose. Android's ripple (`android_ripple`) becomes the
+     * button's background and wipes the `backgroundColor` — that is how the white
+     * circles of these two disappeared and the icons floated loose on the map.
      */
     buttonPressed: {
       transform: [{ scale: 0.92 }],
@@ -2636,11 +2635,11 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     locateRaised: {
       bottom: insets.bottom + 260,
     },
-    /** Acima do painel de navegação, que é mais baixo do que os outros. */
+    /** Above the navigation panel, which is lower than the others. */
     locateNavigating: {
       bottom: insets.bottom + 130,
     },
-    /** Aceso enquanto a câmara anda com a pessoa, como o botão da fita métrica. */
+    /** Lit while the camera moves with the person, like the measuring tape button. */
     locateFollowing: {
       backgroundColor: theme.accent,
     },

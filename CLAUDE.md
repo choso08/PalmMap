@@ -79,9 +79,9 @@ de sinalização dos trilhos (`tourism=information` + `information=guidepost`, c
 Monsanto, que saíram dos pinos normais por serem lixo fora desse modo), os painéis, os percursos
 pedestres e de bicicleta marcados. Não começar sem o autor pedir.
 
-**A tradução para inglês está a meio** (serviços, tipos, utilitários, `settings.tsx` e todos os
-componentes menos o `MapView.tsx`, o README e os textos que os workflows publicam nas Releases já
-em inglês; o `App.tsx`, o `MapView.tsx`, os scripts e este ficheiro ainda não).
+**A tradução para inglês está quase feita**: todo o código da aplicação (`App.tsx`, componentes,
+serviços, tipos, utilitários), o README e os textos que os workflows publicam nas Releases já estão
+em inglês. Faltam os comentários dos scripts (`scripts/`, workflows) e este ficheiro.
 
 ## Objetivo do projeto
 
