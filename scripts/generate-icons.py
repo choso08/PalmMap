@@ -86,8 +86,16 @@ def frond(length: int, droop: float, color) -> Image.Image:
     return image
 
 
-def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color, trunk_color=None) -> None:
-    """Desenha uma palmeira centrada no ponto dado."""
+def draw_palm(
+    base: Image.Image, cx: int, cy: int, size: int, color, trunk_color=None, detail=None
+) -> None:
+    """
+    Desenha uma palmeira centrada no ponto dado.
+
+    `detail` (para o logo grande) é um dicionário com `leaf_dark`, `trunk_dark` e
+    `coconut`: folhas de trás num verde mais escuro, anéis no tronco e cocos
+    debaixo da copa. Dão volume sem acrescentar formas novas.
+    """
     draw = ImageDraw.Draw(base)
 
     # Tronco: sobe a partir de baixo, curvando ligeiramente para a direita e
@@ -102,13 +110,30 @@ def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color, trunk_color
         r = size * 0.085 * (1 - 0.4 * t)
         draw.ellipse([x - r, y - r, x + r, y + r], fill=trunk_color or color)
 
+    # Anéis do tronco: pequenos arcos mais escuros, de espaço a espaço.
+    if detail:
+        ring = max(1, int(size * 0.014))
+        for i in range(5, steps - 6, 5):
+            t = i / (steps - 1)
+            y = trunk_bottom + (trunk_top - trunk_bottom) * t
+            x = cx + size * 0.13 * (t**2)
+            rr = size * 0.085 * (1 - 0.4 * t)
+            draw.arc([x - rr, y - rr * 0.55, x + rr, y + rr * 0.55], 20, 160, fill=detail["trunk_dark"], width=ring)
+
     crown_x = cx + size * 0.13
     crown_y = trunk_top
     length = int(size * 0.60)
 
     # Cinco folhas em leque por cima do tronco. As das pontas caem mais.
-    for angle, droop in ((12, 0.34), (58, 0.30), (100, 0.24), (140, 0.30), (172, 0.34)):
-        leaf_image = frond(length, droop, color).rotate(angle, resample=Image.BICUBIC)
+    # Com pormenor, as duas folhas de trás vão primeiro e mais escuras.
+    leaves = [(12, 0.34), (58, 0.30), (100, 0.24), (140, 0.30), (172, 0.34)]
+    if detail:
+        leaves = [(78, 0.28, True), (122, 0.28, True)] + [(a, d, False) for a, d in leaves]
+    else:
+        leaves = [(a, d, False) for a, d in leaves]
+    for angle, droop, back in leaves:
+        tone = detail["leaf_dark"] if back else color
+        leaf_image = frond(length, droop, tone).rotate(angle, resample=Image.BICUBIC)
         base.alpha_composite(
             leaf_image,
             (int(crown_x - leaf_image.width / 2), int(crown_y - leaf_image.height / 2)),
@@ -117,6 +142,13 @@ def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color, trunk_color
     # Fecha o ponto onde as folhas se encontram.
     r = size * 0.10
     draw.ellipse([crown_x - r, crown_y - r, crown_x + r, crown_y + r], fill=color)
+
+    # Três cocos debaixo da copa.
+    if detail:
+        cr = size * 0.055
+        for dx, dy in ((-0.06, 0.11), (0.05, 0.12), (0.0, 0.17)):
+            x, y = crown_x + size * dx, crown_y + size * dy
+            draw.ellipse([x - cr, y - cr, x + cr, y + cr], fill=detail["coconut"])
 
 
 def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
@@ -165,6 +197,11 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
 
 
 SAND = (226, 186, 120, 255)
+SAND_SHADE = (204, 164, 100, 255)
+LEAF_DARK = (46, 125, 50, 255)
+TRUNK_DARK = (105, 64, 28, 255)
+COCONUT = (110, 72, 36, 255)
+SEA_LIGHT = (92, 178, 184, 255)
 WET_SAND = (176, 136, 82, 255)
 SEA = (22, 132, 142, 255)
 FOAM = (178, 228, 230, 255)
@@ -196,7 +233,7 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
                 [left, yy - width * 0.35, left + width, yy + width * 0.35],
                 200,
                 340,
-                fill=sea,
+                fill=sea if row == 0 or sea[:3] == (0, 0, 0) else SEA_LIGHT,
                 width=stroke,
             )
 
@@ -247,7 +284,22 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
     # A palmeira, com o tronco a assentar na areia.
     p = size * 0.45
     # O tronco acaba dentro da areia, acima da linha da água.
-    draw_palm(image, int(cx - p * 0.10), int(mound_y - mound_h * 0.55 - 0.66 * p), int(p), leaf, trunk)
+    mono = leaf[:3] == (0, 0, 0)
+    base_x = cx - p * 0.10
+    # A sombra da palmeira na areia, para a assentar.
+    if not mono:
+        sw, sh = p * 0.42, mound_h * 0.16
+        sy = mound_y - mound_h * 0.40
+        draw.ellipse([base_x - sw * 0.25, sy - sh, base_x + sw, sy + sh], fill=SAND_SHADE)
+    draw_palm(
+        image,
+        int(base_x),
+        int(mound_y - mound_h * 0.55 - 0.66 * p),
+        int(p),
+        leaf,
+        trunk,
+        None if mono else {"leaf_dark": LEAF_DARK, "trunk_dark": TRUNK_DARK, "coconut": COCONUT},
+    )
     return image
 
 
