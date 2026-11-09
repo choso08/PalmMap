@@ -93,6 +93,7 @@ import {
   searchInBounds,
 } from './src/services/overpass';
 import { planScheduledTrips } from './src/services/schedules';
+import { ALL_BUSINESSES, localPlacesInBounds } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
@@ -949,6 +950,20 @@ function PalmMap() {
         }
 
         setPlacesError(null);
+
+        // The downloaded country's business file first: instant, and works
+        // without network. Overpass only where there is none.
+        const local = localPlacesInBounds(bounds, chosen.tags);
+        if (local) {
+          setPlaces(local);
+          setPlacesError(
+            local.length === 0
+              ? t().errors.noneOfCategory(t().categories[chosen.labelKey])
+              : null,
+          );
+          return;
+        }
+
         try {
           const found = await searchCategoryInBounds(chosen, bounds, stillWanted);
           if (requestId === latestPlaces.current) {
@@ -973,6 +988,13 @@ function PalmMap() {
       // Sem categoria: os pinos automáticos, que só aparecem bem aproximado.
       if (!settings.showPlacesOnMap || zoom < MAP_PINS_MIN_ZOOM) {
         setPlaces([]);
+        return;
+      }
+
+      const local = localPlacesInBounds(bounds, ALL_BUSINESSES);
+      if (local) {
+        setPlaces(local);
+        setPlacesError(null);
         return;
       }
 
@@ -1063,6 +1085,18 @@ function PalmMap() {
       // décimos de mapa sem pinos a cada paragem, que era o que mais fazia isto
       // parecer lento. Sem categoria escolhida, porque só os pinos automáticos
       // encaixam na grelha da cache.
+      // With the country downloaded, the pins come from the phone, now —
+      // no wait, no request. See `localPois.ts`.
+      if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
+        const local = localPlacesInBounds(bounds, ALL_BUSINESSES);
+        if (local) {
+          latestPlaces.current += 1;
+          setPlaces(local);
+          setPlacesError(null);
+          return;
+        }
+      }
+
       if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
         const guardados = cachedInBounds(bounds);
         if (guardados.complete || guardados.places.length > 0) {

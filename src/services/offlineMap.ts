@@ -61,6 +61,15 @@ export interface OfflineRegion {
    * by mistake.
    */
   gerado?: string;
+  /**
+   * The region's business file (`<id>.pois`), when one was generated — every
+   * named business, for pins and category search without network. See
+   * `scripts/build-pois.py` and `localPois.ts`.
+   */
+  negocios?: string;
+  negociosBytes?: number;
+  /** When the business file was generated, as `YYYY-MM-DD`. */
+  negociosGerado?: string;
 }
 
 interface Manifest {
@@ -377,7 +386,10 @@ export async function downloadRegion(
       destination.delete();
     }
     await downloaded.move(destination);
-    writeMetadata(region);
+    // The business file comes with the map. Failing here does not undo the
+    // map: it is recorded as missing, and the next Wi-Fi refresh fetches it.
+    const withPois = await downloadPois(region);
+    writeMetadata(withPois ? region : withoutPois(region));
   } catch (error) {
     if (partial.exists) {
       partial.delete();
@@ -390,6 +402,64 @@ export async function downloadRegion(
       t().errors.mapDownloadFailed(region.nome, detail),
     );
   }
+}
+
+/** Where a region's business file lives on the phone. */
+export function poisFile(region: OfflineRegion): File {
+  return new File(MAPS, `${region.id}.pois`);
+}
+
+/** The region as recorded when its business file could not be fetched. */
+function withoutPois(region: OfflineRegion): OfflineRegion {
+  const { negocios: _a, negociosBytes: _b, negociosGerado: _c, ...rest } = region;
+  return rest;
+}
+
+/**
+ * Downloads a region's business file. Returns whether it is now on the phone.
+ *
+ * Never throws: a country without its business file still has its map, and
+ * the pins fall back to Overpass where there is network.
+ */
+export async function downloadPois(region: OfflineRegion): Promise<boolean> {
+  if (!region.negocios) {
+    return false;
+  }
+  ensureFolder(MAPS);
+  const partial = new File(MAPS, `${region.id}.pois.parcial`);
+  try {
+    if (partial.exists) {
+      partial.delete();
+    }
+    const downloaded = await File.downloadFileAsync(`${BASE_URL}/${region.negocios}`, partial);
+    const destination = poisFile(region);
+    if (destination.exists) {
+      destination.delete();
+    }
+    await downloaded.move(destination);
+    return true;
+  } catch {
+    if (partial.exists) {
+      partial.delete();
+    }
+    return false;
+  }
+}
+
+/**
+ * Installed regions whose business file is missing or older than the
+ * published one — fetched on their own, without downloading the map again:
+ * mainland Portugal's map is 325 MB, its business file a fraction of that.
+ */
+export function regionsNeedingPois(published: OfflineRegion[]): OfflineRegion[] {
+  const stored = new Map(installedRegions().map((r) => [r.id, r]));
+  return published.filter((fresh) => {
+    const old = stored.get(fresh.id);
+    if (!old || !fresh.negocios || !fresh.negociosGerado) {
+      return false;
+    }
+    return !poisFile(old).exists || !old.negociosGerado || fresh.negociosGerado > old.negociosGerado;
+  });
 }
 
 /**
@@ -433,8 +503,24 @@ export async function refreshOutdatedOnWifi(): Promise<number> {
       return 0;
     }
 
-    const toRefresh = outdatedRegions(await listRegions());
+    const published = await listRegions();
+    const toRefresh = outdatedRegions(published);
     let done = 0;
+    const refreshing = new Set(toRefresh.map((r) => r.id));
+    for (const region of regionsNeedingPois(published)) {
+      if (refreshing.has(region.id)) {
+        continue; // comes with the map below
+      }
+      const stored = installedRegions().find((r) => r.id === region.id);
+      if (stored && (await downloadPois(region))) {
+        writeMetadata({
+          ...stored,
+          negocios: region.negocios,
+          negociosBytes: region.negociosBytes,
+          negociosGerado: region.negociosGerado,
+        });
+      }
+    }
     for (const region of toRefresh) {
       try {
         await downloadRegion(region);
@@ -459,6 +545,11 @@ export function removeRegion(region: OfflineRegion): void {
   const identification = metadataFile(region);
   if (identification.exists) {
     identification.delete();
+  }
+
+  const pois = poisFile(region);
+  if (pois.exists) {
+    pois.delete();
   }
 }
 

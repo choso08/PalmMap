@@ -35,6 +35,10 @@ on:
         description: 'Ids separados por espaços (ver map-regions.json). "todas" só se souber o que está a fazer.'
         default: 'portugal'
         required: true
+      apenas_negocios:
+        description: 'Only (re)build the business files, keeping the published maps as they are'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -45,6 +49,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # osmium cuts and filters the Geofabrik extracts for the business files.
+      - name: Install osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool > /dev/null && osmium --version | head -1
 
       - name: Instalar o pmtiles
         run: |
@@ -83,6 +91,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PEDIDAS: ${{ inputs.regioes }}
+          APENAS_NEGOCIOS: ${{ inputs.apenas_negocios }}
         run: |
           set -o pipefail
           mkdir -p mapas
@@ -91,8 +100,12 @@ jobs:
           # ninguém escreveu nada. Nesse caso refazem-se **as que já estão
           # publicadas**, que são as que alguém pode ter no telemóvel — e não as
           # 90 do catálogo, que seriam dias de trabalho e mais de 100 GB.
+          # The published list, needed both by a scheduled run and by a
+          # business-files-only run (which keeps each map's entry as it is).
+          gh release download mapas -R "$REPO" -p mapas.json -O atuais.json 2>/dev/null || true
+
           if [ -z "$PEDIDAS" ]; then
-            if gh release download mapas -R "$REPO" -p mapas.json -O atuais.json 2>/dev/null; then
+            if [ -f atuais.json ]; then
               PEDIDAS=$(jq -r '.regioes[].id' atuais.json | tr '\n' ' ')
               echo "Corrida agendada: a refazer o que já está publicado — $PEDIDAS"
             fi
@@ -120,42 +133,85 @@ jobs:
             BBOX=$(jq -r ".regioes[] | select(.id==\"$ID\") | .bbox" map-regions.json)
             MAXZOOM=$(jq -r ".regioes[] | select(.id==\"$ID\") | .maxzoom" map-regions.json)
 
+            GEOFABRIK=$(jq -r ".regioes[] | select(.id==\"$ID\") | .geofabrik // empty" map-regions.json)
+
             echo "::group::$NOME ($BBOX, zoom $MAXZOOM)"
 
-            # Uma região que falhe não deve levar o lote inteiro atrás.
-            if ! ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
-                 --bbox="$BBOX" --maxzoom="$MAXZOOM"; then
-              echo "FALHOU: $NOME"
-              FALHADAS="$FALHADAS $ID"
+            if [ "$APENAS_NEGOCIOS" = "true" ]; then
+              # Keep the published map entry exactly as it is.
+              ENTRY=$(jq -c ".regioes[] | select(.id==\"$ID\")" atuais.json 2>/dev/null)
+              if [ -z "$ENTRY" ]; then
+                echo "Not published yet, skipped: $NOME"
+                echo "::endgroup::"
+                continue
+              fi
+            else
+              # Uma região que falhe não deve levar o lote inteiro atrás.
+              if ! ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
+                   --bbox="$BBOX" --maxzoom="$MAXZOOM"; then
+                echo "FALHOU: $NOME"
+                FALHADAS="$FALHADAS $ID"
+                rm -f "mapas/${ID}.pmtiles"
+                echo "::endgroup::"
+                continue
+              fi
+
+              BYTES=$(stat -c%s "mapas/${ID}.pmtiles")
+              echo "$NOME: $(numfmt --to=iec "$BYTES")"
+
+              # O GitHub recusa ficheiros acima de 2 GB numa Release.
+              if [ "$BYTES" -gt 2000000000 ]; then
+                echo "GRANDE DEMAIS para uma Release. Baixar o maxzoom em map-regions.json."
+                FALHADAS="$FALHADAS $ID(grande)"
+                rm -f "mapas/${ID}.pmtiles"
+                echo "::endgroup::"
+                continue
+              fi
+
+              gh release upload mapas "mapas/${ID}.pmtiles" -R "$REPO" --clobber
               rm -f "mapas/${ID}.pmtiles"
-              echo "::endgroup::"
-              continue
+
+              # O bbox vai no manifesto porque a aplicação precisa dele para saber
+              # se está dentro de um país guardado — e sem rede.
+              # A data vai no manifesto para a aplicação saber que o ficheiro que
+              # tem no telemóvel já é mais velho do que o que está publicado.
+              ENTRY=$(printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
+                "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)")
             fi
 
-            BYTES=$(stat -c%s "mapas/${ID}.pmtiles")
-            echo "$NOME: $(numfmt --to=iec "$BYTES")"
-
-            # O GitHub recusa ficheiros acima de 2 GB numa Release.
-            if [ "$BYTES" -gt 2000000000 ]; then
-              echo "GRANDE DEMAIS para uma Release. Baixar o maxzoom em map-regions.json."
-              FALHADAS="$FALHADAS $ID(grande)"
-              rm -f "mapas/${ID}.pmtiles"
-              echo "::endgroup::"
-              continue
+            # **Every named business, for use without network.** From
+            # Geofabrik's extract (published to be downloaded whole), never from
+            # Overpass. A failure here only leaves the country without the
+            # file; the map is already up. The extract is kept between regions
+            # that share it (Portugal, Madeira and the Azores).
+            if [ -n "$GEOFABRIK" ]; then
+              PBF="osm/$(echo "$GEOFABRIK" | tr '/' '_').osm.pbf"
+              mkdir -p osm
+              if [ ! -f "$PBF" ]; then
+                rm -f osm/*.osm.pbf
+                curl -sSfL -A "PalmMap map builder (github.com/$REPO)" \
+                  -o "$PBF" "https://download.geofabrik.de/${GEOFABRIK}-latest.osm.pbf" || rm -f "$PBF"
+              fi
+              if [ -f "$PBF" ] \
+                && osmium extract -b "$BBOX" -s simple "$PBF" -o "osm/${ID}.pbf" --overwrite \
+                && osmium tags-filter "osm/${ID}.pbf" nwr/amenity nwr/shop nwr/tourism nwr/leisure \
+                     nwr/office nwr/craft nwr/healthcare -o "osm/${ID}-f.pbf" --overwrite \
+                && osmium export "osm/${ID}-f.pbf" -f geojsonseq --add-unique-id=type_id \
+                     -o "osm/${ID}.geojsonseq" --overwrite \
+                && python3 scripts/build-pois.py "osm/${ID}.geojsonseq" "$BBOX" "mapas/${ID}.pois"; then
+                POIS_BYTES=$(stat -c%s "mapas/${ID}.pois")
+                gh release upload mapas "mapas/${ID}.pois" -R "$REPO" --clobber
+                ENTRY=$(echo "$ENTRY" | jq -c --arg f "${ID}.pois" --argjson b "$POIS_BYTES" \
+                  --arg g "$(date -u +%Y-%m-%d)" '. + {negocios: $f, negociosBytes: $b, negociosGerado: $g}')
+              else
+                echo "::warning::No business file for $NOME"
+              fi
+              rm -f "osm/${ID}.pbf" "osm/${ID}-f.pbf" "osm/${ID}.geojsonseq" "mapas/${ID}.pois"
             fi
-
-            gh release upload mapas "mapas/${ID}.pmtiles" -R "$REPO" --clobber
-            rm -f "mapas/${ID}.pmtiles"
 
             [ $PRIMEIRA -eq 0 ] && echo ',' >> manifesto.tmp
             PRIMEIRA=0
-            # O bbox vai no manifesto porque a aplicação precisa dele para saber
-            # se está dentro de um país guardado — e sem rede.
-            # A data vai no manifesto para a aplicação saber que o ficheiro que
-            # tem no telemóvel já é mais velho do que o que está publicado. Sem
-            # ela não há como distinguir um mapa de ontem de um do ano passado.
-            printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
-              "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)" >> manifesto.tmp
+            echo "$ENTRY" >> manifesto.tmp
 
             echo "::endgroup::"
           done
