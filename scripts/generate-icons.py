@@ -165,10 +165,11 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
 
 
 SAND = (226, 186, 120, 255)
+WET_SAND = (176, 136, 82, 255)
 SEA = (22, 132, 142, 255)
 
 
-def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA) -> Image.Image:
+def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None) -> Image.Image:
     """
     O logo: uma palmeira numa ilhota de areia, com duas ondas por baixo.
 
@@ -179,6 +180,7 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA) -> Image
     image = Image.new("RGBA", (size, size), TRANSPARENT)
     draw = ImageDraw.Draw(image)
     cx = size / 2
+    wet = wet or WET_SAND
 
     # As ondas: dois arcos de cada vez, lado a lado, por baixo da ilha.
     stroke = max(2, int(size * 0.035))
@@ -200,12 +202,25 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA) -> Image
     # A ilhota: meia elipse de areia.
     mound_w, mound_h = size * 0.56, size * 0.20
     mound_y = size * 0.76
+    # Primeiro a areia molhada, mais escura, onde a ilha toca na água; depois a
+    # seca por cima, um pouco mais estreita e mais alta, deixando uma faixa
+    # molhada à volta da base. É um pormenor pequeno, e é de propósito.
     draw.pieslice(
         [cx - mound_w / 2, mound_y - mound_h / 2, cx + mound_w / 2, mound_y + mound_h / 2],
         180,
         360,
+        fill=wet,
+    )
+    lift = mound_h * 0.16
+    dry_w = mound_w * 0.90
+    draw.pieslice(
+        [cx - dry_w / 2, mound_y - mound_h / 2, cx + dry_w / 2, mound_y + mound_h / 2 - 2 * lift],
+        180,
+        360,
         fill=sand,
     )
+    # A faixa molhada fica sempre com a mesma espessura em baixo.
+    draw.rectangle([cx - dry_w / 2, mound_y - lift, cx + dry_w / 2, mound_y], fill=wet)
 
     # A palmeira, com o tronco a assentar na areia.
     p = size * 0.45
@@ -252,7 +267,7 @@ def main() -> None:
     # Versão monocromática: o Android pinta-a com a cor do tema do telemóvel.
     mono = Image.new("RGBA", (big, big), TRANSPARENT)
     mono.alpha_composite(
-        island_layer(big, *([(0, 0, 0, 255)] * 4)).resize(
+        island_layer(big, *([(0, 0, 0, 255)] * 5)).resize(
             (big - 2 * fg_inset, big - 2 * fg_inset), Image.LANCZOS
         ),
         (fg_inset, fg_inset),
