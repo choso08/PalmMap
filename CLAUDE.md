@@ -1218,7 +1218,9 @@ instalar-se a si própria em silêncio — isso exige ser a aplicação dona do 
 telemóveis geridos por empresas. O que se faz é tudo o que dá: procurar, descarregar e abrir
 o instalador com o ficheiro já na mão. **Quem carrega em "Instalar" é a pessoa**, e na
 primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. Está
-escrito no ecrã e deve continuar lá.
+escrito no ecrã das atualizações, nas definições, e deve continuar lá. **No aviso que salta ao
+abrir já não está**, a pedido do autor (novembro de 2026): o aviso fica com a versão, as mudanças
+e os dois botões.
 
 **Ao abrir a aplicação, atualiza-se sozinha até onde o Android deixa.** Foi pedido pelo
 autor, e a sequência é esta: procura ao arrancar, e se houver versão nova **e se estiver em

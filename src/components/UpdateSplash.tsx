@@ -187,7 +187,6 @@ export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProp
             </Pressable>
           ) : null}
 
-          <Text style={styles.note}>{strings.settings.updateManualNote}</Text>
         </View>
       </View>
     </Modal>
@@ -306,12 +305,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     pressed: {
       opacity: 0.85,
-    },
-    note: {
-      fontSize: 11,
-      lineHeight: 15,
-      color: theme.textMuted,
-      textAlign: 'center',
     },
   });
 }
