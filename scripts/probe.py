@@ -180,6 +180,52 @@ def mts_js():
     print("\nAROUND searchForm:", js[max(0, i - 2000): i + 6000] if i >= 0 else "not found")
 
 
+def post(url, params):
+    import urllib.parse
+    req = urllib.request.Request(url, data=urllib.parse.urlencode(params).encode(),
+                                 headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded",
+                                          "X-Requested-With": "XMLHttpRequest"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+    except Exception as e:  # noqa: BLE001
+        return None, str(e).encode()
+
+
+def mts_api2():
+    section("MTS timetable API (intranet)")
+    import re
+    _, _, page = get("https://www.mts.pt/horarios/", 40)
+    html = page.decode("utf-8", "replace")
+    m = re.search(r'"apiUrl"\s*:\s*"([^"]+)"', html)
+    api = (m.group(1).replace("\\/", "/") if m else "https://intranet.mts.pt/api/")
+    print("api:", api, "(from page)" if m else "(fallback)")
+    st, _, b = get(api + "lines")
+    print("lines GET", st, b[:800])
+    if st != 200:
+        st, b = post(api + "lines", {})
+        print("lines POST", st, b[:800])
+    lines = json.loads(b)["data"]
+    for ln in lines:
+        st, b = post(api + "stations", {"line_id": ln["id"]})
+        print(f"\nstations line {ln['id']} {ln.get('name')}:", st, b[:1500])
+    ln = lines[0]["id"]
+    st, b = post(api + "stations", {"line_id": ln})
+    station = json.loads(b)[0]["id"]
+    for day in (1, 2, 3):
+        st, b = post(api + "search", {"line": ln, "stations": station, "day_type": day, "season": 2})
+        print(f"\nsearch line {ln} station {station} day {day}:", st, len(b), "bytes")
+        try:
+            d = json.loads(b)["data"]
+            print(" keys:", list(d.keys()))
+            print(" stations:", json.dumps(d.get("stations"), ensure_ascii=False)[:1500])
+            print(" times count:", len(d.get("times", [])), "first:", json.dumps(d.get("times", [])[:5]), "last:", json.dumps(d.get("times", [])[-3:]))
+        except Exception as e:  # noqa: BLE001
+            print(" not json", e, b[:800])
+
+
 def mts_api():
     section("MTS timetable API")
     import re
