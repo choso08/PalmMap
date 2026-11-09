@@ -251,8 +251,8 @@ export function RoutePanel({
       ) : null}
 
       {/*
-        The bus trips. Each is a single line, no changes — see `planBusTrips`
-        for why.
+        The bus trips: a single line, or two with one change — see
+        `planBusTrips`.
 
         The first is the one that arrives earliest and carries the recommended
         mark. That is not an opinion: it gets the person there first, counting
@@ -285,8 +285,20 @@ export function RoutePanel({
                   <View style={styles.linhaBadge}>
                     <Text style={styles.linhaBadgeTexto}>{t.line}</Text>
                   </View>
+                  {t.change ? (
+                    <>
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={16}
+                        color={theme.textMuted}
+                      />
+                      <View style={styles.linhaBadge}>
+                        <Text style={styles.linhaBadgeTexto}>{t.change.line}</Text>
+                      </View>
+                    </>
+                  ) : null}
                   <Text style={styles.trajetoDestino} numberOfLines={1}>
-                    {t.headsign}
+                    {t.change ? t.change.headsign : t.headsign}
                   </Text>
                   {i === 0 ? (
                     <View style={styles.melhor}>
@@ -300,7 +312,7 @@ export function RoutePanel({
                   {formatDuration(t.reachAt - Math.max(t.leaveAt, Date.now() / 1000))}
                 </Text>
 
-                <Text style={styles.trajetoDetalhe} numberOfLines={2}>
+                <Text style={styles.trajetoDetalhe} numberOfLines={3}>
                   {t.live ? '● ' : ''}
                   {strings.route.walkTo(
                     formatDuration(walkSecondsEntre(t.from.meters)),
@@ -309,6 +321,14 @@ export function RoutePanel({
                   {' · '}
                   {strings.route.stopCount(t.stops)}
                   {' · '}
+                  {t.change
+                    ? `${strings.route.changeAt(
+                        t.change.boardAt.id === t.change.at.id
+                          ? t.change.at.name
+                          : `${t.change.at.name} → ${t.change.boardAt.name}`,
+                        formatDuration(t.change.departsAt - t.change.arrivesAt),
+                      )} · `
+                    : ''}
                   {strings.route.walkFrom(
                     formatDuration(walkSecondsEntre(t.to.meters)),
                     t.to.name,

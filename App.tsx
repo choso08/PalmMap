@@ -2122,7 +2122,16 @@ function PalmMap() {
         waypoints={waypoints.map((w) => w.coordinates)}
         transitStops={
           transitTrips?.[transitTripIndex]
-            ? [transitTrips[transitTripIndex].from, transitTrips[transitTripIndex].to]
+            ? [
+                transitTrips[transitTripIndex].from,
+                ...(transitTrips[transitTripIndex].change
+                  ? [
+                      transitTrips[transitTripIndex].change!.at,
+                      transitTrips[transitTripIndex].change!.boardAt,
+                    ]
+                  : []),
+                transitTrips[transitTripIndex].to,
+              ]
             : mapStopsShown
         }
         selectedStopId={selectedStopId}

@@ -26,6 +26,8 @@ const PARES = [
   ['Seixal → Barreiro', [38.6406, -9.1015], [38.6630, -9.0726]],
   ['Oeiras → Cascais', [38.6913, -9.3100], [38.6979, -9.4215]],
   ['Amadora → Sintra', [38.7538, -9.2308], [38.8003, -9.3808]],
+  ['Almada Pragal → Damaia (needs a change)', [38.6655, -9.1765], [38.7465, -9.2155]],
+  ['Seixal → Montijo (needs a change)', [38.6406, -9.1015], [38.7066, -8.9738]],
 ];
 
 const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: 'Europe/Lisbon' });
@@ -46,7 +48,10 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
       const trajetos = await transit.planBusTrips(origem, destino);
       console.log(`  planBusTrips (${Date.now() - t0} ms):`, trajetos === null ? 'null (no stops)' : `${trajetos.length} trips`);
       for (const t of trajetos || []) {
-        console.log(`    ${t.line} ${t.headsign}: ${t.from.name} ${hora(t.departsAt)} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} paragens${t.live ? ', tempo real' : ''})`);
+        const via = t.change
+          ? ` | change at ${t.change.at.name} ${hora(t.change.arrivesAt)}${t.change.boardAt.id !== t.change.at.id ? ` → ${t.change.boardAt.name} (${Math.round(t.change.walkMeters)} m)` : ''} → ${t.change.line} ${t.change.headsign} ${hora(t.change.departsAt)}`
+          : '';
+        console.log(`    ${t.line} ${t.headsign}: ${t.from.name} ${hora(t.departsAt)}${via} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} stops${t.live ? ', live' : ''})`);
       }
     } catch (erro) {
       console.log('  ERRO:', erro && erro.message, erro && erro.status);

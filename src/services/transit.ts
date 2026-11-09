@@ -406,6 +406,22 @@ export interface TransitTrip {
   stops: number;
   /** True when the times are real time, not the timetable. */
   live: boolean;
+  /**
+   * When the trip needs a second bus: where to change, when the first bus gets
+   * there, and the second bus. `line`/`headsign` above are the first bus's;
+   * `to` and `arrivesAt` are the end of the whole trip.
+   */
+  change?: {
+    /** Where to get off the first bus. */
+    at: TransitStop;
+    /** Where to get on the second: the same stop, or one a short walk away. */
+    boardAt: TransitStop;
+    walkMeters: number;
+    arrivesAt: number;
+    line: string;
+    headsign: string;
+    departsAt: number;
+  };
 }
 
 /** All the stops within `maxMeters`, from nearest to farthest. */
@@ -607,6 +623,313 @@ function tripsPerPattern(arrivals: CarrisArrival[]): Map<string, number> {
   return byPattern;
 }
 
+/** A stop with its arrivals for the day, as the service returned them. */
+type StopPasses = { stop: TransitStop; passes: CarrisArrival[] };
+
+/** One bus ride: boarding at `from`, getting off at `to`. */
+interface Leg {
+  key: string;
+  line: string;
+  headsign: string;
+  from: TransitStop;
+  to: TransitStop;
+  departsAt: number;
+  arrivesAt: number;
+  stops: number;
+  live: boolean;
+}
+
+/**
+ * Each stop's arrivals, in parallel. **One stop failing does not bring planning
+ * down**: the service refuses one now and then, and with a plain `Promise.all`
+ * that isolated refusal wiped out every option. It only gives up if they all
+ * fail, and then says why.
+ */
+async function passesAt(stops: TransitStop[]): Promise<StopPasses[]> {
+  let failure: unknown = null;
+  const out: StopPasses[] = [];
+  await Promise.all(
+    stops.map(async (stop) => {
+      try {
+        out.push({ stop, passes: await rawArrivalsAt(stop.id) });
+      } catch (error) {
+        failure = failure ?? error;
+      }
+    }),
+  );
+  if (out.length === 0 && stops.length > 0 && failure) {
+    throw failure;
+  }
+  return out;
+}
+
+/**
+ * The rides between a set of boarding stops and a set of alighting stops.
+ *
+ * **If the same trip appears at a boarding stop and at an alighting stop, it is
+ * the same bus.** The two times are the real departure and arrival, and the
+ * order between them confirms the direction of travel. The trip is recognised
+ * by its order within the pattern, not by `trip_id` — see `tripKeys`.
+ *
+ * `earliest` is the first departure accepted (seconds since 1970); `endWalk`
+ * how long it takes from an alighting stop to wherever one is going, to pick
+ * the pass that gets there first.
+ */
+function matchLegs(
+  starts: StopPasses[],
+  ends: StopPasses[],
+  earliest: number,
+  endWalk: (stop: TransitStop) => number,
+): Leg[] {
+  // The alighting stops first: it is against them that trips are matched.
+  //
+  // **A trip can pass the same stop twice**, which is why a list is kept. On a
+  // circular line the stop where the trip starts is also where it ends — at
+  // Cacilhas, the 3005 calls at stop 1 and at 37. Keeping only one kept the
+  // first, and the trip was thrown away for "going backwards".
+  type Pass = {
+    stop: TransitStop;
+    unix: number;
+    seq: number;
+    tripId: string | null;
+    patternTrips: number;
+  };
+  const byTrip = new Map<string, Pass[]>();
+  for (const { stop, passes } of ends) {
+    const keys = tripKeys(passes);
+    const patternTrips = tripsPerPattern(passes);
+    for (const arrival of passes) {
+      const when = whenItPasses(arrival);
+      const key = keys.get(arrival);
+      if (!key || !when) {
+        continue;
+      }
+      const entry: Pass = {
+        stop,
+        unix: when.unix,
+        seq: arrival.stop_sequence ?? 0,
+        tripId: arrival.trip_id ?? null,
+        patternTrips: patternTrips.get(arrival.pattern_id as string) ?? -1,
+      };
+      const list = byTrip.get(key);
+      if (list) {
+        list.push(entry);
+      } else {
+        byTrip.set(key, [entry]);
+      }
+    }
+  }
+
+  const legs: Leg[] = [];
+  for (const { stop, passes } of starts) {
+    // The order is computed over the whole list, **before** filtering — see
+    // `tripKeys`. Only afterwards are the ones already gone set aside.
+    const keys = tripKeys(passes);
+    const patternTrips = tripsPerPattern(passes);
+    for (const arrival of passes) {
+      if (arrival.observed_arrival) {
+        continue;
+      }
+      const leaves = whenItPasses(arrival);
+      const key = keys.get(arrival);
+      const candidates = key ? byTrip.get(key) : undefined;
+      if (!leaves || !key || !candidates || leaves.unix < earliest) {
+        continue;
+      }
+      const seq = arrival.stop_sequence ?? 0;
+      const tripsHere = patternTrips.get(arrival.pattern_id as string) ?? -1;
+
+      // Of this trip's passes at the alighting stops, the one that gets the
+      // person there earliest — and only among those **after** this departure,
+      // in order and in time. That prevents a trip in the opposite direction,
+      // and picks the right lap of a circular line.
+      let best: Pass | undefined;
+      for (const c of candidates) {
+        if (c.unix <= leaves.unix || c.seq <= seq || c.stop.id === stop.id) {
+          continue;
+        }
+        if (!best || c.unix + endWalk(c.stop) < best.unix + endWalk(best.stop)) {
+          best = c;
+        }
+      }
+      if (!best) {
+        continue;
+      }
+
+      // The two checks that the order really identifies the same trip: both
+      // ends must have **the same number of trips** of the pattern, and when
+      // both carry a `trip_id` (real time) they must agree. Better no trip than
+      // one that sends the person to the stop at the wrong time.
+      if (tripsHere < 0 || tripsHere !== best.patternTrips) {
+        continue;
+      }
+      if (arrival.trip_id && best.tripId && arrival.trip_id !== best.tripId) {
+        continue;
+      }
+
+      legs.push({
+        key,
+        line: lineLabel(arrival.line_id ?? arrival.route_id),
+        headsign: arrival.headsign ?? '',
+        from: stop,
+        to: best.stop,
+        departsAt: leaves.unix,
+        arrivesAt: best.unix,
+        stops: Math.max(1, best.seq - seq),
+        live: leaves.live,
+      });
+    }
+  }
+  return legs;
+}
+
+/** At most how many places are tried to change buses. */
+const TRANSFER_STOPS = 5;
+
+/** Minimum time to change buses, on top of any walk between stops, in seconds. */
+const TRANSFER_MIN_S = 120;
+
+/**
+ * How far one may walk between two stops to change buses. Terminals such as
+ * Sete Rios have the arriving and departing lines at different stops a few
+ * dozen metres apart; a change only at the very same stop missed them.
+ */
+const TRANSFER_WALK_M = 250;
+
+/** A place to change: get off at `off`, walk `meters`, get on at `on`. */
+interface ChangePlace {
+  off: TransitStop;
+  on: TransitStop;
+  meters: number;
+}
+
+/**
+ * Where one could change buses, and the stops worth asking about at each end.
+ *
+ * **Without any request.** `/stops` (already in memory) says which patterns pass
+ * at each stop. A stop served by a pattern that also passes near the origin,
+ * next to (or the same as) a stop served by one that also passes near the
+ * destination, is a place where two buses meet. Of those, the ones that make
+ * the least detour from the straight line come first — a change in the
+ * opposite direction is not a way there. Whether the buses go the right way,
+ * and at what times, is then settled by the real arrivals, as for direct trips.
+ */
+async function transferPlan(
+  origin: Coordinates,
+  destination: Coordinates,
+): Promise<{ starts: TransitStop[]; places: ChangePlace[]; ends: TransitStop[] } | null> {
+  const [all, nearStart, nearEnd] = await Promise.all([
+    loadStops(),
+    stopsNear(origin, TRANSIT_WALK_MAX_M),
+    stopsNear(destination, TRANSIT_WALK_MAX_M),
+  ]);
+  if (nearStart.length === 0 || nearEnd.length === 0) {
+    return null;
+  }
+
+  const nearestByPattern = (stops: TransitStop[]) => {
+    const byPattern = new Map<string, TransitStop>();
+    for (const stop of stops) {
+      for (const pattern of stop.patterns) {
+        if (!byPattern.has(pattern)) {
+          byPattern.set(pattern, stop);
+        }
+      }
+    }
+    return byPattern;
+  };
+  const fromStart = nearestByPattern(nearStart);
+  const fromEnd = nearestByPattern(nearEnd);
+  if (fromStart.size === 0 || fromEnd.size === 0) {
+    return null;
+  }
+
+  // Stops reached by a bus from the origin, and stops left by a bus to the
+  // destination — away from both ends: within walking distance of an end it is
+  // not a change, it is a direct bus.
+  const farFromEnds = (stop: TransitStop) =>
+    distanceMeters(origin, stop.coordinates) >= TRANSIT_WALK_MAX_M &&
+    distanceMeters(stop.coordinates, destination) >= TRANSIT_WALK_MAX_M;
+  const offStops = all.filter((s) => farFromEnds(s) && s.patterns.some((p) => fromStart.has(p)));
+  const onStops = all.filter(
+    (s) => farFromEnds(s) && s.patterns.some((p) => fromEnd.has(p) && !fromStart.has(p)),
+  );
+
+  // A coarse grid so the pairs within walking distance are found without
+  // comparing every stop with every other.
+  const cell = (c: Coordinates) => `${Math.floor(c.latitude * 400)}:${Math.floor(c.longitude * 300)}`;
+  const grid = new Map<string, TransitStop[]>();
+  for (const s of onStops) {
+    const k = cell(s.coordinates);
+    const list = grid.get(k);
+    if (list) {
+      list.push(s);
+    } else {
+      grid.set(k, [s]);
+    }
+  }
+
+  const straight = distanceMeters(origin, destination);
+  const candidates: (ChangePlace & { detour: number })[] = [];
+  for (const off of offStops) {
+    const la = Math.floor(off.coordinates.latitude * 400);
+    const lo = Math.floor(off.coordinates.longitude * 300);
+    let bestOn: TransitStop | null = null;
+    let bestMeters = Infinity;
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        for (const on of grid.get(`${la + i}:${lo + j}`) ?? []) {
+          const m = on.id === off.id ? 0 : distanceMeters(off.coordinates, on.coordinates);
+          if (m <= TRANSFER_WALK_M && m < bestMeters) {
+            bestOn = on;
+            bestMeters = m;
+          }
+        }
+      }
+    }
+    if (!bestOn) {
+      continue;
+    }
+    const detour =
+      distanceMeters(origin, off.coordinates) +
+      distanceMeters(bestOn.coordinates, destination) -
+      straight +
+      bestMeters * 3;
+    candidates.push({ off, on: bestOn, meters: bestMeters, detour });
+  }
+  candidates.sort((x, y) => x.detour - y.detour);
+  const chosen = candidates.slice(0, TRANSFER_STOPS);
+  if (chosen.length === 0) {
+    return null;
+  }
+
+  const starts = new Map<string, TransitStop>();
+  const ends = new Map<string, TransitStop>();
+  for (const c of chosen) {
+    for (const p of c.off.patterns) {
+      const s = fromStart.get(p);
+      if (s && (starts.has(s.id) || starts.size < TRIP_STOPS_PER_SIDE)) {
+        starts.set(s.id, s);
+      }
+    }
+    for (const p of c.on.patterns) {
+      const e = fromEnd.get(p);
+      if (e && !fromStart.has(p) && (ends.has(e.id) || ends.size < TRIP_STOPS_PER_SIDE)) {
+        ends.set(e.id, e);
+      }
+    }
+  }
+  return {
+    starts: [...starts.values()],
+    places: chosen.map(({ off, on, meters }) => ({
+      off: { ...off, meters: 0 },
+      on: { ...on, meters: 0 },
+      meters,
+    })),
+    ends: [...ends.values()],
+  };
+}
+
 /**
  * Builds bus trips between two points.
  *
@@ -618,24 +941,24 @@ function tripsPerPattern(arrivals: CarrisArrival[]): Map<string, number> {
  *
  * 1. Find the stops within walking distance of the origin and the destination
  *    that share a line — see `busStopsFor`.
- * 2. Request each one's arrivals.
- * 3. **If the same trip appears at a departure stop and at an arrival stop, it
- *    is the same bus.** The two times are the real departure and arrival, and
- *    the order between them confirms the direction of travel — no need to guess
- *    or fetch the line's shape. The trip is recognised by its order within the
- *    pattern, not by `trip_id` — see `tripKeys`, which explains why.
+ * 2. Request each one's arrivals, and match the same trip at both ends — see
+ *    `matchLegs`.
+ * 3. **When there is no direct bus (or only one), with one change of bus**
+ *    (the author's request, November 2026): find stops where a bus from near
+ *    the origin meets a bus to near the destination (`transferPlan`), ask for
+ *    their arrivals too, and join a first ride to a second one leaving from the
+ *    same stop at least `TRANSFER_MIN_S` later.
  * 4. Add the walking time at each end and sort by arrival time.
  *
  * ## What this does not do, and it must be said
  *
- * - **Only Carris Metropolitana buses**, and only in the Lisbon Metropolitan
- *   Area. Trains, metro and ferries do not come in here: each is another
- *   operator, with another service, and some have no open service at all.
- * - **No changes.** Only lines that make the whole journey in one go. A trip
- *   with a change of bus is a much bigger problem, and done badly it is worse
- *   than not existing.
- * - **The walking time is estimated**, not computed on the map: straight-line
- *   distance, with a third more for the blocks. It serves to rank the options.
+ * - **Only Carris Metropolitana buses**, in the Lisbon Metropolitan Area.
+ *   Trains, metro and ferries come from `schedules.ts` and are not mixed into
+ *   changes.
+ * - **At most one change, at the same stop.** Walking between two stops to
+ *   change is not tried.
+ * - **The walking time is estimated**: straight-line distance, with a third
+ *   more for the blocks. It serves to rank the options.
  *
  * Returns `null` when there are no stops within reach of either end — which is
  * different from there being no bus that serves.
@@ -646,197 +969,126 @@ export async function planBusTrips(
   limit = 5,
 ): Promise<TransitTrip[] | null> {
   const { departures, arrivals, noLink } = await busStopsFor(origin, destination);
-
-  // There are stops on both sides, but no line that makes the whole journey.
-  if (noLink) {
-    return [];
-  }
-  if (departures.length === 0 || arrivals.length === 0) {
+  if (!noLink && (departures.length === 0 || arrivals.length === 0)) {
     return null;
-  }
-
-  // The arrival stops first: it is against them that the trips are matched.
-  //
-  // **A trip can pass the same arrival stop twice**, which is why a list is kept
-  // and not a single arrival. On a circular line the stop where the trip starts
-  // is also where it ends — at Cacilhas, the 3005 calls at stop 1 and at 37.
-  // Keeping only one kept the first, and the trip was then thrown away for
-  // "going backwards": it was the only trip there was between the centre of
-  // Almada and Cacilhas.
-  type Arrival = {
-    stop: TransitStop;
-    unix: number;
-    seq: number;
-    tripId: string | null;
-    patternTrips: number;
-  };
-  const byTrip = new Map<string, Arrival[]>();
-
-  // **One stop failing does not bring planning down.** It is half a dozen
-  // requests, and the service refuses one now and then; with a plain
-  // `Promise.all`, that isolated refusal wiped out every option — including the
-  // ones that had already come back fine. It only gives up if they all fail,
-  // and then says why.
-  let failure: unknown = null;
-  let failed = 0;
-
-  await Promise.all(
-    arrivals.map(async (stop) => {
-      let passes: CarrisArrival[];
-      try {
-        passes = await rawArrivalsAt(stop.id);
-      } catch (error) {
-        failure = failure ?? error;
-        failed += 1;
-        return;
-      }
-
-      const keys = tripKeys(passes);
-      const patternTrips = tripsPerPattern(passes);
-
-      for (const arrival of passes) {
-        const when = whenItPasses(arrival);
-        const key = keys.get(arrival);
-        if (!key || !when) {
-          continue;
-        }
-
-        // All of them: which one serves is only known on the departure side,
-        // which is where the order of the stops is seen.
-        const entry: Arrival = {
-          stop,
-          unix: when.unix,
-          seq: arrival.stop_sequence ?? 0,
-          tripId: arrival.trip_id ?? null,
-          patternTrips: patternTrips.get(arrival.pattern_id as string) ?? -1,
-        };
-        const list = byTrip.get(key);
-        if (list) {
-          list.push(entry);
-        } else {
-          byTrip.set(key, [entry]);
-        }
-      }
-    }),
-  );
-
-  if (failed === arrivals.length && failure) {
-    throw failure;
   }
 
   const now = Date.now() / 1000;
   const trips: TransitTrip[] = [];
 
-  let departureFailures = 0;
-  let departureFailure: unknown = null;
-
-  await Promise.all(
-    departures.map(async (stop) => {
-      const walk = walkSeconds(stop.meters);
-
-      // The same care as on the arrival side: a stop that fails is left out and
-      // the others carry on. **It was missing here**, and a refusal at a
-      // departure stop wiped out every option, even the ones that had come
-      // back fine.
-      let passes: CarrisArrival[];
-      try {
-        passes = await rawArrivalsAt(stop.id);
-      } catch (error) {
-        departureFailure = departureFailure ?? error;
-        departureFailures += 1;
-        return;
+  if (!noLink) {
+    const [starts, ends] = await Promise.all([passesAt(departures), passesAt(arrivals)]);
+    // A minute's slack: someone right at the stop still catches the bus
+    // leaving any moment now.
+    for (const leg of matchLegs(starts, ends, 0, (stop) => walkSeconds(stop.meters))) {
+      const leaveAt = leg.departsAt - walkSeconds(leg.from.meters);
+      if (leaveAt < now - 60) {
+        continue;
       }
-      // The order is computed over the whole list, **before** filtering — see
-      // `tripKeys`. Only afterwards are the ones already gone set aside.
-      const keys = tripKeys(passes);
-      const patternTrips = tripsPerPattern(passes);
-
-      for (const arrival of passes) {
-        if (arrival.observed_arrival) {
-          continue;
-        }
-
-        const leaves = whenItPasses(arrival);
-        const key = keys.get(arrival);
-        const candidates = key ? byTrip.get(key) : undefined;
-        if (!leaves || !key || !candidates) {
-          continue;
-        }
-        const seq = arrival.stop_sequence ?? 0;
-        const tripsHere = patternTrips.get(arrival.pattern_id as string) ?? -1;
-
-        // Of this trip's passes at the arrival stops, the one that gets the
-        // person to the destination earliest — and only among those that come
-        // **after** this departure, in order and in time. That is what prevents
-        // a trip in the opposite direction, and what picks the right lap of a
-        // circular line.
-        let arrivalPass: Arrival | undefined;
-        for (const c of candidates) {
-          if (c.unix <= leaves.unix || c.seq <= seq) {
-            continue;
-          }
-          const reaches = c.unix + walkSeconds(c.stop.meters);
-          if (!arrivalPass || reaches < arrivalPass.unix + walkSeconds(arrivalPass.stop.meters)) {
-            arrivalPass = c;
-          }
-        }
-        if (!arrivalPass) {
-          continue;
-        }
-
-        // The two checks that the order really identifies the same trip.
-        // **Both ends must have the same number of trips of the pattern** —
-        // with one fewer at one of them, the order would be out of step and the
-        // 8:10 bus would end up arriving at the following one's 8:45. And
-        // **when both carry a `trip_id`**, which is when there is real time,
-        // they must say the same. If anything does not match, nothing is
-        // paired: better no trip than one that sends the person to the stop at
-        // the wrong time.
-        if (tripsHere < 0 || tripsHere !== arrivalPass.patternTrips) {
-          continue;
-        }
-        if (arrival.trip_id && arrivalPass.tripId && arrival.trip_id !== arrivalPass.tripId) {
-          continue;
-        }
-
-        const leaveAt = leaves.unix - walk;
-        // A minute's slack: someone right at the stop still catches the bus
-        // leaving any moment now.
-        if (leaveAt < now - 60) {
-          continue;
-        }
-
-        trips.push({
-          tripId: key,
-          kind: 'bus',
-          line: lineLabel(arrival.line_id ?? arrival.route_id),
-          headsign: arrival.headsign ?? '',
-          from: stop,
-          to: arrivalPass.stop,
-          departsAt: leaves.unix,
-          arrivesAt: arrivalPass.unix,
-          leaveAt,
-          reachAt: arrivalPass.unix + walkSeconds(arrivalPass.stop.meters),
-          stops: Math.max(1, arrivalPass.seq - seq),
-          live: leaves.live,
-        });
-      }
-    }),
-  );
-
-  if (departureFailures === departures.length && departureFailure) {
-    throw departureFailure;
-  }
-
-  // Arrives earliest first. A line appears only once: the same bus's next three
-  // passes are not three options, they are the same option.
-  const byLine = new Map<string, TransitTrip>();
-  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt)) {
-    if (!byLine.has(t.line)) {
-      byLine.set(t.line, t);
+      trips.push({
+        tripId: leg.key,
+        kind: 'bus',
+        line: leg.line,
+        headsign: leg.headsign,
+        from: leg.from,
+        to: leg.to,
+        departsAt: leg.departsAt,
+        arrivesAt: leg.arrivesAt,
+        leaveAt,
+        reachAt: leg.arrivesAt + walkSeconds(leg.to.meters),
+        stops: leg.stops,
+        live: leg.live,
+      });
     }
   }
 
+  // One change of bus, only when the direct buses do not already answer.
+  const directLines = new Set(trips.map((t) => t.line));
+  if (directLines.size < 2) {
+    const plan = await transferPlan(origin, destination);
+    if (plan) {
+      const offIds = new Set(plan.places.map((p) => p.off.id));
+      const onIds = new Set(plan.places.map((p) => p.on.id));
+      const changeStops = [
+        ...new Map(plan.places.flatMap((p) => [p.off, p.on]).map((s) => [s.id, s])).values(),
+      ];
+      // A stop that is both a place to get off and to get on is asked once.
+      const [starts, changePasses, ends] = await Promise.all([
+        passesAt(plan.starts),
+        passesAt(changeStops),
+        passesAt(plan.ends),
+      ]);
+      const offPasses = changePasses.filter((p) => offIds.has(p.stop.id));
+      const onSide = changePasses.filter((p) => onIds.has(p.stop.id));
+      const firsts = matchLegs(starts, offPasses, 0, () => 0).filter(
+        (leg) => leg.departsAt - walkSeconds(leg.from.meters) >= now - 60,
+      );
+      if (firsts.length > 0) {
+        const earliest = Math.min(...firsts.map((l) => l.arrivesAt)) + TRANSFER_MIN_S;
+        const seconds = matchLegs(onSide, ends, earliest, (stop) => walkSeconds(stop.meters));
+        for (const first of firsts) {
+          let best: Leg | undefined;
+          let bestPlace: ChangePlace | undefined;
+          for (const place of plan.places) {
+            if (place.off.id !== first.to.id) {
+              continue;
+            }
+            const ready = first.arrivesAt + TRANSFER_MIN_S + walkSeconds(place.meters);
+            for (const second of seconds) {
+              if (
+                second.from.id !== place.on.id ||
+                second.line === first.line ||
+                second.departsAt < ready
+              ) {
+                continue;
+              }
+              const reach = second.arrivesAt + walkSeconds(second.to.meters);
+              if (!best || reach < best.arrivesAt + walkSeconds(best.to.meters)) {
+                best = second;
+                bestPlace = place;
+              }
+            }
+          }
+          if (!best || !bestPlace) {
+            continue;
+          }
+          trips.push({
+            tripId: `${first.key}>${best.key}`,
+            kind: 'bus',
+            line: first.line,
+            headsign: first.headsign,
+            from: first.from,
+            to: best.to,
+            departsAt: first.departsAt,
+            arrivesAt: best.arrivesAt,
+            leaveAt: first.departsAt - walkSeconds(first.from.meters),
+            reachAt: best.arrivesAt + walkSeconds(best.to.meters),
+            stops: first.stops + best.stops,
+            live: first.live,
+            change: {
+              at: first.to,
+              boardAt: best.from,
+              walkMeters: bestPlace.meters,
+              arrivesAt: first.arrivesAt,
+              line: best.line,
+              headsign: best.headsign,
+              departsAt: best.departsAt,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  // Arrives earliest first. A line (or pair of lines) appears only once: the
+  // same bus's next three passes are not three options, they are one.
+  const byLine = new Map<string, TransitTrip>();
+  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt)) {
+    const id = t.change ? `${t.line}>${t.change.line}` : t.line;
+    if (!byLine.has(id)) {
+      byLine.set(id, t);
+    }
+  }
   return [...byLine.values()].slice(0, limit);
 }
 
