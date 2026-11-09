@@ -382,6 +382,31 @@ def limits():
         break
 
 
+
+def pois():
+    """What the odd map pins really are (TB.442, ALM-00112, Egas Moniz)."""
+    import urllib.parse
+    section("ODD POIS via Overpass")
+    q = """[out:json][timeout:60];
+(
+  nwr["name"~"^TB[.]"](38.69,-9.24,38.73,-9.19);
+  nwr["amenity"="charging_station"](38.64,-9.24,38.70,-9.14);
+  nwr["name"~"Egas Moniz"](38.64,-9.24,38.70,-9.14);
+);
+out tags center 80;"""
+    for base in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+        try:
+            st, body = post(base, {"data": q})
+        except Exception as e:  # noqa: BLE001
+            print(base, "failed", e)
+            continue
+        print(base, st)
+        if st != 200:
+            continue
+        for el in json.loads(body).get("elements", []):
+            print(el["type"], el["id"], json.dumps(el.get("tags", {}), ensure_ascii=False))
+        break
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
