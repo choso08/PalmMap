@@ -42,6 +42,9 @@ import type { Theme } from '../theme';
 import { formatFactor } from '../utils/format';
 import { hasRegionVoice } from '../utils/voice';
 
+/** How long "recent destinations forgotten" stays on screen. */
+const RECENTS_CLEARED_MS = 4000;
+
 interface SettingsSheetProps {
   /**
    * Says the recent destinations were forgotten.
@@ -134,6 +137,14 @@ export function SettingsSheet({
   const { pace, forgetPace } = useLearnedPace();
   const language = useLanguage();
   const [clearing, setClearing] = useState(false);
+  /** The recents were just forgotten: the button gives way to a line saying so
+   * for a few seconds — otherwise the tap looked like it did nothing. */
+  const [recentsCleared, setRecentsCleared] = useState(false);
+  useEffect(() => {
+    if (!recentsCleared) return;
+    const timer = setTimeout(() => setRecentsCleared(false), RECENTS_CLEARED_MS);
+    return () => clearTimeout(timer);
+  }, [recentsCleared]);
 
   /**
    * The settings search: what is typed hides every option whose name, hint or
@@ -590,13 +601,27 @@ export function SettingsSheet({
           {show.recents ? (
             <>
               <Text style={styles.sectionTitle}>{s.recents}</Text>
-              <Pressable
-                style={styles.forgetRow}
-                onPress={() => void clearRecents().then(onRecentsCleared)}
-              >
-                <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
-                <Text style={styles.clearText}>{s.forgetRecents}</Text>
-              </Pressable>
+              {recentsCleared ? (
+                <View style={styles.forgetRow}>
+                  <MaterialCommunityIcons name="check-circle" size={19} color={theme.open} />
+                  <Text style={[styles.clearText, { color: theme.open }]}>
+                    {s.recentsForgotten}
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  style={styles.forgetRow}
+                  onPress={() =>
+                    void clearRecents().then(() => {
+                      onRecentsCleared();
+                      setRecentsCleared(true);
+                    })
+                  }
+                >
+                  <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
+                  <Text style={styles.clearText}>{s.forgetRecents}</Text>
+                </Pressable>
+              )}
             </>
           ) : null}
 

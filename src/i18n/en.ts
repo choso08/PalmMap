@@ -389,6 +389,7 @@ export const en: typeof pt = {
 
     recents: 'Recent destinations',
     forgetRecents: 'Forget recent destinations',
+    recentsForgotten: 'Recent destinations forgotten',
 
     about: 'About',
     credits: {

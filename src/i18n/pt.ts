@@ -425,6 +425,7 @@ export const pt = {
 
     recents: 'Últimos destinos',
     forgetRecents: 'Esquecer os últimos destinos',
+    recentsForgotten: 'Últimos destinos esquecidos',
 
     about: 'Acerca',
     credits: {
