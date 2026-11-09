@@ -118,15 +118,28 @@ function rasterStyle(
 
 /** The tile addresses, kept apart: the downloaded map also uses them when zoomed out. */
 const OSM_TILES = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'];
-const CARTO_TILES = [
-  'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-];
-
-/** See the note on `DARK_STYLE`: CARTO's "dark matter" needs lifting. */
-const CARTO_PAINT = { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 };
+/**
+ * The dark map is OpenStreetMap's own tiles, inverted by MapLibre.
+ *
+ * It used to be CARTO's "dark matter"; in November 2026 their tiles started
+ * coming back stamped "API KEY REQUIRED" (the author's photo, on a phone without
+ * them in cache). An API key is against the project's rules, so the dark map is
+ * now made on the phone: a brightness range given upside down
+ * (`raster-brightness-min` above `-max`) inverts the image — the white
+ * background goes dark, the black names go light — and turning the hue half a
+ * circle puts the colours back (water blue, parks green). No new service, and
+ * the same tiles as the light map, so they share the cache.
+ *
+ * The ends are not 1 and 0: pure black behind pure white names was hard on the
+ * eyes at night; these keep a dark grey background and light grey text.
+ */
+const DARK_PAINT = {
+  'raster-brightness-min': 0.92,
+  'raster-brightness-max': 0.06,
+  'raster-hue-rotate': 180,
+  'raster-saturation': -0.35,
+  'raster-contrast': 0.08,
+};
 
 /**
  * Light map: OpenStreetMap tiles.
@@ -136,27 +149,11 @@ const CARTO_PAINT = { 'raster-brightness-min': 0.08, 'raster-contrast': 0.18 };
  */
 const LIGHT_STYLE = rasterStyle(OSM_TILES, '© OpenStreetMap');
 
-/**
- * Dark map: CARTO's "dark matter" tiles, which are made from OpenStreetMap
- * data.
- *
- * OpenStreetMap has no dark version of its tiles, so another source is needed.
- * CARTO is free for non-commercial use, as long as attribution is given — and
- * the project's original brief already mentioned it as an option. Still no API
- * keys and nothing from Google.
- *
- * The four addresses are the same service: spreading the requests over several
- * subdomains lets the phone download more tiles in parallel.
- */
-// CARTO's "dark matter" is dark on purpose, but at night behind the wheel the
-// street names were barely readable. Lifting the blacks and opening up the
-// contrast makes them legible without spoiling the theme — no more than this,
-// or it stops being a dark map.
 const DARK_STYLE = rasterStyle(
-  CARTO_TILES,
-  '© OpenStreetMap © CARTO',
+  OSM_TILES,
+  '© OpenStreetMap',
   MAX_TILE_ZOOM,
-  CARTO_PAINT,
+  DARK_PAINT,
   EMPTY_DARK,
 );
 
@@ -343,10 +340,10 @@ export function mapStyleFor(
     // and what remains in view is the country again, which is the best one can
     // do without network.
     return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark, {
-      tiles: dark ? CARTO_TILES : OSM_TILES,
-      attribution: dark ? '© OpenStreetMap © CARTO' : '© OpenStreetMap',
+      tiles: OSM_TILES,
+      attribution: '© OpenStreetMap',
       maxzoom: regionMinZoom(offline.bbox),
-      ...(dark ? { paint: CARTO_PAINT } : {}),
+      ...(dark ? { paint: DARK_PAINT } : {}),
     });
   }
   return dark ? DARK_STYLE : LIGHT_STYLE;

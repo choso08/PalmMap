@@ -394,7 +394,6 @@ export const en: typeof pt = {
     about: 'About',
     credits: {
       osm: 'map data, search and tiles',
-      carto: 'map tiles in dark mode',
       overpass: 'businesses and points of interest',
       osrm: 'route calculation',
       routing: 'How routes are calculated.',

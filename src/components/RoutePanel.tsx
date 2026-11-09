@@ -27,7 +27,7 @@ const MEIOS: Record<string, string> = {
   light_rail: 'tram',
   boat: 'ferry',
 };
-import { formatDistance, formatDuration } from '../utils/format';
+import { formatDistance, formatDuration, formatDurationShort } from '../utils/format';
 
 interface RoutePanelProps {
   /**
@@ -140,14 +140,14 @@ export function RoutePanel({
       if (mode === 'transit') {
         const first = transitTrips?.[0];
         return first
-          ? formatDuration(first.reachAt - Math.max(first.leaveAt, Date.now() / 1000))
+          ? formatDurationShort(first.reachAt - Math.max(first.leaveAt, Date.now() / 1000))
           : null;
       }
-      return route ? formatDuration(eta(route.distanceMeters, route.durationSeconds)) : null;
+      return route ? formatDurationShort(eta(route.distanceMeters, route.durationSeconds)) : null;
     }
     const known = modeTimes[mode];
     return known
-      ? formatDuration(eta(known.distanceMeters, known.durationSeconds, null, mode))
+      ? formatDurationShort(eta(known.distanceMeters, known.durationSeconds, null, mode))
       : null;
   };
 
@@ -223,6 +223,8 @@ export function RoutePanel({
               <Text
                 style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
               >
                 {timeFor(modo.id) ?? strings.settings.travelModes[modo.id]}
               </Text>
@@ -689,6 +691,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       justifyContent: 'center',
       gap: 6,
       paddingVertical: 9,
+      paddingHorizontal: 6,
       borderRadius: 14,
       backgroundColor: theme.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
@@ -699,6 +702,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderColor: theme.accent,
     },
     modoTexto: {
+      flexShrink: 1,
       fontSize: 13,
       fontWeight: '600',
       color: theme.textMuted,

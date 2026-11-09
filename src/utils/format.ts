@@ -77,6 +77,19 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
+ * A duration for a narrow button: from ten hours up, whole hours only.
+ *
+ * "46 h 52 min" did not fit the travel-mode buttons (a long walk); at that
+ * scale the minutes say nothing anyway.
+ */
+export function formatDurationShort(seconds: number): string {
+  if (seconds < 10 * 3600) {
+    return formatDuration(seconds);
+  }
+  return `${Math.round(seconds / 3600)} ${t().units.hours}`;
+}
+
+/**
  * Area as text: 340 m², 1.2 ha, 4.5 km².
  *
  * The hectare sits in the middle on purpose: it is the unit land is talked

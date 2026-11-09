@@ -112,7 +112,7 @@ orthophotos, which see at under a metre.
 | --- | --- |
 | Base | React Native 0.86 + Expo SDK 57, in TypeScript |
 | Map | [MapLibre](https://maplibre.org/) — free, with no tie to Google |
-| Map tiles | [OpenStreetMap](https://www.openstreetmap.org/), [CARTO](https://carto.com/) in the dark theme, business pins from [OpenFreeMap](https://openfreemap.org/) |
+| Map tiles | [OpenStreetMap](https://www.openstreetmap.org/) (inverted on the phone for the dark theme), business pins from [OpenFreeMap](https://openfreemap.org/) |
 | Satellite | [EOX Sentinel-2 cloudless](https://s2maps.eu/), and the [DGT orthophotos](https://www.dgterritorio.gov.pt/) in Portugal |
 | Transport map | [ÖPNVKarte](https://www.öpnvkarte.de/), from memomaps.de |
 | Search | [Nominatim](https://nominatim.org/), with [Photon](https://photon.komoot.io/) as a fallback |

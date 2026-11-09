@@ -179,7 +179,7 @@ export function SettingsSheet({
       feedback: has(s.feedback, s.feedbackPlaceholder),
       recents: has(s.recents, s.forgetRecents),
       updates: has(s.updates),
-      about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'CARTO', 'Overpass'),
+      about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'Overpass'),
     };
     return {
       ...result,
@@ -656,14 +656,6 @@ export function SettingsSheet({
               >
                 <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
                 <Text style={styles.creditRole}>{s.credits.osrm}</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.creditRow}
-                onPress={() => void Linking.openURL('https://carto.com/attribution')}
-              >
-                <Text style={styles.creditName}>CARTO</Text>
-                <Text style={styles.creditRole}>{s.credits.carto}</Text>
               </Pressable>
 
               <View style={styles.creditRow}>

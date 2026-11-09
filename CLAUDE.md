@@ -67,6 +67,9 @@ environment cannot reach.
   the icon only (a bolt, `ev-station`). Schools and universities got a mortarboard instead
   of the camera.
 - **The map type is now remembered**, at the author's request, with no brake on live buses.
+- **Dark map without CARTO**: their tiles now say "API KEY REQUIRED"; dark is OSM's tiles
+  inverted on the phone (`DARK_PAINT`). **Travel-mode buttons** use `formatDurationShort`
+  (whole hours from 10 h) and shrink the text, so a long walk fits.
 - **Directions screen** (button next to the search): any origin and destination, swap, travel
   mode. Navigation always starts from the GPS.
 - **Satellite:** Sentinel-2 moved to 2025. The DGT orthophotos stay at 2023 — nothing newer is
@@ -1210,7 +1213,7 @@ Nothing leaves the phone.
 usage policy: "download this city for offline use" features rely on fetching tiles ahead, which
 counts as bulk downloading. Offenders are blocked without warning.
 
-So **`OfflineManager.createPack()` is not used** with OpenStreetMap or CARTO tiles. Not a
+So **`OfflineManager.createPack()` is not used** with OpenStreetMap tiles. Not a
 technical limit — a rule this project respects. The distinction to keep whenever touching
 this:
 
@@ -1560,8 +1563,11 @@ navigation bar. The elements on top of the map move away.
 - Styles are a function of the theme: `makeStyles(theme)` at the end of the file, with `useMemo`.
 - `app.json` has `userInterfaceStyle: "automatic"`; without `expo-system-ui` it does not work
   on Android.
-- The map changes too: OpenStreetMap tiles in light, CARTO in dark (OSM has no dark tiles;
-  CARTO is free for non-commercial use with attribution, no keys).
+- The map changes too: in dark, **the same OpenStreetMap tiles, inverted by MapLibre**
+  (`DARK_PAINT`, in `tiles.ts`: `raster-brightness-min` above `-max` inverts, `raster-hue-rotate`
+  180 puts the colours back). It was CARTO's "dark matter" until November 2026, when their
+  tiles started coming back stamped **"API KEY REQUIRED"** — seen on a phone without them in
+  cache, invisible on one with. No new service, and light and dark share the cache.
 
 ### 13. App state
 

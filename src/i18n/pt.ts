@@ -430,7 +430,6 @@ export const pt = {
     about: 'Acerca',
     credits: {
       osm: 'dados do mapa, pesquisa e tiles',
-      carto: 'tiles do mapa em modo escuro',
       overpass: 'negócios e pontos de interesse',
       osrm: 'cálculo dos percursos',
       routing: 'Como se calculam os percursos.',
