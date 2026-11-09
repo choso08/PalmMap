@@ -507,6 +507,36 @@ def bike_way():
             break
 
 
+def valhalla_bike():
+    """FOSSGIS Valhalla bicycle types on the Trafaria route (Rua 28 de Setembro?)."""
+    import urllib.parse
+    start = {"lat": 38.6655, "lon": -9.1985}   # east of Trafaria, on EN 377-1
+    end = {"lat": 38.6690, "lon": -9.2620}     # Rua do Parque, Cova do Vapor
+    for btype, bad in (("Road", 1.0), ("Hybrid", 0.25), ("Mountain", 0.0)):
+        body = {
+            "locations": [start, end],
+            "costing": "bicycle",
+            "costing_options": {"bicycle": {"bicycle_type": btype, "avoid_bad_surfaces": bad}},
+            "language": "pt-PT",
+            "units": "kilometers",
+            "alternates": 1,
+        }
+        url = "https://valhalla1.openstreetmap.de/route?json=" + urllib.parse.quote(json.dumps(body))
+        status, ctype, raw = get(url, timeout=60)
+        section(f"{btype} (avoid_bad_surfaces={bad}): {status} {ctype}")
+        if status != 200:
+            print(raw[:400])
+            continue
+        data = json.loads(raw)
+        trip = data["trip"]
+        print("summary", trip["summary"]["length"], "km", round(trip["summary"]["time"] / 60), "min")
+        for m in trip["legs"][0]["maneuvers"]:
+            print(" ", m.get("type"), m.get("length"), m.get("street_names"), "|", m.get("instruction"))
+        print("keys of a maneuver:", sorted(trip["legs"][0]["maneuvers"][0].keys()))
+        print("alternates:", len(data.get("alternates", [])))
+        time.sleep(1.5)
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
