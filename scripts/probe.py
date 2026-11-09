@@ -165,6 +165,21 @@ def mts_form():
         print("ajax:", m)
 
 
+def mts_js():
+    section("MTS main.js (timetable calls)")
+    import re
+    status, _, body = get("https://www.mts.pt/wp-content/themes/mts/js/main.js?ver=20261025", 40)
+    js = body.decode("utf-8", "replace")
+    print("status", status, len(js), "chars")
+    for kw in ("ajax", "url", "line", "stations", "season", "day_type", "timetable", "horario", "fetch(", "$.get", "$.post", "action"):
+        for m in re.finditer(re.escape(kw), js):
+            a = max(0, m.start() - 300)
+            print(f"\n[{kw}@{m.start()}]", re.sub(r"\s+", " ", js[a:m.start() + 500]))
+            break
+    i = js.find("searchForm")
+    print("\nAROUND searchForm:", js[max(0, i - 2000): i + 6000] if i >= 0 else "not found")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
