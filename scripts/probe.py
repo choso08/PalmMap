@@ -275,6 +275,19 @@ def mts_api():
         print("search POST failed", e)
 
 
+def openfreemap():
+    section("OPENFREEMAP")
+    st, ct, b = get("https://tiles.openfreemap.org/planet")
+    print("tilejson", st, ct)
+    if st == 200:
+        tj = json.loads(b)
+        print("tiles:", tj.get("tiles"), "minzoom", tj.get("minzoom"), "maxzoom", tj.get("maxzoom"))
+        for layer in tj.get("vector_layers", []):
+            if layer.get("id") in ("poi", "building"):
+                print(layer.get("id"), layer.get("minzoom"), layer.get("maxzoom"), json.dumps(layer.get("fields"))[:1500])
+        print("attribution:", tj.get("attribution"))
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
