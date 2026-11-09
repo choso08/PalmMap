@@ -750,6 +750,7 @@ export function MapView({
           {heading !== null && !following ? (
             <Layer
               type="symbol"
+              key="user-heading-cone"
               id="user-heading-cone"
               source="mlrn-user-location"
               layout={{
@@ -764,6 +765,7 @@ export function MapView({
           ) : null}
           <Layer
             type="circle"
+            key="user-dot-white"
             id="user-dot-white"
             source="mlrn-user-location"
             paint={{
@@ -774,6 +776,7 @@ export function MapView({
           />
           <Layer
             type="circle"
+            key="user-dot-blue"
             id="user-dot-blue"
             source="mlrn-user-location"
             paint={{
@@ -811,6 +814,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="route-gap-line"
             id="route-gap-line"
             type="line"
             layout={{ 'line-cap': 'round' }}
@@ -854,6 +858,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="medida-area-fill"
             id="medida-area-fill"
             type="fill"
             paint={{ 'fill-color': theme.accent, 'fill-opacity': 0.15 }}
@@ -871,6 +876,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="medida-linha-line"
             id="medida-linha-line"
             type="line"
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -905,6 +911,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="medida-troços-label"
             id="medida-troços-label"
             type="symbol"
             layout={{
@@ -935,6 +942,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="medida-pontos-circle"
             id="medida-pontos-circle"
             type="circle"
             paint={{
@@ -972,6 +980,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="estacoes-circle"
             id="estacoes-circle"
             type="circle"
             paint={{
@@ -983,6 +992,7 @@ export function MapView({
           />
           {labelsReady ? (
             <Layer
+              key="estacoes-label"
               id="estacoes-label"
               type="symbol"
               minzoom={12}
@@ -1045,6 +1055,7 @@ export function MapView({
             street. The open stop gets a ring under it and a bigger symbol.
           */}
           <Layer
+            key="paragens-aberta"
             id="paragens-aberta"
             type="circle"
             filter={['==', ['get', 'aberta'], 1]}
@@ -1057,6 +1068,7 @@ export function MapView({
             }}
           />
           <Layer
+            key="paragens-icon"
             id="paragens-icon"
             type="symbol"
             layout={{
@@ -1080,6 +1092,7 @@ export function MapView({
           {labelsReady ? (
             <>
               <Layer
+                key="paragens-label"
                 id="paragens-label"
                 type="symbol"
                 minzoom={17}
@@ -1101,6 +1114,7 @@ export function MapView({
                 }}
               />
               <Layer
+                key="paragens-label-aberta"
                 id="paragens-label-aberta"
                 type="symbol"
                 filter={['==', ['get', 'aberta'], 1]}
@@ -1159,6 +1173,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="autocarros-circle"
             id="autocarros-circle"
             type="circle"
             paint={{
@@ -1171,6 +1186,7 @@ export function MapView({
           />
           {labelsReady ? (
             <Layer
+              key="autocarros-label"
               id="autocarros-label"
               type="symbol"
               layout={{
@@ -1208,6 +1224,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="cameras-circle"
             id="cameras-circle"
             type="circle"
             paint={{
@@ -1219,6 +1236,7 @@ export function MapView({
           />
           {labelsReady ? (
             <Layer
+              key="cameras-label"
               id="cameras-label"
               type="symbol"
               minzoom={13}
@@ -1347,6 +1365,7 @@ export function MapView({
             }}
           >
             <Layer
+              key={`rota-alternativa-${i}-line`}
               id={`rota-alternativa-${i}-line`}
               type="line"
               layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -1381,6 +1400,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="route-done-line"
             id="route-done-line"
             type="line"
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -1404,6 +1424,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="route-line"
             id="route-line"
             type="line"
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
@@ -1428,6 +1449,7 @@ export function MapView({
           }}
         >
           <Layer
+            key="paragens-percurso-circle"
             id="paragens-percurso-circle"
             type="circle"
             paint={{
@@ -1439,6 +1461,7 @@ export function MapView({
           />
           {labelsReady ? (
             <Layer
+              key="paragens-percurso-label"
               id="paragens-percurso-label"
               type="symbol"
               layout={{

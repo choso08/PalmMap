@@ -1869,6 +1869,12 @@ Mistakes already made in this project, so they are not repeated.
   records were such twins, and the map showed "Parque da Biblioteca" twice. `build-pois.py`
   now drops the way when its area exists, and `localPlacesInBounds` keeps one of the same name
   and kind within `SAME_PLACE_M` (150 m) for files already on phones.
+- **Every `<Layer>` inside a source carries `key` equal to its `id`.** MapLibre RN's sources
+  drop `null` children (`filter(child => !!child)`) before `Children.map`, so a conditional
+  layer that disappears shifts the next ones up a slot; React then reuses the element with
+  another `id`, and `useFrozenId` throws "`id` cannot be changed" — a red screen. It happened
+  with the compass cone (it hides while following) moving the blue dot onto its slot. A key
+  keeps each layer its own element.
 - **An identifier can arrive in a different unit after the provider changes.** TML sends
   `timestamp` in milliseconds where Carris sent seconds; every bus was "from the future".
 
