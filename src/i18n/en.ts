@@ -284,7 +284,6 @@ export const en: typeof pt = {
     downloadingUpdate: 'Downloading…',
     installUpdate: 'Install now',
     updateReady: 'Downloaded. Ready to install.',
-    updateManualNote: 'The final "Install" tap is yours — Android lets no app install itself silently.',
     whatsNew: "What's changed",
     moreChanges: (n: number) => (n === 1 ? 'And one more change' : `And ${n} more changes`),
 

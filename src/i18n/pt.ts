@@ -318,7 +318,6 @@ export const pt = {
     downloadingUpdate: 'A descarregar…',
     installUpdate: 'Instalar agora',
     updateReady: 'Descarregada. Falta instalar.',
-    updateManualNote: 'O "Instalar" final é seu — o Android não deixa nenhuma aplicação instalar-se em silêncio.',
     whatsNew: 'O que mudou',
     moreChanges: (n: number) => (n === 1 ? 'E mais uma mudança' : `E mais ${n} mudanças`),
 

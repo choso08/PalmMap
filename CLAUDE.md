@@ -1217,10 +1217,9 @@ mapas.
 instalar-se a si própria em silêncio — isso exige ser a aplicação dona do aparelho, coisa de
 telemóveis geridos por empresas. O que se faz é tudo o que dá: procurar, descarregar e abrir
 o instalador com o ficheiro já na mão. **Quem carrega em "Instalar" é a pessoa**, e na
-primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. Está
-escrito no ecrã das atualizações, nas definições, e deve continuar lá. **No aviso que salta ao
-abrir já não está**, a pedido do autor (novembro de 2026): o aviso fica com a versão, as mudanças
-e os dois botões.
+primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. **Já não está
+escrito no ecrã**, nem no aviso ao abrir nem nas definições: o autor tirou-o (novembro de 2026)
+por estar subentendido — é o próprio Android que mostra o botão "Instalar".
 
 **Ao abrir a aplicação, atualiza-se sozinha até onde o Android deixa.** Foi pedido pelo
 autor, e a sequência é esta: procura ao arrancar, e se houver versão nova **e se estiver em
@@ -1309,11 +1308,11 @@ Regras práticas:
 - **Uma linha por opção**, e só quando o nome da opção não chega. Vários `…Hint` foram
   apagados por dizerem o que o próprio botão já dizia — "no modo automático segue o
   telemóvel", com um botão escrito "Automático" mesmo ao lado.
-- **O que não se corta são os cinco avisos que impedem uma expectativa errada**, e esses
+- **O que não se corta são os quatro avisos que impedem uma expectativa errada**, e esses
   estão assinalados ao longo deste ficheiro com um "deve continuar lá": os radares são uma
   ajuda e não uma garantia; o velocímetro do carro é o que manda; o preço das portagens não
-  existe em fonte aberta; os autocarros ao vivo gastam 1,1 MB de vinte em vinte segundos; o
-  "Instalar" final é da pessoa. Encurtaram-se todos para uma linha — **a exigência é que a
+  existe em fonte aberta; os autocarros ao vivo gastam 1,1 MB de vinte em vinte segundos. (Eram
+  cinco: o do "Instalar" final ser da pessoa saiu a pedido do autor.) Encurtaram-se todos para uma linha — **a exigência é que a
   informação esteja lá, não que tenha três frases**.
 - Ao acrescentar texto novo, medir: `Object.values(pt.settings).filter(v => typeof v ===
   'string').join(' ').length`. Se voltar a passar dos três mil, é sinal de que alguma

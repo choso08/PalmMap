@@ -163,7 +163,6 @@ export function Updates({ found, onFound }: UpdatesProps) {
         <Text style={styles.upToDate}>{strings.settings.upToDate}</Text>
       ) : null}
 
-      <Text style={styles.note}>{strings.settings.updateManualNote}</Text>
     </View>
   );
 }
@@ -275,12 +274,6 @@ function makeStyles(theme: Theme) {
       fontSize: 12,
       color: theme.danger,
       marginBottom: 8,
-    },
-    note: {
-      fontSize: 11,
-      lineHeight: 16,
-      color: theme.textMuted,
-      marginTop: 12,
     },
   });
 }
