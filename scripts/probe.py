@@ -294,8 +294,8 @@ def osrm():
     base = "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
     # Almada (Lazarim) -> Lisboa (Marquês), over the 25 de Abril bridge and the A2.
     path = "-9.2017,38.6480;-9.1500,38.7253"
-    for extra in ("annotations=maxspeed", ""):
-        url = f"{base}{path}?overview=full&geometries=geojson&steps=true&alternatives=3&{extra}"
+    for extra in ("annotations=maxspeed", "annotations=speed", ""):
+        url = f"{base}{path}?overview=full&geometries=geojson&steps=true&alternatives=3" + (f"&{extra}" if extra else "")
         status, _, body = get(url)
         data = json.loads(body)
         print("params:", extra or "(none)", "status", status, "code", data.get("code"), data.get("message"))

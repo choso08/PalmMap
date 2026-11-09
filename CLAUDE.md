@@ -734,6 +734,18 @@ O painel do percurso (`RoutePanel.tsx`):
   sítio onde estava o botão do GPS, que a navegar já não aparece (`navCameraFree`, no `App.tsx`;
   quem avisa da queda é o `onTrackUserLocationChange`, como fora da navegação).
 
+- **Faixas de rodagem**, como no Maps e no Waze: as setas de cada faixa por baixo da manobra,
+  com as que servem o percurso acesas, a partir de `LANES_SHOW_METERS` (1,5 km) da manobra.
+  Vêm de graça na resposta do OSRM (`intersections[0].lanes` de cada passo, do `turn:lanes`
+  do OpenStreetMap) — sem pedido nenhum a mais. Onde o OpenStreetMap não as tem, não aparecem.
+- **O lado do destino** já vinha da manobra de chegada ("Chegou ao destino, à sua direita").
+
+**O que não se pode imitar do Waze: o trânsito ao vivo e os avisos das pessoas** (acidentes,
+polícia, obras). Os dois vêm de milhões de telemóveis a mandar dados para um servidor da
+empresa; não há fonte aberta disso em Portugal, e um projeto pessoal sem servidor não tem a
+quem os mandar. Do Waze fica o que os dados abertos dão: radares (6-C), o limite da estrada e
+o aviso ao passá-lo.
+
 **Ainda não visto no telemóvel.**
 
 ### 6-A. Transportes públicos
@@ -1272,10 +1284,16 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   mais um minuto e meio a ler depressa depois de estacionar, que não se nota na bateria; a
   pé ou parado volta tudo ao ritmo lento, e é isso que impede isto de custar bateria a quem
   não conduz.
-- **Fica vermelho quando se passa o limite, mas só junto a um radar.** O limite conhecido é
-  o que está marcado no radar que vem à frente; a aplicação **não sabe** o limite da estrada
-  onde vai em cada momento. Pintar o número por um limite adivinhado era prometer o que não
-  se tem. Fora do alcance de um radar, o velocímetro é só um número.
+- **Fica vermelho quando se passa o limite** — o do radar quando há um perto (é esse que
+  multa), senão **o da estrada**, que agora se sabe: o percurso de carro pede ao OSRM
+  `annotations=maxspeed`, o `maxspeed` do OpenStreetMap troço a troço (`Route.maxspeeds`, em
+  km/h; as milhas convertem-se). Ao lado do velocímetro aparece o **sinal do limite**, como no
+  Waze, e a voz diz "Limite de velocidade: 50" **uma vez** ao passar, e não outra vez durante
+  `LIMIT_WARNING_EVERY_MS` (um minuto) — um aviso que se repete a cada segundo desliga-se na
+  primeira viagem. Definição própria (`speedLimitAlerts`). Onde o OpenStreetMap não tem o
+  limite marcado, não há sinal e o velocímetro é só um número: pintá-lo por um limite
+  adivinhado era prometer o que não se tem. **Se o servidor não souber dar os limites**, o
+  pedido repete-se sem eles (antes da repetição sem portagens): o percurso conta mais.
 - A margem de `SPEED_OVER_LIMIT_KMH` (5 km/h) não é permissividade: é a incerteza do
   próprio GPS. Sem ela, o aviso acendia-se sozinho a velocidade constante — e um aviso que
   acende sem razão deixa de ser lido, que é a mesma lição do corredor dos radares.
