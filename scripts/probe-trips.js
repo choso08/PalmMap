@@ -1,16 +1,16 @@
-// Corre o planeamento de trajetos da aplicação (`planBusTrips`, em
-// src/services/transit.ts) contra a API verdadeira da Carris Metropolitana.
+// Runs the app's trip planning (`planBusTrips`, in src/services/transit.ts)
+// against the real Carris Metropolitana API.
 //
-// Existe porque o ambiente onde o código é escrito não chega à API, e as
-// simulações com dados inventados deixaram passar o que só os dados reais
-// mostram. Corre no workflow dos horários, modo `trajetos`: o código é
-// compilado para JavaScript e este ficheiro chama-o com pares de sítios reais.
+// It exists because the environment where the code is written cannot reach the
+// API, and simulations with made-up data let through what only real data shows.
+// It runs in the timetables workflow, mode `trajetos`: the code is compiled to
+// JavaScript and this file calls it with pairs of real places.
 const Module = require('module');
 const path = require('path');
 
 const original = Module._load;
 Module._load = function (pedido, ...resto) {
-  // O único módulo do Expo no caminho: a língua do telemóvel.
+  // The only Expo module in the way: the phone's language.
   if (pedido === 'expo-localization') {
     return { getLocales: () => [{ languageCode: 'pt', languageTag: 'pt-PT' }] };
   }
@@ -37,14 +37,14 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
     console.log(`\n=== ${nome} ===`);
     try {
       const perto = await transit.nearbyStops(origem, 3);
-      console.log('  paragens perto da origem:', (perto || []).map((p) => `${p.id} ${p.name} (${Math.round(p.meters)} m)`).join(' | '));
+      console.log('  stops near the origin:', (perto || []).map((p) => `${p.id} ${p.name} (${Math.round(p.meters)} m)`).join(' | '));
       if (perto && perto[0]) {
         const horas = await transit.arrivalsAt(perto[0].id);
-        console.log(`  próximas em ${perto[0].id}:`, horas.map((h) => `${h.line}@${h.time}${h.live ? '*' : ''}`).join(' '));
+        console.log(`  next at ${perto[0].id}:`, horas.map((h) => `${h.line}@${h.time}${h.live ? '*' : ''}`).join(' '));
       }
       const t0 = Date.now();
       const trajetos = await transit.planBusTrips(origem, destino);
-      console.log(`  planBusTrips (${Date.now() - t0} ms):`, trajetos === null ? 'null (sem paragens)' : `${trajetos.length} trajetos`);
+      console.log(`  planBusTrips (${Date.now() - t0} ms):`, trajetos === null ? 'null (no stops)' : `${trajetos.length} trips`);
       for (const t of trajetos || []) {
         console.log(`    ${t.line} ${t.headsign}: ${t.from.name} ${hora(t.departsAt)} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} paragens${t.live ? ', tempo real' : ''})`);
       }
@@ -54,10 +54,10 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
   }
 })();
 
-// Diagnóstico: porque é que as viagens de um padrão não emparelham entre uma
-// paragem de partida e uma de chegada. Mostra, para cada padrão comum às duas,
-// quantas passagens há em cada ponta, as stop_sequence e a primeira e a última
-// hora — que é o que o emparelhamento pela ordem precisa que bata.
+// Diagnosis: why a pattern's trips do not match between a departure stop and
+// an arrival stop. For each pattern common to both it shows how many arrivals
+// each end has, the stop_sequence values and the first and last times — which
+// is what matching by order needs to agree.
 async function diagnostico() {
   const axios = require('axios');
   const get = async (id) => {
@@ -74,7 +74,7 @@ async function diagnostico() {
     ['Seixal → Barreiro', [38.6406, -9.1015], [38.6630, -9.0726]],
   ];
   for (const [nome, [la, lo], [lb, lob]] of pares) {
-    console.log(`\n### Diagnóstico ${nome}`);
+    console.log(`\n### Diagnosis ${nome}`);
     const saidas = (await transit.nearbyStops({ latitude: la, longitude: lo }, 3)) || [];
     const chegadas = (await transit.nearbyStops({ latitude: lb, longitude: lob }, 3)) || [];
     const porParagem = new Map();
@@ -98,7 +98,7 @@ async function diagnostico() {
         }
       }
     }
-    console.log(`  padrões comuns a uma partida e uma chegada: ${comuns}`);
+    console.log(`  patterns common to a departure and an arrival: ${comuns}`);
     const a = porParagem.get(saidas[0] && saidas[0].id) || [];
     if (a[0]) console.log('  exemplo de passagem:', JSON.stringify(a.find((p) => p.trip_id) || a[0]));
   }

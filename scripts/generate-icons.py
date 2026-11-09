@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Gera os ícones do PalmMap para a pasta assets/.
+Draws PalmMap's icons into the assets/ folder.
 
-O logo é uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia
-com duas ondas por baixo, sobre fundo branco. Foi um pin de mapa com a palmeira
-lá dentro até novembro de 2026; parecia o do Google Maps, e o autor pediu outro.
-O `pin_layer` fica no ficheiro, sem uso, caso se queira voltar a ele.
+The logo is a palm tree — brown trunk, green leaves — on a small sandy island
+sitting in the sea, on a white background. It was a map pin with the palm inside
+until November 2026; it looked like Google Maps', and the author asked for
+another. `pin_layer` stays in the file, unused, in case anyone wants it back.
 
-Correr a partir da raiz do projeto:
+Run from the project root:
 
     pip install Pillow
     python3 scripts/generate-icons.py
 
-Desenha-se tudo a 4x e reduz-se no fim, que é a forma simples de obter
-contornos suaves sem depender de nada mais.
+Everything is drawn at 4x and scaled down at the end, the simple way to get
+smooth edges without depending on anything else.
 """
 
 from PIL import Image, ImageDraw
@@ -21,8 +21,8 @@ from PIL import Image, ImageDraw
 SCALE = 4
 SIZE = 1024
 
-# Fundo branco, com um degradê quase invisível para não parecer um buraco no
-# ecrã do telemóvel.
+# White background, with an almost invisible gradient so it does not look like
+# a hole in the phone screen.
 BG_TOP = (255, 255, 255)
 BG_BOTTOM = (241, 244, 238)
 PIN = (46, 125, 50, 255)
@@ -33,7 +33,7 @@ TRANSPARENT = (0, 0, 0, 0)
 
 
 def gradient_background(size: int) -> Image.Image:
-    """Fundo branco, com um degradê muito suave de cima para baixo."""
+    """White background, with a very soft top-to-bottom gradient."""
     image = Image.new("RGB", (1, size))
     pixels = image.load()
     for y in range(size):
@@ -45,7 +45,7 @@ def gradient_background(size: int) -> Image.Image:
 
 
 def rounded_mask(size: int, radius_ratio: float = 0.22) -> Image.Image:
-    """Máscara de quadrado com cantos redondos, ao estilo dos ícones Android."""
+    """Rounded-square mask, in the style of Android icons."""
     mask = Image.new("L", (size, size), 0)
     draw = ImageDraw.Draw(mask)
     draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * radius_ratio), fill=255)
@@ -54,12 +54,12 @@ def rounded_mask(size: int, radius_ratio: float = 0.22) -> Image.Image:
 
 def frond(length: int, droop: float, color) -> Image.Image:
     """
-    Uma folha de palmeira, curvada para baixo na ponta.
+    A palm leaf, curving down at the tip.
 
-    Desenha-se numa tela quadrada com a base no centro, apontada para a direita.
-    Assim pode rodar-se à volta do centro sem a base sair do sítio.
+    Drawn on a square canvas with its base at the centre, pointing right. That
+    way it can rotate around the centre without the base moving.
     """
-    # Com folga: a folha ocupa até à borda e, rodada, a ponta ficava cortada.
+    # With room to spare: the leaf reaches the edge and, rotated, the tip got cut.
     canvas = int(length * 2.6)
     image = Image.new("RGBA", (canvas, canvas), TRANSPARENT)
     draw = ImageDraw.Draw(image)
@@ -70,12 +70,12 @@ def frond(length: int, droop: float, color) -> Image.Image:
 
     for i in range(steps + 1):
         t = i / steps
-        # Espinha da folha: segue para a direita e vai caindo.
+        # The leaf's spine: goes right and droops.
         x = t * length
         y = droop * length * t * t
-        # Largura: estreita na base, mais cheia a meio, afilada na ponta.
+        # Width: narrow at the base, fuller in the middle, pointed at the tip.
         w = length * 0.27 * (t**0.40) * (1 - t) ** 0.50
-        # Inclinação da espinha, para a largura ficar perpendicular a ela.
+        # The spine's slope, so the width stays perpendicular to it.
         slope = 2 * droop * length * t / max(length, 1)
         norm = (1 + slope * slope) ** 0.5
         nx, ny = -slope / norm, 1 / norm
@@ -90,16 +90,16 @@ def draw_palm(
     base: Image.Image, cx: int, cy: int, size: int, color, trunk_color=None, detail=None
 ) -> None:
     """
-    Desenha uma palmeira centrada no ponto dado.
+    Draws a palm tree centred on the given point.
 
-    `detail` (para o logo grande) é um dicionário com `leaf_dark`, `trunk_dark` e
-    `coconut`: folhas de trás num verde mais escuro, anéis no tronco e cocos
-    debaixo da copa. Dão volume sem acrescentar formas novas.
+    `detail` (for the big logo) is a dict with `leaf_dark`, `trunk_dark` and
+    `coconut`: back leaves in a darker green, rings on the trunk and coconuts
+    under the crown. They add volume without adding new shapes.
     """
     draw = ImageDraw.Draw(base)
 
-    # Tronco: sobe a partir de baixo, curvando ligeiramente para a direita e
-    # afinando à medida que sobe.
+    # Trunk: rises from the bottom, curving slightly right and thinning as it
+    # goes up.
     trunk_bottom = cy + size * 0.66
     trunk_top = cy - size * 0.12
     steps = 40
@@ -110,7 +110,7 @@ def draw_palm(
         r = size * 0.085 * (1 - 0.4 * t)
         draw.ellipse([x - r, y - r, x + r, y + r], fill=trunk_color or color)
 
-    # Anéis do tronco: pequenos arcos mais escuros, de espaço a espaço.
+    # Trunk rings: small darker arcs, every so often.
     if detail:
         ring = max(1, int(size * 0.014))
         for i in range(5, steps - 6, 5):
@@ -124,8 +124,8 @@ def draw_palm(
     crown_y = trunk_top
     length = int(size * 0.60)
 
-    # Cinco folhas em leque por cima do tronco. As das pontas caem mais.
-    # Com pormenor, as duas folhas de trás vão primeiro e mais escuras.
+    # Five leaves fanned over the trunk. The outer ones droop more.
+    # With detail, the two back leaves go first and darker.
     leaves = [(12, 0.34), (58, 0.30), (100, 0.24), (140, 0.30), (172, 0.34)]
     if detail:
         leaves = [(78, 0.28, True), (122, 0.28, True)] + [(a, d, False) for a, d in leaves]
@@ -139,11 +139,11 @@ def draw_palm(
             (int(crown_x - leaf_image.width / 2), int(crown_y - leaf_image.height / 2)),
         )
 
-    # Fecha o ponto onde as folhas se encontram.
+    # Closes the point where the leaves meet.
     r = size * 0.10
     draw.ellipse([crown_x - r, crown_y - r, crown_x + r, crown_y + r], fill=color)
 
-    # Três cocos debaixo da copa.
+    # Three coconuts under the crown.
     if detail:
         cr = size * 0.055
         for dx, dy in ((-0.06, 0.11), (0.05, 0.12), (0.0, 0.17)):
@@ -152,7 +152,7 @@ def draw_palm(
 
 
 def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
-    """O pin de mapa, com a palmeira no buraco."""
+    """The map pin, with the palm in the hole."""
     image = Image.new("RGBA", (size, size), TRANSPARENT)
     draw = ImageDraw.Draw(image)
 
@@ -161,7 +161,7 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
     radius = size * 0.27
     tip_y = size * 0.90
 
-    # Cabeça redonda mais bico em baixo, o formato clássico de gota.
+    # Round head plus a point at the bottom, the classic drop shape.
     draw.ellipse([cx - radius, head_y - radius, cx + radius, head_y + radius], fill=color)
     draw.polygon(
         [
@@ -172,22 +172,22 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
         fill=color,
     )
 
-    # O buraco do pin, branco: a palmeira desenha-se por cima dele. Branco e não
-    # transparente, para a palmeira se ler também no ecrã de arranque escuro.
+    # The pin's hole, white: the palm is drawn over it. White and not
+    # transparent, so the palm reads on the dark splash screen too.
     hole = radius * 0.66
     draw.ellipse(
         [cx - hole, head_y - hole, cx + hole, head_y + hole],
         fill=TRANSPARENT if color[:3] == (0, 0, 0) else WHITE,
     )
 
-    # A palmeira desenha-se numa camada à parte e só depois se recorta pelo
-    # buraco, para nunca transbordar para fora do pin.
+    # The palm is drawn on a separate layer and only then clipped by the hole,
+    # so it never spills outside the pin.
     palm = Image.new("RGBA", (size, size), TRANSPARENT)
     draw_palm(palm, int(cx - hole * 0.07), int(head_y), int(hole * 1.02), leaf, trunk)
 
     mask = Image.new("L", (size, size), 0)
     ImageDraw.Draw(mask).ellipse([cx - hole, head_y - hole, cx + hole, head_y + hole], fill=255)
-    # Só o que fica dentro do buraco, desenhado por cima do branco.
+    # Only what is inside the hole, drawn over the white.
     from PIL import ImageChops
 
     palm.putalpha(ImageChops.multiply(palm.getchannel("A"), mask))
@@ -209,24 +209,24 @@ FOAM = (178, 228, 230, 255)
 
 def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None) -> Image.Image:
     """
-    O logo: uma palmeira numa ilhota de areia, com duas ondas por baixo.
+    The logo: a palm tree on a small sandy island, sitting in the sea.
 
-    **Não é um pin de mapa, de propósito.** O pin com uma coisa lá dentro
-    lia-se como o logo do Google Maps (o autor reparou); a ilha é do nome —
-    "Palm" — e da paleta "Ilha" do mapa, e não se confunde com nada.
+    **Not a map pin, on purpose.** A pin with something inside read as the
+    Google Maps logo (the author noticed); the island comes from the name —
+    "Palm" — and from the map's "Island" palette, and is mistaken for nothing.
     """
     image = Image.new("RGBA", (size, size), TRANSPARENT)
     draw = ImageDraw.Draw(image)
     cx = size / 2
     wet = wet or WET_SAND
 
-    # A ilhota: meia elipse de areia.
+    # The island: half an ellipse of sand.
     mound_w, mound_h = size * 0.56, size * 0.20
     mound_y = size * 0.79
 
-    # O mar onde a ilha assenta: uma lente de água, mais larga do que a ilha,
-    # só a metade de baixo. Substitui as filas de ondas soltas por baixo, que
-    # pareciam penduradas no vazio.
+    # The sea the island sits in: a lens of water, wider than the island, only
+    # the bottom half. It replaces the loose rows of waves underneath, which
+    # seemed to hang in the void.
     water_w, water_h = mound_w * 1.34, mound_h * 0.95
     draw.pieslice(
         [cx - water_w / 2, mound_y - water_h / 2, cx + water_w / 2, mound_y + water_h / 2],
@@ -234,9 +234,9 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
         180,
         fill=sea,
     )
-    # Primeiro a areia molhada, mais escura, onde a ilha toca na água; depois a
-    # seca por cima, um pouco mais estreita e mais alta, deixando uma faixa
-    # molhada à volta da base. É um pormenor pequeno, e é de propósito.
+    # First the wet sand, darker, where the island meets the water; then the dry
+    # sand on top, a little narrower and taller, leaving a wet band around the
+    # base. A small detail, and on purpose.
     draw.pieslice(
         [cx - mound_w / 2, mound_y - mound_h / 2, cx + mound_w / 2, mound_y + mound_h / 2],
         180,
@@ -251,15 +251,15 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
         360,
         fill=sand,
     )
-    # A faixa molhada fica sempre com a mesma espessura em baixo.
+    # The wet band always keeps the same thickness at the bottom.
     draw.rectangle([cx - dry_w / 2, mound_y - lift, cx + dry_w / 2, mound_y], fill=wet)
 
-    # As ondas a bater na areia: espuma clara em festões ao longo da base, e
-    # umas gotas a saltar nas pontas. Na versão de uma cor não vai — a espuma
-    # é feita de contraste, e a preto confundia-se com a areia.
+    # The waves lapping the sand: light foam in scallops along the base, and a
+    # few drops leaping at the ends. Not in the one-colour version — foam is
+    # made of contrast, and in black it blended with the sand.
     if sea[:3] != (0, 0, 0):
-        # A rebentação: festões de espuma ao longo da linha da água, de ponta a
-        # ponta do mar, a lamber a areia molhada.
+        # The surf: scallops of foam along the waterline, from end to end of the
+        # sea, licking the wet sand.
         foam_stroke = max(2, int(size * 0.016))
         n = 9
         span = water_w * 0.94
@@ -274,8 +274,7 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
                 fill=FOAM,
                 width=foam_stroke,
             )
-        # Uma ondulação mais clara dentro de água, que dá a ideia de a onda
-        # seguinte já vir a caminho.
+        # A lighter swell in the water, as if the next wave were on its way.
         inner = water_w * 0.62
         draw.arc(
             [cx - inner / 2, mound_y + water_h * 0.08, cx + inner / 2, mound_y + water_h * 0.40],
@@ -284,19 +283,19 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
             fill=SEA_LIGHT,
             width=max(2, int(size * 0.014)),
         )
-        # Gotas de espuma a saltar nas duas pontas da ilha.
+        # Drops of foam leaping at both ends of the island.
         r = size * 0.009
         for dx, dy in ((-0.52, -0.05), (-0.47, -0.11), (0.50, -0.07), (0.45, -0.12)):
             x = cx + mound_w * dx
             y = mound_y + mound_h * dy * 2
             draw.ellipse([x - r, y - r, x + r, y + r], fill=FOAM)
 
-    # A palmeira, com o tronco a assentar na areia.
+    # The palm, with its trunk resting on the sand.
     p = size * 0.45
-    # O tronco acaba dentro da areia, acima da linha da água.
+    # The trunk ends inside the sand, above the waterline.
     mono = leaf[:3] == (0, 0, 0)
     base_x = cx - p * 0.10
-    # A sombra da palmeira na areia, para a assentar.
+    # The palm's shadow on the sand, to ground it.
     if not mono:
         sw, sh = p * 0.42, mound_h * 0.16
         sy = mound_y - mound_h * 0.40
@@ -321,12 +320,12 @@ def save(image: Image.Image, path: str, size: int) -> None:
 def main() -> None:
     big = SIZE * SCALE
 
-    # Ícone principal: fundo branco com cantos redondos e o pin por cima.
+    # Main icon: white rounded background with the logo on top.
     background = gradient_background(big).convert("RGBA")
     background.putalpha(rounded_mask(big))
 
     pin = island_layer(big)
-    # No ícone completo o pin fica um pouco mais pequeno, para respirar.
+    # In the full icon the logo is a little smaller, to breathe.
     inset = int(big * 0.16)
     pin_small = pin.resize((big - 2 * inset, big - 2 * inset), Image.LANCZOS)
 
@@ -335,8 +334,8 @@ def main() -> None:
     save(icon, "assets/icon.png", SIZE)
     save(icon, "assets/favicon.png", 48)
 
-    # Ícone adaptativo do Android: fundo e frente em ficheiros separados.
-    # O Android corta as bordas, por isso a frente fica bem mais recolhida.
+    # Android adaptive icon: background and foreground in separate files.
+    # Android crops the edges, so the foreground sits well inside.
     plain = gradient_background(big).convert("RGBA")
     save(plain, "assets/android-icon-background.png", SIZE)
 
@@ -348,7 +347,7 @@ def main() -> None:
     )
     save(foreground, "assets/android-icon-foreground.png", SIZE)
 
-    # Versão monocromática: o Android pinta-a com a cor do tema do telemóvel.
+    # Monochrome version: Android paints it in the phone's theme colour.
     mono = Image.new("RGBA", (big, big), TRANSPARENT)
     mono.alpha_composite(
         island_layer(big, *([(0, 0, 0, 255)] * 5)).resize(
@@ -358,7 +357,7 @@ def main() -> None:
     )
     save(mono, "assets/android-icon-monochrome.png", SIZE)
 
-    # Imagem do ecrã de arranque: só o pin, sem fundo.
+    # Splash screen image: just the logo, no background.
     splash = Image.new("RGBA", (big, big), TRANSPARENT)
     splash.alpha_composite(pin_small, (inset, inset))
     save(splash, "assets/splash-icon.png", SIZE)
