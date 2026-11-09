@@ -259,6 +259,7 @@ export const en: typeof pt = {
   settings: {
     title: 'Settings',
 
+    installUnfinished: 'The install did not finish',
     updateTitle: 'A new version is out',
     updateNow: 'Update now',
     updateLater: 'Not now',

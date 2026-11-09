@@ -30,6 +30,12 @@ interface UpdateSplashProps {
   autoDownload: boolean;
   /** Adiar: fecha e não volta a aparecer para esta versão. */
   onDismiss: () => void;
+  /**
+   * The installer was opened for this version and it is still not the one
+   * running: the install did not finish. The APK is usually still in the
+   * cache, so the button goes straight to the installer.
+   */
+  unfinished?: boolean;
 }
 
 /**
@@ -44,7 +50,7 @@ interface UpdateSplashProps {
  * instalador, sem sair da aplicação e sem ir ao GitHub. O que o Android não
  * deixa é instalar em silêncio — o último toque é sempre da pessoa.
  */
-export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProps) {
+export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false }: UpdateSplashProps) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
@@ -113,7 +119,9 @@ export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProp
             />
           </View>
 
-          <Text style={styles.title}>{strings.settings.updateTitle}</Text>
+          <Text style={styles.title}>
+            {unfinished ? strings.settings.installUnfinished : strings.settings.updateTitle}
+          </Text>
           <Text style={styles.version}>
             {info.version} · {formatBytes(info.bytes)}
           </Text>
@@ -169,7 +177,7 @@ export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProp
             <Text style={styles.primaryText}>
               {descarga.downloading
                 ? `${strings.settings.downloadingUpdate} ${Math.round((descarga.progress ?? 0) * 100)}%`
-                : descarga.ready
+                : descarga.ready || unfinished
                   ? strings.settings.installUpdate
                   : strings.settings.updateNow}
             </Text>

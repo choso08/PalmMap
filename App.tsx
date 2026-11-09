@@ -14,7 +14,13 @@ import { CategoryBar } from './src/components/CategoryBar';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { SpeedBadge } from './src/components/SpeedBadge';
 import { UpdateSplash } from './src/components/UpdateSplash';
-import { checkForUpdate, onWifi, type UpdateInfo } from './src/services/update';
+import {
+  checkForUpdate,
+  forgetInstallAttempt,
+  onWifi,
+  unfinishedInstall,
+  type UpdateInfo,
+} from './src/services/update';
 import { guarded, installCrashHandler } from './src/services/crash';
 
 /** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
@@ -184,6 +190,8 @@ function PalmMap() {
   const [updateOnWifi, setUpdateOnWifi] = useState(false);
   /** A versão que já se mandou embora. 0 quando ainda não se mandou nenhuma. */
   const [updateDismissed, setUpdateDismissed] = useState(0);
+  /** The installer was opened last time and the new version is not running. */
+  const [installUnfinished, setInstallUnfinished] = useState(false);
   /** Painel das paragens e horas de passagem. */
   const [transitVisible, setTransitVisible] = useState(false);
   /**
@@ -622,6 +630,16 @@ function PalmMap() {
     void (async () => {
       try {
         setUpdateDismissed(Number(await AsyncStorage.getItem(UPDATE_DISMISSED_KEY)) || 0);
+
+        // Uma instalação que se abriu e não terminou passa à frente de tudo,
+        // sem pedido nenhum ao GitHub: já se sabe qual é a versão e o APK
+        // costuma estar ainda na cache. Ver `unfinishedInstall`.
+        const pendente = await unfinishedInstall();
+        if (pendente) {
+          setInstallUnfinished(true);
+          setUpdateInfo(pendente);
+          return;
+        }
 
         const ultima = Number(await AsyncStorage.getItem(UPDATE_CHECK_KEY)) || 0;
         if (Date.now() - ultima < UPDATE_CHECK_INTERVAL_MS) {
@@ -2238,11 +2256,21 @@ function PalmMap() {
         e só quando aquela versão ainda não foi mandada embora.
       */}
       <UpdateSplash
-        info={updateInfo && updateInfo.build > updateDismissed ? updateInfo : null}
-        autoDownload={updateOnWifi}
+        info={
+          updateInfo && (installUnfinished || updateInfo.build > updateDismissed)
+            ? updateInfo
+            : null
+        }
+        unfinished={installUnfinished}
+        // Não se abre o instalador sozinho a quem acabou de o ver falhar.
+        autoDownload={updateOnWifi && !installUnfinished}
         onDismiss={() => {
           if (!updateInfo) {
             return;
+          }
+          if (installUnfinished) {
+            setInstallUnfinished(false);
+            void forgetInstallAttempt();
           }
           setUpdateDismissed(updateInfo.build);
           void AsyncStorage.setItem(

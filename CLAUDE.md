@@ -1221,6 +1221,15 @@ primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMa
 escrito no ecrã**, nem no aviso ao abrir nem nas definições: o autor tirou-o (novembro de 2026)
 por estar subentendido — é o próprio Android que mostra o botão "Instalar".
 
+**Uma instalação que não terminou diz-se no arranque seguinte** (`unfinishedInstall`, em
+`update.ts`). O instalador é outra aplicação e não nos conta como acabou — instalado, cancelado,
+"problema ao analisar o pacote", bloqueado pelo Play Protect. Por isso, antes de o abrir,
+guarda-se a versão que se tentou (`palmmap.instalacaoPendente`); no arranque compara-se com a que
+está a correr. Igual ou maior: correu bem e a nota apaga-se. Menor: o aviso abre com "A
+instalação não terminou" e "Instalar agora", **sem descarregar outra vez** — o `downloadUpdate`
+devolve o APK que ainda estiver na cache. Não arranca sozinho, nem em Wi-Fi: abrir o instalador
+a quem acabou de o ver falhar era insistir. "Agora não" esquece a tentativa.
+
 **Ao abrir a aplicação, atualiza-se sozinha até onde o Android deixa.** Foi pedido pelo
 autor, e a sequência é esta: procura ao arrancar, e se houver versão nova **e se estiver em
 Wi-Fi**, a descarga começa sem ninguém carregar em nada; quando acaba, o instalador abre-se

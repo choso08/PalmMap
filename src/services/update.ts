@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Application from 'expo-application';
 import { Directory, File, Paths } from 'expo-file-system';
 import { getContentUriAsync } from 'expo-file-system/legacy';
@@ -223,6 +224,15 @@ export async function downloadUpdate(
     FOLDER.create({ intermediates: true });
   }
 
+  // Already here from an install that did not finish: hand it over again
+  // instead of downloading forty megabytes a second time. Only a complete file
+  // ever gets the `.apk` name, so its presence is enough.
+  const existing = new File(FOLDER, `PalmMap-${info.build}.apk`);
+  if (existing.exists) {
+    onProgress?.(1);
+    return existing;
+  }
+
   // An installer from a previous version has no business taking up space here,
   // and having two APKs in the folder was an invitation to install the wrong
   // one.
@@ -270,6 +280,54 @@ export async function downloadUpdate(
 }
 
 /**
+ * The install that was attempted, kept until the new version is seen running.
+ *
+ * The installer is another app: opening it succeeds, and how it ends —
+ * installed, cancelled, "problem parsing the package", blocked by Play
+ * Protect — never comes back to us. So the attempt is written down before
+ * opening it, and the next start compares it with the installed build. Equal
+ * or higher: it worked, and the note goes. Lower: it did not finish, and the
+ * app says so with a button to try again — from the file already downloaded.
+ */
+const PENDING_INSTALL_KEY = 'palmmap.instalacaoPendente';
+
+async function markInstallAttempt(info: UpdateInfo): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PENDING_INSTALL_KEY, JSON.stringify(info));
+  } catch {
+    // Without the note the only loss is the "did not finish" notice.
+  }
+}
+
+/** Forget the attempt — it worked, or the person said "not now". */
+export async function forgetInstallAttempt(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PENDING_INSTALL_KEY);
+  } catch {
+    // Nothing to do.
+  }
+}
+
+/** The version whose install was opened and did not finish, if any. */
+export async function unfinishedInstall(): Promise<UpdateInfo | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_INSTALL_KEY);
+    if (!raw) {
+      return null;
+    }
+    const info = JSON.parse(raw) as UpdateInfo;
+    const installed = currentBuild();
+    if (!info || typeof info.build !== 'number' || installed === 0 || installed >= info.build) {
+      await forgetInstallAttempt();
+      return null;
+    }
+    return { ...info, notes: Array.isArray(info.notes) ? info.notes : [] };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Hands the APK to Android's installer.
  *
  * **It has to be a `content://` address, never `file://`.** Since Android 7,
@@ -282,7 +340,8 @@ export async function downloadUpdate(
  * `ACTION_VIEW` with the package type is used, not `INSTALL_PACKAGE`: the
  * latter has been discouraged since Android 10.
  */
-export async function installUpdate(file: File): Promise<void> {
+export async function installUpdate(file: File, info: UpdateInfo): Promise<void> {
+  await markInstallAttempt(info);
   try {
     const address = await getContentUriAsync(file.uri);
     await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {

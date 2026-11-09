@@ -30,9 +30,12 @@ export function useUpdateDownload() {
    * started with.
    */
   const gaveUp = useRef(false);
+  /** What is being installed, for the "did not finish" note. */
+  const target = useRef<UpdateInfo | null>(null);
 
   const start = useCallback(async (info: UpdateInfo) => {
     gaveUp.current = false;
+    target.current = info;
     setProgress(0);
     setError(null);
     try {
@@ -42,7 +45,7 @@ export function useUpdateDownload() {
       // want to press another button. If they close the installer without
       // installing, the button stays there to open it again.
       if (!gaveUp.current) {
-        await installUpdate(file);
+        await installUpdate(file, info);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t().common.failed);
@@ -63,12 +66,12 @@ export function useUpdateDownload() {
   }, []);
 
   const install = useCallback(async () => {
-    if (!ready) {
+    if (!ready || !target.current) {
       return;
     }
     setError(null);
     try {
-      await installUpdate(ready);
+      await installUpdate(ready, target.current);
     } catch (err) {
       setError(err instanceof Error ? err.message : t().common.failed);
     }

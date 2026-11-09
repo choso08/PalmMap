@@ -294,6 +294,7 @@ export const pt = {
     title: 'Definições',
 
     updateTitle: 'Há uma versão nova',
+    installUnfinished: 'A instalação não terminou',
     updateNow: 'Atualizar agora',
     updateLater: 'Agora não',
     updates: 'Atualizações',
