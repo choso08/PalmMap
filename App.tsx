@@ -96,7 +96,7 @@ import {
   type OfflineRegion,
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
 import { reverseGeocode } from './src/services/nominatim';
-import { RouteError, getRoutes } from './src/services/osrm';
+import { RouteError, getDuration, getRoutes } from './src/services/osrm';
 import {
   cachedInBounds,
   placeDetails,
@@ -929,6 +929,56 @@ function PalmMap() {
     // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
     // navegação, que tem o seu próprio recálculo.
   }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
+
+  /**
+   * O tempo de cada meio de transporte, para os botões do painel do percurso
+   * ("carro 12 min · a pé 45 min"), como nos mapas que toda a gente conhece.
+   *
+   * Pedem-se só os **outros** meios — o escolhido já tem o percurso inteiro —
+   * e com o pedido mais leve do OSRM (sem geometria nem manobras). Passam pela
+   * mesma fila de um pedido por segundo, e ficam guardados para a sessão: andar
+   * a trocar de meio não volta a perguntar nada. Os transportes públicos não
+   * entram — o tempo deles sai dos trajetos, quando são o meio escolhido.
+   */
+  const [modeTimes, setModeTimes] = useState<
+    Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>
+  >({});
+  // Outro destino, outra origem ou outras paragens: os tempos de antes já não servem.
+  useEffect(() => {
+    setModeTimes({});
+  }, [destination, routeOrigin, waypoints]);
+  useEffect(() => {
+    if (navigating || !destination) {
+      return;
+    }
+    const origem = routeOrigin?.coordinates ?? userLocationRef.current;
+    if (!origem) {
+      return;
+    }
+    let cancelled = false;
+    const via = waypoints.map((w) => w.coordinates);
+    for (const mode of ['driving', 'walking', 'cycling'] as const) {
+      if (mode === settings.travelMode) {
+        continue;
+      }
+      getDuration(origem, via, destination.coordinates, mode, () => !cancelled)
+        .then((result) => {
+          if (!cancelled) {
+            setModeTimes((prev) => ({ ...prev, [mode]: result }));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setModeTimes((prev) => ({ ...prev, [mode]: null }));
+          }
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // Com o meio escolhido nas dependências: ao trocar, o que se deixou passa a
+    // precisar do seu tempo. Os outros vêm da cache do serviço, sem pedido.
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode]);
 
   /**
    * Procura negócios para mostrar no mapa.
@@ -2105,6 +2155,7 @@ function PalmMap() {
                 avoidTollsWanted={settings.avoidTolls}
                 travelMode={settings.travelMode}
                 onChangeTravelMode={(mode) => update('travelMode', mode)}
+                modeTimes={modeTimes}
                 waypoints={waypoints}
                 onRemoveWaypoint={(i) =>
                   setWaypoints((atuais) => atuais.filter((_, j) => j !== i))

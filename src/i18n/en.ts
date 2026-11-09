@@ -156,11 +156,13 @@ export const en: typeof pt = {
 
   route: {
     calculating: 'Working out the route…',
-    start: 'Start navigation',
-    steps: 'See directions',
+    start: 'Start',
+    steps: 'Steps',
     duration: 'estimated time',
     distance: 'distance',
     best: 'best',
+    fastest: 'Fastest',
+    via: (roads: string) => `via ${roads}`,
     option: (n: number) => `Option ${n}`,
     startsAway: (distance: string) => `The route starts ${distance} away, on the nearest road.`,
     tollsNotAvoided: 'Tolls could not be avoided.',

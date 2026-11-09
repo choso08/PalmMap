@@ -700,6 +700,24 @@ linha de estado: um "Aberto" errado manda alguém a uma porta fechada, que é pi
 nada. Provado contra os formatos comuns com datas escolhidas a dedo (fim de semana, depois da
 meia-noite, a uma hora do fecho). **O ecrã ainda não foi visto no telemóvel.**
 
+### 6-0-B. Direções (fase 3 da imitação do Google Maps)
+
+O painel do percurso (`RoutePanel.tsx`):
+
+- **Cada botão de meio de transporte mostra o seu tempo** ("12 min", "45 min"), em vez do nome.
+  O tempo do meio escolhido sai do percurso; o dos outros de `getDuration` (`osrm.ts`), o pedido
+  mais leve do OSRM — sem geometria nem manobras — pela mesma fila de um por segundo e guardado
+  para a sessão. São dois pedidos a mais por destino; trocar de meio e voltar não pede nada. O
+  dos transportes públicos só aparece com eles escolhidos (sai do primeiro trajeto). Enquanto
+  um tempo não chega, o botão mostra o nome. `useEta` aceita agora o meio, para cada tempo levar
+  o ritmo aprendido desse meio.
+- **Os caminhos alternativos são uma lista**: tempo em grande, distância e as estradas principais
+  ("por A2, IC20", do `summary` das pernas do OSRM). O mais rápido leva "Mais rápido", seja qual
+  for a ordem do OSRM.
+- **Iniciar e Passos lado a lado**, como dois botões, em vez de um por baixo do outro.
+
+**Ainda não visto no telemóvel.**
+
 ### 6-A. Transportes públicos
 
 - A fonte é a **ÖPNVKarte**, do memomaps.de: desenha os **percursos** dos autocarros,

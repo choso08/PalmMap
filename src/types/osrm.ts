@@ -43,6 +43,11 @@ export interface OsrmStep {
 
 export interface OsrmLeg {
   steps: OsrmStep[];
+  /**
+   * The names of the main roads of the leg ("A2, IC20"), chosen by OSRM. Only
+   * filled in when `steps=true` is requested, and may be empty.
+   */
+  summary?: string;
 }
 
 export interface OsrmRoute {

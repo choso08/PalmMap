@@ -176,11 +176,13 @@ export const pt = {
 
   route: {
     calculating: 'A calcular o percurso…',
-    start: 'Iniciar navegação',
-    steps: 'Ver instruções',
+    start: 'Iniciar',
+    steps: 'Passos',
     duration: 'tempo estimado',
     distance: 'distância',
     best: 'melhor',
+    fastest: 'Mais rápido',
+    via: (roads: string) => `por ${roads}`,
     option: (n: number) => `Opção ${n}`,
     startsAway: (distance: string) => `O percurso começa a ${distance}, na estrada mais próxima.`,
     tollsNotAvoided: 'Não foi possível evitar as portagens.',

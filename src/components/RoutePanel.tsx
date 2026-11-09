@@ -43,6 +43,8 @@ interface RoutePanelProps {
   /** O meio de transporte em uso, e como o trocar. */
   travelMode: TravelMode;
   onChangeTravelMode: (mode: TravelMode) => void;
+  /** How long the other modes take, for the time on each chip. `null` = no route. */
+  modeTimes?: Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>;
   /** Where the route starts, as text ("My location" or a place's name). */
   fromLabel?: string;
   /** Opens the Directions screen to change the start or the destination. */
@@ -95,6 +97,7 @@ export function RoutePanel({
   avoidTollsWanted,
   travelMode,
   onChangeTravelMode,
+  modeTimes = {},
   fromLabel,
   onOpenDirections,
   waypoints,
@@ -112,6 +115,31 @@ export function RoutePanel({
   const eta = useEta();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
+
+  /** The time to show on a mode chip, or `null` while it is not known. */
+  const timeFor = (mode: TravelMode): string | null => {
+    if (mode === travelMode) {
+      if (mode === 'transit') {
+        const first = transitTrips?.[0];
+        return first
+          ? formatDuration(first.reachAt - Math.max(first.leaveAt, Date.now() / 1000))
+          : null;
+      }
+      return route ? formatDuration(eta(route.distanceMeters, route.durationSeconds)) : null;
+    }
+    const known = modeTimes[mode];
+    return known ? formatDuration(eta(known.distanceMeters, known.durationSeconds, null, mode)) : null;
+  };
+
+  // The fastest alternative gets the tag, whatever OSRM's order.
+  const fastest = options.reduce(
+    (best, op, i) =>
+      eta(op.distanceMeters, op.durationSeconds) <
+      eta(options[best].distanceMeters, options[best].durationSeconds)
+        ? i
+        : best,
+    0,
+  );
 
   return (
     <View style={styles.container}>
@@ -165,14 +193,18 @@ export function RoutePanel({
               key={modo.id}
               style={[styles.modo, ativo ? styles.modoAtivo : null]}
               onPress={() => onChangeTravelMode(modo.id)}
+              accessibilityLabel={strings.settings.travelModes[modo.id]}
             >
               <MaterialCommunityIcons
                 name={modo.icon as never}
                 size={17}
                 color={ativo ? theme.onAccent : theme.textMuted}
               />
-              <Text style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}>
-                {strings.settings.travelModes[modo.id]}
+              <Text
+                style={[styles.modoTexto, ativo ? styles.modoTextoAtivo : null]}
+                numberOfLines={1}
+              >
+                {timeFor(modo.id) ?? strings.settings.travelModes[modo.id]}
               </Text>
             </Pressable>
           );
@@ -291,56 +323,42 @@ export function RoutePanel({
 
       {route ? (
         <>
-          <View style={styles.metrics}>
-            <View style={styles.metric}>
-              <Text style={styles.metricValue}>{formatDuration(eta(route.distanceMeters, route.durationSeconds))}</Text>
-              <Text style={styles.metricLabel}>{strings.route.duration}</Text>
-            </View>
-            <View style={styles.separator} />
-            <View style={styles.metric}>
-              <Text style={styles.metricValue}>{formatDistance(route.distanceMeters)}</Text>
-              <Text style={styles.metricLabel}>{strings.route.distance}</Text>
-            </View>
-          </View>
-
           {/*
-            Os caminhos alternativos. O OSRM devolve dois ou três para o mesmo
-            destino; o primeiro é o que ele prefere, mas quem conduz é que sabe.
-
-            Não aparecem com paragens pelo caminho: o serviço só sabe procurar
-            alternativas entre dois pontos.
+            Os caminhos, numa lista, como nos mapas que toda a gente conhece: o
+            tempo em grande, a distância e as estradas principais por baixo. O
+            OSRM devolve dois ou três para o mesmo destino (sem paragens pelo
+            meio — com paragens só sabe um); o mais rápido leva a etiqueta, e a
+            escolha é de quem conduz.
           */}
-          {options.length > 1 ? (
-            <View style={styles.alternativas}>
-              {options.map((op, i) => {
-                const ativo = i === optionIndex;
-                return (
-                  <Pressable
-                    key={i}
-                    style={[styles.alternativa, ativo ? styles.alternativaAtiva : null]}
-                    onPress={() => onChooseOption(i)}
-                  >
-                    <Text
-                      style={[
-                        styles.alternativaTempo,
-                        ativo ? styles.alternativaTextoAtivo : null,
-                      ]}
-                    >
+          <View style={styles.caminhos}>
+            {(options.length > 0 ? options : [route]).map((op, i) => {
+              const ativo = options.length <= 1 || i === optionIndex;
+              return (
+                <Pressable
+                  key={i}
+                  style={[styles.caminho, ativo ? styles.caminhoAtivo : null]}
+                  onPress={() => onChooseOption(i)}
+                  disabled={options.length <= 1}
+                >
+                  <View style={styles.caminhoTexto}>
+                    <Text style={[styles.caminhoTempo, ativo ? styles.caminhoTempoAtivo : null]}>
                       {formatDuration(eta(op.distanceMeters, op.durationSeconds))}
                     </Text>
-                    <Text
-                      style={[
-                        styles.alternativaDistancia,
-                        ativo ? styles.alternativaTextoAtivo : null,
-                      ]}
-                    >
-                      {formatDistance(op.distanceMeters)}
+                    <Text style={styles.caminhoDetalhe} numberOfLines={1}>
+                      {[formatDistance(op.distanceMeters), op.via ? strings.route.via(op.via) : '']
+                        .filter(Boolean)
+                        .join(' · ')}
                     </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
+                  </View>
+                  {options.length > 1 && i === fastest ? (
+                    <View style={styles.melhor}>
+                      <Text style={styles.melhorTexto}>{strings.route.fastest}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
 
           {/*
             O percurso só pode começar numa estrada. Quem o pede de dentro de um
@@ -379,20 +397,18 @@ export function RoutePanel({
             </View>
           ) : null}
 
-          <Pressable style={styles.button} onPress={onStart}>
-            <MaterialCommunityIcons name="navigation-variant" size={19} color={theme.onAccent} />
-            <Text style={styles.buttonText}>{strings.route.start}</Text>
-          </Pressable>
-
-          {route.steps.length > 0 ? (
-            <Pressable style={styles.secondaryButton} onPress={onShowSteps}>
-              <MaterialCommunityIcons name="routes" size={18} color={theme.accent} />
-              <Text style={styles.secondaryText}>{strings.route.steps}</Text>
-              <View style={styles.count}>
-                <Text style={styles.countText}>{route.steps.length}</Text>
-              </View>
+          <View style={styles.botoes}>
+            <Pressable style={[styles.button, styles.buttonMain]} onPress={onStart}>
+              <MaterialCommunityIcons name="navigation-variant" size={19} color={theme.onAccent} />
+              <Text style={styles.buttonText}>{strings.route.start}</Text>
             </Pressable>
-          ) : null}
+            {route.steps.length > 0 ? (
+              <Pressable style={[styles.secondaryButton, styles.buttonSide]} onPress={onShowSteps}>
+                <MaterialCommunityIcons name="format-list-bulleted" size={18} color={theme.accent} />
+                <Text style={styles.secondaryText}>{strings.route.steps}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </>
       ) : null}
     </View>
@@ -551,36 +567,40 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       marginTop: 3,
       lineHeight: 17,
     },
-    alternativas: {
-      flexDirection: 'row',
-      gap: 8,
+    caminhos: {
       marginTop: 14,
+      gap: 8,
     },
-    alternativa: {
-      flex: 1,
+    caminho: {
+      flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 9,
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
       borderRadius: 14,
-      backgroundColor: theme.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: theme.border,
     },
-    alternativaAtiva: {
-      backgroundColor: theme.accent,
+    caminhoAtivo: {
       borderColor: theme.accent,
+      borderWidth: 2,
     },
-    alternativaTempo: {
-      fontSize: 15,
+    caminhoTexto: {
+      flex: 1,
+    },
+    caminhoTempo: {
+      fontSize: 20,
       fontWeight: '700',
       color: theme.text,
+      letterSpacing: -0.4,
     },
-    alternativaDistancia: {
-      fontSize: 11,
+    caminhoTempoAtivo: {
+      color: theme.open,
+    },
+    caminhoDetalhe: {
+      fontSize: 13,
       color: theme.textMuted,
       marginTop: 1,
-    },
-    alternativaTextoAtivo: {
-      color: theme.onAccent,
     },
     modos: {
       flexDirection: 'row',
@@ -627,37 +647,22 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       lineHeight: 17,
       color: theme.textMuted,
     },
-    metrics: {
+    botoes: {
       flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 18,
+      gap: 10,
+      marginTop: 16,
     },
-    metric: {
+    buttonMain: {
+      flex: 1.5,
+    },
+    buttonSide: {
       flex: 1,
-    },
-    separator: {
-      width: StyleSheet.hairlineWidth,
-      height: 34,
-      backgroundColor: theme.border,
-      marginHorizontal: 18,
-    },
-    metricValue: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: theme.text,
-      letterSpacing: -0.5,
-    },
-    metricLabel: {
-      fontSize: 12,
-      color: theme.textMuted,
-      marginTop: 3,
     },
     button: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      marginTop: 20,
       backgroundColor: theme.accent,
       borderRadius: 18,
       paddingVertical: 15,
@@ -672,7 +677,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      marginTop: 10,
       borderRadius: 18,
       paddingVertical: 13,
       backgroundColor: theme.surfaceMuted,
@@ -682,17 +686,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     secondaryText: {
       color: theme.accent,
       fontSize: 15,
-      fontWeight: '700',
-    },
-    count: {
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 10,
-      backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-    },
-    countText: {
-      color: theme.accent,
-      fontSize: 12,
       fontWeight: '700',
     },
     fromRow: {

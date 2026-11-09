@@ -58,6 +58,53 @@ function toRouteStep(step: OsrmStep): RouteStep {
   };
 }
 
+/** Durations already asked for, by mode and end points: the chips ask often. */
+const durationCache = new Map<string, { distanceMeters: number; durationSeconds: number }>();
+
+/**
+ * Only how long a route takes, for the time on each travel-mode chip.
+ *
+ * The lightest request OSRM has: no geometry, no steps, no alternatives. It
+ * goes through the same queue as the full route (one request a second, the
+ * servers' rule), and each answer is kept for the session — tapping between
+ * modes or reopening the same destination asks for nothing again.
+ */
+export async function getDuration(
+  from: Coordinates,
+  via: Coordinates[],
+  to: Coordinates,
+  profile: 'driving' | 'walking' | 'cycling',
+  isWanted?: () => boolean,
+): Promise<{ distanceMeters: number; durationSeconds: number }> {
+  const points = [from, ...via, to];
+  const path = points.map((p) => `${p.longitude.toFixed(5)},${p.latitude.toFixed(5)}`).join(';');
+  const key = `${profile}|${path}`;
+  const cached = durationCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  let response;
+  try {
+    response = await schedule(
+      () =>
+        client.get<OsrmRouteResponse>(
+          `${OSRM_ENDPOINTS[profile]}/route/v1/${OSRM_PROFILE_PATH[profile]}/${path}`,
+          { params: { overview: 'false', steps: 'false' }, validateStatus: (s) => s < 500 },
+        ),
+      isWanted,
+    );
+  } catch (error) {
+    throw error instanceof Error ? error : new RouteError(t().errors.routeFailed);
+  }
+  const route = response.data.routes?.[0];
+  if (response.data.code !== 'Ok' || !route) {
+    throw new RouteError(response.data.message ?? t().errors.noRoute);
+  }
+  const result = { distanceMeters: route.distance, durationSeconds: route.duration };
+  durationCache.set(key, result);
+  return result;
+}
+
 /**
  * Calculates the route, with stops along the way and alternative routes.
  *
@@ -153,6 +200,10 @@ export async function getRoutes(
     // follows them one after the other, as if it were a single route.
     steps: route.legs.flatMap((leg) => leg.steps.map(toRouteStep)),
     startAwayMeters: origin?.distance ?? 0,
+    via: route.legs
+      .map((leg) => leg.summary ?? '')
+      .filter(Boolean)
+      .join(', '),
     startsAt: origin
       ? { longitude: origin.location[0], latitude: origin.location[1] }
       : null,

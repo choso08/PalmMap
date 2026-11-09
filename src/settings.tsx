@@ -354,17 +354,20 @@ export function useEta(): (
   distanceMeters: number,
   osrmSeconds: number,
   livePace?: number | null,
+  /** Another mode than the chosen one — for the times on the mode chips. */
+  forMode?: TravelMode,
 ) => number {
   const { settings, pace } = useSettingsContext();
   const mode = settings.travelMode;
   const manual =
     TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1;
-  const learned = pace[mode];
 
   return useCallback(
-    (distanceMeters, osrmSeconds, livePace) =>
-      modelSeconds(distanceMeters, osrmSeconds, mode) * (livePace ?? learned ?? manual),
-    [mode, learned, manual],
+    (distanceMeters, osrmSeconds, livePace, forMode) => {
+      const m = forMode ?? mode;
+      return modelSeconds(distanceMeters, osrmSeconds, m) * (livePace ?? pace[m] ?? manual);
+    },
+    [mode, pace, manual],
   );
 }
 
