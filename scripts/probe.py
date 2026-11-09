@@ -537,6 +537,25 @@ def valhalla_bike():
         time.sleep(1.5)
 
 
+def valhalla_raw():
+    """One whole Valhalla bicycle answer, as the app asks for it, to replay offline."""
+    import urllib.parse
+    body = {
+        "locations": [{"lat": 38.6655, "lon": -9.1985}, {"lat": 38.6690, "lon": -9.2620}],
+        "costing": "bicycle",
+        "costing_options": {"bicycle": {"bicycle_type": "Mountain", "avoid_bad_surfaces": 0, "use_roads": 0.25}},
+        "units": "kilometers",
+        "directions_type": "maneuvers",
+        "alternates": 2,
+    }
+    url = "https://valhalla1.openstreetmap.de/route?json=" + urllib.parse.quote(json.dumps(body))
+    status, _, raw = get(url, timeout=60)
+    print(status)
+    print("RAW-BEGIN")
+    print(raw.decode("utf-8"))
+    print("RAW-END")
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
