@@ -207,7 +207,6 @@ export function SettingsSheet({
           {falha ? (
             <View style={styles.falha}>
               <Text style={styles.falhaTitulo}>{s.lastCrash}</Text>
-              <Text style={styles.falhaHint}>{s.lastCrashHint}</Text>
               <Text style={styles.falhaMensagem} selectable>
                 {falha.message}
               </Text>
@@ -252,10 +251,8 @@ export function SettingsSheet({
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>{s.travelModeNote}</Text>
 
           <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
-          <Text style={styles.sectionHint}>{s.timeAdjustmentHint}</Text>
           <ChoiceRow
             options={TIME_ADJUSTMENTS}
             label={(id) => s.timeAdjustments[id]}
@@ -264,7 +261,6 @@ export function SettingsSheet({
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>{s.timeAdjustmentNote}</Text>
 
           {/*
             O que a aplicação aprendeu fica à vista, e pode ser esquecido.
@@ -306,15 +302,14 @@ export function SettingsSheet({
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>
-            {settings.satelliteDetail === 'alta' ? s.satelliteHighHint : s.satelliteNormalHint}
-          </Text>
+          {settings.satelliteDetail === 'alta' ? (
+            <Text style={styles.note}>{s.satelliteHighHint}</Text>
+          ) : null}
 
           <Text style={styles.sectionTitle}>{s.map}</Text>
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.showPlaces}</Text>
-              <Text style={styles.switchHint}>{s.showPlacesHint}</Text>
             </View>
             <Switch
               value={settings.showPlacesOnMap}
@@ -326,7 +321,6 @@ export function SettingsSheet({
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.showVehicles}</Text>
-              <Text style={styles.switchHint}>{s.showVehiclesHint}</Text>
               {/*
                 O custo tem de estar escrito. O serviço não deixa pedir só a área
                 que se está a ver — vem a frota toda de cada vez, e é de longe o
@@ -342,7 +336,6 @@ export function SettingsSheet({
           </View>
 
           <Text style={styles.sectionTitle}>{s.cache}</Text>
-          <Text style={styles.sectionHint}>{s.cacheHint}</Text>
           <ChoiceRow
             options={CACHE_SIZES}
             label={(id) => s.cacheSizes[id]}
@@ -351,9 +344,7 @@ export function SettingsSheet({
             styles={styles}
             theme={theme}
           />
-          <Text style={styles.note}>
-            {settings.cacheSize === 'off' ? s.cacheOffHint : s.cacheFullHint}
-          </Text>
+          {settings.cacheSize === 'off' ? <Text style={styles.note}>{s.cacheOffHint}</Text> : null}
 
           <Pressable
             style={styles.clearButton}
@@ -364,12 +355,12 @@ export function SettingsSheet({
             <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
           </Pressable>
 
-          <Collapsible title={s.offlineMaps} hint={s.offlineMapsHint}>
+          <Collapsible title={s.offlineMaps}>
             <OfflineMaps />
             <Text style={styles.note}>{s.offlineMapsNote}</Text>
           </Collapsible>
 
-          <Collapsible title={s.schedules} hint={s.schedulesHint}>
+          <Collapsible title={s.schedules}>
             <Schedules />
           </Collapsible>
 
@@ -377,7 +368,6 @@ export function SettingsSheet({
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.voice}</Text>
-              <Text style={styles.switchHint}>{s.voiceHint}</Text>
               {/*
                 Só quando o telemóvel **não** tem a voz da região. A aplicação não
                 pode instalar vozes — isso é das definições do Android — mas pode
@@ -422,7 +412,6 @@ export function SettingsSheet({
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.speed}</Text>
-              <Text style={styles.switchHint}>{s.speedHint}</Text>
             </View>
             <Switch
               value={settings.showSpeed}
@@ -454,7 +443,6 @@ export function SettingsSheet({
           </Pressable>
 
           <Text style={styles.sectionTitle}>{s.updates}</Text>
-          <Text style={styles.sectionHint}>{s.updatesHint}</Text>
           <Updates found={novaVersao} onFound={onUpdateFound} />
 
           <Text style={styles.sectionTitle}>{s.about}</Text>

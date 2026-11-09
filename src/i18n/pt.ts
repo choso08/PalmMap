@@ -79,7 +79,7 @@ export const pt = {
     title: 'Guardados',
     favourites: 'Sítios guardados',
     recents: 'Recentes',
-    empty: 'Ainda não guardou nenhum sítio. Abra um sítio e toque na estrela para o guardar aqui.',
+    empty: 'Ainda não guardou nenhum sítio.',
   },
   directions: {
     title: 'Direções',
@@ -96,11 +96,11 @@ export const pt = {
   },
   search: {
     placeholder: 'Pesquisar aqui',
-    failed: 'Não foi possível pesquisar. Verifique a ligação à Internet.',
+    failed: 'Não foi possível pesquisar.',
     failedStatus: (status: number) =>
       `O serviço de pesquisa recusou (resposta ${status}). Tente daqui a pouco.`,
-    failedTimeout: 'O serviço de pesquisa demorou demasiado a responder.',
-    failedOther: 'O serviço de pesquisa deu uma resposta que não se percebe.',
+    failedTimeout: 'O serviço de pesquisa não respondeu a tempo.',
+    failedOther: 'Resposta inválida do serviço de pesquisa.',
     noResults: 'Sem resultados.',
     saved: 'Guardados',
     recents: 'Últimos destinos',
@@ -172,12 +172,9 @@ export const pt = {
     distance: 'distância',
     best: 'melhor',
     option: (n: number) => `Opção ${n}`,
-    startsAway: (distance: string) =>
-      `O percurso começa a ${distance} de si, na estrada mais próxima. Esse bocado é a tracejado no mapa e fica por sua conta.`,
-    tollsNotAvoided:
-      'Não foi possível evitar as portagens: o serviço público de percursos não tem essa opção. Este caminho pode passar por autoestradas pagas.',
-    noDirectTransit:
-      'Nenhuma linha faz este caminho sem mudanças. Por agora só se procuram ligações diretas: autocarros da Carris Metropolitana, e comboio, metro ou barco de operadores cujo horário esteja descarregado nas definições.',
+    startsAway: (distance: string) => `O percurso começa a ${distance}, na estrada mais próxima.`,
+    tollsNotAvoided: 'Não foi possível evitar as portagens.',
+    noDirectTransit: 'Não há ligação direta.',
     walkTo: (time: string, stop: string) => `${time} a pé até ${stop}`,
     walkFrom: (time: string, stop: string) => `${time} a pé de ${stop}`,
     stopCount: (n: number) => (n === 1 ? '1 paragem' : `${n} paragens`),
@@ -223,18 +220,14 @@ export const pt = {
     searching: 'A procurar paragens…',
     loadingTimes: 'A ver as horas…',
     timesFailed: 'Não foi possível obter as horas de passagem.',
-    stopsFailed: 'Não foi possível obter as paragens. Verifique a ligação.',
-    noneSoon: 'Sem passagens nas próximas duas horas.',
+    stopsFailed: 'Não foi possível obter as paragens.',
+    noneSoon: 'Sem passagens nas próximas 2 h.',
     goToStop: 'Ir até à paragem',
     stationsNearby: 'Estações perto',
-    noPosition:
-      'Sem a sua localização não há como saber que paragens ficam perto. Autorize o acesso ao GPS nas definições do telemóvel.',
-    outsideArea:
-      'Não há horários para esta zona. Só a Área Metropolitana de Lisboa tem os dados abertos — no resto do país cada operador guarda os seus.',
-    noScheduleHere:
-      'Não há horário descarregado para esta estação. Nas definições, em "Horários", pode descarregar o do operador — são ficheiros pequenos e depois funcionam sem rede.',
-    scheduleOnly:
-      'Horário publicado pelo operador, sem tempo real: se estiver atrasado, isto não sabe.',
+    noPosition: 'Sem acesso ao GPS.',
+    outsideArea: 'Sem horários para esta zona.',
+    noScheduleHere: 'Sem horário descarregado. Descarregue-o em Definições → Horários.',
+    scheduleOnly: 'Horário previsto, sem tempo real.',
     now: 'agora',
     inMinutes: (n: number) => `${n} min`,
     /** The modes a stop connects with on another network. */
@@ -258,13 +251,11 @@ export const pt = {
     secondPoint: 'Toque outra vez para medir até lá.',
     needThird: 'Falta um ponto para fechar a forma.',
     pointCount: (n: number) => (n === 1 ? '1 ponto' : `${n} pontos`),
-    accuracy:
-      'A precisão é a do mapa e a do dedo: serve para ter uma ideia, não para marcar uma estrema.',
   },
 
   offline: {
     loading: 'A obter a lista de mapas…',
-    empty: 'Ainda não há mapas publicados. Corra o workflow "Generate offline map" no GitHub.',
+    empty: 'Ainda não há mapas.',
     searchIn: (n: number) => `Procurar entre ${n} países`,
     noMatch: 'Nenhum país com esse nome.',
     outdated: 'desatualizado',
@@ -273,12 +264,11 @@ export const pt = {
 
   schedules: {
     loading: 'A obter a lista de horários…',
-    empty: 'Ainda não há horários publicados. Corra o workflow "Generate timetables" no GitHub.',
+    empty: 'Ainda não há horários.',
     stationCount: (n: number) => `${n} estações`,
     expired: 'fora de prazo, descarregue outra vez',
     until: (date: string) => `até ${date}`,
-    note:
-      'Estes operadores só publicam o horário, não o tempo real: as horas são as previstas, e um atraso não aparece aqui. Depois de descarregados funcionam sem rede. Os autocarros da Carris Metropolitana não precisam disto — esses têm tempo real.',
+    note: 'Horário previsto: os atrasos não aparecem.',
     /** `20261005` becomes "5 de outubro". */
     date: (day: number, month: number) => {
       const months = [
@@ -307,7 +297,6 @@ export const pt = {
     updateNow: 'Atualizar agora',
     updateLater: 'Agora não',
     updates: 'Atualizações',
-    updatesHint: 'Procura e instala versões novas, sem ir ao GitHub.',
     currentVersion: (version: string) => `Está na versão ${version}`,
     checkUpdates: 'Procurar agora',
     checking: 'A procurar…',
@@ -331,7 +320,6 @@ export const pt = {
     },
 
     travelMode: 'Meio de transporte',
-    travelModeNote: 'Também se troca no painel do percurso. De bicicleta conta-se com 12,5 km/h de média.',
     travelModes: {
       driving: 'Carro',
       walking: 'A pé',
@@ -346,8 +334,6 @@ export const pt = {
     },
 
     timeAdjustment: 'Tempo estimado',
-    timeAdjustmentHint: 'Se as estradas da sua zona forem mais lentas do que o mapa julga.',
-    timeAdjustmentNote: 'A aplicação aprende o seu ritmo ao navegar; isto só vale enquanto não o tiver medido.',
     paceNote: (list: string) => `Ritmo aprendido: ${list}.`,
     forgetPace: 'Esquecer o ritmo aprendido',
     timeAdjustments: {
@@ -362,20 +348,15 @@ export const pt = {
       normal: 'Normal',
       alta: 'Alta',
     },
-    satelliteNormalHint: 'Sentinel-2, do Copernicus: o mundo todo, a dez metros por pixel.',
-    satelliteHighHint: 'Ortofotos do Estado por cima: vê-se casa a casa, mas só em Portugal e com muitos mais dados.',
+    satelliteHighHint: 'Casa a casa, só em Portugal. Gasta mais dados.',
 
     map: 'Mapa',
     showPlaces: 'Mostrar negócios no mapa',
-    showPlacesHint: 'Marca sozinho os negócios da zona que está a ver.',
     showVehicles: 'Autocarros a andar',
-    showVehiclesHint: 'Onde estão os autocarros da Carris Metropolitana, ao vivo. Só com o mapa aproximado.',
-    showVehiclesCost: 'Gasta bastantes dados: são 1,1 MB de vinte em vinte segundos.',
+    showVehiclesCost: 'Gasta cerca de 1,1 MB a cada 20 s.',
 
     cache: 'Mapa guardado',
-    cacheHint: 'As zonas por onde passa ficam guardadas e voltam a aparecer sem rede.',
-    cacheOffHint: 'Desligado: sem rede o mapa não aparece.',
-    cacheFullHint: 'Quando enche, esquece primeiro o que há mais tempo não vê.',
+    cacheOffHint: 'Sem rede, o mapa não aparece.',
     cacheSizes: {
       off: 'Nada',
       small: '100 MB',
@@ -387,35 +368,28 @@ export const pt = {
     clearingCache: 'A apagar…',
     clearCacheFailed: 'Não foi possível apagar',
     cacheClearedTitle: 'Mapa guardado apagado',
-    cacheClearedBody: 'As zonas voltam a ser obtidas quando houver rede.',
+    cacheClearedBody: 'Volta a ser obtido com rede.',
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',
-    offlineMapsHint: 'Guarda o país inteiro. Funciona sem rede, a qualquer zoom.',
-    offlineMapsNote: 'Descarregue por Wi-Fi: os países maiores têm centenas de megabytes.',
+    offlineMapsNote: 'Os maiores têm centenas de MB: use Wi-Fi.',
 
     schedules: 'Horários',
-    schedulesHint: 'Comboio, metro e barco. Guardados no telemóvel, funcionam sem rede.',
 
     lastCrash: 'A aplicação fechou-se sozinha',
-    lastCrashHint:
-      'Foi isto que aconteceu da última vez. Uma fotografia deste texto é o que permite corrigi-lo.',
     lastCrashForget: 'Apagar',
     navigation: 'Navegação',
     voice: 'Ler as instruções em voz alta',
-    voiceHint: 'Anuncia as manobras à medida que se aproximam.',
-    voiceRegionHint:
-      'O telemóvel não tem voz de português de Portugal — ouve-se outro sotaque. Instala-se nas definições do Android, em Texto para voz.',
+    voiceRegionHint: 'Sem voz de português de Portugal instalada: instale-a no Android, em Texto para voz.',
     cameras: 'Avisar de radares',
-    aboutText: 'Só serviços abertos e gratuitos, sem Google e sem chaves de API. O mapa é do OpenStreetMap.',
-    camerasHint: 'Os que estão marcados no OpenStreetMap: fixos, de semáforo e velocidade média. Os móveis não existem em mapa nenhum — é uma ajuda, não é uma garantia.',
+    aboutText: 'Só serviços abertos e gratuitos. Mapa do OpenStreetMap.',
+    camerasHint: 'Só os marcados no OpenStreetMap; os móveis não aparecem.',
     tolls: 'Evitar portagens',
-    tollsHint: 'Pede um caminho sem portagens. O servidor pode não ter a opção, e o preço não existe em fonte aberta.',
+    tollsHint: 'Nem sempre é possível.',
     batterySaver: 'Poupar bateria a navegar',
-    batterySaverHint: 'Longe da manobra lê o GPS a cada quatro segundos. A precisão nunca desce.',
+    batterySaverHint: 'Lê o GPS menos vezes longe das manobras.',
     speed: 'Mostrar a velocidade',
-    speedHint: 'A velocidade do GPS, enquanto navega. Não gasta bateria a mais.',
-    speedNote: 'Fica uns km/h abaixo do velocímetro do carro, que é o que manda, e desaparece em túneis.',
+    speedNote: 'O velocímetro do carro é que manda.',
 
     recents: 'Últimos destinos',
     forgetRecents: 'Esquecer os últimos destinos',
@@ -431,38 +405,35 @@ export const pt = {
   },
 
   errors: {
-    noRoute: 'Não foi encontrado nenhum percurso entre estes pontos.',
+    noRoute: 'Não há percurso entre estes pontos.',
     routeFailed: 'Não foi possível contactar o serviço de percursos.',
     routeGeneric: 'Não foi possível calcular o percurso.',
-    noLocationForRoute: 'Sem a sua localização não é possível calcular o percurso.',
-    locationDenied: 'Sem acesso ao GPS. Ainda pode ver o mapa e pesquisar moradas.',
-    locationUnavailable:
-      'Ainda não foi possível apanhar sinal de GPS. Dentro de casa costuma demorar.',
-    updateCheckFailed: 'Não foi possível saber se há versão nova. Verifique a ligação.',
+    noLocationForRoute: 'Sem GPS não dá para calcular o percurso.',
+    locationDenied: 'Sem acesso ao GPS.',
+    locationUnavailable: 'À espera de sinal de GPS…',
+    updateCheckFailed: 'Não foi possível procurar versões novas.',
     updateDownloadFailed: (detail: string) =>
       `Não foi possível descarregar a atualização. ${detail}`.trim(),
     updateInstallFailed: (detail: string) =>
       `Não foi possível abrir o instalador. ${detail}`.trim(),
-    placesFailed: 'Não foi possível procurar locais. Tente daqui a pouco.',
-    placesBusy: 'O serviço está cheio neste momento. Tente daqui a pouco.',
+    placesFailed: 'Não foi possível procurar locais.',
+    placesBusy: 'Serviço ocupado. Tente daqui a pouco.',
     searchFailed: 'Não foi possível procurar.',
-    zoomIn: 'Aproxime o mapa para procurar nesta zona.',
+    zoomIn: 'Aproxime o mapa para procurar aqui.',
     noneOfCategory: (category: string) => `Não há ${category.toLowerCase()} nesta zona.`,
-    schedulesFailed: 'Não foi possível obter os horários. Verifique a ligação.',
-    transitOffline: 'Não foi possível chegar ao serviço dos autocarros. Verifique a rede.',
-    transitTimeout: 'O serviço dos autocarros demorou demasiado a responder.',
+    schedulesFailed: 'Não foi possível obter os horários.',
+    transitOffline: 'Sem ligação ao serviço dos autocarros.',
+    transitTimeout: 'O serviço dos autocarros não respondeu a tempo.',
     transitStatus: (status: number) =>
       `O serviço dos autocarros respondeu ${status}.`,
-    scheduleListFailed:
-      'Não foi possível obter a lista de horários. Verifique a ligação à Internet.',
+    scheduleListFailed: 'Não foi possível obter a lista de horários.',
     scheduleDownloadFailed: (operator: string, detail: string) =>
       `Não foi possível descarregar os horários de ${operator}. ${detail}`.trim(),
-    mapListFailed: 'Não foi possível obter a lista de mapas. Verifique a ligação à Internet.',
+    mapListFailed: 'Não foi possível obter a lista de mapas.',
     mapDownloadFailed: (region: string, detail: string) =>
       `Não foi possível descarregar o mapa de ${region}. ${detail}`.trim(),
     bundledAssetFailed: 'Não foi possível ler um ficheiro incluído na aplicação.',
-    noTransitStops:
-      'Não há paragens a pé de distância de um dos pontos, ou está fora da área da Carris Metropolitana.',
+    noTransitStops: 'Não há paragens perto.',
   },
 
   /**
@@ -480,7 +451,7 @@ export const pt = {
   },
 
   hints: {
-    longPress: 'Toque sem largar no mapa para marcar um ponto e ir até lá.',
+    longPress: 'Toque sem largar para marcar um ponto.',
   },
 
   /** The kinds of speed camera, as they appear in the warning. */

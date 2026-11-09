@@ -61,7 +61,7 @@ export const en: typeof pt = {
     title: 'Saved',
     favourites: 'Saved places',
     recents: 'Recent',
-    empty: "You haven't saved any places yet. Open a place and tap the star to keep it here.",
+    empty: 'No saved places yet.',
   },
   directions: {
     title: 'Directions',
@@ -78,7 +78,7 @@ export const en: typeof pt = {
   },
   search: {
     placeholder: 'Search here',
-    failed: "Couldn't search. Check your Internet connection.",
+    failed: 'Search failed.',
     failedStatus: (status: number) =>
       `The search service refused (answer ${status}). Try again shortly.`,
     failedTimeout: 'The search service took too long to answer.',
@@ -152,12 +152,9 @@ export const en: typeof pt = {
     distance: 'distance',
     best: 'best',
     option: (n: number) => `Option ${n}`,
-    startsAway: (distance: string) =>
-      `The route starts ${distance} away from you, on the nearest road. That stretch is dashed on the map and is up to you.`,
-    tollsNotAvoided:
-      "Tolls couldn't be avoided: the public routing service doesn't have that option. This route may use paid motorways.",
-    noDirectTransit:
-      'No line makes this trip without changes. For now only direct connections are searched: Carris Metropolitana buses, and train, metro or ferry from operators whose timetable you have downloaded in settings.',
+    startsAway: (distance: string) => `The route starts ${distance} away, on the nearest road.`,
+    tollsNotAvoided: 'Tolls could not be avoided.',
+    noDirectTransit: 'No direct connection.',
     walkTo: (time: string, stop: string) => `${time} walk to ${stop}`,
     walkFrom: (time: string, stop: string) => `${time} walk from ${stop}`,
     stopCount: (n: number) => (n === 1 ? '1 stop' : `${n} stops`),
@@ -191,18 +188,14 @@ export const en: typeof pt = {
     searching: 'Looking for stops…',
     loadingTimes: 'Checking times…',
     timesFailed: "Couldn't get the departure times.",
-    stopsFailed: "Couldn't get the stops. Check your connection.",
-    noneSoon: 'Nothing due in the next two hours.',
+    stopsFailed: 'Could not get the stops.',
+    noneSoon: 'Nothing in the next 2 h.',
     goToStop: 'Walk to the stop',
     stationsNearby: 'Stations nearby',
-    noPosition:
-      "Without your location there's no way to tell which stops are near. Allow GPS access in your phone's settings.",
-    outsideArea:
-      'There are no timetables for this area. Only the Lisbon metropolitan area has open data — elsewhere in Portugal each operator keeps its own.',
-    noScheduleHere:
-      'No timetable downloaded for this station. In settings, under "Timetables", you can download the operator\'s — the files are small and then work without a connection.',
-    scheduleOnly:
-      "This is the operator's published timetable, not live data: if it's running late, this won't know.",
+    noPosition: 'No GPS access.',
+    outsideArea: 'No timetables for this area.',
+    noScheduleHere: 'No timetable downloaded. Get it in Settings → Timetables.',
+    scheduleOnly: 'Scheduled times, not live.',
     now: 'now',
     inMinutes: (n: number) => `${n} min`,
     kinds: {
@@ -225,13 +218,11 @@ export const en: typeof pt = {
     secondPoint: 'Tap again to measure up to there.',
     needThird: 'One more point to close the shape.',
     pointCount: (n: number) => (n === 1 ? '1 point' : `${n} points`),
-    accuracy:
-      "It's only as accurate as the map and your fingertip: good for a rough idea, not for marking a boundary.",
   },
 
   offline: {
     loading: 'Getting the list of maps…',
-    empty: 'No maps published yet. Run the "Generate offline map" workflow on GitHub.',
+    empty: 'No maps yet.',
     searchIn: (n: number) => `Search among ${n} countries`,
     noMatch: 'No country by that name.',
     outdated: 'out of date',
@@ -240,12 +231,11 @@ export const en: typeof pt = {
 
   schedules: {
     loading: 'Getting the list of timetables…',
-    empty: 'No timetables published yet. Run the "Generate timetables" workflow on GitHub.',
+    empty: 'No timetables yet.',
     stationCount: (n: number) => (n === 1 ? '1 station' : `${n} stations`),
     expired: 'out of date, download again',
     until: (date: string) => `until ${date}`,
-    note:
-      "These operators publish only the timetable, not live data: the times are the scheduled ones, and a delay won't show here. Once downloaded they work without a connection. Carris Metropolitana buses don't need this — those have live times.",
+    note: 'Scheduled times: delays do not show.',
     date: (day: number, month: number) => {
       const months = [
         'January',
@@ -273,7 +263,6 @@ export const en: typeof pt = {
     updateNow: 'Update now',
     updateLater: 'Not now',
     updates: 'Updates',
-    updatesHint: 'Finds and installs new versions, without going to GitHub.',
     currentVersion: (version: string) => `You're on version ${version}`,
     checkUpdates: 'Check now',
     checking: 'Checking…',
@@ -297,7 +286,6 @@ export const en: typeof pt = {
     },
 
     travelMode: 'Travel mode',
-    travelModeNote: 'You can also switch it in the route panel. On a bike it assumes 12.5 km/h on average.',
     travelModes: {
       driving: 'Car',
       walking: 'Walking',
@@ -312,8 +300,6 @@ export const en: typeof pt = {
     },
 
     timeAdjustment: 'Estimated time',
-    timeAdjustmentHint: 'If the roads where you are are slower than the map thinks.',
-    timeAdjustmentNote: 'The app learns your pace as you navigate; this only applies until it has measured one.',
     paceNote: (list: string) => `Learned pace: ${list}.`,
     forgetPace: 'Forget the learned pace',
     timeAdjustments: {
@@ -328,20 +314,15 @@ export const en: typeof pt = {
       normal: 'Normal',
       alta: 'High',
     },
-    satelliteNormalHint: 'Sentinel-2, from Copernicus: the whole world, at ten metres per pixel.',
-    satelliteHighHint: 'Official aerial photos on top: house by house, but only in Portugal and using far more data.',
+    satelliteHighHint: 'House by house, Portugal only. Uses more data.',
 
     map: 'Map',
     showPlaces: 'Show businesses on the map',
-    showPlacesHint: 'Marks the businesses in the area you are looking at.',
     showVehicles: 'Buses on the move',
-    showVehiclesHint: 'Where the Carris Metropolitana buses are, live. Only when the map is zoomed in.',
-    showVehiclesCost: 'Uses a fair amount of data: 1.1 MB every twenty seconds.',
+    showVehiclesCost: 'Uses about 1.1 MB every 20 s.',
 
     cache: 'Saved map',
-    cacheHint: 'The areas you pass through are kept and come back without a connection.',
-    cacheOffHint: 'Off: without a connection the map does not appear.',
-    cacheFullHint: 'When it fills up, it forgets what you have not seen for longest.',
+    cacheOffHint: 'Without network, the map will not show.',
     cacheSizes: {
       off: 'None',
       small: '100 MB',
@@ -353,35 +334,28 @@ export const en: typeof pt = {
     clearingCache: 'Deleting…',
     clearCacheFailed: "Couldn't delete",
     cacheClearedTitle: 'Saved map deleted',
-    cacheClearedBody: 'The areas will be fetched again when there is a connection.',
+    cacheClearedBody: 'It is fetched again when online.',
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',
-    offlineMapsHint: 'Keeps a whole country. Works without a connection, at any zoom.',
-    offlineMapsNote: 'Download over Wi-Fi: the bigger countries are hundreds of megabytes.',
+    offlineMapsNote: 'The largest are hundreds of MB: use Wi-Fi.',
 
     schedules: 'Timetables',
-    schedulesHint: 'Train, metro and ferry. Kept on the phone, they work offline.',
 
     lastCrash: 'The app closed by itself',
-    lastCrashHint:
-      'This is what happened last time. A photo of this text is what makes it fixable.',
     lastCrashForget: 'Clear',
     navigation: 'Navigation',
     voice: 'Read directions aloud',
-    voiceHint: 'Announces each manoeuvre as it comes up.',
-    voiceRegionHint:
-      "This phone has no British English voice — you'll hear another accent. You can add one in Android settings, under Text-to-speech.",
+    voiceRegionHint: 'No voice installed for this region: add one in Android, under Text-to-speech.',
     cameras: 'Warn about speed cameras',
-    aboutText: 'Open, free services only — no Google, no API keys. The map is OpenStreetMap.',
-    camerasHint: 'The ones marked in OpenStreetMap: fixed, traffic-light and average-speed. Mobile ones exist on no map — this is a help, not a guarantee.',
+    aboutText: 'Only open, free services. Map by OpenStreetMap.',
+    camerasHint: 'Only those mapped in OpenStreetMap; mobile ones never show.',
     tolls: 'Avoid tolls',
-    tollsHint: 'Asks for a route without tolls. The server may not have the option, and no open source has the prices.',
+    tollsHint: 'Not always possible.',
     batterySaver: 'Save battery while navigating',
-    batterySaverHint: 'Far from the next manoeuvre it reads the GPS every four seconds. The accuracy never drops.',
+    batterySaverHint: 'Reads the GPS less often away from turns.',
     speed: 'Show your speed',
-    speedHint: 'Your GPS speed, while navigating. It costs no extra battery.',
-    speedNote: "It reads a few km/h below the car's own speedometer, which is the one that counts, and drops out in tunnels.",
+    speedNote: 'The car speedometer is the one that counts.',
 
     recents: 'Recent destinations',
     forgetRecents: 'Forget recent destinations',
@@ -397,35 +371,34 @@ export const en: typeof pt = {
   },
 
   errors: {
-    noRoute: 'No route was found between these points.',
+    noRoute: 'No route between these points.',
     routeFailed: "Couldn't reach the routing service.",
     routeGeneric: "Couldn't work out the route.",
-    noLocationForRoute: "Without your location the route can't be worked out.",
-    locationDenied: 'No GPS access. You can still see the map and search for addresses.',
-    locationUnavailable: 'No GPS signal yet. Indoors this usually takes a while.',
-    updateCheckFailed: "Couldn't check for a new version. Check your connection.",
+    noLocationForRoute: 'Without GPS the route cannot be calculated.',
+    locationDenied: 'No GPS access.',
+    locationUnavailable: 'Waiting for a GPS signal…',
+    updateCheckFailed: 'Could not check for updates.',
     updateDownloadFailed: (detail: string) =>
       `Couldn't download the update. ${detail}`.trim(),
     updateInstallFailed: (detail: string) =>
       `Couldn't open the installer. ${detail}`.trim(),
-    placesFailed: "Couldn't search for places. Try again shortly.",
-    placesBusy: 'The service is busy right now. Try again shortly.',
+    placesFailed: 'Could not search for places.',
+    placesBusy: 'Service busy. Try again shortly.',
     searchFailed: "Couldn't search.",
-    zoomIn: 'Zoom in to search this area.',
+    zoomIn: 'Zoom in to search here.',
     noneOfCategory: (category: string) => `No ${category.toLowerCase()} in this area.`,
-    schedulesFailed: "Couldn't get the timetables. Check your connection.",
-    transitOffline: "Couldn't reach the bus service. Check your network.",
+    schedulesFailed: 'Could not get the timetables.',
+    transitOffline: 'Cannot reach the bus service.',
     transitTimeout: 'The bus service took too long to answer.',
     transitStatus: (status: number) => `The bus service answered ${status}.`,
-    scheduleListFailed: "Couldn't get the list of timetables. Check your Internet connection.",
+    scheduleListFailed: 'Could not get the timetable list.',
     scheduleDownloadFailed: (operator: string, detail: string) =>
       `Couldn't download the ${operator} timetable. ${detail}`.trim(),
-    mapListFailed: "Couldn't get the list of maps. Check your Internet connection.",
+    mapListFailed: 'Could not get the map list.',
     mapDownloadFailed: (region: string, detail: string) =>
       `Couldn't download the map of ${region}. ${detail}`.trim(),
     bundledAssetFailed: "Couldn't read a file included with the app.",
-    noTransitStops:
-      'There are no stops within walking distance of one of the points, or you are outside the Carris Metropolitana area.',
+    noTransitStops: 'No stops nearby.',
   },
 
   attributions: {
@@ -436,7 +409,7 @@ export const en: typeof pt = {
   },
 
   hints: {
-    longPress: 'Press and hold on the map to drop a pin and head there.',
+    longPress: 'Press and hold to drop a pin.',
   },
 
   cameras: {

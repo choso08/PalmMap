@@ -1297,26 +1297,30 @@ ecrãs, porque são dois os sítios que fazem isto — o aviso e as definições
 acabariam por divergir, e a parte que divergiria era a dos erros, que é justamente a que
 ninguém experimenta.
 
-### 6-J. O texto do ecrã de definições
+### 6-J. O texto do ecrã — em toda a aplicação
 
-**Escreve-se curto.** O ecrã chegou a ter 4557 caracteres de explicações em português e
-ficou com metade disso: a pessoa vai ali mudar uma opção, não ler o raciocínio por trás
-dela. O porquê de cada decisão é este ficheiro; o ecrã fica com o que muda uma escolha.
+**Escreve-se o mínimo, e o que está subentendido não se escreve.** Pedido do autor
+(novembro de 2026), e vale para todos os ecrãs, não só para as definições. O ecrã de
+definições chegou a ter 4557 caracteres de explicações, passou a 2609 e ficou com **1190**:
+saíram as linhas que repetiam o nome da opção, as que explicavam o funcionamento por dentro
+(o GPS a cada quatro segundos, o mosaico a dez metros por pixel, a cache que esquece o mais
+antigo) e as que mandavam correr workflows no GitHub, que é coisa de quem programa e não de
+quem usa. O porquê de cada decisão é este ficheiro; o ecrã fica com o que muda uma escolha.
 
 Regras práticas:
 
-- **Uma linha por opção**, e só quando o nome da opção não chega. Vários `…Hint` foram
-  apagados por dizerem o que o próprio botão já dizia — "no modo automático segue o
-  telemóvel", com um botão escrito "Automático" mesmo ao lado.
-- **O que não se corta são os quatro avisos que impedem uma expectativa errada**, e esses
-  estão assinalados ao longo deste ficheiro com um "deve continuar lá": os radares são uma
-  ajuda e não uma garantia; o velocímetro do carro é o que manda; o preço das portagens não
-  existe em fonte aberta; os autocarros ao vivo gastam 1,1 MB de vinte em vinte segundos. (Eram
-  cinco: o do "Instalar" final ser da pessoa saiu a pedido do autor.) Encurtaram-se todos para uma linha — **a exigência é que a
-  informação esteja lá, não que tenha três frases**.
+- **Nenhuma linha por baixo de uma opção cujo nome chegue.** "Mostrar negócios no mapa" não
+  precisa de "marca sozinho os negócios da zona".
+- **Os erros dizem o que falhou numa frase, sem conselhos óbvios.** "Verifique a ligação"
+  saiu de todo o lado. As mensagens que distinguem a recusa (com o número), a demora e a
+  falta de rede ficam — essa diferença é informação, não enchimento.
+- **Ficam quatro avisos curtos que impedem uma expectativa errada:** os radares são só os do
+  OpenStreetMap; o velocímetro do carro é que manda; os autocarros ao vivo gastam 1,1 MB a
+  cada 20 s; os horários de comboio/metro/barco não mostram atrasos. Uma linha cada. O do
+  "Instalar" final e o do preço das portagens saíram a pedido do autor, por estarem
+  subentendidos.
 - Ao acrescentar texto novo, medir: `Object.values(pt.settings).filter(v => typeof v ===
-  'string').join(' ').length`. Se voltar a passar dos três mil, é sinal de que alguma
-  explicação está a crescer outra vez.
+  'string').join(' ').length`. Se passar dos 1500, alguma explicação está a crescer outra vez.
 
 ### 6-K. Quando a aplicação se fecha sozinha
 

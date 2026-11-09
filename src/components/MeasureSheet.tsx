@@ -158,7 +158,6 @@ export function MeasureSheet({
         </Pressable>
       </View>
 
-      <Text style={styles.nota}>{strings.measure.accuracy}</Text>
     </View>
   );
 }
