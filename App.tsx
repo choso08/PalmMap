@@ -2067,6 +2067,7 @@ function PalmMap() {
               <PlaceSheet
                 dragHandlers={drag}
                 place={lastPlace}
+                from={userLocation}
                 favourite={isFavourite(lastPlace)}
                 onToggleFavourite={() => toggleFavourite(lastPlace)}
                 onRoute={handleRouteToSelected}

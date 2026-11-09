@@ -154,14 +154,24 @@ export const pt = {
   },
 
   place: {
-    route: 'Traçar percurso',
-    addWaypoint: 'Passar por aqui a caminho',
+    route: 'Direções',
+    addWaypoint: 'Paragem',
     save: 'Guardar',
     unsave: 'Guardado',
-    call: 'Telefonar',
-    website: 'Sítio na Internet',
+    call: 'Ligar',
+    website: 'Sítio',
+    share: 'Partilhar',
     openNow: 'Aberto',
     closedNow: 'Fechado',
+    open24h: 'Aberto 24 horas',
+    closesSoon: 'Fecha em breve',
+    closesAt: (time: string) => `Fecha às ${time}`,
+    opensAt: (time: string) => `Abre às ${time}`,
+    opensTomorrow: (time: string) => `Abre amanhã às ${time}`,
+    opensOn: (day: string, time: string) => `Abre ${day} às ${time}`,
+    closedAllDay: 'Fechado',
+    weekdays: ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'],
+    weekdaysShort: ['seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.', 'dom.'],
   },
 
   route: {

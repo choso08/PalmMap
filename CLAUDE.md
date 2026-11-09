@@ -680,6 +680,23 @@ com o ícone da família lá dentro.
 - Validado contra a especificação do MapLibre e com todas as imagens presentes; **o aspeto no
   telemóvel ainda não foi visto**.
 
+### 6-0-A. A ficha de um sítio (fase 2 da imitação do Google Maps)
+
+`PlaceSheet.tsx`: nome; tipo e distância a que se está ("Restaurante · 350 m"); **se está aberto
+agora** ("Aberto · Fecha às 19:00", "Fecha em breve", "Fechado · Abre amanhã às 9:00"); uma fila de
+botões redondos que desliza para o lado (Direções a cheio, Ligar, Guardar, Paragem, Partilhar,
+Sítio — só os que fazem sentido); e os detalhes. Tocar no horário abre a semana inteira, com o dia
+de hoje a negrito. Partilhar manda nome, morada e uma ligação do openstreetmap.org — não do Google.
+
+**O horário lê-se em `src/utils/openingHours.ts`**, que percebe a parte do `opening_hours` do
+OpenStreetMap que cobre quase todos os negócios: dias e intervalos (`Mo-Fr`, `Mo,We`, `Fr-Mo`),
+vários horários por dia, horários que passam da meia-noite, `off`, `24/7`, e regras posteriores a
+sobreporem-se às anteriores. As regras só de feriados (`PH off`) são saltadas. **O que não percebe
+faz desistir** — `sunrise-sunset`, meses, semanas — e a ficha mostra o texto como está escrito, sem
+linha de estado: um "Aberto" errado manda alguém a uma porta fechada, que é pior do que não dizer
+nada. Provado contra os formatos comuns com datas escolhidas a dedo (fim de semana, depois da
+meia-noite, a uma hora do fecho). **O ecrã ainda não foi visto no telemóvel.**
+
 ### 6-A. Transportes públicos
 
 - A fonte é a **ÖPNVKarte**, do memomaps.de: desenha os **percursos** dos autocarros,

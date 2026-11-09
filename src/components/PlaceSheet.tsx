@@ -1,68 +1,58 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMemo } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
-import type { Place } from '../types/geo';
+import type { Coordinates, Place } from '../types/geo';
+import { formatDistance } from '../utils/format';
+import { distanceMeters } from '../utils/geometry';
+import {
+  clock,
+  openStatus,
+  parseOpeningHours,
+  weekdayOf,
+  type WeeklyHours,
+} from '../utils/openingHours';
 
 interface PlaceSheetProps {
   /**
-   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
-   *
-   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
-   * painel inteiro.
+   * The gestures of the handle at the top, so the sheet can be shrunk. They
+   * come from `DraggableSheet` — see there why they stay on the handle only.
    */
   dragHandlers?: GestureResponderHandlers;
   place: Place;
+  /** Where the person is, for "350 m" next to the category. */
+  from?: Coordinates | null;
   favourite: boolean;
   onToggleFavourite: () => void;
   onRoute: () => void;
   /**
-   * Acrescentar este sítio como paragem do percurso que já existe.
-   *
-   * Só aparece quando já há um destino escolhido — antes disso não há percurso
-   * nenhum a que juntar uma paragem, e o botão só confundia.
+   * Add this place as a stop on the existing route. Only offered when there is
+   * already a destination — before that there is no route to add a stop to.
    */
   onAddStop?: () => void;
   onClose: () => void;
 }
 
-/** Uma linha de detalhe com ícone à esquerda. */
-function DetailRow({
-  icon,
-  children,
-  onPress,
-  styles,
-  color,
-}: {
-  icon: string;
-  children: string;
-  onPress?: () => void;
-  styles: ReturnType<typeof makeStyles>;
-  color: string;
-}) {
-  const content = (
-    <View style={styles.detailRow}>
-      <MaterialCommunityIcons name={icon as never} size={17} color={color} />
-      <Text style={[styles.detailText, onPress && styles.link]} numberOfLines={2}>
-        {children}
-      </Text>
-    </View>
-  );
-
-  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
-}
-
 /**
- * Ficha de um negócio: nome, tipo, morada e o que o OpenStreetMap souber sobre
- * horário, telefone e sítio na Internet. Daqui traça-se o percurso.
+ * A place's card, laid out the way the maps apps people know do it.
+ *
+ * Name, then kind and distance, then **whether it is open now** — the thing
+ * people most want to know and the one OpenStreetMap's raw `opening_hours`
+ * text hid. Then a row of round action buttons (directions first and filled),
+ * then the details. Tapping the hours unfolds the whole week.
+ *
+ * When the hours cannot be read (`sunrise-sunset`, months, odd syntax), the
+ * text is shown as written and there is no status line: a wrong "Open" sends
+ * someone to a closed door. See `utils/openingHours.ts`.
  */
 export function PlaceSheet({
   place,
+  from,
   favourite,
   onToggleFavourite,
   onRoute,
@@ -72,10 +62,80 @@ export function PlaceSheet({
 }: PlaceSheetProps) {
   const theme = useTheme();
   const strings = useT();
+  const s = strings.place;
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
+  const [weekOpen, setWeekOpen] = useState(false);
 
   const { phone, website, openingHours } = place.details ?? {};
+  const week = useMemo(() => parseOpeningHours(openingHours), [openingHours]);
+
+  // The status changes with the clock; once a minute is plenty.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => setWeekOpen(false), [place.id]);
+
+  const status = week ? openStatus(week, now) : null;
+  const statusLine = (() => {
+    if (!status) {
+      return null;
+    }
+    switch (status.kind) {
+      case 'always':
+        return { lead: s.open24h, leadColour: theme.open, rest: '' };
+      case 'open':
+        return status.closesSoon
+          ? { lead: s.closesSoon, leadColour: theme.closingSoon, rest: clock(status.closesAt) }
+          : { lead: s.openNow, leadColour: theme.open, rest: s.closesAt(clock(status.closesAt)) };
+      case 'closed': {
+        const time = clock(status.opensAt);
+        const rest =
+          status.inDays === 0
+            ? s.opensAt(time)
+            : status.inDays === 1
+              ? s.opensTomorrow(time)
+              : s.opensOn(s.weekdaysShort[status.weekday], time);
+        return { lead: s.closedNow, leadColour: theme.danger, rest };
+      }
+      case 'closedForGood':
+        return { lead: s.closedNow, leadColour: theme.danger, rest: '' };
+    }
+  })();
+
+  const distance = from ? formatDistance(distanceMeters(from, place.coordinates)) : null;
+  const subtitle = [place.category, distance].filter(Boolean).join(' · ');
+
+  const share = () => {
+    const { latitude, longitude } = place.coordinates;
+    const link = `https://www.openstreetmap.org/?mlat=${latitude.toFixed(6)}&mlon=${longitude.toFixed(6)}#map=18/${latitude.toFixed(6)}/${longitude.toFixed(6)}`;
+    void Share.share({
+      message: [place.name, place.address, link].filter(Boolean).join('\n'),
+    }).catch(() => undefined);
+  };
+
+  type Action = { key: string; icon: string; label: string; onPress: () => void; primary?: boolean };
+  const actions: Action[] = [
+    { key: 'route', icon: 'directions', label: s.route, onPress: onRoute, primary: true },
+    ...(phone
+      ? [{ key: 'call', icon: 'phone', label: s.call, onPress: () => void Linking.openURL(`tel:${phone}`) }]
+      : []),
+    {
+      key: 'save',
+      icon: favourite ? 'bookmark' : 'bookmark-outline',
+      label: favourite ? s.unsave : s.save,
+      onPress: onToggleFavourite,
+    },
+    ...(onAddStop
+      ? [{ key: 'stop', icon: 'map-marker-plus-outline', label: s.addWaypoint, onPress: onAddStop }]
+      : []),
+    { key: 'share', icon: 'share-variant-outline', label: s.share, onPress: share },
+    ...(website
+      ? [{ key: 'web', icon: 'web', label: s.website, onPress: () => void Linking.openURL(website) }]
+      : []),
+  ];
 
   return (
     <View style={styles.container}>
@@ -88,87 +148,156 @@ export function PlaceSheet({
           <Text style={styles.name} numberOfLines={2}>
             {place.name}
           </Text>
-          {place.category ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{place.category}</Text>
-            </View>
+          {subtitle ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+          {statusLine ? (
+            <Text style={styles.status} numberOfLines={1}>
+              <Text style={{ color: statusLine.leadColour, fontWeight: '700' }}>
+                {statusLine.lead}
+              </Text>
+              {statusLine.rest ? ` · ${statusLine.rest}` : ''}
+            </Text>
           ) : null}
         </View>
-        <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
+        <Pressable
+          onPress={onClose}
+          hitSlop={12}
+          style={styles.closeButton}
+          accessibilityLabel={strings.common.close}
+        >
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.actions}
+        style={styles.actionsRow}
+      >
+        {actions.map((a) => (
+          <Pressable
+            key={a.key}
+            onPress={a.onPress}
+            style={({ pressed }) => [
+              styles.action,
+              a.primary && styles.actionPrimary,
+              pressed && styles.pressed,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={a.icon as never}
+              size={18}
+              color={a.primary ? theme.onAccent : theme.accent}
+            />
+            <Text style={[styles.actionText, a.primary && styles.actionTextPrimary]}>
+              {a.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       <View style={styles.details}>
         {place.address ? (
-          <DetailRow icon="map-marker" styles={styles} color={theme.textMuted}>
-            {place.address}
-          </DetailRow>
+          <View style={styles.detailRow}>
+            <MaterialCommunityIcons name="map-marker-outline" size={19} color={theme.textMuted} />
+            <Text style={styles.detailText} numberOfLines={2}>
+              {place.address}
+            </Text>
+          </View>
         ) : null}
 
         {openingHours ? (
-          <DetailRow icon="clock-outline" styles={styles} color={theme.textMuted}>
-            {openingHours}
-          </DetailRow>
+          <Pressable
+            onPress={week ? () => setWeekOpen((v) => !v) : undefined}
+            style={styles.detailRow}
+          >
+            <MaterialCommunityIcons name="clock-outline" size={19} color={theme.textMuted} />
+            <View style={styles.detailBody}>
+              {week ? (
+                weekOpen ? (
+                  <WeekTable week={week} today={weekdayOf(now)} styles={styles} names={s.weekdays} closed={s.closedAllDay} />
+                ) : (
+                  <Text style={styles.detailText} numberOfLines={1}>
+                    {todayHours(week, weekdayOf(now), s.closedAllDay)}
+                  </Text>
+                )
+              ) : (
+                <Text style={styles.detailText} numberOfLines={3}>
+                  {openingHours}
+                </Text>
+              )}
+            </View>
+            {week ? (
+              <MaterialCommunityIcons
+                name={weekOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={theme.textMuted}
+              />
+            ) : null}
+          </Pressable>
         ) : null}
 
         {phone ? (
-          <DetailRow
-            icon="phone"
-            styles={styles}
-            color={theme.accent}
-            onPress={() => void Linking.openURL(`tel:${phone}`)}
-          >
-            {phone}
-          </DetailRow>
+          <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)} style={styles.detailRow}>
+            <MaterialCommunityIcons name="phone-outline" size={19} color={theme.textMuted} />
+            <Text style={[styles.detailText, styles.link]} numberOfLines={1}>
+              {phone}
+            </Text>
+          </Pressable>
         ) : null}
 
         {website ? (
-          <DetailRow
-            icon="web"
-            styles={styles}
-            color={theme.accent}
-            onPress={() => void Linking.openURL(website)}
-          >
-            {website}
-          </DetailRow>
+          <Pressable onPress={() => void Linking.openURL(website)} style={styles.detailRow}>
+            <MaterialCommunityIcons name="web" size={19} color={theme.textMuted} />
+            <Text style={[styles.detailText, styles.link]} numberOfLines={1}>
+              {website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
 
-      <Pressable style={styles.button} onPress={onRoute}>
-        <MaterialCommunityIcons name="directions" size={19} color={theme.onAccent} />
-        <Text style={styles.buttonText}>{strings.place.route}</Text>
-      </Pressable>
+function rangesText(ranges: [number, number][], closed: string): string {
+  if (ranges.length === 0) {
+    return closed;
+  }
+  return ranges.map(([a, b]) => `${clock(a)}–${b >= 1440 && b % 1440 === 0 ? '24:00' : clock(b)}`).join(', ');
+}
 
-      {onAddStop ? (
-        <Pressable style={styles.secondary} onPress={onAddStop}>
-          <MaterialCommunityIcons name="map-marker-plus" size={18} color={theme.accent} />
-          <Text style={styles.secondaryText}>{strings.place.addWaypoint}</Text>
-        </Pressable>
-      ) : null}
+function todayHours(week: WeeklyHours, today: number, closed: string): string {
+  return rangesText(week[today], closed);
+}
 
-      {/*
-        Guardar nos favoritos, com nome e tudo.
-
-        **Já dava para guardar antes, e ninguém dava por isso**: era uma estrela
-        de vinte pontos no canto, do tamanho do X que fecha a ficha e logo ao
-        lado dele. Os textos "Guardar" e "Guardado" estavam escritos nas duas
-        línguas desde o início e não eram usados em sítio nenhum — o botão tinha
-        sido pensado e nunca chegou a ser feito.
-
-        Serve para qualquer coisa que abra esta ficha: um negócio, uma estação,
-        ou um pino largado com o dedo em cima do mapa.
-      */}
-      <Pressable style={styles.secondary} onPress={onToggleFavourite}>
-        <MaterialCommunityIcons
-          name={favourite ? 'star' : 'star-outline'}
-          size={18}
-          color={favourite ? theme.poi : theme.accent}
-        />
-        <Text style={[styles.secondaryText, favourite && styles.savedText]}>
-          {favourite ? strings.place.unsave : strings.place.save}
-        </Text>
-      </Pressable>
+/** The whole week, today in bold. */
+function WeekTable({
+  week,
+  today,
+  styles,
+  names,
+  closed,
+}: {
+  week: WeeklyHours;
+  today: number;
+  styles: ReturnType<typeof makeStyles>;
+  names: string[];
+  closed: string;
+}) {
+  return (
+    <View style={styles.week}>
+      {week.map((ranges, day) => (
+        <View key={day} style={styles.weekRow}>
+          <Text style={[styles.weekDay, day === today && styles.weekToday]}>{names[day]}</Text>
+          <Text style={[styles.weekHours, day === today && styles.weekToday]}>
+            {rangesText(ranges, closed)}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -177,12 +306,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     container: {
       backgroundColor: theme.surface,
-      borderTopLeftRadius: 30,
-      borderTopRightRadius: 30,
-      paddingHorizontal: 20,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
       paddingTop: 10,
-      // Acima da barra de navegação do sistema.
-      paddingBottom: insets.bottom + 24,
+      paddingBottom: insets.bottom + 20,
       elevation: 12,
       shadowColor: '#000000',
       shadowOpacity: 0.14,
@@ -190,106 +317,123 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOffset: { width: 0, height: -3 },
     },
     handleZone: {
-      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
-      // de altura e ninguém acerta nisso com o polegar.
+      // A generous touch area round the handle: the visible target is four
+      // points tall and nobody hits that with a thumb.
       alignItems: 'center',
       paddingTop: 10,
       marginTop: -10,
     },
     handle: {
-      alignSelf: 'center',
       width: 40,
       height: 4,
       borderRadius: 2,
       backgroundColor: theme.border,
-      marginBottom: 14,
+      marginBottom: 12,
     },
     header: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 12,
+      paddingHorizontal: 20,
     },
     headerText: {
       flex: 1,
+      gap: 3,
     },
     name: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: '700',
       color: theme.text,
       letterSpacing: -0.3,
     },
-    badge: {
-      alignSelf: 'flex-start',
-      marginTop: 6,
-      paddingHorizontal: 9,
-      paddingVertical: 3,
-      borderRadius: 6,
-      backgroundColor: theme.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
+    subtitle: {
+      fontSize: 14,
+      color: theme.textMuted,
     },
-    badgeText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.accent,
+    status: {
+      fontSize: 14,
+      color: theme.textMuted,
     },
     closeButton: {
-      padding: 4,
+      padding: 6,
       borderRadius: 18,
       backgroundColor: theme.surfaceMuted,
     },
+    actionsRow: {
+      marginTop: 14,
+      flexGrow: 0,
+    },
+    actions: {
+      gap: 8,
+      paddingHorizontal: 20,
+    },
+    action: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    actionPrimary: {
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    actionText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.accent,
+    },
+    actionTextPrimary: {
+      color: theme.onAccent,
+    },
     details: {
-      marginTop: 16,
-      gap: 11,
+      marginTop: 12,
+      paddingHorizontal: 20,
     },
     detailRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
+      alignItems: 'flex-start',
+      gap: 16,
+      paddingVertical: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.border,
+    },
+    detailBody: {
+      flex: 1,
     },
     detailText: {
       flex: 1,
       fontSize: 14,
-      color: theme.textMuted,
+      lineHeight: 20,
+      color: theme.text,
     },
     link: {
       color: theme.accent,
-      fontWeight: '600',
     },
-    button: {
+    week: {
+      gap: 4,
+    },
+    weekRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 20,
-      backgroundColor: theme.accent,
-      borderRadius: 18,
-      paddingVertical: 15,
     },
-    secondary: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 10,
-      borderRadius: 18,
-      paddingVertical: 13,
-      backgroundColor: theme.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
+    weekDay: {
+      width: 92,
+      fontSize: 14,
+      color: theme.text,
     },
-    /** Guardado: a cor da estrela, para se ver de relance que já lá está. */
-    savedText: {
-      color: theme.poi,
+    weekHours: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.text,
     },
-    secondaryText: {
-      color: theme.accent,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    buttonText: {
-      color: theme.onAccent,
-      fontSize: 16,
+    weekToday: {
       fontWeight: '700',
     },
   });

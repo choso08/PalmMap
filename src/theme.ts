@@ -50,6 +50,10 @@ export interface Theme {
   border: string;
   /** Error messages. */
   danger: string;
+  /** "Open" on a place card. */
+  open: string;
+  /** "Closes soon" on a place card. */
+  closingSoon: string;
   /** Destination marker. */
   destination: string;
   /** Business pins. */
@@ -95,6 +99,8 @@ export const light: Theme = {
   onAccent: '#FFFFFF',
   border: '#E3D8C8',
   danger: '#A8341F',
+  open: '#188038',
+  closingSoon: '#E37400',
   // Deep water. The destination has to stand apart from the route, which is coral.
   destination: '#0F6E70',
   poi: '#C98526',
@@ -123,6 +129,8 @@ export const dark: Theme = {
   onAccent: '#0B1319',
   border: '#25384A',
   danger: '#F08A72',
+  open: '#81C995',
+  closingSoon: '#FDD663',
   destination: '#3FAAA6',
   poi: '#E0AC55',
   poiOutline: '#152230',

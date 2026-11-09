@@ -134,14 +134,24 @@ export const en: typeof pt = {
   },
 
   place: {
-    route: 'Get directions',
-    addWaypoint: 'Stop here on the way',
+    route: 'Directions',
+    addWaypoint: 'Add stop',
     save: 'Save',
     unsave: 'Saved',
     call: 'Call',
     website: 'Website',
+    share: 'Share',
     openNow: 'Open',
     closedNow: 'Closed',
+    open24h: 'Open 24 hours',
+    closesSoon: 'Closes soon',
+    closesAt: (time: string) => `Closes ${time}`,
+    opensAt: (time: string) => `Opens ${time}`,
+    opensTomorrow: (time: string) => `Opens tomorrow ${time}`,
+    opensOn: (day: string, time: string) => `Opens ${day} ${time}`,
+    closedAllDay: 'Closed',
+    weekdays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    weekdaysShort: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   },
 
   route: {
