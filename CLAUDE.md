@@ -488,6 +488,8 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   satélite e reabrir no mapa desenhado era o contrário do que ele queria. Esteve de propósito sem
   se guardar, por causa dos autocarros ao vivo (1,1 MB de vinte em vinte segundos) — o autor
   escolheu não ter travão nenhum. Um valor desconhecido volta ao mapa desenhado.
+- **As opções da navegação estão agrupadas numa secção que abre e fecha** ("Navegação", com o
+  `Collapsible`), a pedido do autor: voz, limite, radares, portagens, velocímetro e bateria.
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
   quando a aplicação se fechou sozinha — ver "6-K".
@@ -1304,7 +1306,7 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   limite da via mais perto a menos de `LIMITS_MATCH_M` (25 m). Ao lado do velocímetro aparece o **sinal do limite**, como no
   Waze, e a voz diz "Limite de velocidade: 50" **uma vez** ao passar, e não outra vez durante
   `LIMIT_WARNING_EVERY_MS` (um minuto) — um aviso que se repete a cada segundo desliga-se na
-  primeira viagem. Definição própria (`speedLimitAlerts`). Onde o OpenStreetMap não tem o
+  primeira viagem. Definição própria (`speedLimitAlerts`), **desligada de origem** a pedido do autor. Onde o OpenStreetMap não tem o
   limite marcado, não há sinal e o velocímetro é só um número: pintá-lo por um limite
   adivinhado era prometer o que não se tem. Os limites implícitos (`PT:urban`, `PT:rural`)
   ficam de fora: só se lê o número.

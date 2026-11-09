@@ -354,85 +354,87 @@ export function SettingsSheet({
             <Schedules />
           </Collapsible>
 
-          <Text style={styles.sectionTitle}>{s.navigation}</Text>
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.voice}</Text>
-              {/*
-                Only when the phone does **not** have the region's voice. The app
-                cannot install voices — that is Android's settings — but it can
-                say why an accent nobody asked for is heard, which otherwise
-                reads as an app fault.
-              */}
-              {hasRegionVoice(language) === false ? (
-                <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
-              ) : null}
+          {/* Every navigation option in one group, closed by default (author's request). */}
+          <Collapsible title={s.navigation}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.voice}</Text>
+                {/*
+                  Only when the phone does **not** have the region's voice. The app
+                  cannot install voices — that is Android's settings — but it can
+                  say why an accent nobody asked for is heard, which otherwise
+                  reads as an app fault.
+                */}
+                {hasRegionVoice(language) === false ? (
+                  <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
+                ) : null}
+              </View>
+              <Switch
+                value={settings.voiceGuidance}
+                onValueChange={(next) => update('voiceGuidance', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.voiceGuidance}
-              onValueChange={(next) => update('voiceGuidance', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.speedLimit}</Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.speedLimit}</Text>
+              </View>
+              <Switch
+                value={settings.speedLimitAlerts}
+                onValueChange={(next) => update('speedLimitAlerts', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.speedLimitAlerts}
-              onValueChange={(next) => update('speedLimitAlerts', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.cameras}</Text>
-              <Text style={styles.switchHint}>{s.camerasHint}</Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.cameras}</Text>
+                <Text style={styles.switchHint}>{s.camerasHint}</Text>
+              </View>
+              <Switch
+                value={settings.speedCameraAlerts}
+                onValueChange={(next) => update('speedCameraAlerts', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.speedCameraAlerts}
-              onValueChange={(next) => update('speedCameraAlerts', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.tolls}</Text>
-              <Text style={styles.switchHint}>{s.tollsHint}</Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.tolls}</Text>
+                <Text style={styles.switchHint}>{s.tollsHint}</Text>
+              </View>
+              <Switch
+                value={settings.avoidTolls}
+                onValueChange={(next) => update('avoidTolls', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.avoidTolls}
-              onValueChange={(next) => update('avoidTolls', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.speed}</Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.speed}</Text>
+              </View>
+              <Switch
+                value={settings.showSpeed}
+                onValueChange={(next) => update('showSpeed', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.showSpeed}
-              onValueChange={(next) => update('showSpeed', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
-          <Text style={styles.note}>{s.speedNote}</Text>
+            <Text style={styles.note}>{s.speedNote}</Text>
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.batterySaver}</Text>
-              <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{s.batterySaver}</Text>
+                <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
+              </View>
+              <Switch
+                value={settings.batterySaver}
+                onValueChange={(next) => update('batterySaver', next)}
+                trackColor={{ true: theme.accent, false: theme.border }}
+              />
             </View>
-            <Switch
-              value={settings.batterySaver}
-              onValueChange={(next) => update('batterySaver', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
+          </Collapsible>
 
           <Text style={styles.sectionTitle}>{s.recents}</Text>
           <Pressable

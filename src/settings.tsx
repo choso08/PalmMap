@@ -119,7 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mapType: 'map',
   satelliteDetail: 'normal',
   speedCameraAlerts: true,
-  speedLimitAlerts: true,
+  speedLimitAlerts: false,
   avoidTolls: false,
   batterySaver: true,
   showSpeed: true,
