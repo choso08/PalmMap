@@ -598,7 +598,7 @@ function PalmMap() {
   useEffect(() => {
     void refreshOutdatedOnWifi().then((renovados) => {
       if (renovados > 0) {
-        // O mapa em uso pode ter sido substituído por baixo dos pés.
+        // The map in use may have been replaced underfoot.
         setOfflineRegions(installedRegions());
       }
     });
@@ -622,31 +622,33 @@ function PalmMap() {
   );
 
   /**
-   * Procura versão nova ao abrir a aplicação, e em Wi-Fi descarrega-a sozinha.
+   * Looks for a new version when the app opens, and on Wi-Fi downloads it by
+   * itself.
    *
-   * **A data da última procura fica guardada**, e não só em memória: sem isso,
-   * abrir e fechar a aplicação seis vezes seguidas valia seis pedidos. A API do
-   * GitHub conta 60 por hora **por endereço IP**, partilhados com tudo o que
-   * esteja na mesma rede. O travão é de um quarto de hora — ver
+   * **The date of the last check is stored**, not just kept in memory: without
+   * that, opening and closing the app six times in a row was six requests.
+   * GitHub's API counts 60 an hour **per IP address**, shared with everything on
+   * the same network. The brake is a quarter of an hour — see
    * `UPDATE_CHECK_INTERVAL_MS`.
    *
-   * **A descarga automática é só em Wi-Fi**, e isso é uma decisão e não um
-   * esquecimento: são dezenas de megabytes, e gastá-los no plafond de alguém sem
-   * perguntar é o que já se decidiu não fazer com os mapas dos países. Nos dados
-   * móveis o aviso aparece na mesma, com o botão à espera.
+   * **The automatic download is Wi-Fi only**, a decision and not an oversight:
+   * it is tens of megabytes, and spending them from someone's allowance without
+   * asking is what was already ruled out for the country maps. On mobile data
+   * the notice shows anyway, with the button waiting.
    *
-   * Falhar aqui não pode dar erro nenhum no ecrã: quem não pediu nada não tem
-   * de saber que uma verificação silenciosa não conseguiu chegar à Internet.
-   * Quem quiser resposta carrega no botão, nas definições, e aí sim vê o erro.
+   * A failure here must not put any error on screen: someone who asked for
+   * nothing does not need to know a silent check could not reach the Internet.
+   * Whoever wants an answer presses the button in Settings, and there sees the
+   * error.
    */
   useEffect(() => {
     void (async () => {
       try {
         setUpdateDismissed(Number(await AsyncStorage.getItem(UPDATE_DISMISSED_KEY)) || 0);
 
-        // Uma instalação que se abriu e não terminou passa à frente de tudo,
-        // sem pedido nenhum ao GitHub: já se sabe qual é a versão e o APK
-        // costuma estar ainda na cache. Ver `unfinishedInstall`.
+        // An install that was opened and did not finish comes before everything,
+        // with no request to GitHub: the version is known and the APK is usually
+        // still in the cache. See `unfinishedInstall`.
         const pendente = await unfinishedInstall();
         if (pendente) {
           setInstallUnfinished(true);
@@ -658,33 +660,32 @@ function PalmMap() {
         if (Date.now() - ultima < UPDATE_CHECK_INTERVAL_MS) {
           return;
         }
-        // Marca-se **antes** de perguntar. Se a rede estiver em baixo, o que não
-        // se quer é voltar a tentar a cada arranque durante o dia inteiro.
+        // Marked **before** asking. If the network is down, what is not wanted is to
+        // try again at every start for the whole day.
         await AsyncStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
 
-        // A rede lê-se antes da resposta: assim, quando o aviso aparecer, já
-        // está decidido se a descarga arranca sozinha ou fica à espera de um
-        // toque. Ao contrário, o aviso nascia sem saber e começava a descarregar
-        // um instante depois de aparecer, o que se lê como um salto.
+        // The network is read before the answer: so when the notice shows, it is
+        // already decided whether the download starts by itself or waits for a tap.
+        // The other way round, the notice was born not knowing and started
+        // downloading a moment after showing, which reads as a jump.
         const wifi = await onWifi();
         const encontrada = await checkForUpdate();
         setUpdateOnWifi(wifi);
         setUpdateInfo(encontrada);
       } catch {
-        // Em silêncio, de propósito — ver a nota acima.
+        // Silent, on purpose — see the note above.
       }
     })();
   }, []);
 
-  // Posição atual, pedida uma vez ao arrancar.
+  // Current position, asked once at start-up.
   useEffect(() => {
     void (async () => {
-      // **"Sem posição" não é "sem permissão".** Estas duas coisas andavam
-      // juntas: qualquer falta de posição contava como recusa, e a aplicação
-      // escondia o aviso certo e o botão do GPS. Mas o GPS falha por muitas
-      // razões que não são a pessoa ter dito que não — dentro de casa, sem céu
-      // à vista, ou simplesmente por ainda não ter respondido. A recusa
-      // pergunta-se a quem sabe.
+      // **"No position" is not "no permission".** The two used to go together:
+      // any missing position counted as a refusal, and the app hid the right
+      // notice and the GPS button. But the GPS fails for many reasons other than
+      // the person saying no — indoors, with no sky in view, or simply not having
+      // answered yet. The refusal is asked of whoever knows.
       const autorizada = await requestPermission();
       setLocationDenied(!autorizada);
 
@@ -696,19 +697,19 @@ function PalmMap() {
   }, []);
 
   /**
-   * Ao voltar do segundo plano, vai buscar a posição outra vez.
+   * When coming back from the background, fetch the position again.
    *
-   * **Com a aplicação fora do ecrã, o Android corta as leituras de GPS** — é a
-   * contrapartida de pedir a permissão só "durante a utilização", e é o que se
-   * quer. Mas quem andou entretanto voltava com a posição de onde estava antes,
-   * e nada no ecrã dizia que aquilo já não valia.
+   * **With the app off screen, Android cuts the GPS readings** — the trade-off of
+   * asking for the permission "while in use" only, and what is wanted. But
+   * someone who moved meanwhile came back with the position from before, and
+   * nothing on screen said it no longer held.
    *
-   * Pede-se uma leitura nova aqui, sem esperar pela do seguimento: essa vem de
-   * dez em dez segundos e só depois de a pessoa andar cinquenta metros, o que
-   * deixava uma janela larga em que centrar o mapa levava ao sítio errado.
+   * A new reading is asked for here, without waiting for the tracking one: that
+   * comes every ten seconds and only after the person moves fifty metres, which
+   * left a wide window in which centring the map went to the wrong place.
    *
-   * Durante a navegação não é preciso: aí lê-se a cada segundo, e o Android
-   * retoma isso mal a aplicação volta.
+   * Not needed while navigating: then it reads every second, and Android resumes
+   * that as soon as the app comes back.
    */
   useEffect(() => {
     if (navigating) {
@@ -731,18 +732,18 @@ function PalmMap() {
   }, [navigating]);
 
   /**
-   * Fora da navegação, continua a seguir a posição devagar, para o ponto azul
-   * acompanhar quem anda em vez de ficar preso onde estava ao abrir. Durante a
-   * navegação desliga-se, porque aí quem segue o GPS é o motor de navegação e
-   * ter os dois ligados era gastar bateria a dobrar.
+   * Outside navigation, keep following the position slowly, so the blue dot
+   * keeps up with someone walking instead of staying where it was at opening.
+   * While navigating it is off, because then the navigation engine follows the
+   * GPS and having both on was spending battery twice.
    *
-   * **A andar de carro, o ritmo sobe.** De dez em dez segundos chega de sobra
-   * para um ponto azul, e não chega de todo para um velocímetro: a 90 km/h, dez
-   * segundos são duzentos e cinquenta metros, e o número que se lia era o de há
-   * um quarteirão. Acima de `DRIVING_SPEED_MS` passa-se a ler de dois em dois
-   * segundos, e com `distanceInterval` a zero — senão, quem trava dos 90 para
-   * zero não anda os cinquenta metros que destrancariam a leitura seguinte, e o
-   * velocímetro ficava preso nos 90 com o carro imóvel.
+   * **In a car, the pace goes up.** Every ten seconds is plenty for a blue dot
+   * and not nearly enough for a speedometer: at 90 km/h, ten seconds is two
+   * hundred and fifty metres, and the number shown was from a block ago. Above
+   * `DRIVING_SPEED_MS` it reads every two seconds, with `distanceInterval` at
+   * zero — otherwise braking from 90 to zero never covers the fifty metres that
+   * would unlock the next reading, and the speedometer stuck at 90 with the car
+   * standing still.
    */
   useEffect(() => {
     if (navigating) {
@@ -753,26 +754,26 @@ function PalmMap() {
     let cancelled = false;
 
     void watchPositionIdle(
-      // Pela mesma razão do seguimento da navegação: quem chama isto é o lado
-      // nativo, e um erro aqui fechava a aplicação sem deixar rasto.
+      // For the same reason as navigation tracking: the native side calls this,
+      // and an error here closed the app without a trace.
       guarded((position: Coordinates, speedMs: number | null) => {
         userLocationRef.current = position;
         setUserLocation(position);
         setHasLocation(true);
         setLocationDenied(false);
 
-        // **O número é o do GPS, sem retoque nenhum.** O recetor mede o
-        // andamento pelo efeito de Doppler e é ele que sabe; o que a aplicação
-        // faz é passar de metros por segundo a km/h. Quando o Android não sabe
-        // dizer a velocidade, o velocímetro desaparece — isso não é retocar o
-        // número, é não ter número nenhum.
+        // **The number is the GPS's, untouched.** The receiver measures speed by
+        // the Doppler effect and it is the one that knows; the app only converts
+        // metres per second to km/h. When Android cannot tell the speed, the
+        // speedometer disappears — that is not touching up the number, it is having
+        // no number at all.
         setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
-        // **Entra-se depressa e sai-se devagar.** Basta uma leitura acima do
-        // limiar para ligar; para desligar é preciso estar devagar há mais de
-        // `DRIVING_LINGER_MS`. Sem essa espera, o velocímetro desaparecia em
-        // cada semáforo e voltava ao arrancar — e um velocímetro mostra zero
-        // quando se pára, não se esconde.
+        // **Quick in, slow out.** One reading above the threshold turns it on; to
+        // turn it off it has to be slow for more than `DRIVING_LINGER_MS`. Without
+        // that wait the speedometer vanished at every traffic light and came back
+        // when pulling away — and a speedometer shows zero when stopped, it does
+        // not hide.
         if (speedMs !== null) {
           if (speedMs >= DRIVING_SPEED_MS) {
             lastDrivingAt.current = Date.now();
@@ -801,11 +802,11 @@ function PalmMap() {
     };
   }, [navigating, drivingGps]);
 
-  // Calcula o percurso quando há origem e destino.
+  // Calculates the route when there is an origin and a destination.
   useEffect(() => {
-    // Durante a navegação a posição muda a cada segundo. Recalcular aqui faria
-    // um pedido por segundo ao OSRM — quem recalcula é o motor de navegação,
-    // e só quando se sai mesmo do percurso.
+    // While navigating the position changes every second. Recalculating here
+    // would send one request a second to OSRM — the navigation engine
+    // recalculates, and only when really off the route.
     if (navigating) {
       return;
     }
@@ -833,32 +834,31 @@ function PalmMap() {
 
     const perfil = osrmProfile(settings.travelMode);
 
-    // --- Transportes públicos ------------------------------------------------
+    // --- Public transport ---------------------------------------------------
     //
-    // Os transportes não passam pelo OSRM: não há motor de percursos que os
-    // saiba calcular a partir de dados abertos. Montam-se de duas fontes, que
-    // são bastante diferentes uma da outra:
+    // Public transport does not go through OSRM: no routing engine can work it
+    // out from open data. It is assembled from two quite different sources:
     //
-    // - **Autocarros**, das horas de passagem em tempo real da Carris
-    //   Metropolitana. Precisa de rede — ver `planBusTrips`.
-    // - **Comboio, metro e barco**, do horário guardado no telemóvel. Não
-    //   precisa de rede nenhuma e responde de imediato, mas é o horário e não o
-    //   comboio a andar — ver `planScheduledTrips`.
+    // - **Buses**, from Carris Metropolitana's real-time arrivals. Needs a
+    //   network — see `planBusTrips`.
+    // - **Train, metro and ferry**, from the timetable stored on the phone. Needs
+    //   no network and answers at once, but it is the timetable and not the
+    //   moving train — see `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
       void (async () => {
-        // O horário guardado primeiro, e sem esperar por rede: assim há logo
-        // alguma coisa no ecrã, mesmo que o serviço dos autocarros esteja em
-        // baixo ou não haja ligação nenhuma.
+        // The stored timetable first, without waiting for a network: there is
+        // something on screen at once, even if the bus service is down or there
+        // is no connection at all.
         let doHorario: TransitTrip[] = [];
         try {
           doHorario = planScheduledTrips(origem, destination.coordinates);
         } catch {
-          // Um horário estragado não pode impedir os autocarros de aparecer.
+          // A broken timetable must not stop the buses from showing.
         }
 
-        // Chega mais cedo primeiro, venha de onde vier. É a mesma regra dos
-        // autocarros entre si: o que interessa é a que horas se lá está.
+        // Earliest arrival first, wherever it comes from. Same rule as among the
+        // buses: what matters is what time you are there.
         const juntar = (outros: TransitTrip[]) =>
           [...outros, ...doHorario].sort((a, b) => a.reachAt - b.reachAt);
 
@@ -880,10 +880,10 @@ function PalmMap() {
           if (!cancelled) {
             setTransitTrips(doHorario);
             setTransitTripIndex(0);
-            // A mensagem do erro diz o que falhou mesmo — o serviço a responder
-            // com um número, a demorar demais ou a rede em baixo. Antes era
-            // sempre "verifique a ligação", que diz o contrário do que se passa
-            // a quem tem rede e o mapa a carregar normalmente.
+            // The error message says what really failed — the service answering with
+            // a number, taking too long or the network down. It used to always be
+            // "check the connection", which says the opposite of what is happening to
+            // someone with a network and the map loading normally.
             setRouteError(
               doHorario.length > 0
                 ? null
@@ -918,8 +918,8 @@ function PalmMap() {
         if (!cancelled) {
           setRouteOptions(result);
           setRouteIndex(0);
-          // A lista de recentes só se toca quando o percurso sai mesmo: um
-          // destino que não deu caminho nenhum não é sítio nenhum.
+          // The recents list is only touched when the route really comes out: a
+          // destination that gave no route is no place at all.
           void rememberRecent(destination).then(setRecents);
         }
       } catch (error) {
@@ -941,26 +941,26 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-    // A posição entra aqui como `hasLocation` e não como coordenadas: o percurso
-    // traça-se quando se escolhe o destino (ou quando chega a primeira posição),
-    // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
-    // navegação, que tem o seu próprio recálculo.
+    // The position comes in as `hasLocation`, not coordinates: the route is
+    // drawn when the destination is chosen (or when the first position
+    // arrives), not again at every step. Following the person is navigation's
+    // job, which has its own recalculation.
   }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
 
   /**
-   * O tempo de cada meio de transporte, para os botões do painel do percurso
-   * ("carro 12 min · a pé 45 min"), como nos mapas que toda a gente conhece.
+   * Each travel mode's time, for the route panel buttons ("car 12 min · walk
+   * 45 min"), as in the maps everyone knows.
    *
-   * Pedem-se só os **outros** meios — o escolhido já tem o percurso inteiro —
-   * e com o pedido mais leve do OSRM (sem geometria nem manobras). Passam pela
-   * mesma fila de um pedido por segundo, e ficam guardados para a sessão: andar
-   * a trocar de meio não volta a perguntar nada. Os transportes públicos não
-   * entram — o tempo deles sai dos trajetos, quando são o meio escolhido.
+   * Only the **other** modes are asked for — the chosen one already has the full
+   * route — and with OSRM's lightest request (no geometry or manoeuvres). They
+   * go through the same one-a-second queue and are kept for the session:
+   * switching modes back and forth asks nothing again. Public transport is not
+   * included — its time comes from the trips, when it is the chosen mode.
    */
   const [modeTimes, setModeTimes] = useState<
     Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>
   >({});
-  // Outro destino, outra origem ou outras paragens: os tempos de antes já não servem.
+  // Another destination, origin or stops: the earlier times no longer apply.
   useEffect(() => {
     setModeTimes({});
   }, [destination, routeOrigin, waypoints]);
@@ -993,22 +993,22 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-    // Com o meio escolhido nas dependências: ao trocar, o que se deixou passa a
-    // precisar do seu tempo. Os outros vêm da cache do serviço, sem pedido.
+    // With the chosen mode in the dependencies: on switching, the one left
+    // needs its time. The others come from the service cache, with no request.
   }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode]);
 
   /**
-   * Procura negócios para mostrar no mapa.
+   * Looks for businesses to show on the map.
    *
-   * Com uma categoria escolhida, procura-a **na área que se está a ver** — não à
-   * volta do GPS. De outra forma, ao olhar para outra zona os resultados
-   * apareciam longe dali e parecia que o botão não fazia nada.
+   * With a category chosen, it searches **the area in view** — not around the
+   * GPS. Otherwise, when looking at another area the results appeared far from
+   * there and the button seemed to do nothing.
    */
   const searchPlacesIn = useCallback(
     async (bounds: Bounds, zoom: number, chosen: SearchCategory | null) => {
       const requestId = ++latestPlaces.current;
-      // Perguntado pela fila da Overpass quando chega a vez deste pedido: se
-      // entretanto o mapa já foi para outro lado, o pedido não chega a sair.
+      // Asked by the Overpass queue when this request's turn comes: if the map
+      // has moved elsewhere meanwhile, the request never goes out.
       const stillWanted = () => requestId === latestPlaces.current;
 
       if (chosen) {
@@ -1054,7 +1054,7 @@ function PalmMap() {
         return;
       }
 
-      // Sem categoria: os pinos automáticos, que só aparecem bem aproximado.
+      // No category: the automatic pins, which only show zoomed well in.
       if (!settings.showPlacesOnMap || zoom < MAP_PINS_MIN_ZOOM) {
         setPlaces([]);
         return;
@@ -1076,7 +1076,7 @@ function PalmMap() {
     [settings.showPlacesOnMap, settings.mapType],
   );
 
-  // Ao escolher uma categoria, procura já na zona que está à vista.
+  // When a category is chosen, search the area in view straight away.
   useEffect(() => {
     const current = viewport.current;
     if (!current) {
@@ -1089,23 +1089,23 @@ function PalmMap() {
   }, [category, searchPlacesIn]);
 
   /**
-   * Quando o mapa para de se mexer, atualiza os negócios à vista.
+   * When the map stops moving, update the businesses in view.
    *
-   * Só depois de uma pausa — a Overpass é mantida por voluntários e um pedido
-   * por cada arrastar do dedo seria abusivo.
+   * Only after a pause — Overpass is run by volunteers and one request per drag
+   * would be abusive.
    */
   const handleViewportChange = useCallback(
     (bounds: Bounds, zoom: number) => {
       viewport.current = { bounds, zoom };
 
-      // Só o booleano, e só quando muda de lado: pôr o mesmo valor não redesenha
-      // nada, mas vale a pena deixar claro que é com isso que se conta.
+      // Only the boolean, and only when it crosses over: setting the same value
+      // redraws nothing, but it is worth making clear that is what is relied on.
       const daParaVer = zoom >= VEHICLES_MIN_ZOOM;
       setVehicleZoomOk((atual) => (atual === daParaVer ? atual : daParaVer));
 
-      // O meio do mapa, arredondado a uns cem metros. É o que diz às paragens e
-      // às estações onde procurar — arredondado porque a lista não tem de se
-      // reordenar debaixo do dedo a cada pixel que o mapa anda.
+      // The middle of the map, rounded to about a hundred metres. It tells the
+      // stops and stations where to look — rounded because the list does not
+      // have to reorder under the finger with every pixel the map moves.
       const centro = `${((bounds.south + bounds.north) / 2).toFixed(3)},${(
         (bounds.west + bounds.east) /
         2
@@ -1135,13 +1135,12 @@ function PalmMap() {
         clearTimeout(pinsTimer.current);
       }
 
-      // **O que já está em memória aparece já, sem esperar.** A espera existe
-      // para não atirar um pedido à Overpass a cada arrastar do dedo — e uma
-      // resposta guardada não atira pedido nenhum. Andar para trás e para a
-      // frente numa zona por onde já se passou deixa de ter um segundo e dois
-      // décimos de mapa sem pinos a cada paragem, que era o que mais fazia isto
-      // parecer lento. Sem categoria escolhida, porque só os pinos automáticos
-      // encaixam na grelha da cache.
+      // **What is already in memory shows at once, with no wait.** The wait
+      // exists so as not to fire a request at Overpass on every drag — and a
+      // stored answer fires no request. Going back and forth in an area already
+      // visited no longer has a second and a fifth of map without pins at every
+      // stop, which was what most made this feel slow. Only without a category,
+      // because only the automatic pins fit the cache grid.
       // With the country downloaded, the pins come from the phone, now —
       // no wait, no request. See `localPois.ts`.
       if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
@@ -1178,10 +1177,10 @@ function PalmMap() {
   }, []);
 
   /**
-   * Onde cada manobra fica ao longo da linha do percurso.
+   * Where each manoeuvre sits along the route line.
    *
-   * Calcula-se uma vez por percurso, porque é uma conta pesada e durante a
-   * navegação é preciso responder a cada segundo.
+   * Worked out once per route, because it is a heavy sum and while navigating
+   * the answer is needed every second.
    */
   const stepIndices = useMemo(() => {
     if (!route) {
@@ -1191,11 +1190,10 @@ function PalmMap() {
   }, [route]);
 
   /**
-   * Onde ficam as paragens ao longo da linha do percurso.
+   * Where the stops sit along the route line.
    *
-   * Serve ao recálculo: ao sair do caminho já depois da farmácia, mandar o
-   * serviço passar outra vez por ela dava meia-volta. Só entram as que ainda
-   * estão à frente.
+   * For recalculation: leaving the route after the pharmacy, sending the service
+   * through it again meant a U-turn. Only those still ahead go in.
    */
   const waypointIndices = useMemo(() => {
     if (!route) {
@@ -1204,19 +1202,20 @@ function PalmMap() {
     return waypoints.map((w) => nearestIndex(route.coordinates, w.coordinates));
   }, [route, waypoints]);
 
-  /** Impede que se peça um recálculo novo enquanto o anterior não respondeu. */
+  /** Stops a new recalculation being asked while the previous one has not answered. */
   const recalculating_ = useRef(false);
 
   /**
-   * Mantém o ecrã aceso enquanto se navega.
+   * Keeps the screen on while navigating.
    *
-   * Sem isto o telemóvel bloqueia ao fim de meio minuto — a pessoa não lhe está
-   * a tocar, está a conduzir. É a diferença entre uma aplicação de navegação e
-   * um mapa que se vê parado. Fora da navegação não se mexe: deixar o ecrã
-   * sempre aceso gastava bateria sem razão nenhuma.
+   * Without this the phone locks after half a minute — the person is not
+   * touching it, they are driving. It is the difference between a navigation app
+   * and a map looked at standing still. Outside navigation it is left alone:
+   * keeping the screen always on would spend battery for no reason.
    *
-   * A voz continua a falar com o ecrã apagado, mas o mapa deixa de se ver e o
-   * Android acaba por travar a atualização da posição — daí não bastar o som.
+   * The voice keeps talking with the screen off, but the map can no longer be
+   * seen and Android ends up throttling the position updates — so sound alone is
+   * not enough.
    */
   useEffect(() => {
     if (!navigating) {
@@ -1230,13 +1229,13 @@ function PalmMap() {
   }, [navigating]);
 
   /**
-   * Vai buscar os radares que ficam em cima do percurso.
+   * Fetches the speed cameras that sit on the route.
    *
-   * Faz-se uma vez por percurso e não durante a condução: é um pedido à
-   * Overpass, que é pesada, e os radares não mudam de sítio a meio da viagem.
+   * Done once per route and not while driving: it is an Overpass request, which
+   * is heavy, and cameras do not move in the middle of a trip.
    *
-   * Falhar aqui não pode estragar nada — fica-se sem avisos e navega-se na
-   * mesma, que é muito melhor do que não haver percurso.
+   * A failure here must not break anything — no warnings, and navigation goes
+   * on, which is much better than no route.
    */
   useEffect(() => {
     warnedCameras.current.clear();
