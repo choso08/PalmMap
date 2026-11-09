@@ -556,6 +556,19 @@ def valhalla_raw():
     print("RAW-END")
 
 
+def dup_parking():
+    """Why "Parque da Biblioteca" shows twice: every OSM object with that name."""
+    import urllib.parse
+    q = """[out:json][timeout:60];
+    nwr["name"="Parque da Biblioteca"](38.55,-9.35,38.80,-9.05);
+    out tags center;"""
+    status, _, body = get("https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(q), timeout=90)
+    print(status)
+    if status == 200:
+        for el in json.loads(body).get("elements", []):
+            print(el["type"], el["id"], el.get("center") or (el.get("lat"), el.get("lon")), json.dumps(el.get("tags"), ensure_ascii=False))
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")

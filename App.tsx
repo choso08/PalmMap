@@ -3,7 +3,14 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AppState,
+  type LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -181,6 +188,15 @@ function PalmMap() {
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  // The bottom panels' measured heights — see `raisedBottom`.
+  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0 });
+  const measurePanel = useCallback(
+    (which: 'place' | 'route' | 'measure') => (event: LayoutChangeEvent) => {
+      const height = Math.round(event.nativeEvent.layout.height);
+      setPanelHeights((old) => (old[which] === height ? old : { ...old, [which]: height }));
+    },
+    [],
+  );
   // Settings opened from the route panel's shortcut: only the navigation group.
   const [settingsNavOnly, setSettingsNavOnly] = useState(false);
   /**
@@ -1666,6 +1682,22 @@ function PalmMap() {
   const getMapBounds = useCallback(() => viewport.current?.bounds ?? null, []);
 
   /**
+   * How high the floating buttons go while a bottom panel is open: just above
+   * the panel actually showing, measured (`onLayout` on its `Reveal`).
+   *
+   * It was a fixed 260 points, and the route panel — with the time per mode,
+   * the bike types and the alternatives — is taller than that: the locate
+   * button sat on top of the panel's star and close cross (author's photo).
+   * The fixed value stays as the floor, for the instant before the first
+   * measurement.
+   */
+  const shownPanel = selectedPlace ? 'place' : destination ? 'route' : measuring ? 'measure' : null;
+  const raisedBottom = Math.max(
+    insets.bottom + 260,
+    (shownPanel ? panelHeights[shownPanel] : 0) + 12,
+  );
+
+  /**
    * How high the map's compass sits, in the bottom-left corner.
    *
    * It lives here and not in `MapView` because **the corner is shared** and
@@ -1679,7 +1711,7 @@ function PalmMap() {
    */
   const compassBottom =
     selectedPlace || destination || measuring
-      ? insets.bottom + 260
+      ? raisedBottom
       : navigating
         ? // While navigating, this corner has the speedometer, which `NavigationPanel`
           // puts at 130. The compass goes above it — they were at the same height,
@@ -2253,7 +2285,11 @@ function PalmMap() {
         screen.
       */}
       {lastPlace ? (
-        <Reveal style={styles.bottom} visible={!navigating && !!selectedPlace}>
+        <Reveal
+          style={styles.bottom}
+          visible={!navigating && !!selectedPlace}
+          onLayout={measurePanel('place')}
+        >
           <DraggableSheet>
             {(drag) => (
               <PlaceSheet
@@ -2278,6 +2314,7 @@ function PalmMap() {
         <Reveal
           style={styles.bottom}
           visible={!navigating && !selectedPlace && !!destination}
+          onLayout={measurePanel('route')}
         >
           <DraggableSheet>
             {(drag) => (
@@ -2327,7 +2364,7 @@ function PalmMap() {
       ) : null}
 
       {measuring ? (
-        <Reveal style={styles.bottom}>
+        <Reveal style={styles.bottom} onLayout={measurePanel('measure')}>
           <DraggableSheet>
             {(drag) => (
               <MeasureSheet
@@ -2355,7 +2392,7 @@ function PalmMap() {
         <Pressable
           style={({ pressed }) => [
             styles.transitButton,
-            selectedPlace || destination || measuring ? styles.transitRaised : null,
+            selectedPlace || destination || measuring ? { bottom: raisedBottom + 62 } : null,
             pressed ? styles.buttonPressed : null,
           ]}
           onPress={() => setTransitVisible(true)}
@@ -2405,7 +2442,7 @@ function PalmMap() {
             navigating
               ? styles.locateNavigating
               : selectedPlace || destination || measuring
-                ? styles.locateRaised
+                ? { bottom: raisedBottom }
                 : null,
             pressed && styles.buttonPressed,
           ]}
@@ -2709,10 +2746,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 4 },
     },
-    transitRaised: {
-      // Same gap between the two buttons as when no panel is open.
-      bottom: insets.bottom + 322,
-    },
     locateButton: {
       position: 'absolute',
       right: 16,
@@ -2741,9 +2774,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     buttonPressed: {
       transform: [{ scale: 0.92 }],
       opacity: 0.9,
-    },
-    locateRaised: {
-      bottom: insets.bottom + 260,
     },
     /** Above the navigation panel, which is lower than the others. */
     locateNavigating: {

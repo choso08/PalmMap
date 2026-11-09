@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  Easing,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 interface RevealProps {
   children: ReactNode;
@@ -14,6 +20,8 @@ interface RevealProps {
   /** How many points it rises when appearing. Negative makes it come down. */
   from?: number;
   style?: StyleProp<ViewStyle>;
+  /** Its size, for the floating buttons that must sit above it. */
+  onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 /** How long it takes to appear. Short on purpose: this is a maps app, not a
@@ -28,7 +36,7 @@ const OUT_MS = 160;
  * on the native side and does not stutter while JavaScript is busy — which is
  * exactly when this appears, right after a response from the Internet.
  */
-export function Reveal({ children, visible = true, from = 22, style }: RevealProps) {
+export function Reveal({ children, visible = true, from = 22, style, onLayout }: RevealProps) {
   const progress = useRef(new Animated.Value(0)).current;
   /** Stays mounted while leaving the screen, otherwise there is nothing to animate. */
   const [mounted, setMounted] = useState(visible);
@@ -70,6 +78,7 @@ export function Reveal({ children, visible = true, from = 22, style }: RevealPro
       // While fading out it catches nothing; without this, it caught touches
       // no longer meant for it.
       pointerEvents={visible ? 'box-none' : 'none'}
+      onLayout={onLayout}
       style={[
         style,
         {
