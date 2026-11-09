@@ -18,6 +18,7 @@ import {
   type LanguagePreference,
   type Strings,
 } from './i18n';
+import type { BikeType } from './services/valhalla';
 import { type Theme, themeFor } from './theme';
 import { blendPace, modelSeconds } from './utils/eta';
 
@@ -72,6 +73,8 @@ export interface Settings {
   language: LanguagePreference;
   appearance: AppearanceMode;
   travelMode: TravelMode;
+  /** The kind of bicycle: paved only, everyday, or anything goes (BTT). */
+  bikeType: BikeType;
   /** Show businesses on the map by themselves, as one moves around. */
   showPlacesOnMap: boolean;
   /** Read the instructions aloud while navigating. */
@@ -112,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'auto',
   appearance: 'system',
   travelMode: 'driving',
+  bikeType: 'normal',
   showPlacesOnMap: true,
   voiceGuidance: true,
   timeAdjustment: 'none',
@@ -249,6 +253,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             mapType: MAP_TYPES.some((m) => m.id === JSON.parse(stored).mapType)
               ? JSON.parse(stored).mapType
               : DEFAULT_SETTINGS.mapType,
+            bikeType: ['road', 'normal', 'mtb'].includes(JSON.parse(stored).bikeType)
+              ? JSON.parse(stored).bikeType
+              : DEFAULT_SETTINGS.bikeType,
           });
         }
       } catch {

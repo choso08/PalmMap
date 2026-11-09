@@ -169,6 +169,7 @@ export const en: typeof pt = {
     startsAway: (distance: string) => `The route starts ${distance} away, on the nearest road.`,
     tollsNotAvoided: 'Tolls could not be avoided.',
     noDirectTransit: 'No connection, not even with one change.',
+    bikeTypes: { road: 'Road', normal: 'Normal', mtb: 'Mountain' },
     busStop: 'Bus stop',
     changeAt: (stop: string, wait: string) => `change at ${stop} (wait ${wait})`,
     walkTo: (time: string, stop: string) => `${time} walk to ${stop}`,

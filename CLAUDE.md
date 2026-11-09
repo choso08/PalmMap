@@ -83,6 +83,8 @@ environment cannot reach.
   `TAB_BAR_HEIGHT`). Phases 2–4: see 6-0-A, 6-0-B and 6-0-C.
 - **Metro, train and ferry trips with one change**, and **Fertagus and the ferries'
   timetables** — see 6-B-3 and 6-B-4.
+- **Bicycle type: Estrada / Normal / BTT**, routed by FOSSGIS's Valhalla — see its usage
+  rules.
 - **Recent destinations no longer repeat** (`recents.ts`): the same name within 300 m is the
   same place; the stored list is cleaned on reading and writes are one at a time.
 - **Compass cone** in front of the blue dot, as in Google Maps: which way the phone points,
@@ -154,7 +156,7 @@ work in that direction unless the author asks again.
 | Internet requests | `axios` |
 | Map tiles | OpenStreetMap; business pins from OpenFreeMap |
 | Address search | Nominatim (`https://nominatim.openstreetmap.org`), and Photon when it fails |
-| Routing | FOSSGIS OSRM (`https://routing.openstreetmap.de`), one server per travel mode |
+| Routing | FOSSGIS OSRM (`https://routing.openstreetmap.de`), one server per travel mode; bicycles from FOSSGIS Valhalla (`https://valhalla1.openstreetmap.de`) |
 | Offline maps | Protomaps (PMTiles), cut from the world map |
 
 The target platform is **Android**. Nothing prevents iOS, but the permissions and the
@@ -444,6 +446,7 @@ in one place instead of spread through the code.
   | `language` | Automatic, Portuguese or English |
   | `appearance` | Automatic, light or dark |
   | `travelMode` | Car, walk, bike or bus (chosen in Directions and the route panel) |
+  | `bikeType` | Road, normal or BTT — chosen in the route panel when cycling (see the Valhalla rules) |
   | `timeAdjustment` | Arrival time correction: 1×, 1.25×, 1.5× or 2× |
   | `cacheSize` | Map cache: off, 100 MB, 250 MB, 500 MB or 1 GB |
   | `showPlacesOnMap` | Show businesses on the map by themselves |
@@ -1691,6 +1694,25 @@ The heaviest of the services: each query makes the server walk OpenStreetMap's d
 - Routes are requested with `steps=true` (manoeuvres one by one, phrased in
   `src/utils/maneuvers.ts`) and come with lanes. **No `maxspeed` annotation** on this server
   (see 6-H).
+
+### Valhalla — bicycle routes
+
+- **FOSSGIS's Valhalla** (`VALHALLA_URL`), the other engine behind openstreetmap.org's
+  directions, same organisation and terms as the OSRM servers: it **shares OSRM's queue** (one
+  request a second), the `User-Agent` and the attribution.
+- Why (November 2026): OSRM's bicycle profile has one kind of bike, and sent the author up an
+  overgrown lane above Trafaria — Rua 28 de Setembro, tagged only `highway=residential` in OSM
+  (Komoot routes it the same way). Valhalla takes a **bicycle type**: `Road`
+  (`avoid_bad_surfaces` 1), `Hybrid` (0.25) and `Mountain` (0). **Probed on that trip:** Road
+  and Hybrid stay on the EN 377-1, Mountain takes Rua 28 de Setembro and the dirt track. The
+  app calls them Estrada / Normal / BTT (`bikeType`, `valhalla.ts`).
+- The answer is read from a real response: `trip.legs[].shape` (polyline, **six decimals**,
+  `decodePolyline6`), `maneuvers[]` with a numeric `type`, `length` in km (the request asks
+  for km), `street_names`, `begin_shape_index`, `roundabout_exit_count`. The codes are mapped
+  to OSRM's words (`asOsrm`) so the sentences, icons and voice are the app's own — Valhalla's
+  Portuguese reads "em direção à a ciclovia". No lanes for bikes.
+- `directions_type: 'none'` for the chip times; `alternates: 2` only between two points.
+- **Any failure falls back to OSRM's bicycle server**: one kind of bike beats no route.
 
 ### Protomaps — offline maps
 

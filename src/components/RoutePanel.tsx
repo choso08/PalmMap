@@ -6,6 +6,14 @@ import type { GestureResponderHandlers } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode } from '../settings';
+import type { BikeType } from '../services/valhalla';
+
+/** The bicycle choices; the names come from the language table. */
+const BIKE_TYPES: { id: BikeType; icon: string }[] = [
+  { id: 'road', icon: 'road-variant' },
+  { id: 'normal', icon: 'bicycle' },
+  { id: 'mtb', icon: 'terrain' },
+];
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
@@ -43,6 +51,9 @@ interface RoutePanelProps {
   /** The travel mode in use, and how to change it. */
   travelMode: TravelMode;
   onChangeTravelMode: (mode: TravelMode) => void;
+  /** The kind of bicycle, shown under the modes when cycling. */
+  bikeType: BikeType;
+  onChangeBikeType: (bike: BikeType) => void;
   /** How long the other modes take, for the time on each chip. `null` = no route. */
   modeTimes?: Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>;
   /** Where the route starts, as text ("My location" or a place's name). */
@@ -97,6 +108,8 @@ export function RoutePanel({
   avoidTollsWanted,
   travelMode,
   onChangeTravelMode,
+  bikeType,
+  onChangeBikeType,
   modeTimes = {},
   fromLabel,
   onOpenDirections,
@@ -210,6 +223,34 @@ export function RoutePanel({
           );
         })}
       </View>
+
+      {/*
+        The kind of bicycle: paved roads only, everyday, or anything goes.
+        Valhalla routes each differently — see services/valhalla.ts.
+      */}
+      {travelMode === 'cycling' ? (
+        <View style={styles.bikes}>
+          {BIKE_TYPES.map((b) => {
+            const ativo = b.id === bikeType;
+            return (
+              <Pressable
+                key={b.id}
+                style={[styles.bike, ativo ? styles.bikeAtivo : null]}
+                onPress={() => onChangeBikeType(b.id)}
+              >
+                <MaterialCommunityIcons
+                  name={b.icon as never}
+                  size={15}
+                  color={ativo ? theme.accent : theme.textMuted}
+                />
+                <Text style={[styles.bikeTexto, ativo ? styles.bikeTextoAtivo : null]}>
+                  {strings.route.bikeTypes[b.id]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/*
         The stops along the way, in the order they are passed, each removed
@@ -655,6 +696,32 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     modoTextoAtivo: {
       color: theme.onAccent,
+    },
+    bikes: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 8,
+    },
+    bike: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 5,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    bikeAtivo: {
+      borderColor: theme.accent,
+    },
+    bikeTexto: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    bikeTextoAtivo: {
+      color: theme.accent,
+      fontWeight: '600',
     },
     aviso: {
       flexDirection: 'row',

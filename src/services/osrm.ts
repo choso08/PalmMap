@@ -12,6 +12,7 @@ import { createRateLimiter } from './rateLimit';
 import type { Coordinates, Route, RouteStep } from '../types/geo';
 import type { OsrmRouteResponse, OsrmStep } from '../types/osrm';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
+import { type BikeType, valhallaBikeDuration, valhallaBikeRoutes } from './valhalla';
 
 const client = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
@@ -87,13 +88,23 @@ export async function getDuration(
   to: Coordinates,
   profile: 'driving' | 'walking' | 'cycling',
   isWanted?: () => boolean,
+  bike: BikeType = 'normal',
 ): Promise<{ distanceMeters: number; durationSeconds: number }> {
   const points = [from, ...via, to];
   const path = points.map((p) => `${p.longitude.toFixed(5)},${p.latitude.toFixed(5)}`).join(';');
-  const key = `${profile}|${path}`;
+  const key = `${profile}${profile === 'cycling' ? `:${bike}` : ''}|${path}`;
   const cached = durationCache.get(key);
   if (cached) {
     return cached;
+  }
+  if (profile === 'cycling') {
+    try {
+      const result = await valhallaBikeDuration(points, bike, schedule, isWanted);
+      durationCache.set(key, result);
+      return result;
+    } catch {
+      // Falls back to OSRM's bicycle server below.
+    }
   }
   let response;
   try {
@@ -141,9 +152,21 @@ export async function getRoutes(
   to: Coordinates,
   profile: 'driving' | 'walking' | 'cycling' = 'driving',
   avoidTolls = false,
+  bike: BikeType = 'normal',
 ): Promise<Route[]> {
   // OSRM expects the coordinates in this order: longitude,latitude.
   const points = [from, ...via, to];
+
+  // Bicycles go to Valhalla first, which knows the type of bike (road, normal,
+  // mountain). Any failure there and OSRM's bicycle server answers instead:
+  // one kind of bike is better than no route.
+  if (profile === 'cycling') {
+    try {
+      return await valhallaBikeRoutes(points, bike, schedule);
+    } catch {
+      // Carry on with OSRM.
+    }
+  }
   const path = points.map((p) => `${p.longitude},${p.latitude}`).join(';');
 
   // `steps=true` is what brings the manoeuvres one by one.

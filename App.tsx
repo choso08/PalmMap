@@ -974,6 +974,7 @@ function PalmMap() {
           destination.coordinates,
           perfil,
           settings.avoidTolls,
+          settings.bikeType,
         );
         if (!cancelled) {
           setRouteOptions(result);
@@ -1005,7 +1006,7 @@ function PalmMap() {
     // drawn when the destination is chosen (or when the first position
     // arrives), not again at every step. Following the person is navigation's
     // job, which has its own recalculation.
-  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating]);
 
   /**
    * Each travel mode's time, for the route panel buttons ("car 12 min · walk
@@ -1023,7 +1024,7 @@ function PalmMap() {
   // Another destination, origin or stops: the earlier times no longer apply.
   useEffect(() => {
     setModeTimes({});
-  }, [destination, routeOrigin, waypoints]);
+  }, [destination, routeOrigin, waypoints, settings.bikeType]);
   useEffect(() => {
     if (navigating || !destination) {
       return;
@@ -1038,7 +1039,7 @@ function PalmMap() {
       if (mode === settings.travelMode) {
         continue;
       }
-      getDuration(origem, via, destination.coordinates, mode, () => !cancelled)
+      getDuration(origem, via, destination.coordinates, mode, () => !cancelled, settings.bikeType)
         .then((result) => {
           if (!cancelled) {
             setModeTimes((prev) => ({ ...prev, [mode]: result }));
@@ -1055,7 +1056,7 @@ function PalmMap() {
     };
     // With the chosen mode in the dependencies: on switching, the one left
     // needs its time. The others come from the service cache, with no request.
-  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode]);
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType]);
 
   /**
    * Looks for businesses to show on the map.
@@ -1404,6 +1405,7 @@ function PalmMap() {
                   destination.coordinates,
                   osrmProfile(settings.travelMode) ?? 'driving',
                   settings.avoidTolls,
+                  settings.bikeType,
                 );
                 setRoute(fresh);
                 announced.current.clear();
@@ -2309,6 +2311,8 @@ function PalmMap() {
                 avoidTollsWanted={settings.avoidTolls}
                 travelMode={settings.travelMode}
                 onChangeTravelMode={(mode) => update('travelMode', mode)}
+                bikeType={settings.bikeType}
+                onChangeBikeType={(bike) => update('bikeType', bike)}
                 modeTimes={modeTimes}
                 waypoints={waypoints}
                 onRemoveWaypoint={(i) =>

@@ -65,6 +65,12 @@ export const SEARCH_TIMEOUT_MS = 7000;
  * the queue in `osrm.ts`, the `USER_AGENT` above and the credits on the
  * settings screen.
  */
+/**
+ * FOSSGIS's Valhalla, the other engine behind openstreetmap.org's directions.
+ * Used for bicycles, because it knows the type of bike — see `valhalla.ts`.
+ */
+export const VALHALLA_URL = 'https://valhalla1.openstreetmap.de';
+
 export const OSRM_ENDPOINTS = {
   driving: 'https://routing.openstreetmap.de/routed-car',
   walking: 'https://routing.openstreetmap.de/routed-foot',
