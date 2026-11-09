@@ -92,7 +92,7 @@ import {
   searchCategoryInBounds,
   searchInBounds,
 } from './src/services/overpass';
-import { planScheduledTrips } from './src/services/schedules';
+import { ensureFeedsFor, planScheduledTrips } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
@@ -1790,6 +1790,18 @@ function PalmMap() {
       cancelled = true;
     };
   }, [settings.mapType]);
+
+  // The timetables for the area (metro, train, Metro Sul do Tejo) arrive on
+  // their own the first time the transport map opens there — see
+  // `ensureFeedsFor`. Without this the metro "did not exist" until someone
+  // found the download in Settings.
+  useEffect(() => {
+    if (settings.mapType !== 'transit' || !perto) {
+      return;
+    }
+    const [lat, lon] = perto.split(',').map(Number);
+    void ensureFeedsFor({ latitude: lat, longitude: lon });
+  }, [settings.mapType, perto]);
 
   /** What the transport map draws: the stops in view plus the panel's list. */
   const mapStopsShown = useMemo(() => {

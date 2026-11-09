@@ -683,3 +683,60 @@ export function hasCoverage(point: Coordinates): boolean {
     );
   });
 }
+
+/** Feeds already checked this session, so the published list is asked for once. */
+let autoChecked: Promise<void> | null = null;
+
+/**
+ * Fetches, on its own, the timetables that cover this point and are missing,
+ * expired or older than the published ones.
+ *
+ * **Asking people to go to Settings to download a timetable meant the metro
+ * "did not exist"** until they did — and nothing on the transport map said
+ * so. The files are small (the Metro Sul do Tejo is under 100 KB, CP under
+ * 1 MB), so they are fetched when the transport map is opened over an area
+ * they cover. Once per session; failing is silent and the next session tries
+ * again. Returns whether anything new arrived.
+ */
+export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
+  if (autoChecked) {
+    await autoChecked;
+    return false;
+  }
+  let changed = false;
+  autoChecked = (async () => {
+    try {
+      const published = await listFeeds();
+      const stored = new Map(installedFeeds().map((f) => [f.id, f]));
+      for (const info of published) {
+        const [west, south, east, north] = info.bbox ?? [0, 0, 0, 0];
+        // A margin of about ten kilometres: the station that matters may be
+        // just outside the operator's box.
+        const m = 0.1;
+        const covers =
+          point.longitude >= west - m &&
+          point.longitude <= east + m &&
+          point.latitude >= south - m &&
+          point.latitude <= north + m;
+        if (!covers) {
+          continue;
+        }
+        const old = stored.get(info.id);
+        const needed = !old || !isInstalled(old) || isExpired(old) || info.gerado > old.gerado;
+        if (!needed) {
+          continue;
+        }
+        try {
+          await downloadFeed(info);
+          changed = true;
+        } catch {
+          // One operator failing does not stop the others.
+        }
+      }
+    } catch {
+      // No list, no network: nothing to do now.
+    }
+  })();
+  await autoChecked;
+  return changed;
+}
