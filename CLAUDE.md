@@ -1,1709 +1,1317 @@
 # CLAUDE.md — PalmMap
 
-Guia para o Claude Code e outros assistentes de IA que trabalhem neste repositório.
-Está escrito em português de Portugal e em linguagem simples, para poder ser lido tanto
-por uma pessoa como por um assistente.
+Guide for Claude Code and other AI assistants working in this repository, written in plain
+language so a person can read it too. **The author talks in European Portuguese: answer them
+in Portuguese.** The code, the comments and this file are in English.
 
-## Onde é que isto vai — ler primeiro
+## Where this stands — read first
 
-Se estás a pegar neste projeto agora, esta secção diz-te em que ponto ele está. O resto do
-ficheiro explica o porquê de cada coisa.
+If you are picking this project up now, this section tells you where it is. The rest of the
+file explains the reason behind each thing.
 
-**O que está feito e confirmado no telemóvel:** a aplicação de mapas funciona. Mapa,
-pesquisa, negócios, percursos, navegação, definições, favoritos, satélite. E o **mapa
-offline também** — Portugal e São Tomé foram vistos a desenhar em modo de avião, com os
-nomes dos sítios, o que era a maior incógnita do projeto e deixou de o ser.
+**Done and confirmed on the phone:** the maps app works. Map, search, businesses, routes,
+navigation, settings, saved places, satellite. And **the offline map too** — Portugal and
+São Tomé were seen drawing in airplane mode, with place names, which was the project's
+biggest unknown and no longer is.
 
-**Três coisas a saber antes de mexer:**
+**Three things to know before touching anything:**
 
-1. **A versão sai sozinha do número da compilação** (`7.0.<nº>`) — ver "Instalar no
-   telemóvel". O autor pediu: **compilar só quando
-   ele disser.** Não lançar o workflow sem pedido.
-2. **Os mapas estão publicados na etiqueta `mapas`**: Portugal continental, Madeira,
-   Açores, São Tomé e Príncipe, Cabo Verde, Guiné-Bissau, Espanha, França (por gerar),
-   Itália, Alemanha, Reino Unido, Irlanda, Países Baixos, Bélgica, Luxemburgo, Suíça e
-   Áustria. **A França falhou** por passar os 2 GB que o GitHub aceita — para a ter, baixar
-   o `maxzoom` dela para 12 em `map-regions.json` e correr o workflow outra vez.
-3. **Ao mexer no mapa offline, testar sempre com os dados desligados.** Se o mapa guardado
-   não abrir, a aplicação recua sozinha para os tiles da Internet e parece que está tudo
-   bem — uma avaria passa despercebida com rede.
+1. **The version comes from the build number** (`7.0.<n>`) — see "Installing on the phone".
+   The author asked: **build only when they say so.** Do not start the workflow unasked.
+2. **The maps are published under the `mapas` tag**: mainland Portugal, Madeira, Azores,
+   São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Spain, Italy, Germany, United Kingdom,
+   Ireland, Netherlands, Belgium, Luxembourg, Switzerland and Austria. **France failed** for
+   going over GitHub's 2 GB limit — to have it, lower its `maxzoom` to 12 in
+   `map-regions.json` and run the workflow again.
+3. **When touching the offline map, always test with data off.** If the stored map fails to
+   open, the app falls back to the Internet tiles by itself and everything looks fine — a
+   fault goes unnoticed with a network.
 
-**O que fica por confirmar no telemóvel:** o ecrã aceso durante a navegação, os anúncios de
-voz depois do filtro das manobras, o velocímetro — que precisa de um telemóvel a andar — e
-os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
-ambiente de desenvolvimento não chega.
+**Still to confirm on the phone:** the screen staying on while navigating, the voice
+announcements after the manoeuvre filter, the speedometer — which needs a moving phone —
+and the speed cameras, bus times and tolls, which depend on services the development
+environment cannot reach.
 
-**A 7.0.24 está compilada (9 de novembro de 2026) e traz isto tudo.** Nada disto foi visto num
-telemóvel ainda:
+**Recent work (November 2026), none of it seen on a phone yet unless said:**
 
-- **Autocarros:** o prefixo `[YA15B]` saiu do número da linha (`lineLabel`, em `transit.ts`); os
-  autocarros a andar voltaram — a TML manda o `timestamp` em **milissegundos** e todos eram
-  deitados fora como "vindos do futuro" (`vehicles.ts`). Provado com o modo `sondar` do workflow
-  dos horários. As duas passagens do 3601 com um minuto de diferença **não são repetidas**: uma é
-  um autocarro com meia hora de atraso.
-- **Tocar numa paragem no mapa dos transportes abre o painel dela.** As paragens da ÖPNVKarte são
-  imagem; desenham-se por cima as da Carris a partir do zoom 15 (`stopsInBounds`). Desenham-se **pequenas, como no Maps**: um disco azul com um autocarro branco (`stop-bus`, gerado pelo `generate-poi-icons.py`), com o nome só a partir do zoom 17 ou na paragem aberta. Um trajeto de transportes fechado já não deixa o mapa a mostrar só as duas paragens dele (`transitTrips` limpa-se sem destino) — era por isso que "faltavam paragens".
-- **Metro Sul do Tejo com horários a sério**, do serviço do próprio site
-  (`https://www.mts.pt/mts-timetable-api/`: `lines`, `stations` por POST com `line_id`, `search` por
-  POST com `line`, `stations`, `day_type` e `season`). Convertido por `build_mts()` em
-  `build-transit.py`. Os horários da zona descarregam-se sozinhos ao abrir o mapa dos transportes
-  (`ensureFeedsFor`). Todos os horários valem agora **até 6 de fevereiro de 2027**.
-- **Pinos dos negócios rápidos.** Com o país descarregado vêm de um **ficheiro de negócios**
-  (`<id>.pois`, gerado do Geofabrik pelo workflow dos mapas, lido por quadrados em `localPois.ts`):
-  Portugal continental tem 218 642 negócios em 24,5 MB. Sem país descarregado, vêm **dentro dos
-  tiles do OpenFreeMap** (camada `poi`), e ao tocar pede-se à Overpass só esse sítio
-  (`placeDetails`). A Overpass deixou de ser chamada para os pinos automáticos — **também no mapa dos
-  transportes** (aí não há pinos automáticos: só dava "Não foi possível procurar locais" quando a
-  Overpass recusava). Só os botões de categoria lhe perguntam. O workflow dos mapas tem a opção `apenas_negocios`.
-- **O tipo de mapa passou a ficar guardado**, a pedido do autor, sem travão nos autocarros ao vivo.
-  Desfaz a regra antiga da secção "Definições".
-- **Ecrã de Direções** (botão ao lado da pesquisa): origem e destino quaisquer, trocar, meio de
-  transporte. A navegação parte sempre do GPS.
-- **Satélite:** Sentinel-2 passou a 2025. As ortofotos da DGT continuam em 2023 — não há mais
-  recentes publicadas (sondado).
-- **Lista de mapas:** tenta duas vezes, guarda a última lista inteira, está por ordem alfabética, e
-  mapas e horários ficaram em secções que abrem e fecham nas definições.
-- **Ecrã principal à maneira do Google Maps** (fase 1 de 4, pedido do autor: "imitar o Google Maps
-  na grande maioria das coisas"). Barra de separadores em baixo (`BottomTabs`: Explorar, Ir,
-  Guardados, Definições), que se esconde com qualquer painel aberto ou a navegar; botão grande de
-  Direções em baixo à direita, com o de centrar por cima; botão de camadas por baixo dos botões de
-  categoria (`LayersSheet`: tipo de mapa com miniaturas, negócios no mapa, autocarros ao vivo e a
-  fita métrica — a régua saiu do mapa); ecrã de Guardados (`SavedSheet`); e a pesquisa ocupa o
-  ecrã inteiro enquanto está em uso. As alturas dos botões flutuantes continuam todas no
-  `App.tsx` (`compassBottom`, `TAB_BAR_HEIGHT`). As quatro fases estão feitas (ficha do sítio, Direções e navegação: ver 6-0-A, 6-0-B e 6-0-C).
-- **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
-  outros. Partes antigas deste ficheiro ainda dizem o contrário.
+- **Buses:** the `[YA15B]` prefix left the line number (`lineLabel`, in `transit.ts`); moving
+  buses came back — TML sends `timestamp` in **milliseconds** and every bus was being thrown
+  away as "from the future" (`vehicles.ts`). Proved with the timetables workflow's `sondar`
+  mode. Two 3601 arrivals a minute apart are **not duplicates**: one is a bus half an hour
+  late.
+- **Tapping a stop on the transport map opens its panel.** ÖPNVKarte's stops are part of the
+  image; Carris's are drawn on top from zoom 15 (`stopsInBounds`), **small, as in the Maps**:
+  a blue disc with a white bus (`stop-bus`, drawn by `generate-poi-icons.py`), with the name
+  only from zoom 17 or on the open stop. A closed transit trip no longer leaves the map
+  showing only its two stops (`transitTrips` is cleared without a destination) — that was
+  why "stops were missing".
+- **Metro Sul do Tejo with real timetables**, from the operator's own site service
+  (`https://www.mts.pt/mts-timetable-api/`: `lines`, `stations` by POST with `line_id`,
+  `search` by POST with `line`, `stations`, `day_type` and `season`), converted by
+  `build_mts()` in `build-transit.py`. The area's timetables download by themselves when the
+  transport map opens (`ensureFeedsFor`). All timetables are now valid **until 6 February
+  2027**.
+- **Fast business pins.** With the country downloaded they come from a **business file**
+  (`<id>.pois`, generated from Geofabrik by the maps workflow, read by squares in
+  `localPois.ts`): mainland Portugal has 218,642 businesses in 24.5 MB. Without a downloaded
+  country they come **inside the OpenFreeMap tiles** (`poi` layer), and a tap asks Overpass
+  for that one place only (`placeDetails`). Overpass is no longer called for automatic pins —
+  **on the transport map either** (there are no automatic pins there; it only produced
+  "Could not search for places" when Overpass refused). Only the category buttons ask it.
+  The maps workflow has an `apenas_negocios` option.
+- **Junk removed from the pins** (author's photo): trail signposts (`tourism=information`
+  that is not `information=office` — "TB.442", "TB.444"… in Monsanto/Restelo, probed) are
+  dropped from all three sources. Mobi.E charging points carry their code as `name`
+  ("ALM-90010", equal to `ref`): the card and the country file show the **brand**
+  (`displayName`, in `overpass.ts`); in the tiles, which have no brand, a charging point gets
+  the icon only (a bolt, `ev-station`). Schools and universities got a mortarboard instead
+  of the camera.
+- **The map type is now remembered**, at the author's request, with no brake on live buses.
+- **Directions screen** (button next to the search): any origin and destination, swap, travel
+  mode. Navigation always starts from the GPS.
+- **Satellite:** Sentinel-2 moved to 2025. The DGT orthophotos stay at 2023 — nothing newer is
+  published (probed: `ortos.dgterritorio.gov.pt` only has `ortosat2023`).
+- **Maps list:** retries once, keeps the last full list, is alphabetical, and maps and
+  timetables are collapsible sections in Settings.
+- **Main screen in the style of Google Maps** (the author: "imitate Google Maps in the vast
+  majority of things"), in four phases, all done. Bottom tab bar (`BottomTabs`: Explore, Go,
+  Saved, Settings), hidden whenever a panel is open or while navigating; a big Directions
+  button bottom right, with the locate button above it; a layers button under the category
+  buttons (`LayersSheet`: map type with thumbnails, businesses on the map, live buses and the
+  measuring tape); a Saved screen (`SavedSheet`); and the search takes the whole screen while
+  in use. The floating buttons' heights all live in `App.tsx` (`compassBottom`,
+  `TAB_BAR_HEIGHT`). Phases 2–4: see 6-0-A, 6-0-B and 6-0-C.
+- **Compass cone** in front of the blue dot, as in Google Maps: which way the phone points,
+  standing still too (`watchCompass`, in `location.ts`; image `heading-cone`, drawn by
+  `generate-poi-icons.py`). Only outside navigation and with the app on screen. The blue dot
+  is drawn by us (children of `UserLocation`) so the cone can go under it.
+- **Voice search** in the main search bar, **search box in Settings**, **"Rate the app"** and
+  **"Missing a country?"** — see section 4 and the Nominatim rules.
+- **São Tomé no longer ships inside the app** (`assets/mapas/` does not exist); it downloads
+  like the others. Older parts of this file may still say otherwise.
 
-**Ideia para mais tarde (do autor): um "modo trilho"**, coisa que o Google Maps não tem — os postes
-de sinalização dos trilhos (`tourism=information` + `information=guidepost`, como os "TB.4xx" de
-Monsanto, que saíram dos pinos normais por serem lixo fora desse modo), os painéis, os percursos
-pedestres e de bicicleta marcados. Não começar sem o autor pedir.
+**The English translation is done** for the code, the README, the workflows and this file.
+The Portuguese in `src/i18n/pt.ts` is the app's Portuguese text, not a leftover.
 
-**A tradução para inglês está quase feita**: todo o código da aplicação (`App.tsx`, componentes,
-serviços, tipos, utilitários), o README e os textos que os workflows publicam nas Releases já estão
-em inglês. Faltam os comentários dos scripts (`scripts/`, workflows) e este ficheiro.
+**Idea for later (the author's): a "trail mode"**, something Google Maps lacks — the trail
+signposts (`tourism=information` + `information=guidepost`, like Monsanto's "TB.4xx", taken
+out of the normal pins for being junk outside that mode), boards, and marked walking and
+cycling routes. Do not start without the author asking.
 
-## Objetivo do projeto
+## Project goal
 
-O **PalmMap** é uma aplicação de mapas para telemóvel, pensada como alternativa ao Google
-Maps, construída apenas com serviços abertos e gratuitos.
+**PalmMap** is a phone maps app, meant as an alternative to Google Maps, built only with open
+and free services.
 
-**É um projeto de uso pessoal** — para o autor e, quando muito, mais algumas pessoas. Não
-se destina a servir milhares de utilizadores. Isto é importante: significa que as soluções
-simples e gratuitas chegam perfeitamente, e que não vale a pena complicar com
-infraestrutura própria. Sempre que houver dúvida entre "o mais simples" e "o mais
-escalável", escolhe o mais simples.
+**It is a personal project** — for the author and, at most, a few more people. Not meant to
+serve thousands of users. That matters: simple, free solutions are plenty, and there is no
+point complicating things with infrastructure of our own. Whenever in doubt between "the
+simplest" and "the most scalable", choose the simplest.
 
-A regra central do projeto: **nada de Google Maps, nada de chaves de API pagas.** Todos os
-dados vêm de fontes abertas.
+The central rule: **no Google Maps, no paid API keys.** All data comes from open sources.
 
-Houve a ideia de **funcionar no Android Auto** (o ecrã do carro), mas essa parte está
-**pausada por decisão do autor** — ver a secção "Android Auto (pausado)" mais abaixo. Não
-começar trabalho nessa direção sem o autor voltar a pedir.
+There was the idea of **running on Android Auto** (the car screen), but that part is
+**paused by the author's decision** — see "Android Auto (paused)" further down. Do not start
+work in that direction unless the author asks again.
 
-## Estado atual — o que já existe
+## Glossary
 
-**A aplicação foi confirmada a funcionar num telemóvel Android real.** O que está feito:
-
-- Projeto Expo (SDK 57) com TypeScript.
-- Mapa com MapLibre: tiles do OpenStreetMap em modo claro, do CARTO em modo escuro, e
-  imagem de satélite Sentinel-2 (EOX), com botão para trocar.
-- Pesquisa de moradas e negócios pelo Nominatim, com as regras de utilização cumpridas.
-- Negócios pela Overpass: botões por categoria e pinos automáticos na área visível.
-- Toque longo no mapa larga um pino em qualquer ponto, com a morada obtida por pesquisa
-  inversa no Nominatim, e permite traçar o percurso até lá.
-- Cálculo de percurso pelo OSRM, com distância, tempo estimado e lista de instruções.
-- Navegação em tempo real: segue a posição, mostra a manobra seguinte com a distância,
-  lê-a em voz alta e recalcula o percurso se se sair dele.
-- Velocímetro durante a navegação, com a velocidade medida pelo GPS — ver "6-H".
-- Localização por GPS, com a aplicação a continuar utilizável se a pessoa recusar.
-- Tema claro/escuro seguido automaticamente a partir das definições do telemóvel.
-- Ecrã de definições com sete opções — ver "Definições".
-- Sítios guardados (favoritos), no telemóvel — aparecem na pesquisa e funcionam sem rede.
-- Cache do mapa com tamanho ajustável e botão para apagar.
-- Mapa offline: São Tomé e Príncipe vem dentro da aplicação e os outros países
-  descarregam-se a pedido — **escrito mas ainda não visto a funcionar**, ver a secção
-  própria.
-
-**Confirmado no telemóvel:** o mapa, a pesquisa, os botões de categoria e as margens do
-ecrã. **Por confirmar:** a navegação em tempo real, a voz, os percursos a pé e de
-bicicleta, os resultados da Overpass, o tema escuro e a imagem de satélite. Compila e os
-tipos estão verificados, mas não foi tudo experimentado — não digas que "funciona" sem ter
-sido visto a funcionar.
-
-Também não foi possível testar as consultas à Overpass contra o serviço real, porque o
-ambiente de desenvolvimento usado bloqueia o acesso. Se os negócios não aparecerem, é o
-primeiro sítio onde procurar.
-
-O `eas.json` já está escrito, com três perfis de compilação (`development`, `preview` e
-`production`) — ver "Instalar no telemóvel". Há também dois workflows do GitHub Actions:
-um que compila o APK e o publica numa Release, e outro que gera os mapas offline. Nenhum
-precisa de computador nem de conta Expo.
-
-**Ressalva sobre a navegação:** o motor é simples de propósito. A posição é encaixada no
-ponto mais próximo da linha do percurso, em vez de projetada sobre o troço — com o
-`overview=full` do OSRM os pontos vêm de poucos em poucos metros, por isso a diferença não
-se nota. Não há indicações de faixa de rodagem nem estimativa com trânsito.
-
-O documento original do projeto tinha sido guardado como um PDF chamado `CLAUDE.md`. Foi
-convertido para este ficheiro Markdown e o PDF passou para `docs/project-brief-original.pdf`.
-
-## Pequeno glossário
-
-Termos que aparecem ao longo do ficheiro, explicados de forma direta:
-
-| Termo | O que é |
+| Term | What it is |
 | --- | --- |
-| **OpenStreetMap (OSM)** | Um mapa mundial feito de forma colaborativa e livre, o equivalente aberto ao mapa do Google. |
-| **Tiles** | Os quadradinhos que, juntos, formam o mapa que se vê no ecrã. Podem ser imagens já desenhadas ou geometria por desenhar. |
-| **Nominatim** | Serviço que transforma uma morada escrita ("Rua Augusta, Lisboa") em coordenadas de latitude e longitude. É o motor de pesquisa do OpenStreetMap. |
-| **OSRM** | Serviço que calcula o caminho entre dois pontos e devolve o percurso e a distância. |
-| **Overpass** | Serviço que permite perguntar ao OpenStreetMap "que restaurantes há aqui à volta?". É o que está por trás dos negócios. |
-| **Expo** | Conjunto de ferramentas que simplifica muito criar e testar aplicações em React Native. |
-| **APK** | O ficheiro que se instala diretamente num telemóvel Android, sem passar pela Play Store. |
-| **API** | A forma como um programa pede informação a um serviço na Internet. |
-| **PMTiles** | Um mapa inteiro dentro de um único ficheiro. Serve para guardar países no telemóvel sem descarregar milhares de imagens. |
-| **Tiles vetoriais** | Tiles que trazem a geometria (esta linha é uma estrada, este polígono é água) em vez da imagem pronta. Ocupam muito menos, mas é preciso dizer-lhes as cores. |
-| **Estilo** | O ficheiro que diz como desenhar os tiles vetoriais: que cor tem a água, que espessura tem cada estrada, que tamanho tem cada nome. |
-| **Glifos** | Os tipos de letra, num formato que o mapa consegue usar para escrever os nomes das ruas. |
+| **OpenStreetMap (OSM)** | A collaborative, free world map — the open equivalent of Google's map. |
+| **Tiles** | The little squares that together make up the map on screen. Either ready-drawn images or geometry still to draw. |
+| **Nominatim** | Service that turns a written address ("Rua Augusta, Lisboa") into coordinates. OpenStreetMap's search engine. |
+| **OSRM** | Service that works out the way between two points and returns the route and distance. |
+| **Overpass** | Service to ask OpenStreetMap "which restaurants are around here?". Behind the businesses. |
+| **Expo** | A toolset that makes building and testing React Native apps much simpler. |
+| **APK** | The file installed directly on an Android phone, without the Play Store. |
+| **PMTiles** | A whole map in a single file. Used to store countries on the phone without downloading thousands of images. |
+| **Vector tiles** | Tiles carrying geometry (this line is a road, this polygon is water) instead of a ready image. Much smaller, but someone has to give them colours. |
+| **Style** | The file saying how to draw vector tiles: water colour, road widths, label sizes. |
+| **Glyphs** | Fonts in a format the map can use to write street names. |
 
-## Tecnologias
+## Technologies
 
-| Para quê | Escolha |
+| What for | Choice |
 | --- | --- |
-| Base da aplicação | React Native 0.86 + Expo SDK 57 |
-| Linguagem | TypeScript |
-| Componente do mapa | `@maplibre/maplibre-react-native` — ver "Decisão importante" |
-| Localização (GPS) | `expo-location` |
-| Guardar no telemóvel | `@react-native-async-storage/async-storage` e `expo-file-system` |
-| Ficheiros dentro do APK | `expo-asset` |
-| Voz | `expo-speech` |
-| Língua do telemóvel | `expo-localization` |
-| Versão instalada | `expo-application` |
-| Abrir o instalador do Android | `expo-intent-launcher` |
-| Saber se está em Wi-Fi | `expo-network` |
-| Ecrã aceso a conduzir | `expo-keep-awake` |
-| Navegação em segundo plano | `expo-task-manager` (serviço em primeiro plano do `expo-location`) |
-| Pedidos à Internet | `axios` |
-| Mapa (tiles) | OpenStreetMap |
-| Pesquisa de moradas | Nominatim (`https://nominatim.openstreetmap.org`), e o Photon quando ele falha |
-| Cálculo de percursos | OSRM da FOSSGIS (`https://routing.openstreetmap.de`), um servidor por meio de transporte |
-| Mapas offline | Protomaps (PMTiles), recortados do mapa mundial |
+| App base | React Native 0.86 + Expo SDK 57 |
+| Language | TypeScript |
+| Map component | `@maplibre/maplibre-react-native` — see "Important decision" |
+| Location (GPS) | `expo-location` |
+| Storage on the phone | `@react-native-async-storage/async-storage` and `expo-file-system` |
+| Files inside the APK | `expo-asset` |
+| Voice | `expo-speech` |
+| Phone language | `expo-localization` |
+| Installed version | `expo-application` |
+| Opening Android's installer, speech recognition | `expo-intent-launcher` |
+| Knowing if on Wi-Fi | `expo-network` |
+| Screen on while driving | `expo-keep-awake` |
+| Background navigation | `expo-task-manager` (`expo-location`'s foreground service) |
+| Internet requests | `axios` |
+| Map tiles | OpenStreetMap; business pins from OpenFreeMap |
+| Address search | Nominatim (`https://nominatim.openstreetmap.org`), and Photon when it fails |
+| Routing | FOSSGIS OSRM (`https://routing.openstreetmap.de`), one server per travel mode |
+| Offline maps | Protomaps (PMTiles), cut from the world map |
 
-A plataforma alvo é o **Android**. Nada impede o iOS, mas as permissões e a criação do
-ficheiro de instalação descritas aqui são específicas do Android.
+The target platform is **Android**. Nothing prevents iOS, but the permissions and the
+install-file build described here are Android-specific.
 
-## Decisão importante: qual o componente do mapa — decidida
+## Important decision: which map component — decided
 
-**O projeto usa o MapLibre** (`@maplibre/maplibre-react-native`). Fica aqui o porquê, para
-não se voltar atrás sem se perceber o que está em causa.
+**The project uses MapLibre** (`@maplibre/maplibre-react-native`). The reason is recorded
+here so nobody goes back on it without understanding what is at stake.
 
-O documento original indicava a biblioteca `react-native-maps`. **O problema:** no Android,
-essa biblioteca funciona por cima do Google Maps e, na prática, costuma exigir uma chave do
-Google para sequer arrancar — mesmo quando só queremos desenhar os tiles do OpenStreetMap
-por cima. Ou seja, entra em conflito direto com o objetivo do projeto.
+The original brief named `react-native-maps`. **The problem:** on Android that library runs
+on top of Google Maps and, in practice, usually needs a Google key just to start — even when
+all we want is to draw OpenStreetMap tiles on top. It clashes directly with the project's
+goal.
 
-O MapLibre é uma biblioteca de mapas completamente livre, sem qualquer ligação ao Google. O
-documento original já a referia como uma das opções possíveis.
+MapLibre is a completely free map library, with no tie to Google. The original brief already
+listed it as an option. As a bonus: if Android Auto is ever resumed, MapLibre also has a
+native Android library, so phone and car could share the same map engine and tile source.
 
-Como argumento adicional: se um dia se retomar o Android Auto, o MapLibre também tem uma
-biblioteca nativa para Android, o que permitiria ao telemóvel e ao carro partilharem o
-mesmo motor de mapa e a mesma fonte de tiles. Não é a razão principal, mas é mais um ponto
-a favor.
+## ⚠️ Expo Go does not work for this project
 
-## ⚠️ O Expo Go não serve para este projeto
+MapLibre brings native code that **is not included in the Expo Go app**. So
+`npx expo start` alone, with Expo Go on the phone, shows the search bar but cannot draw the
+map.
 
-O MapLibre traz código nativo que **não vem incluído na aplicação Expo Go**. Ou seja,
-`npx expo start` sozinho, com o Expo Go instalado no telemóvel, mostra a barra de pesquisa
-mas não consegue desenhar o mapa.
-
-É preciso uma **development build** — uma versão da aplicação compilada com o código nativo
-lá dentro. Faz-se uma vez, e depois é como o Expo Go: muda-se o código e recarrega.
+It needs a **development build** — a build of the app with the native code inside. Done
+once, and then it is like Expo Go: change the code and reload.
 
 ```bash
-# Opção A: compilar no próprio computador (exige o Android Studio instalado)
+# Option A: build on your own computer (needs Android Studio)
 npx expo run:android
 
-# Opção B: compilar na nuvem, com a Expo (exige conta Expo, gratuita)
+# Option B: build in the cloud with Expo (needs a free Expo account)
 npx eas-cli build -p android --profile development
 ```
 
-Isto não é sinal de que algo está mal configurado — é simplesmente como funciona qualquer
-biblioteca com código nativo. O projeto continua em Expo "gerido": não há pasta `android/`
-no repositório, é o Expo que a gera quando compila.
+This is not a sign of misconfiguration — it is how any library with native code works. The
+project stays in "managed" Expo: there is no `android/` folder in the repository; Expo
+generates it when building.
 
-## Comandos
+## Commands
 
-### Desenvolvimento
+### Development
 
 ```bash
-npm install                 # Instalar as dependências
-npx expo start              # Arrancar o servidor de desenvolvimento
-npx expo run:android        # Compilar e correr num emulador ou telemóvel Android
+npm install                 # Install dependencies
+npx expo start              # Start the development server
+npx expo run:android        # Build and run on an Android emulator or phone
 ```
 
-### Verificar erros de tipos
+### Type checking
 
 ```bash
 npx tsc --noEmit
 ```
 
-**Correr sempre isto antes de dar trabalho por terminado.** É a única verificação
-automática que o projeto tem, e como grande parte do código não pode ser experimentada no
-ambiente de desenvolvimento (ver a seguir), é o que apanha os erros antes de irem parar ao
-telemóvel.
+**Always run this before calling work done.** It is the project's only automatic check, and
+since much of the code cannot be tried in the development environment (see below), it is
+what catches errors before they reach the phone.
 
-Não está definida nenhuma ferramenta de testes nem de formatação automática. Para um
-projeto pessoal deste tamanho, não é preciso — mas se acrescentares alguma, documenta-a
-aqui.
+There is no test or formatting tool. For a personal project this size it is not needed — but
+if you add one, document it here.
 
-### O que não dá para testar aqui
+### What cannot be tested here
 
-O ambiente de desenvolvimento não tem acesso livre à Internet. Estes serviços estão
-bloqueados e **não vale a pena tentar**:
+The development environment has no free Internet access. These services are blocked and
+**not worth trying**:
 
-- `overpass-api.de` — os negócios nunca podem ser testados aqui
-- `router.project-osrm.org` — os percursos também não
-- `build.protomaps.com` — o mapa mundial só se recorta no GitHub Actions
-- `api.expo.dev`, `dl.google.com` — compilar localmente não é possível
+- `overpass-api.de` — businesses can never be tested here
+- `routing.openstreetmap.de`, `router.project-osrm.org` — nor routes
+- `nominatim.openstreetmap.org`, `tiles.openfreemap.org`
+- `build.protomaps.com` — the world map is only cut in GitHub Actions
+- `api.expo.dev`, `dl.google.com` — building locally is not possible
 
-Tudo o que precise destes serviços vai para um workflow do GitHub Actions. É por isso que
-os dois workflows existem: não é gosto por automatização, é a única forma.
+Everything that needs these services goes into a GitHub Actions workflow. That is why the
+workflows exist: not a taste for automation, it is the only way. **The timetables workflow
+has a read-only `sondar` mode** that runs a function of `scripts/probe.py`
+(`sondar: <function>`) and publishes nothing — use it to look at real data before guessing.
+Probes like this may be run without asking; builds may not.
 
-## Instalar no telemóvel
+## Installing on the phone
 
-Não é preciso Android Studio nem publicar na Play Store: o workflow do GitHub compila o APK
-e publica-o numa Release. Basta ir ao separador "Actions", escolher o workflow de compilar
-o APK e carregar em "Run workflow".
+No Android Studio or Play Store needed: the GitHub workflow builds the APK and publishes it
+in a Release. Go to the "Actions" tab, choose the build workflow and press "Run workflow".
 
-**O autor pediu que só se compile quando ele disser.** Não lançar o workflow por iniciativa
-própria, mesmo depois de mudanças grandes.
+**The author asked that nothing be built until they say so.** Do not start the workflow on
+your own initiative, even after big changes. When they do ask: push to `main`
+(`git push origin HEAD:main`) and run `build-apk.yml` on `main`.
 
-Em alternativa, com uma conta Expo (gratuita), os perfis de compilação estão em `eas.json`:
+Alternatively, with a (free) Expo account, the build profiles are in `eas.json`:
 
-| Perfil | Para quê |
+| Profile | What for |
 | --- | --- |
-| `preview` | A aplicação a sério, autónoma. Instala-se e usa-se. Para mudar o código, compila-se de novo. |
-| `development` | Instala-se uma vez e depois liga-se ao computador com `npx expo start`. O código recarrega sem compilar outra vez. É o que se usa enquanto se está a desenvolver. |
+| `preview` | The real, standalone app. Install and use. To change the code, build again. |
+| `development` | Install once and connect to the computer with `npx expo start`. The code reloads without rebuilding. |
 
-O APK é compilado só para **arm64-v8a**, o processador de qualquer telemóvel Android
-atual. Incluir as quatro arquiteturas triplicava o tamanho sem proveito nenhum, e um
-ficheiro enorme é mais fácil de chegar truncado — que é o que dá o erro "ocorreu um
-problema ao analisar o pacote" ao instalar.
+The APK is built only for **arm64-v8a**, the processor of every current Android phone.
+Including all four architectures tripled the size for no benefit, and a huge file is more
+likely to arrive truncated — which gives "there was a problem parsing the package".
 
-**A versão sai da compilação, não da mão de ninguém.** O `app.json` guarda só a parte com
-significado — o `7.0` de "versão 7" — e o workflow acrescenta-lhe o número da execução.
-A APK 12 fica `7.0.12`, a seguinte `7.0.13`, e **nunca há duas com a mesma versão**. Antes
-dependia de alguém se lembrar de mexer no ficheiro, e chegaram a sair cinco compilações
-seguidas todas a dizerem o mesmo. Ao mexer no `app.json`, mexer só no `7.0`.
+**The version comes from the build, not from anyone's hand.** `app.json` keeps only the
+meaningful part — the `7.0` of "version 7" — and the workflow appends the run number. APK 12
+is `7.0.12`, the next `7.0.13`, and **there are never two with the same version**. It used
+to depend on someone remembering to edit the file, and five builds in a row once all said
+the same. When touching `app.json`, touch only the `7.0`.
 
-O mesmo número serve de `versionCode`. Sem um número novo, o Android recusa-se a instalar
-por cima de uma versão anterior.
+The same number is the `versionCode`. Without a new number, Android refuses to install over
+a previous version.
 
-O workflow verifica o APK antes de o publicar: integridade do arquivo, identificação
-(pacote, `minSdk`, arquiteturas) e esquemas de assinatura. Assim um ficheiro estragado é
-apanhado na compilação e não só no telemóvel.
+The workflow checks the APK before publishing it: archive integrity, identification
+(package, `minSdk`, architectures) and signing schemes. A broken file is caught at build
+time, not on the phone. **A failure installing `ndk;…` or other SDK components is Google's
+download hiccuping** (it happened with 7.0.28): run it again.
 
-```bash
-# Com a conta Expo, em alternativa ao workflow
-npx eas-cli login
-npx eas-cli build -p android --profile preview
-```
+Notes for installing on Android:
 
-Notas para instalar em Android:
+- Installing apps from outside the Play Store must be allowed, in the browser or file
+  manager that opens the APK.
+- Xiaomi/POCO phones (HyperOS or MIUI) usually show an extra security warning. If the
+  install is blocked, turn off automatic app scanning in the security settings.
+- The app needs Internet for the map tiles, Nominatim and OSRM. Offline, only areas already
+  seen, saved places and downloaded countries work.
 
-- É preciso autorizar a instalação de aplicações fora da Play Store, no navegador ou no
-  gestor de ficheiros que abrir o APK.
-- Em telemóveis Xiaomi/POCO (HyperOS ou MIUI) costuma aparecer um aviso extra de segurança.
-  Se a instalação for bloqueada, desligar a verificação automática de aplicações nas
-  definições de segurança.
-- A aplicação precisa de Internet para os tiles do mapa e para o Nominatim e o OSRM. Sem
-  rede, só funcionam as zonas já vistas e os favoritos — e, quando essa parte estiver
-  pronta, os países descarregados.
+**The Play Store** (asked about in November 2026): a one-off US$25 developer account, no
+subscription; new personal accounts must run a closed test with 12 testers for 14 days;
+the in-app updater (`REQUEST_INSTALL_PACKAGES`) would have to go, and the build would have
+to produce an AAB. For Android Auto it is the only way — see that section.
 
-(Isto serve para a aplicação de telemóvel. Para o ecrã do carro o APK não chegaria — foi
-uma das razões para o Android Auto ficar pausado.)
 
-## Estrutura do projeto
+## Project structure
 
 ```text
 /
 ├── assets/
-│   ├── (ícones e imagem de arranque, gerados por script)
-│   ├── mapas/saotome.pmtiles   # O mapa que viaja dentro da aplicação
-│   └── glifos/*.pbf            # Tipos de letra com que o mapa escreve
+│   ├── (icons and splash image, drawn by scripts/generate-icons.py)
+│   ├── poi/                # Pin icons and the compass cone, drawn by generate-poi-icons.py
+│   └── glyphs/*.pbf        # Fonts the map writes with
 ├── scripts/
-│   ├── generate-icons.py   # Desenha o logo e escreve os ficheiros de assets/
-│   ├── build-transit.py    # Converte o GTFS de um operador em horários compactos
-│   └── probe-trips.js      # Corre o planeamento de trajetos contra a API verdadeira
+│   ├── generate-icons.py   # Draws the logo and writes the files in assets/
+│   ├── generate-poi-icons.py # Draws the business pins, stop symbol and compass cone
+│   ├── build-transit.py    # Converts an operator's GTFS into compact timetables
+│   ├── build-pois.py       # Business file for a downloaded country (from Geofabrik)
+│   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
+│   └── probe-trips.js      # Runs the trip planning against the real API
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
-│   ├── components/         # Peças de interface
-│   │   ├── MapView.tsx     # Mapa, pinos dos negócios, percurso e destino
-│   │   ├── SearchBar.tsx   # Barra de pesquisa (Nominatim e favoritos)
-│   │   ├── CategoryBar.tsx # Botões "Restaurantes", "Farmácias", …
-│   │   ├── PlaceSheet.tsx  # Ficha de um negócio, com horário e telefone
-│   │   ├── RoutePanel.tsx  # Painel inferior com a distância e o tempo estimado
-│   │   ├── StepsList.tsx   # Lista das instruções do percurso
-│   │   ├── Reveal.tsx      # Faz um painel aparecer e sair a desvanecer
-│   │   ├── ErrorBoundary.tsx # Mostra o erro em vez de a aplicação fechar
-│   │   ├── DraggableSheet.tsx # Painel de baixo que se arrasta para encolher
-  │   ├── NavigationPanel.tsx # Ecrã de navegação, com a manobra seguinte
-│   │   ├── TransitSheet.tsx # Paragens perto de si e as horas de passagem
-│   │   ├── MeasureSheet.tsx # Fita métrica: distâncias e áreas no mapa
-│   │   ├── OfflineMaps.tsx # Lista de países para descarregar, com o tamanho
-│   │   ├── Schedules.tsx   # Lista de horários para descarregar
-│   │   ├── Updates.tsx     # Procurar, descarregar e instalar versões novas
-│   │   ├── UpdateSplash.tsx # O aviso de versão nova, ao abrir a aplicação
-│   │   ├── SpeedBadge.tsx  # O velocímetro, na navegação e no mapa
-│   │   └── SettingsSheet.tsx # Ecrã de definições
-│   ├── services/           # Ligação aos serviços externos
-│   │   ├── config.ts       # Endereços, User-Agent e limites — tudo num sítio só
-│   │   ├── rateLimit.ts    # Fila que espaça os pedidos e salta os que já ninguém quer
-│   │   ├── cameras.ts      # Radares no percurso, por tipo
-│   │   ├── crash.ts        # Guarda o que fechou a aplicação, para se ler depois
-│   │   ├── favourites.ts   # Sítios guardados no telemóvel
-│   │   ├── recents.ts      # Últimos destinos
-│   │   ├── location.ts     # Gere o GPS do telemóvel
-│   │   ├── nominatim.ts    # Pesquisa por nome (Nominatim, e o Photon de recurso)
-│   │   ├── overpass.ts     # Negócios por categoria e por área do mapa
-│   │   ├── osrm.ts         # Cálculo de percursos e instruções
-│   │   ├── offlineMap.ts   # Instala, descarrega e apaga os mapas de países
-│   │   ├── vectorStyle.ts  # Como se desenha um mapa guardado: cores e espessuras
-│   │   ├── transit.ts      # Paragens e horas de passagem (Carris Metropolitana)
-│   │   ├── vehicles.ts     # Onde estão os autocarros neste momento
-│   │   ├── schedules.ts    # Horários de comboio, metro e barco, guardados no telemóvel
-│   │   ├── update.ts       # Saber se há versão nova, e entregá-la ao instalador
-│   │   └── tiles.ts        # Estilos do mapa (claro/escuro/satélite) e cache
-│   ├── types/              # Definições de tipos do TypeScript
-│   │   ├── geo.ts          # Tipos usados pela aplicação (Coordinates, Place, Route)
-│   │   ├── nominatim.ts    # Formato exato da resposta do Nominatim
-│   │   ├── overpass.ts     # Formato exato da resposta da Overpass
-│   │   ├── photon.ts       # Formato exato da resposta do Photon
-│   │   ├── schedule.ts     # Formato dos horários convertidos do GTFS
-│   │   └── osrm.ts         # Formato exato da resposta do OSRM
+│   ├── components/
+│   │   ├── MapView.tsx       # Map, business pins, route, destination, blue dot and cone
+│   │   ├── SearchBar.tsx     # Search bar (Nominatim, saved places, voice)
+│   │   ├── CategoryBar.tsx   # "Restaurants", "Pharmacies", … buttons
+│   │   ├── BottomTabs.tsx    # Explore / Go / Saved / Settings
+│   │   ├── LayersSheet.tsx   # Map type, businesses, live buses, measuring tape
+│   │   ├── SavedSheet.tsx    # Saved places
+│   │   ├── DirectionsSheet.tsx # Any origin and destination
+│   │   ├── PlaceSheet.tsx    # A place's card: open now, hours, buttons
+│   │   ├── RoutePanel.tsx    # Route panel: times per mode, alternatives
+│   │   ├── StepsList.tsx     # The route's instructions
+│   │   ├── NavigationPanel.tsx # Navigation screen: manoeuvre, lanes, limit, footer
+│   │   ├── SpeedBadge.tsx    # The speedometer, while navigating and on the map
+│   │   ├── TransitSheet.tsx  # Stops nearby and their arrival times
+│   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
+│   │   ├── OfflineMaps.tsx   # Countries to download, with sizes
+│   │   ├── Schedules.tsx     # Timetables to download
+│   │   ├── Updates.tsx       # Check, download and install new versions
+│   │   ├── UpdateSplash.tsx  # The new-version notice at start-up
+│   │   ├── FeedbackForm.tsx  # "Rate the app"
+│   │   ├── Collapsible.tsx   # A Settings section that opens and closes
+│   │   ├── Reveal.tsx        # Makes a panel fade in and out
+│   │   ├── DraggableSheet.tsx # Bottom panel that shrinks when dragged
+│   │   ├── ErrorBoundary.tsx # Shows the error instead of the app closing
+│   │   └── SettingsSheet.tsx # Settings screen
+│   ├── services/             # Everything that talks to the outside
+│   │   ├── config.ts         # Addresses, User-Agent and limits — all in one place
+│   │   ├── rateLimit.ts      # Queue that spaces requests and skips unwanted ones
+│   │   ├── nominatim.ts      # Search by name (Nominatim, and Photon as fallback)
+│   │   ├── overpass.ts       # Businesses by category, place details, `displayName`
+│   │   ├── localPois.ts      # Business pins from a downloaded country's file
+│   │   ├── osrm.ts           # Routes, instructions and lanes
+│   │   ├── speedLimits.ts    # The road's speed limit along the route (Overpass)
+│   │   ├── cameras.ts        # Speed cameras on the route, by type
+│   │   ├── location.ts       # GPS and compass
+│   │   ├── voiceInput.ts     # Android's speech recogniser, for voice search
+│   │   ├── offlineMap.ts     # Installs, downloads and deletes country maps
+│   │   ├── vectorStyle.ts    # How a stored map is drawn: colours and widths
+│   │   ├── tiles.ts          # Map styles (light/dark/satellite/transport) and cache
+│   │   ├── transit.ts        # Stops and arrival times (Carris Metropolitana)
+│   │   ├── vehicles.ts       # Where the buses are right now
+│   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
+│   │   ├── update.ts         # New version check, and handing it to the installer
+│   │   ├── crash.ts          # Stores what closed the app, to read later
+│   │   ├── favourites.ts     # Saved places
+│   │   └── recents.ts        # Recent destinations
+│   ├── types/                # TypeScript types
+│   │   ├── geo.ts            # Types the app uses (Coordinates, Place, Route, Lane)
+│   │   ├── nominatim.ts, osrm.ts, overpass.ts, photon.ts, transit.ts
+│   │   │                     # The exact shape of each service's answer
+│   │   └── schedule.ts       # The format of the converted GTFS
 │   ├── utils/
-│   │   ├── format.ts       # Distâncias e durações em texto legível
-│   │   ├── geometry.ts     # Distâncias no mapa e posição ao longo do percurso
-│   │   ├── eta.ts          # O tempo estimado: modelo por meio e ritmo medido
-│   │   ├── voice.ts        # Leitura das instruções em voz alta
-│   │   ├── categories.ts   # Categorias de negócios e tradução das etiquetas OSM
-│   │   └── maneuvers.ts    # Traduz as manobras do OSRM para português
-│   ├── i18n/               # Os textos, em português e inglês
-│   │   ├── pt.ts           # A tabela de origem
-│   │   ├── en.ts           # O inglês, tipado contra o pt.ts
-│   │   └── index.ts        # Escolher a língua; useT() e t()
-│   ├── theme.ts            # Cores em versão clara e escura
-│   └── settings.tsx        # Definições guardadas e o gancho useTheme()
-│   └── useUpdateDownload.ts # Descarregar e instalar, partilhado pelos dois ecrãs
-├── App.tsx                 # Ponto de entrada: junta tudo e guarda o estado
-├── README.md               # Apresentação do projeto, para quem chega pelo GitHub
-├── AGENTS.md               # Aponta para este ficheiro
-├── app.json                # Configuração do Expo e permissões do Android
-├── eas.json                # Perfis de compilação para gerar o APK
-├── map-regions.json        # Que países se recortam para offline, e com que detalhe
-├── transit-feeds.json      # De onde vem o GTFS de cada operador de comboio/metro/barco
-├── metro.config.js         # Faz o empacotador reconhecer .pmtiles e .pbf
-├── .github/workflows/
-│   ├── build-apk.yml       # Compila o APK e publica-o numa Release
-│   ├── build-map.yml       # Recorta os mapas dos países e publica-os numa Release
-│   └── build-transit.yml   # Converte os horários em GTFS e publica-os numa Release
-├── package.json
-└── tsconfig.json
+│   │   ├── format.ts         # Distances and durations as readable text
+│   │   ├── geometry.ts       # Map distances and position along the route
+│   │   ├── eta.ts            # Arrival time: per-mode model and measured pace
+│   │   ├── voice.ts          # Reading the instructions aloud
+│   │   ├── categories.ts     # Business categories and OSM tag labels
+│   │   ├── poiStyle.ts       # OSM value → pin icon and family
+│   │   ├── openingHours.ts   # Reads `opening_hours`: "Open · Closes at 19:00"
+│   │   └── maneuvers.ts      # Turns OSRM manoeuvres into sentences
+│   ├── i18n/                 # The text, in Portuguese and English
+│   │   ├── pt.ts             # The source table
+│   │   ├── en.ts             # English, typed against pt.ts
+│   │   └── index.ts          # Picking the language; useT() and t()
+│   ├── theme.ts              # Light and dark colours
+│   ├── settings.tsx          # Stored settings and the useTheme() hook
+│   └── useUpdateDownload.ts  # Download and install, shared by two screens
+├── App.tsx                   # Entry point: puts everything together and holds the state
+├── README.md                 # The project's front page on GitHub
+├── AGENTS.md                 # Points to this file
+├── app.json                  # Expo config and Android permissions
+├── eas.json                  # Build profiles
+├── map-regions.json          # Which countries are cut for offline, and at what detail
+├── transit-feeds.json        # Where each operator's GTFS comes from
+├── metro.config.js           # Makes the bundler accept .pmtiles and .pbf
+└── .github/workflows/
+    ├── build-apk.yml         # Builds the APK and publishes it in a Release
+    ├── build-map.yml         # Cuts the country maps (and business files)
+    └── build-transit.yml     # Converts the timetables; also the read-only probes
 ```
 
-Repara na separação dentro de `src/types/`: `nominatim.ts` e `osrm.ts` descrevem o que os
-serviços devolvem exatamente, tal como está na documentação deles; `geo.ts` descreve o que
-a aplicação usa. Os serviços fazem a tradução de um para o outro. Assim, se um dia se
-trocar o OSRM por outro serviço, só muda a tradução — o resto da aplicação não dá por nada.
+Note the split inside `src/types/`: `nominatim.ts`, `osrm.ts` and the others describe
+exactly what each service returns; `geo.ts` describes what the app uses. The services
+translate one into the other. If OSRM were ever swapped for another service, only that
+translation would change.
 
-**Regra prática:** todos os pedidos à Internet ficam dentro de `src/services/`. Os
-componentes do ecrã nunca chamam o `axios` diretamente — pedem as coisas aos serviços.
-Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentradas num
-único sítio, em vez de espalhadas pelo código.
+**Rule of thumb:** every Internet request lives in `src/services/`. Screen components never
+call `axios` directly — they ask the services. The services' usage rules (further down) stay
+in one place instead of spread through the code.
 
-## Orientações de arquitetura
+## Architecture guidelines
 
-### 1. O mapa
+### 1. The map
 
-- **Nunca usar uma chave de API do Google.** É a regra central do projeto.
-- O estilo do mapa está definido em `src/services/tiles.ts`, com os tiles a virem de
-  `https://tile.openstreetmap.org/{z}/{x}/{y}.png`. Nota: usa-se o endereço direto, sem os
-  subdomínios `a.`/`b.`/`c.` que o documento original indicava — essa forma antiga está
-  desaconselhada pelo próprio OpenStreetMap.
-- O `User-Agent` dos pedidos de tiles é registado no arranque, em `App.tsx`, através do
-  `TransformRequestManager` do MapLibre. É uma exigência das regras de utilização — é
-  dizer-lhes quem somos em vez de aparecer como anónimo.
-- A atribuição ao OpenStreetMap fica visível no mapa (`attribution` no componente `Map`).
-  É exigida pela licença dos dados, não é opcional.
+- **Never use a Google API key.** The central rule.
+- The map styles are in `src/services/tiles.ts`; the drawn map uses
+  `https://tile.openstreetmap.org/{z}/{x}/{y}.png` — the plain address, without the old
+  `a.`/`b.`/`c.` subdomains, which OpenStreetMap itself discourages.
+- The tile requests' `User-Agent` is registered at start-up, in `App.tsx`, through MapLibre's
+  `TransformRequestManager`. The usage policy requires it.
+- The OpenStreetMap attribution stays visible on the map (`attribution` on the `Map`). The
+  data licence requires it.
 
-### 2. Permissões de localização (Android)
+### 2. Location permissions (Android)
 
-- O ficheiro `app.json` declara as permissões de GPS `ACCESS_FINE_LOCATION` e
-  `ACCESS_COARSE_LOCATION`, em nome completo (`android.permission.…`). O plugin do
-  `expo-location` acrescenta as mesmas — escrevê-las na mesma grafia evita ficarem
-  duplicadas na aplicação final.
-- A permissão pede-se **durante a utilização**, através do `expo-location`
-  (`Location.requestForegroundPermissionsAsync()`), em `src/services/location.ts`.
-- Se a pessoa recusar, a aplicação não rebenta: `getCurrentPosition()` devolve `null` e o
-  ecrã continua a dar para ver o mapa e pesquisar moradas, apenas sem a posição atual.
-  Ao mexer aqui, manter este comportamento.
+- `app.json` declares `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION`, in full
+  (`android.permission.…`), the same spelling `expo-location`'s plugin uses, so they are not
+  duplicated.
+- Permission is asked **while in use**, in `src/services/location.ts`.
+- If the person refuses, nothing breaks: `getCurrentPosition()` returns `null` and the map
+  and search still work, just without the position. Keep it that way.
 
-### 3. O logo
+### 3. The logo
 
-- O logo é **uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia, assente no
-  mar, sobre fundo branco** (`island_layer`), com uma faixa de **areia molhada**, mais escura, onde a ilha toca na água, e as **ondas a bater** — festões de espuma ao longo da linha da água, a lamber a areia molhada, gotas a saltar nas pontas e uma ondulação mais clara dentro de água. A ilha assenta numa lente de mar; as filas de ondas soltas que havia por baixo saíram a pedido do autor (pareciam penduradas no vazio). As duas coisas foram pedidas pelo autor como sinal de atenção ao pormenor; não as tirar por parecerem enfeite. A espuma não vai na versão de uma cor (a preto confundia-se com a areia). Para dar volume sem formas novas: folhas de trás num verde mais escuro, anéis no tronco, três cocos, a sombra da palmeira na areia (`detail`, em `draw_palm`). **Não é um pin de mapa, de
-  propósito**: foi um pin com a palmeira lá dentro até novembro de 2026, e o autor achou-o
-  parecido com o do Google Maps. O fundo do ícone adaptativo e do ecrã de arranque é branco no
-  `app.json`.
-- Os ficheiros em `assets/` **não se editam à mão**: são desenhados por
-  `scripts/generate-icons.py`. Para mudar cores ou proporções, mexe-se no script e
-  corre-se outra vez (`pip install Pillow && python3 scripts/generate-icons.py`).
-- O Android usa o ícone adaptativo (fundo e frente separados) e corta-o num círculo, por
-  isso o pin fica recolhido em relação às bordas. Ao mexer, confirmar que nada fica
-  cortado.
+- The logo is **a palm tree — brown trunk, green leaves — on a small sandy island sitting in
+  the sea, on a white background** (`island_layer`), with a band of **wet sand**, darker,
+  where the island meets the water, and **waves lapping** — scallops of foam along the
+  waterline, drops leaping at the ends and a lighter swell in the water. The island sits in a
+  lens of sea; the loose rows of waves that used to hang underneath were removed at the
+  author's request. Both details were asked for by the author as a sign of care; do not
+  remove them for looking decorative. No foam in the one-colour version. For volume without
+  new shapes: darker back leaves, rings on the trunk, three coconuts, the palm's shadow on
+  the sand (`detail`, in `draw_palm`). **Not a map pin, on purpose**: it was a pin with the
+  palm inside until November 2026, and the author found it too close to Google Maps'. The
+  adaptive icon and splash backgrounds are white in `app.json`.
+- The files in `assets/` **are not edited by hand**: `scripts/generate-icons.py` draws them.
+  To change colours or proportions, change the script and run it again
+  (`pip install Pillow && python3 scripts/generate-icons.py`).
+- Android uses the adaptive icon and crops it to a circle, so the logo sits well inside the
+  edges. When changing it, check nothing gets cut.
 
-### 4. Definições
+### 4. Settings
 
-- As definições vivem em `src/settings.tsx`: um contexto que envolve toda a aplicação,
-  guardado no telemóvel com o `AsyncStorage`.
-- São sete:
+- Settings live in `src/settings.tsx`: a context wrapping the whole app, stored with
+  `AsyncStorage`. Stored values are merged with the defaults at start-up, so old versions do
+  not break.
 
-  | Definição | O que faz |
+  | Setting | What it does |
   | --- | --- |
-  | `language` | Língua: automático, português ou inglês |
-  | `appearance` | Aspeto: automático, claro ou escuro |
-  | `travelMode` | Meio de transporte: carro, a pé, bicicleta ou autocarro |
-  | `timeAdjustment` | Correção do tempo estimado: 1×, 1,25×, 1,5× ou 2× |
-  | `cacheSize` | Tamanho do mapa guardado: 100 MB, 250 MB, 500 MB ou 1 GB |
-  | `showPlacesOnMap` | Marcar os negócios sozinho, à medida que se navega |
-  | `voiceGuidance` | Ler as instruções em voz alta durante a navegação |
-  | `mapType` | Mapa desenhado, imagem de satélite ou rede de transportes — **a única que não se guarda entre sessões** |
-  | `speedCameraAlerts` | Avisar de radares que estejam no percurso |
-  | `avoidTolls` | Pedir um caminho sem portagens |
-  | `batterySaver` | Ler o GPS menos vezes longe das manobras |
-  | `showSpeed` | Mostrar a velocidade do GPS enquanto se navega |
-  | `showVehicles` | Mostrar os autocarros a andar, no mapa dos transportes |
+  | `language` | Automatic, Portuguese or English |
+  | `appearance` | Automatic, light or dark |
+  | `travelMode` | Car, walk, bike or bus (chosen in Directions and the route panel) |
+  | `timeAdjustment` | Arrival time correction: 1×, 1.25×, 1.5× or 2× |
+  | `cacheSize` | Map cache: off, 100 MB, 250 MB, 500 MB or 1 GB |
+  | `showPlacesOnMap` | Show businesses on the map by themselves |
+  | `voiceGuidance` | Read instructions aloud while navigating |
+  | `mapType` | Drawn map, satellite or transport — **remembered between sessions** |
+  | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal) |
+  | `speedCameraAlerts` | Warn about cameras on the route |
+  | `speedLimitAlerts` | Warn when over the road's limit — **off by default** (author's request) |
+  | `avoidTolls` | Ask for a toll-free route |
+  | `batterySaver` | Read the GPS less often far from manoeuvres |
+  | `showSpeed` | Show the GPS speed |
+  | `showVehicles` | Show moving buses on the transport map |
 
-- Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
-  `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
-  os de origem ao arrancar, por isso versões antigas não rebentam.
-- **O tipo de mapa fica guardado entre sessões**, a pedido do autor (novembro de 2026): fechar no
-  satélite e reabrir no mapa desenhado era o contrário do que ele queria. Esteve de propósito sem
-  se guardar, por causa dos autocarros ao vivo (1,1 MB de vinte em vinte segundos) — o autor
-  escolheu não ter travão nenhum. Um valor desconhecido volta ao mapa desenhado.
-- **As opções da navegação estão agrupadas numa secção que abre e fecha** ("Navegação", com o
-  `Collapsible`), a pedido do autor: voz, limite, radares, portagens, velocímetro e bateria.
-- **O ecrã de definições tem uma caixa de pesquisa** no cimo (`show`, no `SettingsSheet`): esconde o
-  que não bate com o texto (nome, linha de ajuda ou secção, sem contar acentos) e abre sozinhas as
-  secções que têm resultados (`forceOpen` no `Collapsible`). Uma opção nova tem de entrar no `show`.
-- **"Avaliar a aplicação"** (`FeedbackForm`): estrelas e comentário, enviados como um pedido no
-  GitHub já preenchido (com a versão) — não há servidor nosso, e nada sai do telemóvel até a pessoa
-  confirmar lá. Precisa de conta no GitHub. **"Falta um país?"**, no fim da lista dos mapas, faz o
-  mesmo para pedir um mapa (`MAP_REQUEST_URL`). Se um dia se quiser receber sem conta GitHub, o
-  caminho é um endereço de e-mail do autor (`mailto:`) — só com ele a dizer qual.
-- **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
-- **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
-  quando a aplicação se fechou sozinha — ver "6-K".
-- **O meio de transporte já não está no ecrã de definições** (pedido do autor, novembro de
-  2026): escolhe-se no ecrã de Direções e no painel do percurso, e fica guardado na mesma
-  (`travelMode`). Estava repetido.
-- **O meio de transporte troca-se no painel do percurso**, com três botões por cima
-  da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
-  pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
+- To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
+  show it in `SettingsSheet` **and add it to `show`** (the settings search; see below).
+- **The map type is remembered between sessions**, at the author's request (November 2026):
+  closing on satellite and reopening on the drawn map was the opposite of what they wanted.
+  It was deliberately not stored before because of the live buses (1.1 MB every twenty
+  seconds) — the author chose no brake. An unknown value falls back to the drawn map.
+- **The navigation options are grouped in a collapsible "Navigation" section**
+  (`Collapsible`), at the author's request: voice, speed limit, cameras, tolls, speedometer
+  and battery.
+- **Settings has a search box** at the top (`show`, in `SettingsSheet`): it hides whatever
+  does not match the text (name, hint or section, accents ignored) and opens the sections
+  holding a match by themselves (`forceOpen` on `Collapsible`). A new option must go into
+  `show`.
+- **"Rate the app"** (`FeedbackForm`): stars and a comment, sent as a pre-filled GitHub issue
+  (with the version) — there is no server of ours, and nothing leaves the phone until the
+  person confirms there. It needs a GitHub account. **"Missing a country?"**, at the end of
+  the maps list, does the same to ask for a map (`MAP_REQUEST_URL`). To receive feedback
+  without a GitHub account, the way is the author's e-mail address (`mailto:`) — only with
+  the author saying which.
+- **Updates are not a setting**, they are a screen inside Settings — see "6-I".
+- **The last crash is not a setting either**, it is a card at the top of the screen that only
+  exists when the app closed by itself — see "6-K".
+- **The travel mode is no longer on the Settings screen** (author's request, November 2026):
+  it is chosen in Directions and in the route panel, and is still stored (`travelMode`).
+- **The travel mode is switched in the route panel**, where the decision is really made: one
+  picks the destination and only then thinks of how to get there. Pressing recalculates at
+  once and the choice is stored.
 
-### 4-A. Línguas
+### 4-A. Languages
 
-A aplicação fala **português de Portugal e inglês**. Em "automático" segue a **língua do
-telemóvel**; nas definições pode-se forçar uma delas.
+The app speaks **European Portuguese and English**. "Automatic" follows **the phone's
+language**; Settings can force either.
 
-**"Automático" é a língua do telemóvel e não o país onde se está.** É o que "automático"
-quer dizer em qualquer outra aplicação, e evita o caso de um português em viagem ver tudo em
-inglês. Qualquer língua que não seja o português cai no inglês — o inglês é a língua de
-recurso, e acrescentar uma língua nova é juntar um ficheiro ao lado do `en.ts`.
+**"Automatic" is the phone's language, not the country one is in.** That is what
+"automatic" means in any other app, and it avoids a Portuguese person abroad seeing
+everything in English. Any language other than Portuguese falls back to English; adding a
+language is adding a file next to `en.ts`.
 
-As peças estão em **`src/i18n/`**:
+The pieces are in **`src/i18n/`**: `pt.ts` (**the source table**, all user-facing text),
+`en.ts` (**typed against `pt.ts`**) and `index.ts`.
 
-| Ficheiro | O que é |
-| --- | --- |
-| `pt.ts` | **A tabela de origem.** Todo o texto que aparece ao utilizador |
-| `en.ts` | O inglês, **tipado contra o `pt.ts`** |
-| `index.ts` | Escolher a língua, e as duas formas de lhe chegar |
+**The check that stops half the app staying in Portuguese.** `en.ts` is declared as
+`typeof pt`: a key added to Portuguese and forgotten in English **does not compile**.
+`npx tsc --noEmit` tells you; nothing to remember.
 
-**A verificação que impede metade da aplicação de ficar em português.** O `en.ts` está
-declarado como `typeof pt`: uma chave que se acrescente ao português e se esqueça no inglês
-**não compila**. É a única verificação automática que este projeto tem, e apanha
-precisamente o erro mais provável — não é preciso lembrar-se de nada, o `npx tsc --noEmit`
-diz.
+**Two ways to get the text, and the difference matters:**
 
-**Há duas formas de pedir o texto, e a diferença importa:**
+- **`useT()`**, in components. A hook, so the screen redraws when the language changes —
+  without restarting.
+- **`t()`**, in services. Services cannot use hooks and still throw errors with messages; this
+  reads the language from a module variable set by the `SettingsProvider`.
 
-- **`useT()`**, nos componentes. É um hook, por isso o ecrã redesenha-se quando a língua
-  muda — sem reiniciar a aplicação.
-- **`t()`**, nos serviços. Serviços não podem usar hooks e continuam a lançar erros com
-  mensagem; este lê a língua de uma variável do módulo, posta pelo `SettingsProvider`.
+**Beware `t()` captured in a function with empty dependencies.** A `useCallback(…, [])`
+closing over the component's `strings` stays stuck on the start-up language, and TypeScript
+does not catch it. It happened with the map type's name: switching to English left it saying
+"Transportes" for good. In those places use `t()`, which reads the language when called.
 
-**Cuidado com o `t()` capturado numa função com dependências vazias.** Um `useCallback(…,
-[])` que feche sobre o `strings` do componente fica preso à língua do arranque, e o
-TypeScript não apanha isso. Aconteceu com o nome do tipo de mapa: trocar para inglês
-deixava-o a dizer "Transportes" para sempre. Nesses sítios usa-se o `t()`, que lê a língua
-no momento em que é chamado.
+**Sentences with values are functions, and grammar lives inside each language.** "Vire à
+esquerda **para** a Rua Augusta" vs "Turn left **onto** Rua Augusta". Building sentences
+from translated pieces gave one language the other's grammar. `maneuvers.ts` decides
+**which** manoeuvre it is; the language table says **how to say it** — including English
+roundabout exit ordinals, where 11th to 13th are "th" and a naive rule fails.
 
-**As frases com valores são funções, e a gramática vive dentro de cada língua.** Não é
-arrumação: diz-se "Vire à esquerda **para** a Rua Augusta" e "Turn left **onto** Rua
-Augusta". Montar as frases por fora, a partir de pedaços traduzidos, dava a uma das línguas
-a gramática da outra. O `maneuvers.ts` decide **que** manobra é; a tabela da língua diz
-**como se diz** — incluindo os ordinais ingleses das saídas de rotunda, onde o 11.º ao 13.º
-são "th" e é aí que uma regra ingénua falha.
+**Four things that change with the language and are not text:**
 
-**Quatro coisas que mudam com a língua e não são texto:**
+1. **The decimal separator.** 12,4 km in Portuguese, 12.4 km in English.
+2. **The navigation voice** (`speechTag`). Without it, an English instruction was read with a
+   Portuguese accent.
+3. **The search** (`accept-language` on Nominatim). English gets "Lisbon".
+4. **The map attributions.** For Sentinel-2, in English, the official sentence EOX asks for —
+   copied, not translated.
 
-1. **O separador decimal.** 12,4 km em português, 12.4 km em inglês. É o pormenor que mais
-   denuncia uma tradução mal feita.
-2. **A voz da navegação** (`speechTag`). Sem isto, uma instrução inglesa saía lida com
-   pronúncia portuguesa.
-3. **A pesquisa** (`accept-language` no Nominatim). Quem está em inglês recebe "Lisbon".
-4. **As atribuições do mapa.** Para o Sentinel-2 usa-se, em inglês, a frase oficial que a
-   EOX pede — copiada e não traduzida.
+**Option lists do not hold names.** `TRAVEL_MODES`, `MAP_TYPES` and the others only have the
+`id` and the icon; the name comes from the language table.
 
-**As listas de opções não guardam nomes.** O `TRAVEL_MODES`, o `MAP_TYPES` e os outros só
-têm o `id` e o ícone; o nome vem da tabela da língua. Misturar as duas coisas obrigava a
-mexer nessas listas para traduzir, e elas são sobre outra coisa.
+### 5. Arrival time and road surfaces
 
-### 5. O tempo estimado e o piso das estradas
+OSRM works out time from the road type and OpenStreetMap's `surface` tag. The car profile
+caps speed by surface — `surface=unpaved` at 40 km/h, dirt lower still.
 
-O OSRM calcula o tempo a partir do tipo de estrada e da etiqueta `surface` do
-OpenStreetMap. O perfil de carro limita a velocidade conforme o piso — `surface=unpaved`
-fica travado a 40 km/h, e a terra batida a menos ainda.
+**The problem is bigger than it looks.** Even with the tag filled in, the 40 km/h OSRM
+assumes for unpaved roads is too fast for São Tomé's dirt roads, where people really drive at
+20. Those roads are already marked unpaved in OpenStreetMap — the dashed line on the map is
+exactly that — and the time still comes out about 60% short. So **better data is not
+enough**.
 
-**O problema é maior do que parece.** Mesmo com a etiqueta preenchida, os 40 km/h que o
-OSRM assume para piso não alcatroado são rápidos de mais para as estradas de terra de São
-Tomé, onde na prática se anda a 20. Confirmou-se que essas estradas já aparecem marcadas
-como não alcatroadas no OpenStreetMap — o tracejado no mapa é isso mesmo — e ainda assim o
-tempo vem cerca de 60% abaixo do real. Ou seja, melhorar os dados **não chega**.
+Two fixes, not exclusive:
 
-Há duas formas de corrigir, e não se excluem:
+1. **The manual correction in Settings** (`timeAdjustment`), multiplying the time by 1, 1.25,
+   1.5 or 2. Crude — the same for every route — but the only one that solves São Tomé.
+2. **Filling the tag in OpenStreetMap** where missing. Helps elsewhere, for everyone, but does
+   not replace the correction on very bad roads.
 
-1. **A correção manual nas definições** (`timeAdjustment`), que multiplica o tempo por
-   1, 1,25, 1,5 ou 2. É grosseira — aplica-se a todos os percursos por igual — mas é a
-   única que resolve o caso de São Tomé, onde nem os dados certos bastam.
-2. **Preencher a etiqueta no OpenStreetMap** onde faltar (`surface=ground`, `unpaved`…).
-   Ajuda noutros sítios e vale para toda a gente, mas não substitui a correção manual em
-   estradas muito más.
+The factor is applied **where the time is shown** (`useEta()`), not in the service: the
+`Route` keeps what OSRM answered, untouched.
 
-O fator é aplicado **onde o tempo é mostrado** (`useEta()`), e não dentro do serviço: o
-`Route` continua a guardar o que o OSRM respondeu, sem retoques.
+### 5-A. The arrival time adapts to whoever is driving
 
-### 5-A. O tempo estimado ajusta-se a quem vai a conduzir
+The author asked that **the arrival time count on the speed the person really goes at.**
+Three layers, in `src/utils/eta.ts` and `useEta()`:
 
-A correção manual acima resolve o caso extremo e não resolve o caso normal: ninguém anda a
-mexer nela, e ela é igual para todos os percursos. O que o autor pediu foi outra coisa —
-**que a hora de chegada conte com a velocidade a que a pessoa anda mesmo.** São três
-camadas, em `src/utils/eta.ts` e em `useEta()`:
+1. **The travel mode's model.** Car and walking: what OSRM answered. Bike: OSRM's profile
+   assumes **15 km/h** (`default_speed` in their `bicycle.lua`, read in their code); we count
+   on **12.5 km/h**, the author's request — but **as a floor**: where OSRM already answers
+   slower, it knows something about the road an average does not, and its value stays.
+2. **The measured pace.** While navigating, the time the stretch covered really took is
+   compared with what the route predicted. The result multiplies what is left, and is
+   **stored per travel mode** (`LearnedPace`, in `settings.tsx`) so the next estimate is born
+   right — the one that matters is the one read **before** leaving.
+3. **The manual correction**, which only applies while there is no measured pace.
 
-1. **O modelo do meio de transporte.** De carro e a pé é o que o OSRM respondeu. De
-   bicicleta não: o perfil deles assume **15 km/h** (o `default_speed` do `bicycle.lua`,
-   lido no código deles e não adivinhado), que é a velocidade de quem anda de bicicleta a
-   sério. Conta-se com **12,5 km/h**, pedido pelo autor — mas **como piso**: onde o OSRM já
-   responde mais devagar, é porque sabe da estrada alguma coisa que uma velocidade média
-   não sabe, e fica a dele.
-2. **O ritmo medido.** Durante a navegação compara-se o tempo que o troço já andado levou
-   mesmo com o que o percurso previa para ele. O resultado multiplica o que falta, e fica
-   **guardado por meio de transporte** (`LearnedPace`, em `settings.tsx`) para a estimativa
-   seguinte já nascer certa — a que interessa é a que se lê **antes** de partir.
-3. **A correção manual**, que passa a valer só enquanto não houver ritmo medido nenhum.
+**Measured beats guessed, and they do not multiply.** Both measure the same thing;
+multiplying them counted it twice (1.5× by hand and 1.6 measured gave 2.4×). So Settings
+**shows the learned pace and has a button to forget it** — a value learned in silence that
+nobody sees or clears is, the day it goes wrong, a fault with no explanation.
 
-**O medido ganha ao adivinhado, e não se multiplicam.** A correção manual e o ritmo medido
-medem exatamente a mesma coisa. Multiplicá-los contava-a duas vezes: 1,5× escolhido à mão
-com 1,6 medido dava 2,4×. Por isso o ecrã de definições **mostra o ritmo aprendido e tem um
-botão para o esquecer** — um valor aprendido em silêncio que ninguém vê nem apaga é, no dia
-em que sair torto, uma avaria sem explicação, e ainda por cima desligava a correção manual
-sem se perceber porquê.
+**When driving, the pace never shrinks the time, and that is a decision.** The floor is 1
+(`PACE_MIN_DRIVING`): **the app does not promise an arrival time that requires speeding.**
+The author asked for "always the time for the local limit or a bit below", and it fits what
+OSRM already does: their `car.lua` computes time at **the limit × 0.8** where the limit is
+tagged (`speed_reduction`), and below it where not. The measured pace can widen it freely;
+it cannot shorten it. Otherwise fast drivers would teach the app to count on it.
 
-**De carro o ritmo nunca encolhe o tempo, e isso é uma decisão.** O piso é 1
-(`PACE_MIN_DRIVING`): **a aplicação não promete uma hora de chegada que obrigue a exceder o
-limite.** Foi o que o autor pediu — "sempre tempo para a velocidade limite local ou um
-pouco abaixo" — e dá certo com o que o OSRM já faz: o `car.lua` deles calcula o tempo à
-**velocidade limite vezes 0,8** onde o limite está marcado no OpenStreetMap (o
-`speed_reduction`), e abaixo dela onde não está — 90 numa autoestrada, 55 numa secundária.
-Ou seja, o tempo de que se parte já é o de quem anda ao limite ou um pouco abaixo; o ritmo
-medido pode alargá-lo à vontade, o que não pode é encurtá-lo. Sem esse piso, quem conduz
-depressa ensinava a aplicação a contar com isso.
+**The pace is not measured in the first metres.** Only after `PACE_MIN_MS` (3 min) **and**
+`PACE_MIN_METERS` (500 m): a traffic light outside the house gave a factor of five. It is
+still a cumulative ratio since the trip started, so an early stop weighs more than it should
+— it dilutes as one goes; a known limitation, not a fault.
 
-**O ritmo não se mede nos primeiros metros.** Só depois de `PACE_MIN_MS` (3 min) **e**
-`PACE_MIN_METERS` (500 m): um semáforo à saída de casa dava um fator de cinco e a hora de
-chegada saltava para o dobro. Mesmo assim é um rácio acumulado desde o início da viagem, e
-por isso uma paragem logo no princípio pesa mais do que devia — vai-se diluindo à medida
-que se anda, e é uma limitação conhecida e não uma avaria.
+**What is stored is a blend** (`PACE_LEARN_WEIGHT`, a third): an odd trip moves the value
+without turning it upside down. It resets on every recalculation — the total distance changes
+and "how far have I gone" would stop adding up.
 
-**O que fica guardado é uma mistura** (`PACE_LEARN_WEIGHT`, um terço): uma viagem estranha
-mexe no valor sem o virar do avesso, e três ou quatro viagens parecidas chegam para o mudar
-mesmo. E volta a zero a cada recálculo do percurso — a distância total passa a ser outra e
-a conta de "quanto já andei" deixava de bater certo.
+Proved with a trip simulation: a dirt road with OSRM assuming 40 km/h and driving at 20 gives
+pace 2.00 and the remaining time right to the minute; a bike at 10 km/h with the 12.5 model
+gives 1.25; driving at 120 where OSRM counts 90, the pace stays at 1 and one arrives earlier
+than promised, which is the right side to err on.
 
-Provado com uma simulação de viagem, sem telemóvel: estrada de terra com o OSRM a assumir
-40 km/h e a andar-se a 20 dá ritmo 2,00 e o tempo que falta acerta ao minuto; a bicicleta a
-10 km/h com o modelo de 12,5 dá 1,25 e acerta também; a conduzir a 120 onde o OSRM conta 90,
-o ritmo fica travado em 1 e chega-se mais cedo do que o prometido, que é o lado certo para
-errar.
+### 6. Satellite imagery
 
-### 6. Imagem de satélite
+- The source is **EOX's Sentinel-2 cloudless** (2025): a Copernicus Sentinel-2 mosaic with
+  clouds removed. Free, no keys, Creative Commons, free for non-commercial use.
+- **The attribution is required** and is in the style's `attribution`. Do not remove it.
+- **Detail has a physical limit:** Sentinel-2 sees at 10 metres per pixel, about zoom 14.
+  Hence `maxzoom: 14` — above it MapLibre enlarges what it has instead of requesting tiles
+  that bring nothing more. Coast, forest, fields; not individual houses.
+- **"High" detail adds the DGT orthophotos in Portugal** (`ortoSat2023-CorVerdadeira`, from
+  `ortos.dgterritorio.gov.pt/wms/ortosat2023`): 2023 Pléiades-Neo satellite imagery, under a
+  metre per pixel. **This is the sharpest open imagery there is.** The author compared it
+  with Google (November 2026) and found it blurrier when zoomed right in: Google uses
+  commercial aerial photography at about 10 cm. The DGT's aerial orthophotos are not
+  published as an open service (probed: no `ortos2018`/`ortos2021` on any DGT host).
+  **Detailed imagery is a paid product everywhere**; do not go looking again.
+- **The orthophotos fade in over a whole zoom level.** They used to appear at once, at full
+  opacity, past zoom 12 — over Sentinel-2 at ten metres per pixel. The jump looked like a
+  map fault. Spreading it over a level fixes it **without a single extra request**: `minzoom`
+  stays at 12, only the opacity changes.
+- **Each orthophoto tile is requested at 512 pixels and drawn in a 256 square** — four times
+  the pixels, the same detail as one more zoom level with a quarter of the requests to a
+  public service.
+- Satellite imagery **has no names or drawn roads** — it is only a photo. Route and pins
+  still show, because they are our layers.
 
-- A fonte é o **Sentinel-2 cloudless da EOX**: um mosaico do satélite Sentinel-2, do
-  programa Copernicus, com as nuvens removidas. É livre, sem chaves de API, com licença
-  Creative Commons e gratuito para uso não comercial — encaixa nas regras do projeto.
-- **A atribuição é obrigatória** e está no `attribution` do estilo. Não a tirar.
-- **O detalhe tem um limite físico:** o Sentinel-2 vê a Terra a 10 metros por pixel, o que
-  corresponde ao zoom 14. Daí o `maxzoom: 14` — acima disso o MapLibre amplia o que tem,
-  em vez de pedir tiles que não trazem mais nada. Vê-se a costa, a floresta, as roças e os
-  terrenos abertos; não se veem casas uma a uma. **Satélite ao pormenor é produto pago em
-  todo o lado**; não há alternativa livre, por isso não vale a pena procurar.
-- **As ortofotos entram a desvanecer, ao longo de um nível de zoom inteiro.** Apareciam de
-  uma vez, com opacidade total, no instante em que se passava o zoom 12 — e por baixo delas
-  está o Sentinel-2, que vê a **dez metros por pixel** contra o menos de um metro destas. O
-  salto de nitidez era enorme e parecia avaria do mapa, quando é só a troca de duas fontes
-  muito diferentes. Espalhar a troca por um nível resolve **sem um único pedido a mais**: o
-  `minzoom` continua no 12, o que muda é a opacidade com que se desenha o que já se estava a
-  pedir.
-- **Cada tile das ortofotos é pedido a 512 pixéis e desenhado num quadrado de 256.** Chega
-  com quatro vezes mais pixéis, o que num ecrã de telemóvel — que já é de dois ou três
-  pontos por pixel — se nota. É melhor do que pedir mais um nível de zoom: dá o mesmo
-  detalhe com um quarto dos pedidos feitos a um serviço público.
-- A imagem de satélite **não traz nomes nem estradas desenhadas** — é só fotografia. O
-  percurso e os pinos continuam a aparecer, porque são camadas nossas. Um modo híbrido a
-  sério (satélite com as ruas por cima) só é possível com o mapa vetorial.
+### 6-0. Business pins
 
-### 6-0. Os pinos dos negócios
+Drawn **like the maps everyone knows**, at the author's request (November 2026): a circle in
+the family colour with a white icon inside, the name underneath in the same colour. Food
+orange, shops blue, health red, lodging pink, services grey-blue, leisure green. The chosen
+place — open card or destination — gets the **red teardrop pin**, with the family icon
+inside.
 
-Desenham-se **como nos mapas que toda a gente conhece**, a pedido do autor (novembro de 2026):
-um círculo da cor da família com um ícone branco lá dentro, e o nome por baixo na mesma cor.
-Comida a laranja, compras a azul, saúde a vermelho, alojamento a rosa, serviços a cinzento-azul,
-lazer a verde. O sítio escolhido — ficha aberta ou destino — leva o **pino vermelho em gota**,
-com o ícone da família lá dentro.
+- **The table is in `src/utils/poiStyle.ts`**: OpenStreetMap value → icon and family, with
+  the key (`shop`, `office`…) as fallback. It serves all three business sources: the
+  country's file, the OpenFreeMap tiles (there as style expressions, `TILE_POI_*`, because
+  the geometry is not ours) and the category results. Each `Place` carries `kindKey` and
+  `kindValue` for this.
+- **The icons are images, drawn by `scripts/generate-poi-icons.py`** from the
+  MaterialCommunityIcons font, at 1x, 2x and 3x, into `assets/poi/` (with a generated
+  `index.ts` that `require`s them). Colours are read from `poiStyle.ts`, so they cannot
+  drift. **Not edited by hand**: change the table and run the script (needs Pillow). **Few on
+  purpose**: the author asked for fewer symbols — one or two per family.
+- **Two layers**: underneath, a small dot in the family colour for each place; on top, the
+  icon, without overlaps. When two icons collide, the map keeps the more important one
+  (`symbol-sort-key`: food and health first) and the other stays a dot. The name is optional.
+- **Junk that is filtered** (author's photo, November 2026): trail signposts
+  (`tourism=information` other than `information=office`) are dropped from all three sources;
+  Mobi.E charging points named by their code show the brand (`displayName`) or, in the
+  tiles, no label at all. See "Where this stands".
+- Validated against the MapLibre spec with every image present; **the look on the phone has
+  been seen** (November 2026, the author's screenshots).
 
-- **A tabela está em `src/utils/poiStyle.ts`**: valor do OpenStreetMap → ícone e família, com a
-  chave (`shop`, `office`…) como recurso. Serve as três fontes de negócios: o ficheiro do país,
-  os tiles do OpenFreeMap (aí em forma de expressão do estilo, `TILE_POI_*`, porque as
-  geometrias não são nossas) e os resultados das categorias. Cada `Place` traz `kindKey` e
-  `kindValue` para isto.
-- **Os ícones são imagens, desenhadas por `scripts/generate-poi-icons.py`** a partir da fonte
-  do MaterialCommunityIcons, em 1x, 2x e 3x, para `assets/poi/` (com um `index.ts` gerado que
-  os `require`). As cores vêm lidas do `poiStyle.ts`, por isso não divergem. **Não se editam à
-  mão**: muda-se a tabela e corre-se o script (precisa do Pillow). A cor vai dentro de cada
-  PNG, por isso o mesmo símbolo em duas famílias são duas imagens. **São poucos de propósito** (14): o autor pediu menos símbolos — um ou dois por família chegam para se reconhecer o tipo de sítio.
-- **Duas camadas**: por baixo, um ponto pequeno da cor da família para cada sítio; por cima, o
-  ícone, sem sobreposições. Quando dois ícones colidem, o mapa fica com o mais importante
-  (`symbol-sort-key`: comida e saúde primeiro) e o outro fica ponto. Aproximar abre espaço e os
-  pontos passam a ícones sozinhos. O nome é opcional — o ícone fica mesmo sem espaço para ele.
-- **Lixo que se tira** (fotografia do autor, novembro de 2026): os postes de trilho (`tourism=information`
-  que não seja `information=office` — "TB.442", "TB.444"… em Monsanto/Restelo, sondado) saem das três
-  fontes. Os carregadores da Mobi.E têm o código no `name` ("ALM-90010", igual ao `ref`): na ficha e
-  no ficheiro do país mostra-se a **marca** (`displayName`, em `overpass.ts`); nos tiles, que não
-  trazem a marca, o carregador fica só com o ícone (raio, `ev-station`). Escolas e universidades
-  passaram a ter um capelo em vez da máquina fotográfica.
-- Validado contra a especificação do MapLibre e com todas as imagens presentes; **o aspeto no
-  telemóvel ainda não foi visto**.
+### 6-0-A. A place's card (phase 2 of the Google Maps imitation)
 
-### 6-0-A. A ficha de um sítio (fase 2 da imitação do Google Maps)
+`PlaceSheet.tsx`: name; kind and distance ("Restaurant · 350 m"); **whether it is open now**
+("Open · Closes at 19:00", "Closes soon", "Closed · Opens tomorrow at 9:00"); a sideways
+scrolling row of round buttons (Directions filled, Call, Save, Stop, Share, Website — only
+those that make sense); and the details. Tapping the hours opens the whole week, today in
+bold. Share sends name, address and an openstreetmap.org link — not Google's.
 
-`PlaceSheet.tsx`: nome; tipo e distância a que se está ("Restaurante · 350 m"); **se está aberto
-agora** ("Aberto · Fecha às 19:00", "Fecha em breve", "Fechado · Abre amanhã às 9:00"); uma fila de
-botões redondos que desliza para o lado (Direções a cheio, Ligar, Guardar, Paragem, Partilhar,
-Sítio — só os que fazem sentido); e os detalhes. Tocar no horário abre a semana inteira, com o dia
-de hoje a negrito. Partilhar manda nome, morada e uma ligação do openstreetmap.org — não do Google.
+**Hours are read in `src/utils/openingHours.ts`**, which understands the part of OSM's
+`opening_hours` that covers nearly all businesses: days and ranges (`Mo-Fr`, `Mo,We`,
+`Fr-Mo`), several ranges per day, past midnight, `off`, `24/7`, and later rules overriding
+earlier ones. Holiday-only rules (`PH off`) are skipped. **What it does not understand makes
+it give up** — `sunrise-sunset`, months, weeks — and the card shows the text as written, with
+no status line: a wrong "Open" sends someone to a closed door, worse than saying nothing.
 
-**O horário lê-se em `src/utils/openingHours.ts`**, que percebe a parte do `opening_hours` do
-OpenStreetMap que cobre quase todos os negócios: dias e intervalos (`Mo-Fr`, `Mo,We`, `Fr-Mo`),
-vários horários por dia, horários que passam da meia-noite, `off`, `24/7`, e regras posteriores a
-sobreporem-se às anteriores. As regras só de feriados (`PH off`) são saltadas. **O que não percebe
-faz desistir** — `sunrise-sunset`, meses, semanas — e a ficha mostra o texto como está escrito, sem
-linha de estado: um "Aberto" errado manda alguém a uma porta fechada, que é pior do que não dizer
-nada. Provado contra os formatos comuns com datas escolhidas a dedo (fim de semana, depois da
-meia-noite, a uma hora do fecho). **O ecrã ainda não foi visto no telemóvel.**
+### 6-0-B. Directions (phase 3)
 
-### 6-0-B. Direções (fase 3 da imitação do Google Maps)
+The route panel (`RoutePanel.tsx`):
 
-O painel do percurso (`RoutePanel.tsx`):
+- **Each travel mode button shows its time** ("12 min", "45 min"). The chosen mode's comes
+  from the route; the others' from `getDuration` (`osrm.ts`), OSRM's lightest request — no
+  geometry or manoeuvres — through the same one-a-second queue and kept for the session. Two
+  extra requests per destination; switching back and forth asks nothing. Public transport's
+  only shows when chosen (from the first trip). Until a time arrives the button shows the
+  name. `useEta` takes the mode, so each time carries that mode's learned pace.
+- **Alternative routes are a list**: time large, distance and the main roads ("via A2, IC20",
+  from the OSRM legs' `summary`). The fastest gets "Fastest", whatever OSRM's order.
+- **Start and Steps side by side.**
 
-- **Cada botão de meio de transporte mostra o seu tempo** ("12 min", "45 min"), em vez do nome.
-  O tempo do meio escolhido sai do percurso; o dos outros de `getDuration` (`osrm.ts`), o pedido
-  mais leve do OSRM — sem geometria nem manobras — pela mesma fila de um por segundo e guardado
-  para a sessão. São dois pedidos a mais por destino; trocar de meio e voltar não pede nada. O
-  dos transportes públicos só aparece com eles escolhidos (sai do primeiro trajeto). Enquanto
-  um tempo não chega, o botão mostra o nome. `useEta` aceita agora o meio, para cada tempo levar
-  o ritmo aprendido desse meio.
-- **Os caminhos alternativos são uma lista**: tempo em grande, distância e as estradas principais
-  ("por A2, IC20", do `summary` das pernas do OSRM). O mais rápido leva "Mais rápido", seja qual
-  for a ordem do OSRM.
-- **Iniciar e Passos lado a lado**, como dois botões, em vez de um por baixo do outro.
+### 6-0-C. Navigation (phase 4)
 
-**Ainda não visto no telemóvel.**
+`NavigationPanel.tsx`, with the manoeuvre banner on top and a new footer:
 
-### 6-0-C. Navegação (fase 4 da imitação do Google Maps)
+- **"Then"**: a tab hanging under the banner with the icon of the manoeuvre after the next,
+  only when both are within `THEN_MAX_METERS` (400 m). Banner, "Then" and camera warning are
+  one column, so they stack whatever the text height.
+- **Maps-style footer**: end (red X) on the left; in the middle the time left, large and green
+  (`theme.open`), with distance and **arrival time** under it; on the right **see the whole
+  route** (`overview()` in `MapView`, which drops following and frames what is left).
+- **"Re-centre"** appears when the camera let go of the car — dragging the map or the
+  overview — where the GPS button was; that button is hidden while navigating
+  (`navCameraFree`, in `App.tsx`; `onTrackUserLocationChange` reports the drop).
+- **Lanes**, as in Maps and Waze: each lane's arrow under the manoeuvre, those serving the
+  route lit, from `LANES_SHOW_METERS` (1.5 km) before it. Free in OSRM's answer
+  (`intersections[0].lanes` of each step, from OSM's `turn:lanes`) — no extra request.
+  **Confirmed on the real server**: the A2 exit to Lisbon has four lanes, the two on the right
+  valid. On a "straight and right" lane the arrow the route uses is drawn (`shown`). Where OSM
+  lacks them, none appear.
+- **The destination side** comes from the arrival manoeuvre ("You have arrived, on your
+  right").
 
-`NavigationPanel.tsx`, com a barra da manobra em cima e um rodapé novo:
+**What cannot be copied from Waze: live traffic and people's reports** (accidents, police,
+roadworks). Both come from millions of phones sending data to the company's server; there is
+no open source of that in Portugal, and a personal project with no server has nowhere to
+send them. From Waze we take what open data gives: cameras (6-C), the road's limit and the
+warning when over it (6-H).
 
-- **"Depois"**: uma aba pendurada por baixo da barra com o ícone da manobra a seguir à próxima, só
-  quando as duas estão a menos de `THEN_MAX_METERS` (400 m) — uma rotunda logo a seguir a uma
-  viragem. A barra, o "Depois" e o aviso do radar estão numa coluna só, para se empilharem
-  sozinhos qualquer que seja a altura do texto.
-- **Rodapé à maneira do Maps**: terminar (X vermelho) à esquerda; ao meio o tempo que falta em
-  grande e a verde (`theme.open`), com a distância e a **hora de chegada** por baixo; à direita
-  **ver o percurso inteiro** (`overview()` no `MapView`, que larga o seguimento e enquadra o que
-  falta).
-- **"Recentrar"** aparece quando a câmara largou o carro — arrastar o mapa ou ver o percurso — no
-  sítio onde estava o botão do GPS, que a navegar já não aparece (`navCameraFree`, no `App.tsx`;
-  quem avisa da queda é o `onTrackUserLocationChange`, como fora da navegação).
+**Not yet seen on the phone.**
 
-- **Faixas de rodagem**, como no Maps e no Waze: as setas de cada faixa por baixo da manobra,
-  com as que servem o percurso acesas, a partir de `LANES_SHOW_METERS` (1,5 km) da manobra.
-  Vêm de graça na resposta do OSRM (`intersections[0].lanes` de cada passo, do `turn:lanes`
-  do OpenStreetMap) — sem pedido nenhum a mais. **Confirmado no servidor verdadeiro**: a saída
-  da A2 para Lisboa traz quatro faixas, as duas da direita válidas. Numa faixa pintada
-  "em frente e direita" desenha-se a seta que o percurso usa (`shown`). Onde o OpenStreetMap
-  não as tem, não aparecem.
-- **O lado do destino** já vinha da manobra de chegada ("Chegou ao destino, à sua direita").
 
-**O que não se pode imitar do Waze: o trânsito ao vivo e os avisos das pessoas** (acidentes,
-polícia, obras). Os dois vêm de milhões de telemóveis a mandar dados para um servidor da
-empresa; não há fonte aberta disso em Portugal, e um projeto pessoal sem servidor não tem a
-quem os mandar. Do Waze fica o que os dados abertos dão: radares (6-C), o limite da estrada e
-o aviso ao passá-lo.
+### 6-A. Public transport map
 
-**Ainda não visto no telemóvel.**
+- The source is **ÖPNVKarte**, from memomaps.de: it draws the **routes** of buses, trains,
+  metros, trams and ferries, each line in its colour, plus stops and stations. Made from
+  OpenStreetMap; one of openstreetmap.org's official layers. No keys.
+- **It is a map type, not a layer on top.** ÖPNVKarte brings its own base, deliberately faded
+  so the routes stand out — laying it over our map would give two bases on top of each other.
+- The map type is chosen in the layers sheet (`LayersSheet`), with thumbnails.
+- **The attribution is required by the licence** (CC-BY-SA for the map, ODbL for the data).
+- **What it is not:** it shows where lines run, not when. Times come from the next sections.
+- It needs a network, like the satellite — no stored substitute. That is why these two always
+  win over the offline map in `mapStyleFor`.
 
-### 6-A. Transportes públicos
+### 6-B. Arrival times
 
-- A fonte é a **ÖPNVKarte**, do memomaps.de: desenha os **percursos** dos autocarros,
-  comboios, metros, elétricos e barcos, cada linha com a sua cor, mais as paragens e as
-  estações. É feita a partir do OpenStreetMap e é uma das camadas oficiais do
-  openstreetmap.org. Sem chaves de API.
-- **Entra como um tipo de mapa, não como uma camada por cima.** A ÖPNVKarte traz a sua
-  própria base, de propósito mais apagada, para os percursos se destacarem — sobrepô-la ao
-  nosso mapa dava duas bases uma em cima da outra.
-- O botão do canto passou a **percorrer os três tipos** (`nextMapType`, em `settings.tsx`) e
-  mostra o ícone do **seguinte**, não o do atual. Como com três já não se adivinha ao que se
-  vai, aparece o nome durante um segundo e meio.
-- **A atribuição é exigida pela licença** (CC-BY-SA para o mapa, ODbL para os dados) e está
-  no `attribution` do estilo. Não a tirar.
-- **O que isto não é:** mostra por onde as linhas passam, não a que horas passam. Horários a
-  sério obrigariam a dados GTFS de cada operador, que não existem num sítio só nem de forma
-  aberta em todo o lado. Não prometer horários.
-- Precisa de rede, tal como o satélite — não há substituto guardado. Por isso estes dois
-  ganham sempre ao mapa offline em `mapStyleFor`.
+Different from the transport map: the map shows **where** lines run, anywhere in the world;
+this says **when** they pass, and only where there is open data.
 
-### 6-B. Horas de passagem dos transportes
+- The source is **Carris Metropolitana's open API** (`src/services/transit.ts`), the same the
+  official app uses. No key. Address in `config.ts`.
+- **It covers the Lisbon Metropolitan Area**, fifteen of its eighteen municipalities. Outside
+  it there is nothing — **Portugal has no single open source with every operator's
+  timetables**. The panel says so instead of showing an empty list.
+- **The stops and stations are those near the middle of the map, not near the GPS** (see
+  `mapCentre` in `App.tsx`). It was tied to the phone's position — the same fault the category
+  buttons had had: dragging the map to another town brought nothing, and without a GPS fix
+  nothing showed at all.
+- The stops (`/stops`) are thousands and do not move: requested **once per session** and kept
+  in memory. It is the only way to know which are near — the service has no proximity search.
+  The list has its own timeout (`CARRIS_STOPS_TIMEOUT_MS`, a minute): megabytes of JSON, and
+  fifteen seconds was right on the limit on mobile data.
+- Arrivals (`/arrivals/by_stop/:id`) come for the whole day, including what has passed — the
+  filtering is ours. **`estimated_arrival` is always preferred to `scheduled_arrival`**: it
+  carries the real delay. The green dot in the panel marks the difference.
+- **Use the `_unix` fields, not the text times.** `estimated_arrival_unix` and
+  `scheduled_arrival_unix` are seconds since 1970, with the past-24h arithmetic already done
+  on their side (`25:10:00` is ten past one the next morning, still the previous day's
+  service).
+- While a stop is open, the minutes refresh every `ARRIVALS_REFRESH_MS` (30 s), without the
+  spinner — otherwise the panel flickered.
+- **The field names were read from the service's code**, which is open, after the first
+  attempt guessed them all wrong: `long_name` (not `name`), `locality_name` (not `locality`),
+  `line_ids` (not `lines`). With the wrong names the list showed "Stop" six times, **with no
+  error at all**.
+- **Tapping a stop on the transport map opens its panel**; the open stop lives in `App.tsx`,
+  not in the panel, because it opens from the list or the map — two copies would diverge.
+- **The error says what really failed** (`carrisGet`): the service answering with a status
+  (shown on screen), taking too long, or the network down. Without the phone at hand, a status
+  code in a photo saves several rounds of guessing.
+- **One stop failing does not bring planning down** — see `passesAt`.
 
-Isto é diferente do mapa dos transportes. O mapa mostra **por onde** as linhas passam, em
-qualquer sítio do mundo; isto diz **a que horas** passam, e só onde há dados abertos.
+### 6-B-2. Bus trips
 
-- A fonte é a **API aberta da Carris Metropolitana** (`src/services/transit.ts`), a mesma
-  que a aplicação oficial usa. Sem chave nenhuma. Endereço em `config.ts`.
-- **Cobre a Área Metropolitana de Lisboa**, quinze dos dezoito concelhos. Fora daí não há
-  nada — e isso não é descuido: **em Portugal não existe uma fonte aberta única com os
-  horários de todos os operadores**. Cada região teria de entrar uma a uma, cada uma com o
-  seu serviço, e algumas nem serviço têm. O painel diz isso à pessoa em vez de mostrar uma
-  lista vazia.
-- **As paragens e as estações são as que estão perto do meio do mapa, não perto do GPS.**
-  Esteve preso à posição do telemóvel, e era a mesma avaria que os botões de categoria já
-  tinham tido: arrastar o mapa para outra terra não trazia paragem nenhuma de lá, e quem
-  abrisse o painel sem o GPS ter respondido — dentro de casa, parado — não via nada de todo,
-  nem paragens nem horas de passagem. O que se está a ver é que manda; a posição fica como
-  recurso para enquanto não houver mapa nenhum. Ver `mapCentre`, no `App.tsx`.
-- As paragens (`/stops`) são milhares e não mudam de sítio: pedem-se **uma vez por sessão**
-  e ficam em memória. É a única forma de saber quais estão perto, porque o serviço não tem
-  procura por proximidade.
-- As horas (`/arrivals/by_stop/:id`) vêm do dia inteiro, incluindo o que já passou — a
-  filtragem é nossa. **Prefere-se sempre `estimated_arrival` a `scheduled_arrival`**: a
-  primeira já leva o atraso real. O ponto verde no painel é o que distingue as duas, e a
-  diferença é toda.
-- **As horas do GTFS podem passar das 24.** `25:10:00` é a uma e dez da manhã seguinte,
-  ainda a contar como serviço do dia anterior. Não se pode comparar com a data diretamente
-  — ver `minutesOfDay` e a volta de 1440 minutos em `arrivalsAt`.
-- Enquanto uma paragem está aberta, os minutos atualizam-se de `ARRIVALS_REFRESH_MS` em
-  `ARRIVALS_REFRESH_MS` (30 s), e sem pôr o indicador a rodar — senão o painel piscava.
-- **Os nomes dos campos foram lidos do código do serviço**, que é aberto, e não adivinhados
-  — depois de a primeira tentativa os ter adivinhado todos mal. São `long_name` (não
-  `name`), `locality_name` (não `locality`) e `line_ids` (não `lines`). Com os nomes
-  errados, a lista aparecia toda com "Paragem" e sem mais nada, e **não dava erro nenhum**.
-- **Usam-se os campos `_unix`, não as horas em texto.** `estimated_arrival_unix` e
-  `scheduled_arrival_unix` são segundos desde 1970, já com a conta das 24 horas feita do
-  lado deles. Comparam-se diretamente com o relógio e poupam a aritmética que é onde este
-  género de código costuma falhar.
-- **As paragens são marcadas no mapa**, com o nome ao lado, enquanto o painel está aberto.
-  A paragem aberta vive no `App.tsx` e não no painel, porque também se abre tocando no pino
-  — duas cópias do mesmo estado acabariam por divergir.
-- **A lista das paragens tem prazo próprio** (`CARRIS_STOPS_TIMEOUT_MS`, um minuto). São
-  milhares de paragens com nome, localidade, linhas e ligações — megabytes de JSON para
-  descarregar e ainda para interpretar. Os quinze segundos que servem ao resto ficam mesmo
-  em cima do limite nos dados móveis, e aí isto falhava umas vezes sim outras não, sem nada
-  que o distinguisse do serviço estar em baixo. Pede-se uma vez por sessão: esperar mais não
-  custa nada, e o que se vê é o indicador a rodar em vez de "não foi possível obter os
-  horários".
-- **O erro diz o que falhou mesmo** — ver `carrisGet`. A mensagem era sempre "verifique a
-  ligação", que diz o contrário do que se passa a quem tem rede e o mapa a carregar
-  normalmente. Hoje separa-se o serviço a responder com um número (e o número aparece no
-  ecrã), a demorar demais, e a rede mesmo em baixo. **Sem telemóvel à mão não há outra forma
-  de saber qual é**: um número de resposta numa fotografia poupa várias rondas de
-  adivinhação.
-- **Uma paragem que falhe não deita o planeamento abaixo.** O `planBusTrips` pede as horas
-  de meia dúzia de paragens ao mesmo tempo; com um `Promise.all` puro, uma recusa isolada
-  apagava as opções todas, incluindo as que já tinham vindo bem. Só se desiste quando
-  falham todas.
-- **Não foi possível experimentar contra o serviço real**, tal como a Overpass e o OSRM. Por
-  isso o tratamento das respostas é todo defensivo: campos em falta não podem rebentar nada.
+The third floor of transport: **"how do I get from here to there by bus"**.
 
-### 6-B-2. Trajetos de autocarro
+- **No open service answers that in Portugal.** It is built from what there is: each stop's
+  arrivals. See `planBusTrips` in `src/services/transit.ts`.
+- **What makes it work is knowing it is the same trip.** If the same trip appears at a stop
+  near the origin and at one near the destination, it is the same bus — and the two times are
+  the real departure and arrival. The order between them confirms the direction.
+- **Since 11 August 2026 `trip_id` no longer does that**: Carris moved arrivals to TML's hub,
+  and `trip_id` only comes **with a real-time estimate** (read in `carrismetropolitana/api`).
+  Matching by `trip_id` found nothing: zero trips, **with no error**.
+- **Today a trip is identified by its order within the pattern** (`tripKeys`). At a stop, the
+  arrivals of one `pattern_id` sorted by timetable time are that pattern's trips in order —
+  within a pattern buses do not overtake in the timetable. The key is `pattern#order`. **Two
+  confirmations**: both stops must have the same number of trips of that pattern
+  (`tripsPerPattern`), and when both sides carry `trip_id` they must match.
+- **Stops are chosen by the lines they share, not by distance** (`busStopsFor`): the three
+  nearest stops at each end almost never share a line. `/stops` carries each stop's
+  `pattern_ids`; those of both ends (within `TRANSIT_WALK_MAX_M`) are crossed and only stops
+  with a bus in common are asked about, up to `TRIP_STOPS_PER_SIDE` per side.
+- **With one change of bus** (the author's request, November 2026, after "No direct
+  connection" on a real trip): when there is no direct bus, or only one line, `transferPlan`
+  finds — **without any request** — stops reached by a pattern from near the origin that are
+  the same as, or within `TRANSFER_WALK_M` (250 m) of, a stop left by a pattern to near the
+  destination (terminals like Sete Rios have arriving and departing lines at different
+  stops). The `TRANSFER_STOPS` places with the least detour from the straight line are asked
+  about; a first ride is joined to a second leaving at least `TRANSFER_MIN_S` (2 min) plus the
+  walk later, on another line. The panel shows both line badges and "change at X (wait N
+  min)", and the map marks the change stop. At most one change; trains are not mixed into
+  changes.
+- **A trip can pass the same stop twice** (a circular line starts and ends at Cacilhas): all
+  passes are kept and the one after the departure is chosen.
+- **A stop answering 404 is a stop with no arrivals**, left out; the others carry on.
+- **Carris requests go out in parallel**, spaced `CARRIS_MIN_INTERVAL_MS` (300 ms) between
+  departures (`overlap`, in `rateLimit.ts`).
+- **`stop_sequence` is the second confirmation**: the boarding stop must come before the
+  alighting one within the trip; otherwise the same line in the opposite direction passed for
+  a trip.
+- **A line appears once** (a pair of lines once, for changes): the same bus's next three
+  passes are one option. **The recommendation is not opinion**: the first is the one that
+  reaches the destination earliest, counting the walk at both ends (`reachAt`).
+- Walking time is **estimated** (straight line × `WALK_DETOUR`, at `WALK_SPEED_MS`).
+- **Results with the real API, 30 September 2026:** Almada → Cacilhas five live trips;
+  Almada → Costa da Caparica three; Oeiras → Cascais one; Seixal → Barreiro and Amadora →
+  Sintra zero without changes. **Use the `trajetos` mode of the timetables workflow before
+  calling a fix done** — it compiles the app's `transit.ts` and runs `planBusTrips` against
+  the real API (`scripts/probe-trips.js`). A simulation with made-up data proves what was made
+  up.
 
-Isto é o terceiro andar dos transportes. O mapa mostra por onde as linhas passam; as horas
-de passagem dizem quando passam numa paragem; **isto responde a "como vou daqui até ali de
-autocarro"**.
+### 6-B-3. Other operators: what exists and what does not
 
-- **Não há nenhum serviço aberto que responda a isso em Portugal.** Monta-se a partir do que
-  há: as passagens de cada paragem. Ver `planBusTrips`, em `src/services/transit.ts`.
-- **A peça que faz isto funcionar é saber que é a mesma viagem.** Se a mesma viagem aparece
-  numa paragem perto da origem e numa paragem perto do destino, é o mesmo autocarro — e as
-  duas horas são a partida e a chegada reais. A ordem entre elas confirma o sentido da
-  marcha, por isso não é preciso ir buscar o desenho da linha nem adivinhar direções.
-- **Desde 11 de agosto de 2026 o `trip_id` já não serve para isso — e foi assim que os
-  trajetos de autocarro desapareceram.** A Carris passou as passagens a vir do *hub* da TML,
-  e o `trip_id` só vem **quando há estimativa em tempo real** (e às vezes com um prefixo
-  `[plan]`). Nas passagens só com horário vem vazio, e a comparação por `trip_id` deixava de
-  encontrar viagem nenhuma: zero trajetos, **sem erro nenhum**. Lido no código do serviço
-  (`carrismetropolitana/api`), não adivinhado.
-- **Hoje a viagem identifica-se pela ordem dentro do padrão** (`tripKeys`, em `transit.ts`).
-  Numa paragem, as passagens do mesmo `pattern_id` ordenadas pela hora do horário são as
-  viagens desse padrão pela ordem — o 1.º autocarro da manhã numa paragem é o 1.º na
-  seguinte, porque dentro do mesmo padrão não há ultrapassagens no horário. A chave é
-  `pattern_id#ordem`. **Duas confirmações** impedem casar viagens erradas: as duas paragens
-  têm de ter o mesmo número de viagens daquele padrão (`tripsPerPattern`; se não bate, o
-  padrão fica de fora), e quando os dois lados trazem `trip_id` têm de ser iguais. Provado
-  numa simulação com o formato novo: a versão antiga dava zero trajetos, esta dá os certos.
-- **As paragens escolhem-se pelas linhas que partilham, não pela distância** (`busStopsFor`).
-  A correção acima não chegou: **medido com o código da aplicação contra a API verdadeira**
-  (modo `trajetos` do workflow dos horários), continuavam a sair zero trajetos entre
-  quaisquer dois sítios. As três paragens mais perto de cada ponta quase nunca têm uma linha
-  em comum — no centro de Almada são de linhas que não vão a Cacilhas, e a que vai fica a
-  duzentos metros. O `/stops` traz os `pattern_ids` de cada paragem; cruzam-se os das duas
-  pontas (tudo a menos de `TRANSIT_WALK_MAX_M`) e pergunta-se só pelas paragens que têm um
-  autocarro em comum, até `TRIP_STOPS_PER_SIDE` de cada lado. **Sem padrão comum não se faz
-  pedido nenhum** e a resposta "não há autocarro direto" sai logo.
-- **Uma viagem pode passar duas vezes na mesma paragem.** Numa linha circular a paragem onde
-  começa é também onde acaba — a 3005 passa em Cacilhas na paragem 1 e na 37. Guardava-se
-  só uma passagem por viagem, ficava a primeira, e a viagem era deitada fora por "andar para
-  trás". Hoje guardam-se todas e escolhe-se a que vem depois da partida.
-- **Uma paragem com 404 é uma paragem sem passagens.** Há paragens no `/stops` para as quais
-  o `/arrivals/by_stop` responde 404 — a mais perto do centro de Almada é uma. Do lado da
-  partida isso deitava abaixo o planeamento inteiro; hoje fica de fora e as outras seguem.
-- **Os pedidos à Carris saem em paralelo**, espaçados de `CARRIS_MIN_INTERVAL_MS` entre
-  saídas (`overlap`, em `rateLimit.ts`). Em fila, à espera de cada resposta, uma dúzia de
-  paragens eram mais de dez segundos.
-- **Resultado, a 30 de setembro de 2026, com a API verdadeira:** Almada → Cacilhas dá cinco
-  trajetos em tempo real (3507, 3013, 3012, 3022, 3009); Almada → Costa da Caparica três;
-  Oeiras → Cascais um. Seixal → Barreiro e Amadora → Sintra dão zero, que é a resposta
-  certa sem transbordos. O ecrã em si ainda não foi visto num telemóvel.
-- **`stop_sequence` é a segunda confirmação.** A paragem de entrada tem de vir antes da de
-  saída dentro da viagem. Sem isto, a mesma linha em sentido contrário passava por trajeto.
-- **Uma linha aparece uma vez.** As três passagens seguintes do mesmo autocarro não são três
-  opções — são a mesma opção repetida.
-- **A recomendação não é opinião:** o primeiro da lista é o que põe a pessoa no destino mais
-  cedo, contando com o tempo a pé das duas pontas. É por isso que se ordena por `reachAt` e
-  não pela hora de partida.
-- O tempo a pé é **estimado** (linha reta × `WALK_DETOUR`, a `WALK_SPEED_MS`), não é
-  calculado no mapa. Serve para ordenar as opções e para dizer "cinco minutos a pé".
-- `CARRIS_MIN_INTERVAL_MS` baixou para 300 ms por causa disto: o planeamento precisa das
-  horas de meia dúzia de paragens, e a um pedido por segundo eram seis segundos de espera.
+Investigated properly so nobody searches again. **State in August 2026**, updated since:
 
-**Os limites, para dizer sem rodeios:**
-
-- Só **autocarros da Carris Metropolitana**, e só na Área Metropolitana de Lisboa. Comboios,
-  metro e barcos são outros operadores, com outros serviços — e alguns nem serviço aberto
-  têm.
-- **Sem transbordos.** Só linhas que fazem o caminho todo de uma vez.
-- O objetivo declarado pelo autor é chegar perto do que o Google faz, acrescentando fontes
-  com o tempo. Ao juntar um operador novo, o sítio é o mesmo: mais paragens na lista e mais
-  passagens a comparar por `trip_id`.
-
-### 6-B-3. Outros operadores: o que há e o que não há
-
-Isto foi investigado a sério, para não se voltar a procurar. **Estado em agosto de 2026.**
-
-| Operador | Localizações | Horários | Tempo real |
+| Operator | Locations | Timetables | Real time |
 | --- | --- | --- | --- |
-| Carris Metropolitana (autocarros) | ✅ API aberta | ✅ API aberta | ✅ API aberta |
-| Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS no dados.gov.pt | ❌ |
-| TUB — Braga (autocarros) | ❌ fora da área da Carris | ✅ GTFS no sítio deles | ❌ |
-| Comboio (CP, Fertagus) | ✅ `/facilities/train_stations` | ❌ **fonte por encontrar** | ❌ |
-| Barco (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ❌ **fonte por encontrar** | ❌ |
-| **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ❌ **não publica** | ❌ **não publica** |
-| Alertas de serviço (vários) | — | — | ✅ **TML, JSON, sem chave** |
+| Carris Metropolitana (buses) | ✅ open API | ✅ open API | ✅ open API |
+| Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS on dados.gov.pt | ❌ |
+| TUB — Braga (buses) | ❌ outside Carris's area | ✅ GTFS on their site | ❌ |
+| Train (CP) | ✅ `/facilities/train_stations` | ✅ `publico.cp.pt/gtfs/gtfs.zip` | ❌ |
+| Fertagus | ✅ | ❌ **not found** | ❌ |
+| Ferry (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ❌ **not found** | ❌ |
+| **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ✅ **the operator's own site service** (`build_mts`) | ❌ |
+| Carris de Lisboa (city buses, trams) | — | ❌ **not found** | ❌ |
+| Service alerts (several) | — | — | ✅ **TML, JSON, no key** |
 
-**As localizações vêm todas da API que já se usa** — os quatro endpoints
-`/facilities/*` da Carris Metropolitana, sem chave nenhuma. Cada estação traz um `stop_ids`
-com as paragens de autocarro que a servem, e cada paragem traz um `facilities` a dizer com
-que meios liga. É isso que permite dizer "muda aqui para o comboio" sem cruzar coordenadas.
+**Locations all come from the API already used** — the four `/facilities/*` endpoints. Each
+station carries `stop_ids` with the bus stops serving it.
 
-**O Metro Sul do Tejo é o caso perdido.** É uma concessão privada e não publica nem
-horários nem tempo real. Cuidado com uma confusão fácil: existe GTFS da **TST — Transportes
-Sul do Tejo**, empresa de autocarros do mesmo grupo. **Não é o metro.**
+**Metro Sul do Tejo** publishes no GTFS (beware: TST — Transportes Sul do Tejo — is a bus
+company of the same group, **not the metro**). Its timetable comes from the service behind
+its own site, `https://www.mts.pt/mts-timetable-api/` — see "Where this stands".
 
-**A porta da TML está aberta, e isso ficou confirmado.** A Transportes Metropolitanos de
-Lisboa agrega dados de vários operadores — CP, Fertagus, Metro de Lisboa,
-Transtejo/Soflusa e os autocarros. O que a sondagem do workflow devolveu, a 7 de agosto de
-2026:
+**TML's door is open.** `https://go.tmlmobilidade.pt/hub/api/v1/alerts` answers **200 JSON
+without a key** (`_id`, `active_period_start_date`, `active_period_end_date`, `agency_id`,
+`cause`, `coordinates`, `description`), alerts from **several operators**. Dates in
+**milliseconds**, unlike Carris, which sends seconds — and neither says so. Everything else
+tried gave 404; do not keep guessing paths. Vehicle positions in GTFS-RT Protobuf would need a
+new library just to decode them.
 
-| Endereço | Resposta |
-| --- | --- |
-| `https://go.tmlmobilidade.pt/hub/api` | **200**, `text/plain`, com uma piada lá dentro — a raiz está viva |
-| `https://go.tmlmobilidade.pt/hub/api/v1/alerts` | **200**, `application/json`, com dados reais |
-| `/hub/api/v1` e tudo o resto que se tentou | 404 |
+**TML's geoportal is not for timetables**: 186 collections, only `gtfs_stops` and
+`gtfs_shapes` start with `gtfs_` — no `trips`, `stop_times` or `calendar`.
 
-**Os alertas respondem sem chave nenhuma.** Não é 401 nem 403 — é 200 com o conteúdo lá.
-Os campos vistos na resposta são `_id`, `active_period_start_date`, `active_period_end_date`,
-`agency_id`, `cause`, `coordinates` e `description`. As datas vêm em **milissegundos**, ao
-contrário da Carris, que manda segundos — ver a nota abaixo.
+### 6-B-4. Static GTFS timetables (train, metro, ferry)
 
-O `agency_id` é a peça que torna isto interessante: são alertas de **vários operadores** de
-uma vez, e não só dos autocarros.
+**Operators without real time have timetables.** Same path as the offline maps: a GTFS is a
+ZIP with the whole timetable (CP's `stop_times.txt` has hundreds of thousands of lines); a
+phone cannot read that to answer "when is the next one". The conversion runs once in GitHub
+Actions and the phone gets a file of hundreds of kilobytes.
 
-**O que ficou por encontrar:** todos os outros caminhos deram 404. As posições dos veículos
-e o GTFS-RT em Protobuf existem segundo a documentação, mas não nos endereços que se
-tentaram. Não vale a pena continuar a adivinhar caminhos — se um dia forem precisos, o
-sítio de olhar é a documentação deles, não este ficheiro.
+- **`transit-feeds.json`** — the catalogue: operators and where each GTFS downloads from,
+  **several candidate addresses** each, tried in order (these sources move). The `confirmado`
+  field says which were confirmed; what was tried and failed is in the notes, address by
+  address.
+- **`scripts/build-transit.py`** — the conversion. Standard library only.
+- **`.github/workflows/build-transit.yml`** — runs it and publishes under the `horarios` tag.
+  Modes: `gerar`, `descobrir` (searches dados.gov.pt), and read-only probes `veiculos`,
+  `passagens`, `trajetos` and `sondar`.
+- **`src/types/schedule.ts`** and **`src/services/schedules.ts`** — the format and the queries.
+- **`src/components/Schedules.tsx`** — the list in Settings, under "Timetables". The area's
+  timetables also download by themselves the first time the transport map opens there
+  (`ensureFeedsFor`).
 
-**Duas notas antes de se lhes pegar:**
+**CP's trap:** `www.cp.pt/gtfs/gtfs.zip` answers **200** with their **HTML page**;
+`publico.cp.pt` has the file. The check that the ZIP really contains `stops.txt` and
+`stop_times.txt` is what catches it. `ttsl.pt` does the same.
 
-1. **Os alertas em JSON são o que vale mais a pena.** Supressões, desvios, obras —
-   informação que a aplicação não tem de todo, e que não obriga a dependência nenhuma nova.
-2. **O Protobuf não é de graça neste projeto.** Obrigava a uma biblioteca só para o
-   descodificar. E posições de veículos não são horas de chegada: transformar umas nas
-   outras é adivinhar, e adivinhar mal é pior do que não ter.
+**`naApp: false` is not the same as `kind: bus`.** Carris Metropolitana is left out of the
+app's list because it has real time, which beats a timetable. Braga's buses **have no real
+time** — for them the timetable is everything, and they go in.
 
-**Comparar sempre com a Carris antes de assumir.** A sondagem inclui de propósito
-`api.carrismetropolitana.pt/v2/alerts` e `/gtfs`, que se sabe funcionarem. Se um dia a TML
-deixar de responder, é isso que distingue "eles mudaram" de "a rede daqui está em baixo". E
-foi essa comparação lado a lado que mostrou a diferença das unidades de tempo — a Carris
-manda segundos, a TML manda milissegundos, e nem uma nem outra o diz.
+**dados.gov.pt addresses come in two forms**; prefer the stable `/api/1/datasets/r/<id>`,
+which always points to the latest version (the dated one changes on every publication).
 
-**Os horários do Fertagus e da CP existem em GTFS estático** (transporlis.pt, dados.gov.pt,
-Mobility Database). O caminho está feito — é a secção seguinte.
+What is kept, and why:
 
-### 6-B-4. Horários em GTFS estático (comboio, metro, barco)
+- **Only a window of days** (60 by default). The rest is most of the weight. Past the date the
+  file **stops answering and says why** (`isExpired`). The workflow has to run again now and
+  then.
+- **Minutes, not seconds.** Trains run to the minute.
+- **Stations, not platforms.** Merged into the station, which is what matters to someone
+  waiting.
+- **Actual dates, not the weekday mask with holidays apart.** A few tens of kilobytes more,
+  and no holiday arithmetic written twice.
 
-Este é o quarto andar dos transportes, e existe por uma razão simples: **os operadores que
-não têm tempo real têm horário.** Mostrar a estação e ficar por aí era desperdiçar dados
-que estão publicados.
+Three traps already solved, not to be undone:
 
-**O caminho é o mesmo dos mapas offline, e não é por preguiça de imitação** — é o único que
-funciona. Um GTFS é um ZIP com o horário todo; o da CP tem centenas de milhares de linhas em
-`stop_times.txt`. Um telemóvel não pode ler isso para responder "a que horas passa o
-próximo". Por isso a conversão faz-se uma vez, no GitHub Actions, e o telemóvel recebe um
-ficheiro de centenas de kilobytes.
+- **GTFS hours go past 24.** So **three days** are looked at — yesterday, today, tomorrow: at
+  00:50 the train to catch is yesterday's service.
+- **Minutes are handed to `Date`, not added to midnight.** `new Date(y, m, d, 0, 1505)`
+  normalises itself and is right on clock-change days; adding `1505 × 60` seconds is an hour
+  off twice a year.
+- **The last station of a trip is not a departure.**
 
-As peças:
+**Stations and timetables come from different sources and are linked by proximity, not by
+name.** "Lisboa Oriente" and "Oriente" are the same station; coordinates always agree.
 
-- **`transit-feeds.json`** — o catálogo: que operadores há e de que endereços se descarrega
-  o GTFS de cada um. Cada operador tem **vários endereços candidatos**, tentados por ordem,
-  porque estas fontes mudam de sítio.
-- **`scripts/build-transit.py`** — a conversão. Só a biblioteca padrão do Python.
-- **`.github/workflows/build-transit.yml`** — corre a conversão e publica na etiqueta
-  `horarios`. Tem também um **modo `descobrir`**, que pesquisa o dados.gov.pt e imprime os
-  endereços de GTFS que encontrar — ver o aviso mais abaixo. E três modos de sondagem que não
-  publicam nada: `veiculos`, `passagens` (campos verdadeiros do `/arrivals/by_stop`) e
-  **`trajetos`, que compila o `transit.ts` da aplicação e corre o `planBusTrips` contra a API
-  verdadeira** (`scripts/probe-trips.js`). É a única forma de experimentar os autocarros sem
-  telemóvel — usá-la antes de dar uma correção por feita.
-- **`src/types/schedule.ts`** e **`src/services/schedules.ts`** — o formato e as perguntas.
-- **`src/components/Schedules.tsx`** — a lista nas definições, em "Horários".
+**This is the timetable, not the train.** If it is late, this does not know. It says so on
+screen, and must keep saying so: buses get a green dot because they are real time.
 
-**O estado dos endereços, depois da primeira corrida em modo `descobrir`** (7 de agosto de
-2026). O campo `confirmado` no catálogo diz o mesmo, entrada a entrada:
+Train trips go **in the same list as bus trips**, sorted by arrival time — see
+`planScheduledTrips` and the merge in `App.tsx`. The stored timetable answers first and
+offline.
 
-| Operador | Endereço |
-| --- | --- |
-| **CP — Comboios de Portugal** | ✅ `https://publico.cp.pt/gtfs/gtfs.zip`. Traz os **urbanos de Lisboa** — Sintra, Azambuja, Cascais, Sado — que são a maior peça ferroviária da AML |
-| Metro de Lisboa | ✅ publicado por eles no dados.gov.pt |
-| Carris Metropolitana | ✅ dois endereços — mas `naApp: false`, ver abaixo |
-| TUB — Braga | ✅ apareceu sozinho na pesquisa. É o único operador fora de Lisboa |
-| Fertagus, Transtejo/Soflusa, **Carris de Lisboa** | ❌ **não foram encontrados** |
+#### What the real data taught
 
-**A armadilha da CP:** `www.cp.pt/gtfs/gtfs.zip` responde **200** e devolve a **página deles
-em HTML**. É `publico.cp.pt` que tem o ficheiro. Sem a verificação que confirma que o ZIP
-tem mesmo `stops.txt` e `stop_times.txt` lá dentro, o workflow teria aceitado a página de
-HTML como bom e falhado adiante, longe da causa. O `ttsl.pt` faz exatamente o mesmo.
+Run against CP's and Metro de Lisboa's real timetables in GitHub Actions. Three things only
+showed there, and none gave an error:
 
-**A Carris de Lisboa é outro operador, e faltava de todo no catálogo.** São os autocarros e
-elétricos **dentro da cidade**; a Carris Metropolitana serve os outros concelhos. Não foi
-encontrada: `www.carris.pt/gtfs` dá 404, e `gtfs.carris.pt` e `api.carris.pt` nem existem em
-DNS. É o maior buraco que resta na AML.
+1. **A fixed radius around the station does not work — use the nearest.** With 400 metres
+   **Cascais was out by thirty metres**; a wide radius put the Marquês trains at Rotunda.
+   Keeping **the nearest station for each timetable** solves both (`nearestStop`).
+2. **The alighting station is chosen by arrival time, not route order.** The first version
+   got off at **Portela de Sintra, 831 metres from the destination**, when the same train
+   stopped at Sintra next, four metres away. Today every possible exit's `reachAt` is
+   compared.
+3. **"Linha de Sintra" is not a short name.** CP puts it in `route_short_name`; "Linha de" is
+   stripped (`shortLine`).
 
-**O que se tentou e não deu fica escrito nas notas do catálogo**, endereço a endereço, para
-ninguém repetir as mesmas tentativas.
+With real timetables: Cais do Sodré → Cascais gives the 08:00 arriving 08:33; Oriente →
+Sintra 08:08–08:55; Oriente → Coimbra-B the 08:09 Alfa Pendular arriving 09:53. Trips needing
+a change say so instead of inventing.
 
-**O `naApp: false` não é o mesmo que `kind: bus`**, e a diferença importa. A Carris fica de
-fora da lista da aplicação porque tem tempo real por API, que é melhor do que um horário. Os
-autocarros de Braga **não têm tempo real nenhum** — para esses o horário é tudo o que há, e
-entram. Filtrar por `kind` deixava Braga de fora sem razão nenhuma.
+The conversion was also proved against a synthetic GTFS with a holiday, weekend service and a
+25:05 trip — worth keeping: it is the only test covering a holiday removed from the calendar.
 
-**O geoportal da TML não serve para horários, e essa pista está fechada.** As coleções
-`gtfs_stops` e `gtfs_shapes` que aparecem no dados.gov.pt davam esperança de haver lá um
-GTFS da AML inteira. Perguntou-se-lhe: são **186 coleções** e só essas duas começam por
-`gtfs_` — não há `trips`, `stop_times` nem `calendar`. É um portal de geometria e de pontos
-de interesse, não de horários. Tem coisas interessantes para outros fins
-(`interfaces_paragens_carris`, `interfaces_estacoes_fluviais`, `seguranca_rodoviaria_radares_aml`),
-mas nenhuma diz a que horas passa o quê.
+### 6-B-5. Moving buses on the map
 
-**Os endereços do dados.gov.pt têm duas formas**, e convém preferir a estável: um traz a
-data lá dentro e muda a cada publicação, o outro é `/api/1/datasets/r/<id>` e aponta sempre
-para a versão mais recente. O modo `descobrir` imprime as duas.
+What Carris Metropolitana's site shows: where each bus is now, with its line number. From the
+**same open API** (`/v2/vehicles`), **in JSON** — which is what made it possible. The GTFS-RT
+Protobuf exists but is not used (a new library just to decode it).
 
-O que se guarda, e porquê:
-
-- **Só uma janela de dias** (60 por omissão). Um GTFS traz meses de calendário; o resto é a
-  maior parte do peso e não serve para nada num telemóvel. Passada a data, o ficheiro
-  **deixa de responder e diz porquê** — ver `isExpired`. É preciso correr o workflow outra
-  vez de vez em quando.
-- **Minutos, não segundos.** Comboios andam ao minuto.
-- **As estações, não as plataformas.** O GTFS separa "Pragal" de "Pragal — plataforma 2", e
-  é a plataforma que aparece nos horários. Junta-se tudo na estação, que é o que interessa a
-  quem espera.
-- **As datas mesmo, e não a máscara de dias da semana com os feriados à parte.** Ocupa mais
-  umas dezenas de kilobytes e poupa ter a aritmética dos feriados escrita duas vezes — que é
-  o género de conta que acaba por divergir numa das duas.
-
-Três armadilhas que já estão resolvidas e não se devem desfazer:
-
-- **As horas do GTFS passam das 24.** `25:05:00` é a uma e cinco da manhã seguinte, ainda a
-  contar como serviço do dia anterior. Por isso se olha para **três dias** — ontem, hoje e
-  amanhã: às 00:50 o comboio que se quer apanhar é serviço de ontem, e às 23:50 já interessa
-  o de amanhã.
-- **Os minutos entregam-se ao `Date`, não se somam à meia-noite.** `new Date(a, m, d, 0,
-  1505)` normaliza sozinho e acerta no dia em que os relógios mudam; somar `1505 × 60`
-  segundos à meia-noite erra uma hora duas vezes por ano.
-- **A última estação de uma viagem não é uma partida.** Sem esse filtro, o painel anunciava
-  comboios em que não se pode entrar.
-
-**As estações e os horários vêm de fontes diferentes e ligam-se por proximidade, não por
-nome.** As localizações são da API da Carris; os horários são do GTFS de cada operador.
-"Lisboa Oriente" e "Oriente" são a mesma estação e nenhuma comparação de texto acerta nisso
-sem inventar regras. Comparar coordenadas acerta sempre.
-
-**Isto é o horário, não é o comboio.** Se estiver atrasado, isto não sabe. Está escrito no
-painel e na lista das definições, e deve continuar lá: os autocarros levam ponto verde
-porque são tempo real, estes não levam. A diferença é toda.
-
-Os trajetos de comboio entram **na mesma lista dos de autocarro**, ordenados por hora de
-chegada — ver `planScheduledTrips` e a junção no `App.tsx`. O horário guardado responde
-primeiro e sem rede, por isso há logo alguma coisa no ecrã mesmo que o serviço dos
-autocarros esteja em baixo.
-
-### O que os dados reais ensinaram
-
-Isto **foi corrido contra os horários verdadeiros** da CP e do Metro de Lisboa, no
-GitHub Actions. Três coisas só apareceram aí, e nenhuma dava erro:
-
-**1. O raio fixo à volta da estação não serve — usa-se a mais próxima.** As localizações
-vêm da API da Carris e as horas do GTFS do operador; os dois pontos da mesma estação não
-coincidem. Com 400 metros, **Cascais ficava de fora por trinta metros**. Mas alargar o raio
-também mente: as estações de metro de Lisboa ficam a uns quinhentos metros umas das outras,
-e um raio largo punha na Rotunda os comboios do Marquês. Ficar com **a mais próxima de cada
-horário** resolve as duas coisas — ver `nearestStop`. Numa interface como o Oriente, o
-comboio vem do ficheiro da CP e o metro do do Metro, cada um com a sua estação.
-
-**2. A estação de saída escolhe-se pela hora de chegada, não pela ordem do percurso.** A
-primeira versão ficava com a primeira estação de saída que estivesse a pé de distância. Nos
-dados reais isso apanhou-se a **sair em Portela de Sintra, a 831 metros do destino**, quando
-o mesmo comboio parava em Sintra a seguir, a quatro metros. Chegava mais cedo à estação e
-mais tarde ao sítio. Hoje compara-se o `reachAt` de todas as saídas possíveis.
-
-**3. "Linha de Sintra" não é um nome curto.** A CP escreve isso no `route_short_name`, que
-é o que vai para a etiqueta ao lado do destino. Tira-se o "Linha de" — ver `shortLine`. Os
-outros nomes dela já são códigos (`AP`, `IC`, `IR`, `R`, `U`) e ficam como estão.
-
-Depois disto, e com os horários reais: Cais do Sodré para Cascais dá o comboio das 08:00 a
-chegar às 08:33; Oriente para Sintra dá 08:08–08:55; Oriente para Coimbra-B dá o Alfa
-Pendular das 08:09 a chegar às 09:53. Os que não têm ligação direta dizem-no em vez de
-inventarem — Entrecampos para Cascais, por exemplo, que obriga a mudar.
-
-**O que continua por ver num telemóvel:** tudo isto foi provado com o serviço a correr fora
-da aplicação, contra os ficheiros verdadeiros. O ecrã em si — o painel das estações, a lista
-dos trajetos — ainda não foi visto a funcionar.
-
-Antes dos dados reais, a conversão tinha sido provada contra um GTFS sintético com feriado,
-serviço de fim de semana e uma viagem às 25:05. Vale a pena manter esse teste: é o único que
-cobre o feriado retirado do calendário.
-
-### 6-B-5. Os autocarros a andar, no mapa
-
-É o que o sítio da Carris Metropolitana mostra: onde está cada autocarro neste momento,
-com o número da linha. Vem da **mesma API aberta** das horas de passagem — sem chave — e,
-o que decidiu que isto era possível, **em JSON**. Endereço: `/v2/vehicles`.
-
-**O GTFS-RT em Protobuf existe mas não se usa.** Descodificá-lo obrigava a uma biblioteca
-nova só para isso. Foram sondados `/gtfs-rt/vehicle-positions` e afins, e dão 404 — o que
-responde é o JSON.
-
-**A armadilha, e é a coisa mais importante desta secção.** O serviço devolve **a frota
-inteira**, não os autocarros que andam. Medido a 9 de agosto de 2026, de madrugada:
+**The trap, and the most important thing here.** The service returns **the whole fleet**, not
+the buses running. Measured on 9 August 2026, at night:
 
 | | |
 | --- | --- |
-| Tamanho da resposta | **1,1 MB** |
-| Veículos na lista | 1679 |
-| Com posição | 1550 |
-| Idade da posição | mediana **9 horas**, pior **12 dias** |
-
-Ou seja: quase todas as posições são a **última conhecida**, de onde o autocarro ficou
-estacionado. Desenhar a lista como vem enchia o mapa de mil e quinhentos autocarros parados
-em garagens, e **não dava erro nenhum** — parecia estar a funcionar. Por isso só entram os
-que deram sinal há menos de `VEHICLE_MAX_AGE_S` (2 minutos). **Não desligar esse filtro.**
-
-De madrugada a lista fica quase vazia, e isso é a resposta certa — não é avaria.
-
-**O peso obriga a três travões**, e nenhum é decoração:
-
-1. Só no **tipo de mapa dos transportes**.
-2. Só acima de `VEHICLES_MIN_ZOOM` (12).
-3. Só com a definição `showVehicles` ligada — e o ecrã de definições **diz o que custa em
-   dados**, porque 1,1 MB de vinte em vinte segundos não é coisa que se ligue sem saber.
-
-Não há forma de pedir menos: não existe filtro por área nem por linha. O `by_line` dá 404.
-
-**Os nomes dos campos foram lidos de uma resposta verdadeira**, e não adivinhados — pela
-mesma razão que está registada mais abaixo, sobre a primeira tentativa com esta API. São
-`lat`, `lon`, `bearing`, `line_id`, `trip_id`, `speed` (em **metros por segundo**, não em
-km/h), `timestamp` (segundos) e `current_status` (`STOPPED_AT`, `IN_TRANSIT_TO`,
-`INCOMING_AT`, como no GTFS-RT).
-
-No mapa, cada autocarro é um círculo com o número da linha lá dentro, e os que estão parados
-numa paragem ficam mais apagados. **Vão por cima das paragens**, de propósito: a paragem
-está sempre no mesmo sítio, o autocarro é que é a novidade. Não levam seta do sentido apesar
-de o `bearing` vir na resposta — uma seta precisava de uma imagem ou de um caractere que os
-glifos incluídos não têm.
-
-### 6-C. Radares
-
-- Vêm do OpenStreetMap, pela Overpass (`src/services/cameras.ts`). Apanham-se **todos os
-  tipos que lá estão marcados**, e não só o radar fixo: `highway=speed_camera`, e ainda os
-  pontos com `enforcement=*`, que é o que traz o **controlo de velocidade média** e os
-  **radares de semáforo** — esses muitas vezes não têm a etiqueta `speed_camera`.
-- **Filtram-se os que não são deste caminho.** A consulta traz tudo o que está no retângulo
-  do percurso, incluindo radares da autoestrada que passa ao lado. Só entram os que ficam a
-  menos de `CAMERA_CORRIDOR_M` (40 m) da linha. Sem isto, ao fim de dois avisos falsos
-  ninguém liga ao aviso — e aí ele deixa de servir para o que serve.
-- Pede-se **uma vez por percurso**, nunca durante a condução: é a Overpass, que é pesada, e
-  os radares não mudam de sítio a meio da viagem. Falhar aqui não estraga nada — fica-se
-  sem avisos e navega-se na mesma.
-- Avisa-se a `CAMERA_WARN_METERS` (300 m), uma vez por radar, com o limite quando ele está
-  marcado. O ecrã mostra-o por **baixo** da manobra: o que manda é sempre para onde se vira.
-- **Dizer sempre o que isto não é.** Radares móveis não existem em mapa nenhum — mudam de
-  sítio todos os dias, e o Waze só os tem porque são as pessoas a marcá-los ao passar. E o
-  OpenStreetMap não está completo. Isto é uma ajuda, não é uma garantia. Está escrito no
-  ecrã de definições e deve continuar lá.
-
-### 6-D. Portagens
-
-- Liga-se com `avoidTolls`, que acrescenta `exclude=toll` ao pedido do OSRM. Só se aplica ao
-  perfil de carro.
-- **O servidor público pode não ter essa exclusão instalada.** Quando não tem, responde com
-  erro — e nesse caso pede-se outra vez sem ela, porque um percurso com portagens é melhor
-  do que percurso nenhum. O `Route.avoidedTolls` diz o que aconteceu mesmo, e o painel
-  avisa quando não foi possível. **Não prometer o que não se fez.**
-- **O preço de cada lanço não é possível.** Em Portugal não há fonte aberta com os preços
-  das portagens: a Infraestruturas de Portugal publica-os em PDF, por concessão e por classe
-  de veículo, e mudam todos os anos. O OpenStreetMap tem `toll=yes` mas não o valor. Isto
-  foi pedido e não foi feito por isso — está dito no ecrã de definições.
-
-### 6-E. Poupança de bateria
-
-- Numa reta longa lê-se o GPS de `BATTERY_SAVER_INTERVAL_MS` em `BATTERY_SAVER_INTERVAL_MS`
-  (4 s) em vez de todos os segundos. Perto da manobra volta-se ao ritmo normal, porque é aí
-  que a posição decide se o aviso sai a tempo.
-- **A precisão nunca desce.** Continua `BestForNavigation`: o que muda é de quanto em quanto
-  tempo se lê, não a qualidade da leitura. Baixar a precisão punha o Android a responder
-  pelas antenas, e aí a posição deixava de servir para navegar.
-- As duas distâncias que ligam e desligam isto são **de propósito diferentes**
-  (`BATTERY_SAVER_MIN_METERS` e dois terços dele). Mudar de ritmo volta a subscrever o GPS,
-  por isso não pode andar a saltar em cima do limite.
-
-### 6-F. Fita métrica
-
-- Liga-se no botão da régua, do lado esquerdo. Enquanto está ligada, **um toque no mapa põe
-  um ponto** em vez de mostrar a dica do toque longo — é a única coisa na aplicação que
-  muda o que um toque faz, daí o botão ficar pintado quando está ativo.
-- Tem **dois modos**, como o Google Earth: *Distância* mede ao longo de uma linha aberta;
-  *Área* fecha a forma e dá **perímetro e área**. São coisas diferentes — o caminho de casa
-  ao trabalho não se fecha, e fechá-lo sozinho dava um número errado.
-- **O perímetro não é o comprimento da linha.** Marcar os quatro cantos de um terreno dá
-  quatro pontos e três troços desenhados; o quarto lado só existe ao fechar. A primeira
-  versão mostrava a área certa e um perímetro a menos um lado — ver `perimeterMeters`.
-- **Cada troço leva a sua medida escrita a meio dele**, como no Google Earth. Sem isso via-se
-  o total no painel mas não se sabia quanto valia cada bocado — que é metade da utilidade de
-  medir por partes. Precisa dos glifos (`labelsReady`), como qualquer camada de texto.
-- **A área não se calcula em graus.** Um grau de longitude vale 111 km no equador e quase
-  nada perto dos polos. Projeta-se primeiro para metros à volta do centro da forma (a
-  longitude encolhe pelo cosseno da latitude) e só depois se aplica a fórmula do sapateiro
-  — ver `polygonAreaM2`, em `geometry.ts`.
-- A área sai em **m², hectares ou km²** conforme o tamanho. O hectare está lá de propósito:
-  é a unidade em que se fala de terrenos em Portugal.
-- **Dizer o que isto não é:** a precisão é a do mapa e a do dedo. Serve para ter uma ideia,
-  não para marcar uma estrema. Está escrito no painel.
-- O polígono e a linha só se desenham a partir de três e de dois pontos. É a mesma
-  armadilha do percurso: uma geometria sem pontos suficientes não é GeoJSON válido e leva a
-  fonte inteira atrás, sem dar erro.
-
-### 6-G. Paragens pelo caminho e caminhos alternativos
-
-- **Paragens** (`waypoints`, no `App.tsx`) são pontos por onde o percurso tem de passar
-  antes do destino. Acrescentam-se pela ficha de um sítio, no botão "Passar por aqui a
-  caminho", que só aparece quando já há destino escolhido. Vão para o fim da lista: é a
-  ordem natural de quem vai juntando sítios.
-- **No recálculo durante a navegação, só entram as paragens que ainda faltam.** Sair do
-  caminho depois de já ter passado pela farmácia e pedir um percurso que passe outra vez
-  por ela dava meia-volta. Ver `waypointIndices` — é a mesma conta que se faz para os
-  radares e para as manobras.
-- **Alternativas e paragens não andam juntas.** O OSRM só sabe procurar caminhos
-  alternativos entre dois pontos; com paragens pelo meio responde que não está implementado.
-  Por isso o `alternatives=3` só entra no pedido quando não há paragens.
-- Os caminhos não escolhidos desenham-se **antes** do escolhido, e apagados. No MapLibre a
-  ordem por que as camadas entram é a ordem por que se sobrepõem — ao contrário, o
-  escolhido ficava por baixo e não se percebia qual era.
-- O percurso escolhido vive em `routeOptions[routeIndex]`. Trocar de alternativa é só mudar
-  o índice: não se pede nada outra vez ao serviço.
-
-### 6-H. Velocímetro
-
-A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-se em
-`showSpeed`.
-
-- **Vem do recetor de GPS, não de dividir a distância pelo tempo.** É a coisa mais
-  importante desta secção. O telemóvel calcula a velocidade pelo desvio de frequência do
-  sinal dos satélites — o efeito de Doppler — e isso mede o andamento diretamente, com
-  pouco erro. A conta caseira, com leituras a um segundo e cinco metros de incerteza em
-  cada uma, dava perto de **vinte km/h de erro em cada leitura**: o número saltava sem
-  parar com o carro a velocidade constante.
-- **Por isso não há conta nenhuma de recurso.** Quando o Android não sabe dizer a
-  velocidade — manda `-1`, e há telemóveis que mandam `null` — o velocímetro **desaparece**
-  em vez de mostrar um número. Num túnel, dizer 0 a quem vai a 100 é pior do que não dizer
-  nada. Ver a nota em `watchPosition`.
-- **O número é o do GPS, sem retoque nenhum.** Houve aqui um mínimo que mostrava zero
-  abaixo de meio metro por segundo, para o velocímetro não oscilar entre 0 e 2 km/h com o
-  carro parado. O autor pediu o contrário, e tem razão: um velocímetro que mente um
-  bocadinho quando está parado é um velocímetro em que se acredita um bocadinho menos
-  quando anda. A única conta que se faz é passar de metros por segundo a km/h.
-- **Aparece nos dois sítios: a navegar e a andar de carro sem destino nenhum.** Esteve só
-  na navegação, por causa da bateria, e estava errado para o uso real — quem vai a conduzir
-  quer saber a que velocidade vai, tenha ou não escolhido um destino. O desenho vive no
-  `SpeedBadge`, usado pelo ecrã de navegação e pelo mapa.
-- **Fora da navegação, o ritmo do GPS sobe quando se anda depressa.** De dez em dez segundos
-  chega de sobra para um ponto azul e não chega de todo para um velocímetro: a 90 km/h são
-  duzentos e cinquenta metros, e o número que se lia era o de há um quarteirão. Acima de
-  `DRIVING_SPEED_MS` (18 km/h) passa-se a ler de dois em dois segundos, e **com
-  `distanceInterval` a zero** — senão quem trava dos 90 para zero não anda os cinquenta
-  metros que destrancariam a leitura seguinte, e o velocímetro ficava preso nos 90 com o
-  carro imóvel.
-- **Entra-se depressa e sai-se devagar** (`DRIVING_LINGER_MS`, um minuto e meio). A primeira
-  versão desligava assim que a velocidade caísse, e **o velocímetro desaparecia em cada
-  semáforo** — um velocímetro mostra zero quando se pára, não se esconde. O custo é ficar
-  mais um minuto e meio a ler depressa depois de estacionar, que não se nota na bateria; a
-  pé ou parado volta tudo ao ritmo lento, e é isso que impede isto de custar bateria a quem
-  não conduz.
-- **Fica vermelho quando se passa o limite** — o do radar quando há um perto (é esse que
-  multa), senão **o da estrada**, que agora se sabe: o `maxspeed` do OpenStreetMap, pedido à
-  **Overpass** ao longo do percurso (`speedLimitsAhead`, em `src/services/speedLimits.ts`).
-  **O OSRM não o dá** — o `annotations=maxspeed` só existe no serviço da Mapbox, e o servidor da
-  FOSSGIS responde "query string malformed" (sondado no GitHub Actions). A consulta apanha os nós a
-  menos de 10 m de uma polilinha desbastada (um ponto a cada ~100 m) e depois as vias deles
-  (`node(around)` → `way(bn)`), com prazo próprio de `LIMITS_TIMEOUT_MS` (60 s) porque ninguém
-  está à espera dela. **Provado com dados reais** (Lazarim → Marquês): 263 de 351 pontos com
-  limite — 70 na ponte 25 de Abril, 40 nas vias Via Verde da portagem, 90 e depois 50 na
-  Duarte Pacheco. A versão com `way(around)` dava o mesmo e levou um 502 do servidor
-  principal. A janela cobre `LIMITS_WINDOW_M` (80 km) a partir do carro; a seguinte só se pede quando faltam
-  `LIMITS_REFETCH_M` (10 km) — cerca de um pedido por hora de autoestrada, e falhar só tira o
-  sinal (tenta outra vez ao fim de `LIMITS_RETRY_MS`). Cada ponto do percurso fica com o
-  limite da via mais perto a menos de `LIMITS_MATCH_M` (25 m). Ao lado do velocímetro aparece o **sinal do limite**, como no
-  Waze, e a voz diz "Limite de velocidade: 50" **uma vez** ao passar, e não outra vez durante
-  `LIMIT_WARNING_EVERY_MS` (um minuto) — um aviso que se repete a cada segundo desliga-se na
-  primeira viagem. Definição própria (`speedLimitAlerts`), **desligada de origem** a pedido do autor. Onde o OpenStreetMap não tem o
-  limite marcado, não há sinal e o velocímetro é só um número: pintá-lo por um limite
-  adivinhado era prometer o que não se tem. Os limites implícitos (`PT:urban`, `PT:rural`)
-  ficam de fora: só se lê o número.
-- A margem de `SPEED_OVER_LIMIT_KMH` (5 km/h) não é permissividade: é a incerteza do
-  próprio GPS. Sem ela, o aviso acendia-se sozinho a velocidade constante — e um aviso que
-  acende sem razão deixa de ser lido, que é a mesma lição do corredor dos radares.
-- **Dizer o que isto não é:** o velocímetro do carro é o que manda. O do GPS mede o
-  andamento no chão e não sabe nada do tamanho dos pneus, por isso costuma ficar uns km/h
-  **abaixo** do painel — os do carro são propositadamente optimistas, por exigência legal.
-  Está escrito no ecrã de definições e deve continuar lá.
-- Sai sempre em **km/h**, nas duas línguas. A língua não é o país: um inglês a viver em
-  Portugal conduz em km/h. Se um dia se quiserem milhas, o sítio é uma definição própria de
-  unidades, não a tabela da língua.
-
-### 6-I. Atualizações dentro da aplicação
-
-A aplicação sabe quando há versão nova, descarrega-a e entrega-a ao instalador do Android —
-sem ninguém ter de ir ao GitHub. Está nas definições, em "Atualizações".
-
-**Sem chave nenhuma, e isso não é sorte.** A API de Releases do GitHub responde a quem
-pergunte porque o repositório é público — a mesma decisão que permite os mapas dos países
-virem de um endereço sem autenticação. Se um dia o repositório fechar, isto morre com os
-mapas.
-
-**Dizer já o que isto não é: não instala sozinho.** O Android não deixa uma aplicação
-instalar-se a si própria em silêncio — isso exige ser a aplicação dona do aparelho, coisa de
-telemóveis geridos por empresas. O que se faz é tudo o que dá: procurar, descarregar e abrir
-o instalador com o ficheiro já na mão. **Quem carrega em "Instalar" é a pessoa**, e na
-primeira vez o Android pergunta ainda se autoriza instalações vindas do PalmMap. **Já não está
-escrito no ecrã**, nem no aviso ao abrir nem nas definições: o autor tirou-o (novembro de 2026)
-por estar subentendido — é o próprio Android que mostra o botão "Instalar".
-
-**Uma instalação que não terminou diz-se no arranque seguinte** (`unfinishedInstall`, em
-`update.ts`). O instalador é outra aplicação e não nos conta como acabou — instalado, cancelado,
-"problema ao analisar o pacote", bloqueado pelo Play Protect. Por isso, antes de o abrir,
-guarda-se a versão que se tentou (`palmmap.instalacaoPendente`); no arranque compara-se com a que
-está a correr. Igual ou maior: correu bem e a nota apaga-se. Menor: o aviso abre com "A
-instalação não terminou" e "Instalar agora", **sem descarregar outra vez** — o `downloadUpdate`
-devolve o APK que ainda estiver na cache. Não arranca sozinho, nem em Wi-Fi: abrir o instalador
-a quem acabou de o ver falhar era insistir. "Agora não" esquece a tentativa.
-
-**Ao abrir a aplicação, atualiza-se sozinha até onde o Android deixa.** Foi pedido pelo
-autor, e a sequência é esta: procura ao arrancar, e se houver versão nova **e se estiver em
-Wi-Fi**, a descarga começa sem ninguém carregar em nada; quando acaba, o instalador abre-se
-por si. O único toque que fica é o do Android, e esse não há como o tirar.
-
-Três coisas dentro disto:
-
-- **A descarga automática é só em Wi-Fi** (`onWifi`, em `update.ts`). São dezenas de
-  megabytes, e gastá-los no plafond de alguém sem perguntar é exatamente o que já se decidiu
-  não fazer com os mapas dos países — a decisão é a mesma, e por isso a regra também. Nos
-  dados móveis o aviso aparece na mesma, com o botão à espera de um toque.
-- **Quem não pediu nada tem de poder sair.** Numa descarga que a pessoa mandou fazer, o
-  "agora não" desaparece — fechar a meio deixava um ficheiro incompleto e ninguém a saber se
-  tinha atualizado. **Na automática é ao contrário**: ela começou sem lhe perguntarem, e sem
-  saída ficava presa ao aviso até o instalador lhe saltar à frente. Desistir **não** cancela
-  a descarga, só impede o instalador de abrir — o ficheiro fica na cache e, se mudar de
-  ideias daqui a nada, já cá está. Ver `cancel`, no `useUpdateDownload`.
-- **A rede lê-se antes da resposta da procura.** Ao contrário, o aviso nascia sem saber se
-  podia descarregar e começava um instante depois de aparecer, o que se lê como um salto.
-
-**A procura passou a ser a cada arranque**, com um travão de um quarto de hora
-(`UPDATE_CHECK_INTERVAL_MS`). Esteve uma vez por dia, e isso queria dizer abrir a aplicação
-de manhã, sair versão à tarde e só dar por ela no dia seguinte. O quarto de hora é contra o
-disparate, não contra o uso normal: abrir e fechar a aplicação seis vezes seguidas — que é
-coisa que acontece — não pode valer seis pedidos à API do GitHub, que conta 60 por hora por
-endereço IP.
-
-Quatro decisões que interessam:
-
-- **Não se usa o `/releases/latest`, e isto era uma armadilha a sério.** Esse endereço
-  devolve a Release publicada mais recentemente, **seja ela qual for** — e aqui as Releases
-  não são só APKs: os mapas estão na etiqueta `mapas`, os horários na `horarios`, e há ainda
-  a `mapa-2` e a `mapa-3`. Bastava gerar mapas depois de compilar para o "latest" passar a
-  ser a Release dos mapas, e a procura de versões deixava de encontrar seja o que fosse —
-  **sem erro nenhum**, com um 200 e uma Release verdadeira que só não era a que interessava.
-  Pede-se a lista e escolhe-se a de maior número entre as `apk-*`.
-- **Compara-se o número da compilação, não o texto da versão.** O número da execução do
-  workflow é ao mesmo tempo o `versionCode`, o fim da versão (`7.0.16`) e a etiqueta
-  (`apk-16`) — três nomes para a mesma coisa. Como texto, `"7.0.9" < "7.0.10"` é **falso**;
-  como número não há caso especial nenhum.
-- **Procura sozinha a cada arranque, e em silêncio.** A API do GitHub dá 60 pedidos por hora
-  a quem não se identifica, contados **por endereço IP** — partilhados com tudo o que esteja
-  na mesma rede. A data da última procura fica **guardada no telemóvel** e é marcada *antes*
-  de se perguntar: sem isso, quem abre e fecha a aplicação seis vezes seguidas fazia seis
-  pedidos, e com a rede em baixo tentava outra vez a cada arranque. Falhar aqui não põe erro
-  nenhum no ecrã — quem
-  não pediu nada não tem de saber. Quem carrega no botão vê o erro, esse sim.
-- **O ficheiro vai para a cache e não para os documentos.** São quarenta megabytes que
-  servem uma vez; na cache o Android pode deitá-los fora sozinho. E só ganha o nome `.apk` no
-  fim, pela mesma razão dos mapas: um APK truncado entregue ao instalador dá "ocorreu um
-  problema ao analisar o pacote", erro que já custou tempo a este projeto.
-
-**Duas coisas do Android sem as quais isto não funciona**, e que não dão erro explicativo
-quando faltam:
-
-1. A permissão `REQUEST_INSTALL_PACKAGES`, no `app.json`. Sem ela o instalador não abre.
-2. Um endereço **`content://`**, nunca `file://`. Desde o Android 7 que passar um `file://` a
-   outra aplicação rebenta com `FileUriExposedException`, e o instalador é outra aplicação.
-   O `getContentUriAsync` (do `expo-file-system/legacy`) dá o endereço pelo FileProvider que
-   o Expo já configura, e a bandeira `FLAG_GRANT_READ_URI_PERMISSION` é o que lhe dá licença
-   para ler um ficheiro que é nosso. Sem a bandeira, o endereço existe e não abre.
-
-**O aviso ao abrir aparece uma vez por versão.** Quem carregar em "agora não" não volta a
-vê-lo para aquela versão — fica só o ponto no botão das definições. Guarda-se o **número** da
-compilação adiada e não um sim-ou-não, para o aviso se calar naquela versão e voltar a falar
-na seguinte. Um aviso que reaparece a cada arranque deixa de ser lido ao fim de dois dias,
-que é a mesma lição dos avisos de radar.
-
-O ponto no botão das definições é o que fica para quem adiou, e o único sinal que quem nunca
-abre as definições chega a ver. Um ponto e não um número: não é urgente, é só novidade.
-
-**Descarregar e instalar vive num gancho** (`useUpdateDownload`), e não dentro de um dos
-ecrãs, porque são dois os sítios que fazem isto — o aviso e as definições. Duas cópias
-acabariam por divergir, e a parte que divergiria era a dos erros, que é justamente a que
-ninguém experimenta.
-
-### 6-J. O texto do ecrã — em toda a aplicação
-
-**Escreve-se o mínimo, e o que está subentendido não se escreve.** Pedido do autor
-(novembro de 2026), e vale para todos os ecrãs, não só para as definições. O ecrã de
-definições chegou a ter 4557 caracteres de explicações, passou a 2609 e ficou com **1190**:
-saíram as linhas que repetiam o nome da opção, as que explicavam o funcionamento por dentro
-(o GPS a cada quatro segundos, o mosaico a dez metros por pixel, a cache que esquece o mais
-antigo) e as que mandavam correr workflows no GitHub, que é coisa de quem programa e não de
-quem usa. O porquê de cada decisão é este ficheiro; o ecrã fica com o que muda uma escolha.
-
-Regras práticas:
-
-- **Nenhuma linha por baixo de uma opção cujo nome chegue.** "Mostrar negócios no mapa" não
-  precisa de "marca sozinho os negócios da zona".
-- **Os erros dizem o que falhou numa frase, sem conselhos óbvios.** "Verifique a ligação"
-  saiu de todo o lado. As mensagens que distinguem a recusa (com o número), a demora e a
-  falta de rede ficam — essa diferença é informação, não enchimento.
-- **Ficam quatro avisos curtos que impedem uma expectativa errada:** os radares são só os do
-  OpenStreetMap; o velocímetro do carro é que manda; os autocarros ao vivo gastam 1,1 MB a
-  cada 20 s; os horários de comboio/metro/barco não mostram atrasos. Uma linha cada. O do
-  "Instalar" final e o do preço das portagens saíram a pedido do autor, por estarem
-  subentendidos.
-- Ao acrescentar texto novo, medir: `Object.values(pt.settings).filter(v => typeof v ===
-  'string').join(' ').length`. Se passar dos 1500, alguma explicação está a crescer outra vez.
-
-### 6-K. Quando a aplicação se fecha sozinha
-
-O `ErrorBoundary` sempre disse o que não apanha: **um erro dentro de uma
-promessa, de um `setTimeout` ou de uma chamada vinda do lado nativo passa-lhe ao
-lado.** Numa aplicação compilada esses não dão ecrã nenhum — vão direitos ao
-tratador global do React Native, que em versão de lançamento os entrega ao
-Android como erro fatal. A aplicação desaparece e quem a estava a usar fica só
-com "a aplicação fechou-se".
-
-Isto não conserta a avaria. **Conserta o relato**, que é a mesma decisão já
-tomada nos erros dos horários: sem telemóvel à mão, uma mensagem fotografada
-poupa várias rondas de adivinhação.
-
-- **`installCrashHandler()`** (em `src/services/crash.ts`) corre no arranque,
-  antes de tudo, e **encadeia-se** no tratador que já lá está em vez de o
-  substituir — tirá-lo do caminho trocava um problema por outro. Guarda a
-  mensagem e as primeiras doze linhas da pilha no `AsyncStorage`, e deixa a
-  aplicação fechar-se: manter viva uma aplicação cujo estado já rebentou torna o
-  que vem a seguir mais difícil de perceber do que o que aconteceu.
-- **Aparece no cimo do ecrã de definições**, na vez seguinte que se abrir, com um
-  botão para apagar. Quem nunca teve falha nenhuma não vê nada — a secção só
-  existe quando há o que mostrar. Lê-se ao abrir o ecrã e não no arranque: é
-  informação para quem a foi procurar.
-- **O `ErrorBoundary` também escreve lá**, para o caso de a pessoa fechar a
-  aplicação sem fotografar o ecrã vermelho.
-- **`guarded()` é para as funções que o lado nativo chama**, e só para essas: os
-  dois seguimentos da posição. Um erro aí não passa por `try` nenhum nosso e
-  fechava a aplicação **a meio de uma estrada**. Embrulhados, perde-se uma
-  leitura do GPS — a seguinte chega um segundo depois — e fica escrito o que
-  rebentou. **Não usar isto por todo o lado:** engolir erros em código normal
-  esconde avarias; aqui a alternativa não é ver o erro, é a aplicação fechar-se.
-
-Nada disto sai do telemóvel. Fica no `AsyncStorage`, como tudo o resto.
-
-### 7. Offline — o que é permitido e o que não é
-
-Esta secção é sobre a regra. A parte prática dos países está na secção seguinte.
-
-**Descarregar uma área de tiles do OpenStreetMap para usar sem rede é proibido** pelas
-regras deles. Está lá escrito com todas as letras: funcionalidades do tipo "descarregar
-esta cidade para uso offline" dependem de ir buscar tiles à frente, e isso é considerado
-descarregamento em massa. Quem o faz é bloqueado sem aviso.
-
-Por isso **não se usa o `OfflineManager.createPack()`** com os tiles do OpenStreetMap nem
-do CARTO. Não é uma limitação técnica — é uma regra que este projeto respeita.
-
-A distinção que interessa, e que se deve manter sempre que se mexer nisto:
-
-> **Guardar o que a pessoa viu é cache, e é legítimo. Ir buscar à frente o que ela ainda
-> não viu é descarregamento em massa, e não se faz.**
-
-O que se faz, e é legítimo:
-
-- **Teto de zoom nos tiles.** O estilo pede tiles até ao nível 18 (`MAX_TILE_ZOOM`); acima
-  disso o MapLibre amplia os que já tem. Isto resolve metade do problema do offline: os
-  níveis mais aproximados deixam de precisar de tiles próprios, e passam a funcionar a
-  partir dos que já estão guardados. De caminho, tira cerca de dezasseis vezes o peso posto
-  no servidor do OpenStreetMap, porque cada nível a mais quadruplica o número de tiles.
-- **Cache do que já se viu.** O MapLibre guarda os tiles que a pessoa chegou mesmo a ver.
-  O tamanho é uma definição (100 MB a 1 GB), aplicada por `setMapCacheSize()`, e há um
-  botão para apagar. **Não há como definir validade** — a API do MapLibre só aceita
-  tamanho, não tempo. Na prática é o tamanho que manda: quando enche, esquece primeiro o
-  que há mais tempo não se vê. Se alguém pedir "guardar durante um mês", é isto que se
-  explica.
-- **Mapas de países em PMTiles.** É a via legítima para ter mesmo um país inteiro sem
-  rede — ver a secção seguinte.
-- **Favoritos guardados no telemóvel.** Ficam no `AsyncStorage`, por isso estão sempre
-  disponíveis. A pesquisa mostra-os enquanto não se escreve nada.
-
-**A limitação da cache:** só tem os níveis de zoom por onde se passou. Percorrer a ilha
-afastado não guarda o que é preciso para navegar aproximado. O teto de zoom acima reduz
-isto a um só nível útil (o 17), mas não o elimina — quem quiser uma zona utilizável sem
-rede tem de a ter visto ao zoom a que a vai usar. É precisamente esta limitação que os
-mapas de países vêm resolver.
-
-### 8. Mapas de países (PMTiles)
-
-#### A ideia
-
-Em vez de milhares de imagens, um país inteiro cabe num **único ficheiro** com a geometria
-do mapa. O Protomaps publica o planeta inteiro em PMTiles, todos os dias, **precisamente
-para ser recortado assim** — por isso não há aqui nenhum problema de regras, ao contrário
-dos tiles do OpenStreetMap. O `pmtiles extract` lê só os pedaços de que precisa: são
-dezenas de pedidos, não milhares.
-
-A diferença de tamanho é enorme, porque é geometria em vez de imagens: São Tomé e Príncipe
-inteiro ocupa **2 MB**, quando em tiles de imagem daria uns 240 MB.
-
-#### São Tomé vem dentro da aplicação
-
-Com 2 MB, o país inteiro cabe no APK. **Está lá desde o primeiro arranque**: não é preciso
-descarregar nada, não é preciso rede nenhuma, e não há passo nenhum a dar. Foi isto que o
-autor pediu — o mapa "já lá", não um mapa que se vai buscar.
-
-Os outros países são grandes de mais para isso (só Portugal continental são 325 MB) e
-continuam a descarregar-se a pedido. Os dois caminhos acabam na mesma pasta com um ficheiro
-de identificação ao lado, e a partir daí **o resto do código não sabe de onde vieram**.
-
-Dentro do APK os ficheiros não têm um caminho que o MapLibre consiga abrir, por isso são
-copiados uma vez para a pasta da aplicação, no primeiro arranque
-(`installBundledAssets()`). São 2,4 MB com os tipos de letra e só acontece uma vez.
-
-#### As peças
-
-- **`assets/mapas/saotome.pmtiles`** — o mapa que viaja dentro da aplicação. Ao substituí-lo,
-  atualizar o `bytes` da constante `BUNDLED`, que está escrito à mão de propósito: sem rede
-  não há manifesto para consultar.
-- **`assets/glifos/*.pbf`** — os tipos de letra, em Noto Sans normal e médio. Dois blocos
-  de 256 caracteres cada, que é quanto o português precisa. Vieram do
-  `protomaps/basemaps-assets`, com licença SIL Open Font.
-- **`metro.config.js`** — sem ele, o empacotador não reconhece `.pmtiles` nem `.pbf` e a
-  compilação falha.
-- **`src/services/vectorStyle.ts`** — o estilo: as cores, as espessuras e os zooms. Ver
-  abaixo.
-- **`src/services/offlineMap.ts`** — instala o que vem incluído, descarrega o resto, e diz
-  que região cobre uma dada posição (`regionAt`).
-- **`src/components/OfflineMaps.tsx`** — a lista nas definições. São Tomé aparece como
-  "vem com a aplicação" e não se pode apagar. **Descarregam-se vários ao mesmo tempo**: o
-  que demora é a rede, não a aplicação, e esperar pelo primeiro para pedir o segundo não
-  servia ninguém. O estado é um mapa de `id` para progresso, e a lista dos que estão em
-  curso vive também numa `ref` — sem isso, a função de descarregar mudava de identidade a
-  cada avanço da barra e as linhas todas voltavam a desenhar-se.
-- **`map-regions.json`** — o **catálogo**: 90 regiões, do mundo todo. Estar aqui não quer
-  dizer que já esteja gerado; a lista que a aplicação mostra é a do `mapas.json` da
-  Release, ou seja só o que já foi gerado.
-- **`.github/workflows/build-map.yml`** — gera as regiões que se lhe indicar. **Corre
-  sozinho no dia 1 de cada mês**: o OpenStreetMap muda todos os dias e um mapa guardado
-  envelhece sem ninguém dar por isso. Numa corrida agendada não há lista nenhuma pedida, e
-  então **refaz exatamente as que já estão publicadas** — e não as 90 do catálogo, que
-  seriam dias de trabalho e mais de 100 GB. Cada entrada do manifesto leva a data em que foi
-  gerada (`gerado`), que é o que permite à aplicação saber que o ficheiro que tem já é
-  velho. **Acrescenta, não substitui:** cada corrida junta-se ao que já lá está, senão gerar França apagava
-  Portugal. Cada região é enviada e apagada do disco logo a seguir, porque o servidor tem
-  uns 20 GB e há países que dão mais de 1 GB cada.
-
-#### Manter os mapas em dia
-
-O workflow refaz os publicados **uma vez por mês**, e a aplicação renova sozinha os que
-tiver guardados — **mas só por Wi-Fi**, e isso é uma decisão e não um esquecimento. Portugal
-continental são 325 MB: descarregar isso sozinho pelos dados móveis de alguém era gastar-lhe
-o plafond sem lho perguntar. Por Wi-Fi não custa nada a ninguém e é exatamente o que se
-quer — o mapa vai-se mantendo em dia sem ser preciso pensar nele.
-
-Fora do Wi-Fi não se descarrega nada, e o ecrã dos mapas **marca-os como desatualizados**.
-Aí um toque **renova em vez de apagar**, porque apagar era o contrário do que quem lá toca
-quer — e irreversível sem rede.
-
-**Sem data de um dos lados não se conclui nada.** Um mapa gerado antes de o `gerado` existir
-não a traz, e tratá-lo como velho mandava descarregar centenas de megabytes por engano.
-
-**O manifesto é pedido com um parâmetro que muda a cada vez.** O endereço nunca muda mas o
-conteúdo sim, e o GitHub serve estes ficheiros por uma rede de distribuição que os guarda —
-sem isso, um país acabado de gerar podia não aparecer durante horas, sem erro nenhum e com
-uma lista velha com ar de estar certa. É também por isso que **um país novo não obriga a
-atualizar a aplicação**: a lista vem da Release, não de dentro do APK.
-
-#### Como se liga sozinho
-
-Não há definição nenhuma para isto, de propósito. Quando o centro do mapa entra num país
-cujo mapa está guardado, passa-se a usar o ficheiro; quando sai, voltam os tiles da
-Internet. A comparação é pelo `id` da região, para o estilo só ser trocado quando muda
-mesmo de país — trocar de estilo recarrega o mapa, e fazê-lo a cada arrastar do dedo seria
-insuportável.
-
-A imagem de satélite manda sempre: é a única coisa que não tem substituto guardado.
-
-#### Ao longe o país não chega — e isso já esteve à vista
-
-Um país guardado **não traz o mundo**. O `pmtiles extract` guarda os tiles que tocam nas
-fronteiras dele, a todos os níveis — por isso ao zoom 1 só lá está o quarto do planeta onde
-o país cai, e ao zoom 3 uns quantos quadrados à volta. Afastar o mapa para lá disso deixava
-o ecrã maior do que aquilo que o ficheiro tem: via-se o Atlântico desenhado e o resto do
-ecrã liso, em bege. Não era avaria nenhuma — era o ficheiro a acabar.
-
-Havia ainda um segundo efeito, pior de aturar: a essa distância o ecrã toca em vários países
-guardados ao mesmo tempo, e a região escolhida mudava a cada arrastar do dedo. Como trocar
-de região troca o estilo, e trocar o estilo recarrega o mapa, dava um salto atrás do outro.
-
-Duas coisas resolvem isto, e convém não desfazer nenhuma:
-
-- **Os tiles da Internet vão por cima do mapa guardado**, com um teto de zoom calculado a
-  partir do tamanho do país (`regionMinZoom`, em `vectorStyle.ts`). Acima desse zoom o país
-  chega para encher o ecrã e a camada desaparece; abaixo, tapa-o por completo e vê-se o
-  mundo como sempre. **Sem rede não aparecem** e o que fica à vista é o país outra vez —
-  que é o melhor possível nessa situação. Portugal dá zoom 6, São Tomé 7, a Madeira 8.
-- **Abaixo do zoom `OFFLINE_SWITCH_MIN_ZOOM` (5) deixa de se mudar de país.** Ao longe a
-  escolha não muda nada do que se vê, só faz o mapa recarregar.
-
-De caminho, os estilos de imagem passaram a ter uma camada de fundo com a cor do mapa. Um
-tile que falta deixava ver o vazio, que o MapLibre desenha a preto — era daí o "fica tudo
-preto" ao afastar sem rede.
-
-**Se o mapa guardado não abrir, a aplicação recua para os tiles da Internet**
-(`onDidFailLoadingMap`). A falha fica registada **por país** (`failedRegions`), e não como
-um sim-ou-não para tudo: já foi um trinco que, uma vez fechado, desligava o offline o resto
-da sessão — bastava uma falha passageira num país para o mapa de outro nunca mais ser
-usado, e em modo de avião isso é um ecrã vazio sem explicação. É o que evita um ecrã em branco — mas também é o que faz uma
-avaria passar despercebida, daí o aviso lá em cima sobre testar com os dados desligados.
-
-Tamanhos reais já medidos (zoom 14):
-
-| País | Tamanho |
-| --- | --- |
-| São Tomé e Príncipe | 2,0 MB |
-| Madeira | 5,1 MB |
-| Cabo Verde | 8,4 MB |
-| Açores | 11,7 MB |
-| Guiné-Bissau | 23,8 MB |
-| Portugal continental | 324,6 MB |
-
-**O planeta inteiro ao detalhe de Portugal são cerca de 120 GB**, e o GitHub não aceita
-ficheiros acima de 2 GB numa Release. Por isso o catálogo existe mas não se gera de uma
-vez: escolhe-se o país e corre-se o workflow. O zoom de cada região sai do tamanho — 14 dá
-as ruas todas e cada nível abaixo corta o ficheiro para cerca de metade. Se um país passar
-os 2 GB, o workflow avisa e salta-o, para se baixar o `maxzoom` dessa entrada.
-
-#### O estilo, e a avaria difícil de encontrar
-
-Com tiles de imagem o mapa vinha pronto. Com geometria somos nós que dizemos que a água é
-azul, que uma autoestrada é mais grossa do que um caminho e a partir de que zoom aparece
-cada coisa. São 25 camadas, em versão clara e escura.
-
-**As camadas e os valores dos filtros não foram adivinhados:** saíram da leitura do próprio
-ficheiro de São Tomé. É o esquema **Protomaps Basemap v4.15.1**, com `earth`, `landcover`,
-`landuse`, `water`, `roads`, `buildings`, `boundaries` e `places`. A camada `pois` existe no
-ficheiro e não se usa de propósito — os negócios já são pinos nossos, vindos da Overpass.
-
-**A avaria a temer:** se um nome de camada ou um valor de filtro deixar de bater certo, essa
-camada desaparece do ecrã **sem dar erro nenhum**. Ao mudar de versão do mapa, confirmar os
-nomes antes de assumir que está tudo bem.
-
-Duas verificações que se podem correr sem telemóvel, e que se devem repetir depois de mexer
-no estilo:
+| Response size | **1.1 MB** |
+| Vehicles in the list | 1679 |
+| With a position | 1550 |
+| Position age | median **9 hours**, worst **12 days** |
+
+Almost every position is **the last known**, where the bus was parked. Drawing the list as it
+comes filled the map with fifteen hundred buses in depots, **with no error**. So only those
+that reported within `VEHICLE_MAX_AGE_S` (2 minutes) go in. **Do not turn that filter off.**
+**`timestamp` comes in milliseconds** since TML took over (it was seconds) — every bus was
+being discarded as "from the future" until that was found with a probe.
+
+At night the list is almost empty, and that is the right answer.
+
+**The weight demands brakes**: only on the transport map, only above `VEHICLES_MIN_ZOOM` (12),
+only with `showVehicles` on — and Settings **says what it costs in data**. There is no way to
+ask for less: no filter by area or line (`by_line` gives 404).
+
+**The field names were read from a real response**: `lat`, `lon`, `bearing`, `line_id`,
+`trip_id`, `speed` (**metres per second**), `timestamp` and `current_status` (`STOPPED_AT`,
+`IN_TRANSIT_TO`, `INCOMING_AT`).
+
+Each bus is a circle with the line number inside; those stopped at a stop are fainter. **They
+go over the stops**, on purpose. No direction arrow despite `bearing`: it would need an image
+or a character the bundled glyphs lack.
+
+
+### 6-C. Speed cameras
+
+- From OpenStreetMap, through Overpass (`src/services/cameras.ts`). **Every type tagged
+  there**, not only the fixed camera: `highway=speed_camera`, plus points with
+  `enforcement=*`, which carries **average-speed checks** and **red-light cameras** — often
+  without the `speed_camera` tag.
+- **Those not on this route are filtered out.** The query brings everything in the route's
+  rectangle, including the motorway next to it. Only those within `CAMERA_CORRIDOR_M` (40 m)
+  of the line go in. After two false warnings nobody pays attention — and then it stops
+  serving its purpose.
+- Requested **once per route**, never while driving. A failure here breaks nothing.
+- Warned at `CAMERA_WARN_METERS` (300 m), once per camera, with the limit when tagged. The
+  screen shows it **under** the manoeuvre: where to turn always comes first.
+- **Always say what this is not.** Mobile cameras are on no map — they move daily, and Waze
+  only has them because people mark them. And OpenStreetMap is incomplete. It is a help, not
+  a guarantee — said on the Settings screen, and it must stay there.
+
+### 6-D. Tolls
+
+- Turned on with `avoidTolls`, which adds `exclude=toll` to the OSRM request (car only).
+- **The public server may not have that exclusion installed.** Then it errors — and the
+  request goes again without it, because a route with tolls beats no route. `Route.avoidedTolls`
+  says what really happened, and the panel warns when it was not possible. **Do not promise
+  what was not done.**
+- **Per-section prices are not possible.** Portugal has no open source with toll prices
+  (Infraestruturas de Portugal publishes PDFs, per concession and vehicle class, changing
+  yearly). OSM has `toll=yes` but not the amount.
+
+### 6-E. Battery saving
+
+- On a long straight road the GPS is read every `BATTERY_SAVER_INTERVAL_MS` (4 s) instead of
+  every second. Near the manoeuvre it goes back to normal, because there the position decides
+  whether the warning comes in time.
+- **Accuracy never drops.** Still `BestForNavigation`: what changes is how often, not how
+  well. Lower accuracy would have Android answer from cell towers.
+- The two distances switching this on and off are **deliberately different**
+  (`BATTERY_SAVER_MIN_METERS` and two thirds of it). Switching pace resubscribes the GPS, so it
+  must not flip at the threshold.
+
+### 6-F. Measuring tape
+
+- Turned on in the layers sheet. While on, **a tap on the map adds a point** instead of the
+  long-press hint — the only thing in the app that changes what a tap does.
+- **Two modes**, as in Google Earth: *Distance* along an open line; *Area* closes the shape
+  and gives **perimeter and area**. The way from home to work does not close.
+- **The perimeter is not the line's length.** Four corners of a plot give three drawn
+  segments; the fourth only exists when closing (`perimeterMeters`).
+- **Each segment has its length written halfway along it**, as in Google Earth. Needs the
+  glyphs (`labelsReady`).
+- **Area is not computed in degrees.** It is projected to metres around the shape's centre
+  (longitude shrinks by the cosine of the latitude) and then the shoelace formula applies
+  (`polygonAreaM2`, in `geometry.ts`). Shown in **m², hectares or km²** — the hectare is how
+  plots are talked about in Portugal.
+- **Say what this is not:** the map's and the finger's precision. An idea, not a boundary.
+- Polygon and line only draw from three and two points: a geometry without enough points is
+  not valid GeoJSON and takes the whole source down, silently.
+
+### 6-G. Stops along the way and alternative routes
+
+- **Waypoints** (`waypoints`, in `App.tsx`) are points the route must pass before the
+  destination, added from a place's card ("Stop here on the way", only with a destination
+  chosen). They go at the end of the list.
+- **When recalculating while navigating, only the waypoints still ahead go in** — going
+  through the pharmacy again would mean a U-turn (`waypointIndices`).
+- **Alternatives and waypoints do not mix.** OSRM can only find alternatives between two
+  points; with waypoints it says "not implemented". So `alternatives=3` only goes in without
+  waypoints.
+- Routes not chosen are drawn **before** the chosen one, and faded: in MapLibre the order
+  layers are added is the order they stack.
+- The chosen route is `routeOptions[routeIndex]`; switching is only changing the index — no
+  new request.
+
+### 6-H. Speedometer and speed limit
+
+The speed one is going at, in a corner of the navigation screen (`showSpeed`).
+
+- **It comes from the GPS receiver, not from distance over time.** The phone measures speed by
+  the Doppler shift of the satellite signal — directly, with little error. The home-made sum,
+  with one-second readings and five metres of uncertainty each, gave about **twenty km/h of
+  error per reading**.
+- **So there is no fallback sum.** When Android cannot tell the speed — it sends `-1`, and some
+  phones `null` — the speedometer **disappears** instead of showing a number. In a tunnel,
+  saying 0 to someone doing 100 is worse than saying nothing.
+- **The number is the GPS's, untouched** (the author's request): a speedometer that lies a
+  little when stopped is trusted a little less when moving. The only sum is m/s to km/h.
+- **It shows both while navigating and when driving without a destination.** The drawing
+  lives in `SpeedBadge`, used by the navigation screen and the map.
+- **Outside navigation, the GPS pace goes up when moving fast.** Every ten seconds is plenty
+  for a blue dot and useless for a speedometer. Above `DRIVING_SPEED_MS` (18 km/h) it reads
+  every two seconds, **with `distanceInterval` at zero** — otherwise braking from 90 to zero
+  never covers the fifty metres that unlock the next reading, and it stuck at 90.
+- **Quick in, slow out** (`DRIVING_LINGER_MS`, a minute and a half). The first version
+  vanished at every traffic light — a speedometer shows zero when stopped, it does not hide.
+- **It turns red over the limit** — the camera's when one is near (that one fines), otherwise
+  **the road's**: OpenStreetMap's `maxspeed`, asked of **Overpass** along the route
+  (`speedLimitsAhead`, in `src/services/speedLimits.ts`). **OSRM does not give it** —
+  `annotations=maxspeed` only exists at Mapbox; the FOSSGIS server answers "query string
+  malformed" (probed). The query takes the nodes within 10 m of a thinned polyline (a point
+  every ~100 m) and then their ways (`node(around)` → `way(bn)`), with its own
+  `LIMITS_TIMEOUT_MS` (60 s) because nobody waits for it. **Proved with real data** (Lazarim →
+  Marquês): 263 of 351 points with a limit — 70 on the 25 de Abril bridge, 40 on the toll's
+  Via Verde lanes, 90 and then 50 on Duarte Pacheco. The `way(around)` version gave the same
+  and got a 502. The window covers `LIMITS_WINDOW_M` (80 km) from the car; the next is asked
+  when `LIMITS_REFETCH_M` (10 km) are left — about one request per motorway hour; a failure
+  only removes the sign (retried after `LIMITS_RETRY_MS`). Each route point takes the limit
+  of the nearest way within `LIMITS_MATCH_M` (25 m). Next to the speedometer, the **limit
+  sign**, as in Waze; the voice says "Speed limit 50" **once** when going over, and not again
+  for `LIMIT_WARNING_EVERY_MS` (a minute). Its own setting (`speedLimitAlerts`), **off by
+  default** at the author's request. Where OSM has no limit, no sign. Implicit limits
+  (`PT:urban`, `PT:rural`) are left out: only numbers are read.
+- `SPEED_OVER_LIMIT_KMH` (5 km/h) is not leniency: it is the GPS's own uncertainty.
+- **Say what this is not:** the car's speedometer rules. The GPS one measures ground speed and
+  usually reads a few km/h **below** the dashboard, which is deliberately optimistic by law.
+- Always **km/h**, in both languages. Language is not country.
+
+### 6-I. In-app updates
+
+The app knows when there is a new version, downloads it and hands it to Android's installer —
+no trip to GitHub. In Settings, "Updates".
+
+**No key, and that is not luck.** GitHub's Releases API answers anyone because the repository
+is public — the same decision that lets the country maps download without authentication.
+
+**It does not install by itself.** Android does not let an app install itself silently. What
+is done is everything possible: check, download, open the installer with the file in hand.
+**The person presses "Install"**; the first time Android also asks to allow installs from
+PalmMap. The screen no longer says so (the author removed it as implied).
+
+**An install that did not finish is told at the next start** (`unfinishedInstall`, in
+`update.ts`). Before opening the installer the attempted version is stored
+(`palmmap.instalacaoPendente`); at start-up it is compared with the running one. Lower: the
+notice opens with "The installation did not finish" and "Install now", **without downloading
+again**. It does not start by itself — opening the installer to someone who just saw it fail
+would be insisting.
+
+**When the app opens, it updates itself as far as Android allows** (the author's request):
+check at start-up, and if there is a new version **and on Wi-Fi**, the download starts with
+no tap; when done, the installer opens. **The same happens after "Check for updates" in
+Settings on Wi-Fi**: the check sets `update`, and the notice, already knowing it is on Wi-Fi,
+starts the download — the author saw this in November 2026 ("it updated by itself").
+
+- **The automatic download is Wi-Fi only** (`onWifi`). Tens of megabytes on someone's plan
+  without asking is what was already ruled out for country maps.
+- **Whoever asked for nothing must be able to leave.** In a download the person asked for,
+  "Not now" disappears; **in the automatic one it stays**. Quitting does **not** cancel the
+  download, only stops the installer opening (`cancel`, in `useUpdateDownload`).
+- **The network is read before the check answers**, so the notice is born knowing.
+
+**The check runs at every start**, with a quarter-hour brake (`UPDATE_CHECK_INTERVAL_MS`).
+GitHub allows 60 unauthenticated requests per hour **per IP address**; the date of the last
+check is **stored** and marked *before* asking. A failure puts no error on screen; whoever
+presses the button sees it.
+
+Four decisions that matter:
+
+- **`/releases/latest` is not used — a real trap.** It returns the most recently published
+  Release, **whatever it is**: maps (`mapas`), timetables (`horarios`) are Releases too. The
+  list is fetched and the highest `apk-*` chosen.
+- **The build number is compared, not the version text.** As text, `"7.0.9" < "7.0.10"` is
+  **false**.
+- **The file goes to the cache, not documents**, and only gets its `.apk` name at the end — a
+  truncated APK gives "problem parsing the package".
+- **The startup notice shows once per version**: the **number** of the postponed build is
+  stored, so it goes quiet for that version and speaks again for the next.
+
+**Two Android things without which this fails**, with no explanatory error:
+
+1. `REQUEST_INSTALL_PACKAGES` in `app.json`. Without it the installer does not open.
+2. A **`content://`** address, never `file://` — since Android 7 passing a `file://` to another
+   app throws `FileUriExposedException`. `getContentUriAsync` (from `expo-file-system/legacy`)
+   gives it through Expo's FileProvider, and `FLAG_GRANT_READ_URI_PERMISSION` lets the
+   installer read it.
+
+**Download and install live in a hook** (`useUpdateDownload`), because two screens do it — the
+notice and Settings. Two copies would diverge, in the error handling nobody tries.
+
+### 6-J. Screen text — across the whole app
+
+**Write the minimum; what is implied is not written.** The author's request (November 2026),
+for every screen. The Settings screen once had 4557 characters of explanations, went to 2609
+and then to **1190**: out went lines repeating the option's name, those explaining internals,
+and those telling users to run GitHub workflows. The why of each decision is this file; the
+screen keeps what changes a choice.
+
+- **No line under an option whose name is enough.**
+- **Errors say what failed in one sentence, without obvious advice.** "Check the connection"
+  is gone everywhere. Messages telling apart refusal (with the status), delay and no network
+  stay — that difference is information.
+- **Four short warnings stay**, preventing a wrong expectation: cameras are only
+  OpenStreetMap's; the car's speedometer rules; live buses cost 1.1 MB every 20 s;
+  train/metro/ferry timetables show no delays.
+- When adding text, measure:
+  `Object.values(pt.settings).filter(v => typeof v === 'string').join(' ').length`. Over 1500
+  means some explanation is growing again.
+
+### 6-K. When the app closes by itself
+
+`ErrorBoundary` never catches **an error inside a promise, a `setTimeout` or a call from the
+native side.** In a release build those go to React Native's global handler, which hands them
+to Android as fatal. The app vanishes.
+
+This does not fix the fault. **It fixes the report** — without the phone at hand, a
+photographed message saves rounds of guessing.
+
+- **`installCrashHandler()`** (`src/services/crash.ts`) runs at start-up, before everything,
+  and **chains** onto the existing handler instead of replacing it. It stores the message and
+  the first twelve stack lines in `AsyncStorage`, and lets the app close: keeping alive an app
+  whose state already blew up makes what follows harder to understand.
+- **It shows at the top of Settings** the next time, with a button to clear it. Read when the
+  screen opens, not at start-up.
+- **`ErrorBoundary` writes there too**, in case the person closes the app without photographing
+  the red screen.
+- **`guarded()` is for functions the native side calls**, and only those: the two position
+  trackings. An error there goes through none of our `try`s and would close the app **in the
+  middle of a road**. Wrapped, one GPS reading is lost. **Do not use this everywhere:**
+  swallowing errors in normal code hides faults.
+
+Nothing leaves the phone.
+
+
+### 7. Offline — what is allowed and what is not
+
+**Downloading an area of OpenStreetMap tiles for offline use is forbidden** by their tile
+usage policy: "download this city for offline use" features rely on fetching tiles ahead, which
+counts as bulk downloading. Offenders are blocked without warning.
+
+So **`OfflineManager.createPack()` is not used** with OpenStreetMap or CARTO tiles. Not a
+technical limit — a rule this project respects. The distinction to keep whenever touching
+this:
+
+> **Keeping what the person saw is a cache, and legitimate. Fetching ahead what they have not
+> seen yet is bulk downloading, and is not done.**
+
+What is done, legitimately:
+
+- **A zoom ceiling on tiles** (`MAX_TILE_ZOOM`, 18); above it MapLibre enlarges what it has.
+  It also takes about sixteen times the load off OpenStreetMap's servers.
+- **A cache of what was seen.** Size is a setting (off, 100 MB to 1 GB), applied by
+  `setMapCacheSize()`, with a clear button. **No expiry can be set** — MapLibre's API takes a
+  size, not a time; when full it forgets what was least recently seen.
+- **Country maps in PMTiles** — the legitimate way to have a whole country offline (next
+  section).
+- **Saved places on the phone**, always available.
+
+**The cache's limit:** it only has the zoom levels one passed through. That is what country
+maps solve.
+
+### 8. Country maps (PMTiles)
+
+#### The idea
+
+Instead of thousands of images, a whole country fits in **one file** of map geometry.
+Protomaps publishes the whole planet in PMTiles, daily, **precisely to be cut like this** — no
+policy problem, unlike OSM tiles. `pmtiles extract` reads only the pieces it needs: dozens of
+requests, not thousands. São Tomé and Príncipe is **2 MB** in geometry, where image tiles would
+be about 240 MB.
+
+All countries are downloaded on request (São Tomé used to ship in the APK; it no longer does).
+They end up in the same folder with an identification file next to them.
+
+#### The pieces
+
+- **`assets/glyphs/*.pbf`** — fonts, Noto Sans regular and medium, two 256-character blocks
+  each (enough for Portuguese), from `protomaps/basemaps-assets` (SIL Open Font). Copied once
+  to the app folder at first start (`installBundledAssets()`), because files inside the APK
+  have no path MapLibre can open.
+- **`metro.config.js`** — without it the bundler rejects `.pmtiles` and `.pbf`.
+- **`src/services/vectorStyle.ts`** — the style: colours, widths, zooms.
+- **`src/services/offlineMap.ts`** — downloads and deletes, and says which region covers a
+  position (`regionAt`).
+- **`src/components/OfflineMaps.tsx`** — the list in Settings. **Several download at once**;
+  progress is a map of `id` to progress, and the list of downloads in progress also lives in a
+  `ref`, otherwise the download function changed identity on every bar step and every row
+  redrew. At the end, **"Missing a country? Ask on GitHub"** opens a pre-filled issue
+  (`MAP_REQUEST_URL`).
+- **`map-regions.json`** — the **catalogue**: 90 regions worldwide. Being there does not mean
+  generated; the app lists what is in the Release's `mapas.json`.
+- **`.github/workflows/build-map.yml`** — generates the regions given. **Runs by itself on the
+  1st of each month**: OSM changes daily and a stored map ages silently. A scheduled run has no
+  list, so it **redoes exactly those already published** — not the catalogue's 90 (days of
+  work, over 100 GB). Each manifest entry carries its generation date (`gerado`). **It adds,
+  it does not replace**: otherwise generating France would erase Portugal. Each region is
+  uploaded and deleted from disk right after — the runner has about 20 GB and some countries
+  are over 1 GB. It also builds each country's **business file** (`<id>.pois`, from
+  Geofabrik, `build-pois.py`); option `apenas_negocios` builds only those.
+
+#### Keeping maps up to date
+
+The workflow refreshes the published ones monthly, and the app refreshes the ones it has —
+**only on Wi-Fi**, a decision: mainland Portugal is 325 MB. Off Wi-Fi nothing downloads and
+the maps screen **marks them outdated**; a tap then **refreshes instead of deleting**.
+
+**Without a date on one side, nothing is concluded** — a map generated before `gerado` existed
+would otherwise be refetched by mistake.
+
+**The manifest is requested with a changing parameter.** GitHub serves these files through a
+CDN; without it a freshly generated country could be invisible for hours. That is also why **a
+new country needs no app update**.
+
+#### How it switches on by itself
+
+No setting, on purpose. **With a network, the stored map is not used**: the drawn
+OpenStreetMap map is shown from start to end. Using the stored file with a network swapped the
+map for one that looks completely different as the country filled the screen. **The stored map
+comes in when there is no Internet** (`isInternetReachable`, not `isConnected` — a hotel portal
+is connected without Internet); while that is still unknown at start-up, it is not used. The
+comparison is by region `id`, so the style only switches when the region really changes —
+switching style reloads the map. The trade-off: with a network, tiles are requested in areas
+already stored.
+
+Satellite and transport always win: they have no stored substitute.
+
+#### Far out, the country is not enough
+
+A stored country **does not carry the world**: `pmtiles extract` keeps the tiles touching its
+borders, at every level. Zoomed out, the screen is bigger than what the file holds. Two things
+handle it, not to be undone:
+
+- **Internet tiles go on top of the stored map**, with a zoom ceiling from the country's size
+  (`regionMinZoom`, in `vectorStyle.ts`): above it the country fills the screen and the layer
+  disappears; below it, it covers it and the world shows. **Offline they do not appear** and the
+  country shows again. Portugal gives zoom 6, São Tomé 7, Madeira 8.
+- **Below `OFFLINE_SWITCH_MIN_ZOOM` (5) the country no longer switches.** Far out the choice
+  changes nothing visible, it only reloads.
+
+The image styles also got a background layer in the map's colour: a missing tile showed the
+void, which MapLibre draws black.
+
+**If the stored map fails to open, the app falls back to the Internet tiles**
+(`onDidFailLoadingMap`), recorded **per country** (`failedRegions`) — it was once a latch
+that, once closed, turned offline off for the session. It is what avoids a blank screen — and
+what lets a fault go unnoticed, hence the warning at the top about testing with data off.
+
+Real sizes (zoom 14): São Tomé 2.0 MB, Madeira 5.1 MB, Cape Verde 8.4 MB, Azores 11.7 MB,
+Guinea-Bissau 23.8 MB, mainland Portugal 324.6 MB. **The whole planet at Portugal's detail is
+about 120 GB**, and GitHub refuses files over 2 GB in a Release — so countries are generated on
+request. Zoom 14 gives every street and each level down roughly halves the file; over 2 GB the
+workflow warns and skips it, so the entry's `maxzoom` can be lowered.
+
+#### The style, and the fault that is hard to find
+
+With geometry we say water is blue, a motorway wider than a track, and from which zoom each
+thing appears. 25 layers, light and dark.
+
+**Layers and filter values were not guessed:** they came from reading the file itself.
+**Protomaps Basemap v4.15.1** schema: `earth`, `landcover`, `landuse`, `water`, `roads`,
+`buildings`, `boundaries`, `places`. The `pois` layer exists and is not used on purpose.
+
+**The fault to fear:** a layer name or filter value that stops matching makes that layer
+disappear **with no error**. When changing the map version, check the names first.
+
+Two checks that run without a phone, to repeat after touching the style:
 
 ```bash
-# 1. O estilo respeita a especificação do MapLibre?
+# 1. Does the style respect the MapLibre spec?
 npx tsc src/services/vectorStyle.ts --ignoreConfig --outDir /tmp/vs \
   --module commonjs --target es2020 --skipLibCheck --esModuleInterop
 node -e "const {buildVectorStyle}=require('/tmp/vs/vectorStyle.js');
@@ -1711,269 +1319,156 @@ const {validateStyleMin}=require('@maplibre/maplibre-gl-style-spec');
 console.log(validateStyleMin(buildVectorStyle('pmtiles://x','y/{fontstack}/{range}.pbf',false)))"
 ```
 
-A segunda é comparar as camadas que o estilo pede com as que o ficheiro tem mesmo. O
-`@maplibre/maplibre-gl-style-spec` já vem instalado como dependência do MapLibre, não é
-preciso instalar nada.
+The second is comparing the layers the style asks for with those the file really has.
+`@maplibre/maplibre-gl-style-spec` already comes with MapLibre.
 
-#### O risco que fica, dito com franqueza
+**Reading a local PMTiles file was the biggest unknown and is confirmed working** (Portugal
+and São Tomé seen in airplane mode). If it ever breaks, the other way to write the address is
+`pmtiles:///absolute/path`, without `file://` — noted in `localStyleSource()`.
 
-**Não está confirmado que o MapLibre em React Native leia um ficheiro PMTiles guardado no
-telemóvel.** O suporte a `pmtiles://` existe na biblioteca nativa de Android (aqui na versão
-13.2.0) e funciona com ficheiros na Internet; com um ficheiro local nunca foi experimentado
-neste projeto, e não há forma de o experimentar no ambiente de desenvolvimento.
+### 9. The position, and using the app with no network
 
-Se falhar, a primeira coisa a tentar é a outra forma de escrever o mesmo endereço:
-`pmtiles:///caminho/absoluto`, sem o `file://` pelo meio — há bibliotecas que só aceitam uma
-das duas. Está anotado em `localStyleSource()`. Se nenhuma funcionar, o caminho passa a ser
-servir o ficheiro por um servidor local dentro da aplicação.
+The GPS **needs no Internet**: it works in airplane mode, with location on and sky in view.
+What needs a network is the rest: tiles, search, routes. With a country downloaded, the app
+still shows where one is and the map around — on a plane, a boat or in the mountains.
 
-### 9. A posição, e usar a aplicação sem rede nenhuma
+- **`Accuracy.High`, not `Balanced`.** Android's `Balanced` answers from Wi-Fi networks and
+  cell towers — fast in a city and **useless without a network**.
+- **The first fix without a network is slow.** The phone usually asks the Internet for help
+  with the satellite list (A-GPS); without it, thirty seconds to two minutes. So the last known
+  position comes first, and tracking corrects it.
 
-O GPS **não precisa de Internet**. Recebe dos satélites e funciona em modo de
-voo, desde que a localização do telemóvel esteja ligada e haja céu à vista. O que precisa
-de rede é o resto: os tiles, a pesquisa e os percursos. Com um país descarregado, a
-aplicação continua a mostrar onde se está e o mapa à volta — num avião, num barco ou no
-meio da serra.
+Outside navigation the position is followed slowly (`watchPositionIdle`, every ten seconds or
+fifty metres). While navigating that subscription is off and the navigation one, every
+second, takes over — both on was battery spent twice.
 
-Duas coisas no código servem precisamente para isso, e não se devem desfazer sem perceber:
+**The compass** (`watchCompass`) runs only outside navigation and with the app on screen, for
+the cone in front of the blue dot; it only **checks** the permission, never asks, and skips
+changes under `HEADING_MIN_CHANGE_DEG` (4°).
 
-- **`Accuracy.High` e não `Balanced`.** O `Balanced` do Android responde a partir das redes
-  Wi-Fi e das antenas de telemóvel à volta. É rápido numa cidade e **completamente inútil
-  sem rede** — que é exatamente quando mais faz falta.
-- **A primeira posição sem rede demora.** O telemóvel costuma pedir à Internet uma ajuda
-  com a lista de satélites à vista (é o chamado A-GPS); sem ela tem de a ouvir do próprio
-  sinal, o que leva de trinta segundos a dois minutos. Por isso devolve-se primeiro a
-  última posição conhecida, para haver logo alguma coisa no ecrã, e o seguimento contínuo
-  corrige-a quando o GPS apanha sinal.
+### A stored position has an expiry
 
-Fora da navegação a posição é seguida devagar (`watchPositionIdle`, dez em dez segundos ou
-cinquenta metros), para o ponto azul acompanhar quem anda. Durante a navegação essa
-subscrição desliga-se e passa a valer a do motor de navegação, a cada segundo — ter as duas
-ligadas era gastar bateria a dobrar.
+**With the app in the background, Android cuts GPS readings** — the trade-off of asking
+permission "while in use", and right. What stays behind: someone who moved comes back with the
+position from where they **were**, and for a few seconds nothing tells it from a good one.
+That is how centring sometimes went to a place one had been. Three things handle it:
 
-### Uma posição guardada tem prazo
+- **The last reading carries the time it was measured** (`lastFix`, in `location.ts`) — the
+  reading's time, not arrival time: Android sometimes hands a cached position on resubscribe.
+- **The button does not centre on state** — it asks `getBestPosition()`, which returns the
+  stored one if still recent (`POSITION_FRESH_MS`, 20 s) and fetches a new one otherwise.
+  After `POSITION_TIMEOUT_MS` it gives up and uses what there is.
+- **On coming back to the screen, a new reading is asked right away.**
 
-**Com a aplicação em segundo plano, o Android corta as leituras de GPS.** É a contrapartida
-de se pedir a permissão só "durante a utilização", e está certo assim. O problema é o que
-fica para trás: quem andou com a aplicação fechada volta com a posição de onde **estava**, e
-durante uns segundos nada distingue essa posição de uma boa.
+The start-up shortcut to the last known position has a maximum age too
+(`LAST_KNOWN_MAX_AGE_MS`).
 
-Foi assim que centrar o mapa levava, de vez em quando, a um sítio onde se tinha estado. A
-posição não estava errada — estava velha, e o código não sabia a diferença. Três coisas
-tratam disto agora:
+**No reading may wait forever, and that cost a version.** `getCurrentPositionAsync` has no
+timeout: without signal it waits indefinitely. All readings go through `comPrazo()`, and
+start-up ends on the last known position of any age when nothing arrives in time.
 
-- **A última leitura anda com a hora a que foi medida** (`lastFix`, em `location.ts`), e é a
-  hora **da leitura**, não a de quando ela chegou. O Android entrega às vezes uma posição da
-  cache mal se volta a subscrever o GPS: chega agora e é de há uma hora. Carimbá-la à
-  chegada dava-a como fresquíssima, que é exatamente a avaria a evitar.
-- **O botão não centra no que está em estado** — pergunta ao `getBestPosition()`, que devolve
-  a guardada se ainda for recente (`POSITION_FRESH_MS`, 20 s) e vai buscar uma nova se não
-  for. Ao fim de `POSITION_TIMEOUT_MS` desiste e usa o que houver: um mapa no sítio de antes
-  é mau, um botão que não responde é pior, e sem rede o GPS leva minutos a acordar.
-- **Ao voltar ao ecrã, pede-se logo uma leitura nova.** Sem isto esperava-se pela do
-  seguimento, que só vem de dez em dez segundos **e** depois de se andar cinquenta metros —
-  parado dentro de casa podia nunca vir.
+**Asking for permission is not done outside start-up.** Asking opens a system dialog, which
+takes focus away, which Android reports as leaving and coming back — waking everything
+listening for that. Start-up asks, once; `getFreshPosition()` and `watchCompass()` only
+**check** (`getForegroundPermissionsAsync`).
 
-O atalho da última posição conhecida, no arranque, também passou a ter idade máxima
-(`LAST_KNOWN_MAX_AGE_MS`). Serve para adiantar o arranque, não para adivinhar: sem limite
-nenhum, quem usou a aplicação em casa e a abria no trabalho via o mapa abrir em casa.
+**The GPS button has two levels, as in Maps.** One tap takes the camera to the position once;
+**two taps make it follow** and the button lights up. With following on, any tap turns it
+off. All in `handleLocatePress`:
 
-**Mas nenhuma leitura pode ficar à espera para sempre, e essa lição custou uma versão.** O
-`getCurrentPositionAsync` não tem prazo nenhum: sem sinal, fica à espera indefinidamente.
-Ao pôr idade máxima no atalho sem pôr prazo no que vem a seguir, o arranque passou a cair
-nessa espera sempre que a posição guardada já tivesse uns minutos — e a aplicação demorava a
-abrir, de mapa parado e sem ponto azul. Hoje todas as leituras passam pelo `comPrazo()`, e o
-arranque acaba na última posição conhecida de qualquer idade quando nada chega a tempo: um
-ponto no sítio de ontem é pouco, mas é mais do que um mapa sem ponto nenhum — e quem já não
-acredita nela é o botão de centrar, que era o problema a resolver.
+- **A single tap acts at once**, without waiting for a possible second.
+- **Outside navigation following uses `'default'`, not `'course'`** — turning the map with
+  the heading helps driving and disorients on foot.
+- **`onTrackUserLocationChange` reports that following dropped**, not `onRegionDidChange`'s
+  `userInteraction`: dragging drops following, **pinching does not**, and both are
+  interaction. The library knows the difference.
 
-**Pedir permissão não se faz fora do arranque.** Pedir abre um diálogo do sistema, o diálogo
-tira o foco à aplicação, e o Android dá isso por uma saída e uma reentrada — que é
-precisamente o que acorda quem está à escuta dessas mudanças. Quem pede é o arranque, uma
-vez; o `getFreshPosition()` apenas **consulta** (`getForegroundPermissionsAsync`).
+Choosing a destination turns following off — the map frames the whole route.
 
-**O botão do GPS tem dois níveis, como no Maps.** Um toque leva a câmara à posição uma vez;
-**dois toques põem-na a andar com a pessoa** e o botão fica aceso, como o da fita métrica —
-é um modo em que se entra, não uma ação que se faz. Com o seguimento ligado, qualquer toque
-o desliga: o botão está aceso, carrega-se nele e apaga-se.
+**The app opens where the person is.** Until the GPS answers it opens in Lisbon, and when the
+first position arrives the camera moves there — once, without animation. If a destination was
+chosen meanwhile, the camera stays. See `openedOnUser`, in `MapView.tsx`.
 
-Três decisões dentro disto, todas em `handleLocatePress`:
+**Trap:** route calculation **must not depend on the position in state** — every GPS reading
+would send a new OSRM request. The position is read from a `ref` and the effect depends on
+`hasLocation`, a boolean that only changes on the first reading.
 
-- **O toque simples age já, sem esperar pelo segundo.** Esperar `DOUBLE_TAP_MS` por um
-  toque que quase nunca vem era pôr a ação mais usada a parecer lenta para servir a menos
-  usada. O segundo toque **promove** o que o primeiro já fez: um leva a câmara lá, o outro
-  manda-a ficar.
-- **Fora da navegação segue-se com `'default'` e não com `'course'`.** O `'course'` roda o
-  mapa no sentido da marcha, que a conduzir ajuda e a pé desorienta — quem vai a olhar para
-  o telemóvel não quer o mapa a rodar-lhe na mão. O `'course'` fica só para a navegação.
-- **Quem avisa que o seguimento caiu é o `onTrackUserLocationChange`**, e não o
-  `userInteraction` do `onRegionDidChange`. Arrastar o mapa desliga o seguimento, mas
-  **aproximar com dois dedos não** — e o `userInteraction` é verdadeiro nos dois casos. Quem
-  sabe a diferença é a biblioteca; lê-se a resposta dela em vez de a adivinhar. Sem este
-  aviso, o botão ficava aceso a dizer que seguia depois de o MapLibre já ter largado, e a
-  única forma de o apagar era carregar nele — o que o ligava outra vez.
+### 10. Real-time navigation
 
-Escolher um destino desliga o seguimento: o mapa passa a enquadrar o percurso todo, e uma
-câmara presa à pessoa desfazia esse enquadramento à primeira leitura do GPS.
+- While navigating, **normal route calculation is off** — a request a second otherwise. The
+  navigation engine recalculates, only after `OFF_ROUTE_STRIKES` readings in a row off the
+  route.
+- The GPS is followed only while navigating, and the subscription is always cancelled on
+  leaving.
+- Distances are in `src/utils/geometry.ts`. Manoeuvre indices along the line are computed once
+  per route.
+- The voice is optional and uses `expo-speech`. Failing to speak must never interrupt
+  navigation — see "10-A".
+- **The screen stays on while navigating** (`expo-keep-awake`, tag `KEEP_AWAKE_TAG`), switched
+  on entering and **always off on leaving**: Android counts requests by name.
+- **Navigation carries on with the phone in a pocket.** A **foreground service** with a
+  permanent notification (`expo-location` + `expo-task-manager`, task `NAVIGATION_TASK`).
+  **It needs `RECEIVE_BOOT_COMPLETED` in `app.json`** — see "10-B". With `foregroundService`
+  **no background location permission is needed** (read in `expo-location`'s native code).
 
-**A aplicação abre onde a pessoa está.** Enquanto o GPS não responde, o mapa abre em Lisboa,
-e assim que a primeira posição chega a câmara passa para lá — uma vez só, e sem animação,
-para parecer que abriu logo no sítio certo em vez de se ver o mapa a atravessar o Atlântico.
-Se nesse intervalo já se tiver escolhido um destino, a câmara fica onde está: quem escolheu
-manda. Sem permissão de localização fica-se pela vista de Lisboa, como antes. Ver
-`openedOnUser`, em `MapView.tsx`, e a lição sobre o `initialViewState` no fim deste
-ficheiro.
+  **The most serious trap here: Android only lets a foreground service start with the app in
+  front.** The tracking effect re-runs whenever the route, cameras or GPS pace change; with
+  the screen locked, stopping and restarting threw and left the trip without a position. So
+  stopping the service is **scheduled** (`SERVICE_STOP_GRACE_MS`, 2 s) and cancelled by
+  whoever comes next; and if options cannot be changed, **what is there stays**. If the
+  service never starts — some manufacturers — the normal subscription is used.
 
-**Armadilha:** o cálculo do percurso **não pode depender da posição em estado**. Se
-depender, cada leitura do GPS manda um pedido novo ao OSRM enquanto houver um destino
-escolhido. Por isso a posição é lida de uma `ref` e o efeito depende de `hasLocation` — um
-booleano que só muda na primeira leitura.
+  **Still to confirm on a phone:** that `expo-speech` really speaks with the app in the
+  background.
 
-### 10. Navegação em tempo real
+### 10-A. The voice
 
-- Enquanto se navega, **o cálculo do percurso normal fica desligado**. A posição muda a
-  cada segundo e, sem isso, faria um pedido por segundo ao OSRM. Quem recalcula é o motor
-  de navegação, e só ao fim de `OFF_ROUTE_STRIKES` leituras seguidas fora do percurso —
-  uma leitura isolada costuma ser apenas imprecisão do GPS.
-- O GPS só é seguido durante a navegação, e a subscrição é sempre cancelada ao sair. Se
-  ficar ligada, gasta bateria com o telemóvel no bolso.
-- As contas de distância estão em `src/utils/geometry.ts`. Os índices das manobras ao
-  longo da linha calculam-se uma vez por percurso, porque durante a navegação é preciso
-  responder a cada segundo.
-- A voz é opcional (definições) e usa `expo-speech`. Falhar a falar nunca deve interromper a
-  navegação — ver "10-A" para a escolha da voz.
-- **O ecrã fica aceso enquanto se navega** (`expo-keep-awake`, com o nome em
-  `KEEP_AWAKE_TAG`). Sem isto o telemóvel bloqueava ao fim de meio minuto — a pessoa não
-  lhe está a tocar, está a conduzir. Liga-se ao entrar em navegação e **desliga-se sempre
-  ao sair**: o Android conta os pedidos por nome, e um que fique por levantar deixava o
-  ecrã aceso para sempre. Fora da navegação não se mexe nisto.
-- **A navegação continua com o telemóvel no bolso.** É um **serviço em primeiro plano** com
-  notificação permanente (`expo-location` + `expo-task-manager`, tarefa `NAVIGATION_TASK`).
-  **Exige a permissão `RECEIVE_BOOT_COMPLETED` no `app.json`** — sem ela a aplicação fecha-se
-  à primeira leitura de GPS, e foi assim que aconteceu. Ver "10-B".
-  Sem ele, o Android corta as leituras de GPS assim que a aplicação sai da frente, e a voz
-  calava-se a meio da viagem — precisamente na situação em que ela é tudo o que guia. A
-  notificação é exigida pelo Android e não se pode esconder; é a mesma que qualquer
-  aplicação de navegação mostra. Com `foregroundService` **não é preciso a permissão de
-  localização em segundo plano** — está escrito no código nativo do `expo-location`, e foi
-  lido antes de se assumir.
+The voice is the only thing guiding someone driving without looking, so it is worth not
+sounding like a badly programmed robot.
 
-  **A armadilha, e é a mais séria desta secção: o Android só deixa arrancar um serviço em
-  primeiro plano com a aplicação à frente.** O efeito que segue a posição volta a correr
-  sempre que o percurso, os radares ou o ritmo do GPS mudam, e de cada vez larga a
-  subscrição e faz outra — com o ecrã bloqueado, parar e voltar a começar acabava em exceção
-  e a viagem ficava sem posição. Por isso a paragem do serviço fica **agendada**
-  (`SERVICE_STOP_GRACE_MS`, 2 s) e é cancelada por quem chegar a seguir; e se mesmo assim
-  não se conseguir mudar as opções ao serviço, **fica o que está** em vez de se recuar para
-  a subscrição normal, que em segundo plano não serve para nada.
+**The voice is chosen by hand** (`prepareVoices`, in `utils/voice.ts`). Only saying
+`language: 'pt-PT'` **is not enough**: if the phone lacks European Portuguese, Android serves
+what it has — Brazilian Portuguese reads "Rua Augusta" differently; and Android usually has a
+small local voice and a much more natural network one, and the default is usually the small
+one (on Android the declared quality does not tell them apart — `network` in the identifier
+does). So the phone is asked for its voices and the best kept. **Region beats quality.**
+Without one that fits, the language is said and the system chooses.
 
-  Se o serviço nunca chegar a arrancar — há fabricantes com regras próprias — aí sim
-  volta-se à subscrição de sempre: navegar de ecrã aceso é melhor do que não navegar.
+#### ⚠️ Ask the speech engine nothing before it answers
 
-  **Por confirmar num telemóvel:** que o `expo-speech` fala mesmo com a aplicação em segundo
-  plano. O processo fica vivo por causa do serviço, o que é a condição necessária, mas não
-  foi visto a acontecer.
+Not what was closing the app (see "10-B"), but a real trap. In `expo-speech`'s
+`SpeechModule.kt`: the Android engine **only starts on first use** and takes seconds; requests
+before that **queue**, and the queue is drained inside `onInit` — a plain callback **with no
+`try`**. And **`textToSpeech.voices` throws** on several Android engines. Inside an
+`AsyncFunction` that is a rejected promise; inside `onInit` it closes the app. Listing voices,
+and **speaking with a chosen voice** (their `speakOut` also walks `voices`), both touched it.
 
-### 10-A. A voz
+> Until the speech engine has given a sign of life, **do not ask for the voice list nor name a
+> voice**. Only say the language, the path that never touches `voices`.
 
-A voz é a única coisa que guia quem está a conduzir sem olhar para o ecrã, por isso vale a
-pena que não soe a robô mal programado. Três coisas, e todas se ouvem:
+The sign of life is any of a reading's four events. **It costs the first sentence**, read with
+the system's voice.
 
-**A voz escolhe-se à mão** (`prepareVoices`, em `utils/voice.ts`). Dizer só
-`language: 'pt-PT'` e deixar o sistema escolher **não chega**, por duas razões:
+**When there is no voice for the region, say so** (`hasRegionVoice`), a line under the voice
+option: otherwise an unexpected accent reads as an app fault, and the fix is in Android's
+Text-to-speech settings.
 
-1. **A região.** Se o telemóvel não tiver português de Portugal instalado, o Android serve o
-   que tiver — e o português do Brasil lê "Rua Augusta" com outra pronúncia e outra
-   entoação. A língua bate certo e o sotaque não.
-2. **A qualidade.** O Android costuma trazer duas vozes por língua: uma pequena, que vive no
-   telemóvel, e uma que vem da Internet, bastante mais natural. A que responde por omissão é
-   quase sempre a pequena, e no Android a qualidade declarada não as distingue — quem as
-   distingue é o `network` no identificador.
+**One sentence is not read with two voices** — two readings have an audible pause.
 
-Por isso pergunta-se ao telemóvel que vozes tem e fica-se com a melhor. **A região vale mais
-do que a qualidade**: uma voz portuguesa pequena é preferível a uma voz brasileira bonita,
-porque o que se está a ler são nomes de ruas portuguesas. Sem nenhuma que sirva, volta-se ao
-comportamento de antes — diz-se a língua e o sistema que escolha.
+**Distances are spelled out** (`formatDistanceSpoken`): "850 m" read aloud is "eight hundred
+and fifty em". The screen keeps the abbreviation.
 
-**Mas não corre no arranque, e essa parte custou uma versão inteira** — ver o aviso a
-seguir. Corre depois de o motor de voz dar sinal de vida, e nunca de dentro do `speak()`:
-pedir a lista das vozes é assíncrono e o `speak()` é chamado de dentro do motor de
-navegação, que não pode esperar por nada.
+**What the voice says goes through the language table** (`navigation.inDistance`,
+`cameraAhead`, `cameraAheadLimit`, `recalculatingVoice`, `overLimitVoice`).
 
-#### ⚠️ Não se pergunta nada ao motor de voz antes de ele responder
+**The voice is not cut mid-sentence.** `stopSpeaking()` was in the tracking effect's cleanup,
+which runs whenever the route changes: recalculating said "recalculating" and cut itself off.
+Silencing the voice belongs to **ending** navigation, in the effect that sees it end.
 
-**Isto é um perigo real, mas não foi o que fechava a aplicação** — ver "10-B", que tem a
-causa verdadeira. Apareceu a procurá-la, e fica porque é uma armadilha a sério que só ainda
-não tinha rebentado.
+### 10-B. The permission without which navigation closes the app
 
-O que está no `SpeechModule.kt` do `expo-speech`, lido e não assumido:
-
-- O motor de voz do Android **só arranca à primeira utilização** e leva alguns segundos.
-- Quem lhe peça alguma coisa antes disso **fica numa fila**, e essa fila é despejada dentro
-  do `onInit` — uma função de retorno simples, **sem `try` nenhum à volta**. Uma exceção ali
-  não é uma promessa recusada: é uma exceção por apanhar, e isso fecha a aplicação.
-- E há mesmo o que rebentar: **`textToSpeech.voices` atira exceção** em vários motores de
-  voz do Android. É um defeito conhecido, e o `expo-speech` embrulha-o num
-  `SpeechUnableToGetVoicesException`. Dentro de um `AsyncFunction` vira uma promessa
-  recusada, que o nosso `catch` trata; dentro do `onInit` é uma aplicação fechada.
-
-**Duas coisas nossas tocavam nessa propriedade**, e as duas podiam cair na fila: pedir a
-lista das vozes no arranque, e **mandar falar com uma voz escolhida** — o `speakOut` deles
-também percorre o `textToSpeech.voices` para encontrar a que se lhe indicou. Num telemóvel
-cujo motor de voz atire exceção ali, qualquer das duas fecha a aplicação.
-
-A regra que fica:
-
-> Enquanto o motor de voz não tiver dado um sinal de vida, **não se lhe pergunta a lista das
-> vozes nem se lhe indica nenhuma**. Diz-se só a língua, que é o caminho que nunca toca no
-> `voices`.
-
-O sinal de vida é qualquer um dos quatro avisos de uma leitura — começou, acabou, foi calada
-ou falhou. Qualquer deles prova que o motor arrancou, e a partir daí perguntar é seguro
-porque a resposta já não passa pela fila. **O que isto custa é a primeira frase**, lida com
-a voz que o sistema escolher; a segunda já vai com a escolhida.
-
-Provado com uma simulação do motor de voz, sem telemóvel (`prepareVoices` e `speak` contra
-um motor frio que rebenta a listar vozes): a versão antiga fazia um pedido com o motor frio
-e fechava a aplicação; esta faz zero e não fecha. Com um motor são, escolhe na mesma a
-`pt-pt-…-network` a partir da segunda frase.
-
-**Ficou por confirmar se este telemóvel tem um motor desses**, e provavelmente não tem — o
-rasto da falha real não passa por aqui. Isto é prevenção, não é a correção.
-
-**E quando não há voz da região, diz-se.** Escolher a melhor não resolve o caso em que o
-telemóvel só tem português do Brasil instalado — aí ouve-se o sotaque que houver, e a
-aplicação **não pode fazer nada**: instalar vozes é das definições do Android. O que pode é
-dizer porquê, e é o que faz, numa linha por baixo da opção da voz (`hasRegionVoice`). Sem
-isso, quem ouve um sotaque que não pediu lê aquilo como avaria da aplicação — e a correção
-está a duas telas de distância, nas definições do Android, em Texto para voz.
-
-**O que não se faz: ler uma frase com duas vozes.** Em inglês, "Turn left onto Rua Augusta"
-é lido todo com pronúncia inglesa, incluindo o nome da rua. Dizer cada pedaço com a sua voz
-obrigava a partir a frase em duas leituras, e duas leituras seguidas têm uma pausa pelo meio
-que se ouve mais do que o sotaque. Fica assim de propósito.
-
-**As distâncias dizem-se por extenso** (`formatDistanceSpoken`). "850 m" lê-se num instante
-escrito e sai "oitocentos e cinquenta **eme**" quando é a voz a dizê-lo. No ecrã fica a
-abreviatura, na voz vai "metros" e "quilómetros".
-
-**O que a voz diz passa pela tabela da língua**, como tudo o resto. Estas frases estavam
-escritas à mão em português dentro do `App.tsx` — "Daqui a…", "Atenção:…", "A recalcular o
-percurso." — e quem tivesse a aplicação em inglês ouvia-as em português, lidas por uma voz
-inglesa. Ver `navigation.inDistance`, `cameraAhead`, `cameraAheadLimit` e
-`recalculatingVoice`.
-
-**E não se corta a voz a meio.** O `stopSpeaking()` estava na limpeza do efeito que segue a
-posição, e essa limpeza corre sempre que o percurso, os radares ou o ritmo do GPS mudam — e
-não só ao sair da navegação. Resultado: recalcular o percurso dizia "a recalcular o percurso"
-e cortava-se a si próprio a meio, porque o percurso novo chegava e o efeito voltava a correr.
-Calar a voz é coisa de **acabar** a navegação, e vive no efeito que vê a navegação acabar.
-
-### 10-B. A permissão sem a qual a navegação fecha a aplicação
-
-**Esta secção existe por causa de uma falha real, apanhada com o rasto na mão.** A aplicação
-fechava-se ao carregar em "Ir", e depois disso a cada arranque — ora logo, ora uns cinco
-segundos depois. Três sintomas, uma causa:
+**From a real crash, caught with the stack trace in hand.** The app closed on pressing "Go",
+then at every start — immediately or five seconds later. Three symptoms, one cause:
 
 ```
 java.lang.IllegalArgumentException: Requested job cannot be persisted without holding
@@ -1984,585 +1479,331 @@ android.permission.RECEIVE_BOOT_COMPLETED permission
   at …handleLocationUpdate(LocationTaskConsumer.kt:106)
 ```
 
-A cadeia, lida no código das bibliotecas:
+1. `expo-location` hands each GPS reading to the task **through Android's `JobScheduler`**.
+2. `expo-task-manager` builds that job with **`.setPersisted(true)`**, always.
+3. **Android requires `RECEIVE_BOOT_COMPLETED` to accept a persisted job**; without it,
+   `schedule()` throws `IllegalArgumentException`.
+4. `expo-task-manager` **catches the wrong type** (`IllegalStateException` only), and on the
+   main thread that closes the app.
 
-1. O `expo-location` entrega cada leitura de GPS à tarefa **através do `JobScheduler`** do
-   Android — é assim que uma posição chega ao JavaScript vinda de um serviço.
-2. O `expo-task-manager` constrói esse trabalho com **`.setPersisted(true)`**, sempre
-   (`createJobInfo`, no `TaskManagerUtils.java`). Um trabalho persistido é um que sobrevive
-   a reiniciar o telemóvel.
-3. **O Android exige a permissão `RECEIVE_BOOT_COMPLETED` para aceitar um trabalho
-   persistido.** Sem ela, o `jobScheduler.schedule()` atira `IllegalArgumentException`.
-4. E o `expo-task-manager` **apanha o tipo errado**: o `try` à volta do `schedule()` só
-   apanha `IllegalStateException`. Um `IllegalArgumentException` não é um deles — passa ao
-   lado, e como isto corre na linha principal do Android, fecha a aplicação.
+**The permission is in `app.json` now, and stays.** It also closed at start-up because the task
+is **stored** and restored on the next start (`restoreTasks()`), re-subscribing the GPS. The
+task is now dropped at start-up too, but **the permission is the fix**: the cleanup runs in
+JavaScript and the GPS reading may come first.
 
-**A permissão está agora no `app.json`, e não se tira.** Sem ela a navegação não funciona de
-todo: a primeira leitura de GPS depois de a tarefa arrancar mata a aplicação.
+**The bigger lesson:** the stack trace answered in two minutes what two rounds of code reading
+had not. After a crash nobody can reproduce, the first thing to ask the person who has it in
+front of them is the error message — not one more hypothesis.
 
-Porque é que também fechava ao arrancar: a tarefa fica **gravada** e é restaurada no
-arranque seguinte (ver a nota do `restoreTasks()` mais abaixo). Restaurada, volta a subscrever
-o GPS — e a primeira leitura, que chega uns segundos depois, repete a mesma falha. Daí o
-"mal abre" e o "cinco segundos depois" serem a mesma coisa com tempos de GPS diferentes. A
-tarefa passou a ser largada no arranque, mas **quem conserta isto é a permissão**, não a
-limpeza: a limpeza corre em JavaScript e a leitura de GPS pode chegar primeiro.
+### 11. Screen insets (camera, system bars)
 
-**A lição maior:** o rasto da falha respondeu em dois minutos ao que duas rondas de leitura
-de código não tinham encontrado. A seguir a uma falha que ninguém consegue reproduzir, o
-primeiro pedido à pessoa que a tem à frente é a mensagem de erro — não mais uma hipótese.
+Expo draws edge to edge: the map goes under the status bar, the camera cut-out and the
+navigation bar. The elements on top of the map move away.
 
-### 11. Margens do ecrã (câmara, barras do sistema)
+- Always `useSafeAreaInsets()` from `react-native-safe-area-context`; `SafeAreaProvider` wraps
+  the app in `App.tsx`.
+- **Never `react-native`'s `SafeAreaView`.** It only works on iOS; on Android it does nothing —
+  that is how the search bar ended up under the camera.
+- `Modal` screens get `statusBarTranslucent` and `navigationBarTranslucent`.
 
-O Expo desenha a aplicação **de extremo a extremo**: o mapa passa por baixo da barra de
-estado, da câmara ao centro e da barra de navegação. Quem tem de se afastar são os
-elementos por cima do mapa.
+### 11-A. Draggable bottom panels
 
-- Usar sempre `useSafeAreaInsets()` do `react-native-safe-area-context`. O
-  `SafeAreaProvider` envolve a aplicação toda, no `App.tsx`.
-- **Nunca usar o `SafeAreaView` do `react-native`.** Só funciona no iOS — no Android não
-  faz absolutamente nada, e foi assim que a barra de pesquisa foi parar por baixo da
-  câmara.
-- Os ecrãs em `Modal` levam `statusBarTranslucent` e `navigationBarTranslucent`, para
-  desenharem sempre de extremo a extremo e a margem ser sempre a nossa.
+- The panels with a handle — place card, route, transport, measuring tape — shrink when the
+  handle is pulled down, and come back when pulled up. A tap on the handle does the same.
+- **The gesture is only on the handle, never the whole panel**, otherwise dragging the stops
+  list pulled the panel down. That is why `DraggableSheet` hands the gestures through a
+  function (`children(dragHandlers)`).
+- The touch area around the handle is much bigger than it.
+- **`Reveal` uses `pointerEvents="box-none"`**, so taps reach the map under a shrunk panel.
+- The animation runs natively (`useNativeDriver`).
 
-### 11-A. Painéis de baixo que se arrastam
+### 12. Light and dark theme
 
-- Os quatro painéis com barrinha no topo — ficha de um sítio, percurso, transportes e fita
-  métrica — encolhem ao puxar a barra para baixo, e voltam ao puxar para cima. Um toque
-  simples na barra faz o mesmo. Serve para ver o mapa sem perder o que está aberto.
-- **O gesto fica só na barra, nunca no painel inteiro.** Se apanhasse o painel todo,
-  arrastar a lista das paragens puxava o painel para baixo em vez de deslizar a lista. É por
-  isso que o `DraggableSheet` entrega os gestos por uma função (`children(dragHandlers)`) —
-  só o painel sabe onde é que a barra dele está.
-- A área de toque à volta da barrinha é bastante maior do que ela: o alvo visível tem quatro
-  pontos de altura e ninguém acerta nisso com o polegar.
-- **O `Reveal` usa `pointerEvents="box-none"`.** A caixa do invólucro continua onde estava
-  mesmo com o painel encolhido; sem isso, tocar no mapa por baixo não chegava lá.
-- A animação corre do lado nativo (`useNativeDriver`), por isso não trava quando o
-  JavaScript está ocupado — que é precisamente o que acontece a navegar.
+- All colours are in `src/theme.ts`, in two palettes. No component writes a colour by hand —
+  ask the theme with `useTheme()`, from `src/settings.tsx`. (The map's own drawings — the blue
+  dot, the cone — are the exceptions, as in every maps app.)
+- Which palette: "automatic" follows the phone, otherwise the person's choice.
+- Styles are a function of the theme: `makeStyles(theme)` at the end of the file, with `useMemo`.
+- `app.json` has `userInterfaceStyle: "automatic"`; without `expo-system-ui` it does not work
+  on Android.
+- The map changes too: OpenStreetMap tiles in light, CARTO in dark (OSM has no dark tiles;
+  CARTO is free for non-commercial use with attribution, no keys).
 
-### 12. Tema claro e escuro
+### 13. App state
 
-- As cores estão todas em `src/theme.ts`, em duas paletas. Nenhum componente deve escrever
-  uma cor à mão — pede-se ao tema com `useTheme()`, importado de `src/settings.tsx`.
-- Qual das paletas se usa sai das definições: em "automático" segue o telemóvel, senão
-  segue o que a pessoa escolheu.
-- Os estilos passam a ser uma função do tema: `makeStyles(theme)` no fim do ficheiro, com
-  `useMemo` no componente. Continua tudo num `StyleSheet.create`, só que dentro da função.
-- O `app.json` tem `userInterfaceStyle` a `"automatic"` — é isso que faz a aplicação seguir
-  a definição do telemóvel. Sem o `expo-system-ui` instalado, isto não funciona no Android.
-- O mapa também muda: tiles do OpenStreetMap em claro, do CARTO em escuro (ver
-  `src/services/tiles.ts`). Há ainda a imagem de satélite, que é igual nos dois temas. O
-  OpenStreetMap não tem versão escura dos seus tiles, por isso é preciso outra fonte — o
-  CARTO é gratuito para uso não comercial, com atribuição, e continua sem chaves de API.
+The main information lives in `App.tsx`, with `useState`: `userLocation`, `destination`,
+`routeOptions`/`routeIndex`, `transitTrips`, `navigating`… The route is drawn from
+`route.coordinates`. React state and, if ever needed, Context are enough — no state library.
 
-### 13. Estado da aplicação
 
-A informação principal vive em `App.tsx`, com `useState`:
+## Android Auto (paused)
 
-- `userLocation` — a posição atual do telemóvel (ou `null` se não houver permissão)
-- `destination` — o destino escolhido na pesquisa
-- `route` — o percurso calculado: os pontos da linha, a distância e a duração
+> **Status: paused.** The author set this aside after seeing what it involves. Do not start
+> working on Android Auto, do not install libraries for it and do not run `expo prebuild` to
+> prepare it. This section records the research done, so it need not be repeated.
 
-O percurso desenha-se no mapa como uma linha, a partir de `route.coordinates`.
+The idea was to use PalmMap on the car screen. It is possible, but the rules are much
+stricter than on the phone:
 
-Chega perfeitamente o estado normal do React e, se um dia for preciso partilhar informação
-entre ecrãs, o Context. Não é preciso nenhuma biblioteca de gestão de estado para um
-projeto deste tamanho.
+1. **The car part cannot be written in React Native.** Android Auto apps use Google's
+   *Android for Cars App Library*, in Kotlin/Java. The car **does not show the app's screen**:
+   the app provides templates (lists, navigation panel, map) and the car draws them, with
+   strict rules not to distract the driver. A native module apart from the React Native code.
+2. **It means leaving managed Expo** (`npx expo prebuild`, editing `android/` by hand).
+3. **The big trap: it cannot be installed by APK in the car.** Android Auto's "Unknown
+   sources" developer option **does not apply to navigation apps** built with the Cars App
+   Library — Google's documentation says so.
+4. **For a real car, the Play Store is needed**: a developer account (a one-off US$25) and, for
+   navigation apps, **an extra manual review by Google**: real turn-by-turn, lane guidance,
+   sending the next manoeuvre to the instrument cluster, a driving demo mode, driver
+   distraction rules. A bar set for Waze and Sygic. (Whether internal test tracks skip the
+   review is contradictory in Google's docs — test rather than assume.)
+5. **What can be done now, for free: the Desktop Head Unit (DHU)**, a car-screen simulator that
+   comes with Android Studio. Development and testing need no car, store or review.
 
-## Android Auto (pausado)
+**Why paused:** native Kotlin code apart from the rest, leaving managed Expo, and above all no
+APK install in the car — the Play Store and Google's review as the only way. Not worth it for a
+personal project.
 
-> **Estado: pausado.** O autor decidiu pôr esta parte de lado depois de ver o que envolve.
-> Não começar a trabalhar no Android Auto, não instalar bibliotecas por causa dele e não
-> correr `expo prebuild` só para o preparar. A secção fica aqui como registo da pesquisa
-> já feita, para não ser preciso repeti-la se um dia se retomar.
+**If ever resumed:** have the phone app working (done); `npx expo prebuild`; write the Android
+Auto module in Kotlin and test it on the DHU; the Play Store only at the end, and only if the
+DHU step goes well. Lanes and the speed limit, which the review asks for, already exist on the
+phone side.
 
-A ideia era poder usar o PalmMap no ecrã do carro. É possível, mas as regras são bastante
-mais apertadas do que no telemóvel — em resumo, o que se apurou:
+## Usage rules of the external services
 
-### O que é preciso saber
+These are not style preferences — they are the services' terms of use. If they are not met,
+the app's requests end up blocked. PalmMap's volume is tiny and the free public services are
+plenty; **no servers of our own are needed**. One only has to be polite to services run by
+volunteers. All of this is already in the code; what follows says where, so it is not undone
+without understanding what is being switched off. Addresses, `User-Agent`, intervals and
+timeouts are all in `src/services/config.ts`.
 
-**1. A parte do carro não pode ser feita em React Native.**
-As aplicações de Android Auto usam uma biblioteca própria da Google, a *Android for Cars
-App Library*, escrita em Kotlin/Java. O ecrã do carro **não mostra o ecrã da aplicação** —
-a aplicação fornece "modelos" (listas, painel de navegação, mapa) e é o carro que os
-desenha, com regras rígidas para não distrair o condutor. Consequência prática: a parte do
-Android Auto é um módulo nativo separado, à parte do código React Native. Só o mapa em si
-(via MapLibre nativo) e a lógica de ligação ao Nominatim/OSRM é que se reaproveitam em
-espírito — o código terá de ser reescrito em Kotlin, mas é pouco código.
+### Nominatim — address search
 
-**2. Obriga a sair do Expo "gerido".**
-Para acrescentar código nativo é preciso correr `npx expo prebuild`, que gera a pasta
-`android/` para poder ser editada à mão. Não é dramático, mas é uma mudança de forma de
-trabalhar. **Vale a pena contar com isto desde o início.**
+- **At most 1 request per second**, a hard limit. *In the code:* a queue in
+  `src/services/nominatim.ts`.
+- **A `User-Agent` identifying the app is mandatory** (`USER_AGENT`). It names the project and
+  its repository — **never anyone's e-mail address**.
+- **No request per keystroke.** The public service forbids search-as-you-type. *In the code:*
+  `SearchBar` waits `SEARCH_DEBOUNCE_MS` (1 second) after typing stops, and only searches from
+  3 letters. **Do not lower this value.**
+- Results are kept in memory, so the same search is never repeated (`Map` cache in
+  `nominatim.ts`).
+- **When Nominatim fails, Photon is asked** (`PHOTON_BASE_URL`, by Komoot: OSM data, open, no
+  key). Only after Nominatim fails, never both at once, with its own one-a-second queue. The
+  search has a shorter timeout (`SEARCH_TIMEOUT_MS`, 7 s). Photon is GeoJSON, **longitude
+  first**.
+- **The search error says what failed**: refusal (with the status on screen), delay, or no
+  network — see `searchError`. In September 2026 the author saw "check your connection" on
+  every search with the network working; the cause was never known (probably Nominatim's
+  side). If it comes back, the photo of the new message says which.
+- **What is on the phone does not wait for the second.** While typing, saved places and recent
+  destinations matching the text (accents ignored) show at once, above the results.
+- **A search already on its way is not repeated, and one nobody wants any more does not go
+  out.**
+- **Choosing a result does not search its name** (`escolhido`, in `SearchBar`).
+- **Voice search** (microphone in the bar, with the box empty): opens Android's own speech
+  recogniser (`RECOGNIZE_SPEECH`, through `expo-intent-launcher`, which was already here — no
+  new library or key), and what was heard is searched at once, as with Enter. See
+  `voiceInput.ts`. JavaScript cannot ask Android whether a recogniser exists without a new
+  library, so it is learnt: the first time the screen fails to open, it is stored
+  (`palmmap.semReconhecimentoVoz`) and **the microphone never shows again** on that phone (the
+  author's request). Practically every Android phone has one (the Google app's).
+- Reverse geocoding (coordinates → address), for the dropped pin, goes through the same queue
+  and cache. If it fails, the pin stays, without an address.
 
-**3. A grande armadilha: não dá para instalar por APK no carro.**
-O Android Auto tem uma opção de programador chamada "Unknown sources" que permite usar
-aplicações instaladas fora da Play Store. **Essa opção não se aplica a aplicações de
-navegação.** Está escrito na documentação da Google: a opção serve para apps de música,
-mensagens e apps de "estacionado", mas *não* para apps feitas com a Android for Cars App
-Library. Ou seja, o plano de gerar um APK e instalar no telemóvel — que funciona lindamente
-para a aplicação de telemóvel — **não chega para ter o PalmMap no carro**.
+### Overpass — businesses and points of interest
 
-**4. Para funcionar num carro a sério, é preciso a Play Store.**
-Isso implica conta de programador Google Play (pagamento único de cerca de 25 dólares) e,
-para apps de navegação, **uma revisão manual adicional feita pela Google**, com exigências
-sérias: navegação passo-a-passo real, indicações de faixa de rodagem, enviar a próxima
-manobra para o painel de instrumentos do carro, modo de demonstração de condução, regras de
-distração do condutor, etc. É um nível de exigência pensado para o Waze e o Sygic, não para
-um projeto pessoal.
+The heaviest of the services: each query makes the server walk OpenStreetMap's data.
 
-Nota: a documentação da Google é contraditória quanto a saber se os canais de teste interno
-da Play Store contornam esta revisão. Se se chegar a esse ponto, é algo a testar na prática
-em vez de assumir.
+- **Since November 2026, Overpass is only asked by the category buttons, a tapped pin's
+  details (`placeDetails`), the speed cameras and the speed limits.** Automatic pins come from
+  the country's business file or from the OpenFreeMap tiles. Much of what follows was written
+  when automatic pins came from Overpass; the queue rules still apply to every caller.
+- At least 2 seconds between requests (`OVERPASS_MIN_INTERVAL_MS`), in **one queue**,
+  exported by `overpass.ts` as `overpassSchedule` and used by cameras and limits too. A queue
+  per file is two queues, each keeping its own two seconds while requests go out together.
+- **A 200 with `remark` is a failure** — Overpass answers success and explains there that the
+  query died from time or memory. Caching that left the area empty all session.
+- The category buttons search **the visible map area**, not around the GPS
+  (`searchCategoryInBounds`), with a "zoom in" notice below `CATEGORY_MIN_ZOOM` (12).
+- **Automatic pins must never be a request per drag.** When they came from Overpass: only from
+  `MAP_PINS_MIN_ZOOM` (15), only `MAP_PINS_DEBOUNCE_MS` (1.2 s) after the map stops, an area
+  snapped to a grid (`MAP_PINS_GRID_DEG`) so the cache could hit, cached per grid square asking
+  only for the missing ones, and identical in-flight requests shared. **Do not switch any of
+  this off** if Overpass pins ever come back.
+- **The limit is per tag group, not per query.** One `out center 80` at the end of a union of
+  three groups was spent entirely on the first group, by OSM id order — no shops, and eighty
+  restaurants scattered over the whole area. Each group gets its own `out` (`taggedQuery`),
+  and duplicates are removed by type+id.
+- **A queued request nobody wants any more does not go out** (`isWanted`, in `rateLimit.ts`;
+  skipped with `SupersededError`, not counting for the interval). For a shared request, one
+  interested party wanting it is enough.
+- **There is a second server for when the main one refuses** (`OVERPASS_FALLBACK_URL`,
+  `overpass.private.coffee`, listed on the OSM wiki). Only after the main one fails — 429,
+  504, network, or 200 with `remark` — never both at once (`askOverpass`). The speed-limit
+  query passes a longer timeout.
+- `MAP_PINS_LIMIT` is 40 per group.
 
-**5. O que dá para fazer já, de graça: o Desktop Head Unit (DHU).**
-É um simulador de ecrã de carro que corre no computador e vem com o Android Studio. Permite
-desenvolver e experimentar toda a experiência de Android Auto sem carro, sem Play Store e
-sem revisão nenhuma. Para um projeto pessoal, é aqui que a parte do Android Auto se
-constrói e se testa.
+### OSRM — routing
 
-### Porque foi pausado
+- **`https://`, not `http://`** — Android blocks cleartext since version 9.
+- **`router.project-osrm.org` is not used.** It is OSRM's demo server and **only has the car
+  profile**: a walking request came back as a car route (confirmed in the street: 719 metres
+  on foot gave "2 minutes" and a detour round a one-way street).
+- **The three FOSSGIS servers** (`routed-car`, `routed-foot`, `routed-bike`), the ones
+  openstreetmap.org uses, each with its profile — hence the mode in the address
+  (`OSRM_ENDPOINTS`).
+- Their terms ask for **at most one request per second**, a valid `User-Agent` and attribution
+  to OSM and OSRM. The queue is in `osrm.ts` (`OSRM_MIN_INTERVAL_MS`); the credit is on the
+  Settings screen. **Switch off neither.**
+- Community servers, no guarantees: show a decent error when they are down.
+- Routes are requested with `steps=true` (manoeuvres one by one, phrased in
+  `src/utils/maneuvers.ts`) and come with lanes. **No `maxspeed` annotation** on this server
+  (see 6-H).
 
-Somando tudo: código nativo em Kotlin à parte do resto, saída do Expo gerido, e —
-sobretudo — a impossibilidade de instalar por APK no carro, com a Play Store e a revisão
-manual da Google como única via. Para um projeto pessoal, o esforço não compensa o
-resultado.
+### Protomaps — offline maps
 
-Há ainda o salto de dimensão: o que está descrito no resto deste ficheiro é mostrar o mapa,
-pesquisar uma morada e desenhar o percurso. O Android Auto exige navegação passo-a-passo
-com manobras, recálculo e voz — é outro projeto por cima deste.
+- The planet in PMTiles is published **to be used like this**, cut included. No rate limit, no
+  mandatory User-Agent.
+- Builds are daily, at a dated address; today's may not be ready, so the workflow goes back up
+  to ten days.
+- The data is still OpenStreetMap's: **the attribution stays mandatory**.
 
-### Se um dia se retomar
+### OpenFreeMap — business pins in the tiles
 
-Nada do que se faz agora fica pelo caminho. O `expo prebuild` pode correr-se em qualquer
-altura, por isso **não vale a pena complicar o arranque por causa disto** — a aplicação de
-telemóvel constrói-se em Expo gerido, que é mais simples. A ordem seria:
+- Free vector tiles from OpenStreetMap data, no key (`https://tiles.openfreemap.org/planet`).
+  Only its `poi` layer is used, for the business pins where no country is downloaded; the
+  attribution is in the source.
 
-1. Ter a aplicação de telemóvel a funcionar (é o trabalho atual).
-2. Correr `npx expo prebuild` para poder acrescentar código nativo.
-3. Escrever o módulo de Android Auto em Kotlin e testá-lo no DHU, que é gratuito.
-4. A questão da Play Store só no fim, e só se o passo 3 correr bem.
+## Code style
 
-## Regras de utilização dos serviços externos
-
-Isto não são preferências de estilo — são as condições de utilização dos serviços. Se não
-forem cumpridas, os pedidos da aplicação acabam por ser bloqueados.
-
-A boa notícia: como o PalmMap é para uso pessoal, o volume de pedidos é minúsculo e os
-serviços públicos gratuitos chegam bem. **Não é preciso montar servidores próprios.** Só é
-preciso ser bem-educado com serviços que são mantidos por voluntários.
-
-Todas estas regras já estão cumpridas no código. O que se segue explica onde, para não
-serem desfeitas sem se perceber o que se está a desligar.
-
-### Nominatim — pesquisa de moradas
-
-- **Pesquisa por voz** (microfone na barra, com a caixa vazia): abre o reconhecimento de voz do
-  próprio Android (`RECOGNIZE_SPEECH`, pelo `expo-intent-launcher` que já cá estava — sem biblioteca
-  nova nem chave), e o que se ouviu é pesquisado logo, como o Enter. Ver `voiceInput.ts`. Sem
-  reconhecedor no telemóvel diz-se isso na barra. **Ainda não visto no telemóvel.**
-
-- No máximo **1 pedido por segundo**. É um limite rígido do serviço público.
-  *No código:* `src/services/nominatim.ts` tem uma fila que espera o tempo necessário entre
-  pedidos, mesmo que a aplicação peça várias coisas ao mesmo tempo.
-- É **obrigatório** enviar um `User-Agent` que identifique a aplicação. Pedidos sem isso
-  são recusados. *No código:* `USER_AGENT`, em `src/services/config.ts`.
-- **Não fazer um pedido a cada tecla escrita.** O serviço público proíbe expressamente a
-  pesquisa "à medida que se escreve". *No código:* a `SearchBar` espera
-  `SEARCH_DEBOUNCE_MS` (1 segundo) depois de a pessoa parar de escrever, e só pesquisa a
-  partir de 3 letras. **Não reduzir este valor.**
-- Guardar em memória os resultados já obtidos, para nunca repetir a mesma pesquisa duas
-  vezes. *No código:* o `Map` de cache em `src/services/nominatim.ts`.
-- **Quando o Nominatim falha, pergunta-se ao Photon** (`PHOTON_BASE_URL`, da Komoot: dados
-  do OpenStreetMap, aberto, sem chave). Só depois de o Nominatim falhar, nunca os dois ao
-  mesmo tempo, com fila própria de um por segundo. O Nominatim tem agora um prazo mais curto
-  na pesquisa (`SEARCH_TIMEOUT_MS`, 7 s), para quem espera não ver o indicador a rodar
-  quinze segundos antes de haver segunda tentativa. Os campos do Photon foram lidos na
-  documentação deles (`docs/api-v1.md`) — está em GeoJSON, **longitude primeiro**. **Não foi
-  experimentado**: o ambiente de desenvolvimento bloqueia os dois serviços.
-- **O erro da pesquisa diz o que falhou.** Era sempre "verifique a ligação à Internet", e em
-  setembro de 2026 o autor passou a vê-lo em todas as pesquisas **com rede e o mapa a
-  carregar**. Hoje separa-se a recusa (com o número de resposta no ecrã), a demora e a falta
-  de rede — ver `searchError`. A causa dessa falha **ficou por saber**: o código da pesquisa
-  não mudava há muitas versões, o que aponta para o lado do Nominatim (bloqueio ou excesso de
-  pedidos). Se voltar a aparecer, a fotografia da mensagem nova diz qual é.
-- **O que está no telemóvel não espera pelo segundo.** Enquanto se escreve, os guardados e
-  os últimos destinos que batem com o texto (sem contar acentos) aparecem logo, por cima dos
-  resultados. A regra do segundo é sobre pedidos ao Nominatim, e estes não pedem nada.
-- **Uma pesquisa já a caminho não se repete, e uma que já ninguém quer não sai.** Carregar
-  em Enter pesquisava logo e o segundo de espera, a acabar a seguir, pedia o mesmo outra
-  vez; hoje o segundo espera pela resposta do primeiro. E escrever mais enquanto uma
-  pesquisa está na fila salta-a.
-- **Escolher um resultado não pesquisa o nome dele.** O nome vai para a caixa, e isso
-  contava como texto novo: um segundo depois saía um pedido que ninguém fez, e a lista
-  voltava a aparecer por baixo do destino.
-- A pesquisa inversa (coordenadas → morada), usada pelo pino largado no mapa, passa pela
-  mesma fila e pela mesma cache. Se falhar, o pino fica na mesma, só sem morada — o
-  percurso não depende dela.
-
-### Overpass — negócios e pontos de interesse
-
-É o serviço mais pesado dos três: cada consulta faz o servidor percorrer os dados do
-OpenStreetMap. Convém ser especialmente cuidadoso.
-
-- Intervalo mínimo de 2 segundos entre pedidos. *No código:* `OVERPASS_MIN_INTERVAL_MS`,
-  numa **fila só**, exportada por `src/services/overpass.ts` e usada também pelos radares.
-  Ter fila própria em cada ficheiro é ter duas: cada uma cumpre os dois segundos por si, e
-  os pedidos saem ao mesmo tempo. Quem precisar da Overpass importa `overpassSchedule`.
-- **Um 200 com `remark` é uma falha.** A Overpass responde com sucesso e explica ali que a
-  consulta rebentou pelo tempo ou pela memória. Guardar isso na cache deixava aquela zona
-  sem resultados o resto da sessão, sem erro nenhum.
-- Os botões de categoria procuram **na área visível do mapa**, não à volta do GPS. Ao
-  olhar para outra zona, procurar à volta do GPS punha os resultados fora do ecrã e
-  parecia que o botão não fazia nada. *No código:* `searchCategoryInBounds`, com aviso a
-  pedir para aproximar abaixo do zoom `CATEGORY_MIN_ZOOM` (12) — mais afastado, a área
-  seriam dezenas de quilómetros.
-- Os pinos automáticos no mapa são o maior risco de abuso — sem travões, seria um pedido
-  por cada arrastar do dedo. *No código:* só se pede a partir do zoom `MAP_PINS_MIN_ZOOM`
-  (15), e só `MAP_PINS_DEBOUNCE_MS` (1,2 s) depois de o mapa parar. **Não desligar isto.**
-  Já esteve no 14 por engano: cada nível a menos quadruplica a área da consulta.
-- Guardar em memória as consultas já feitas. *No código:* o `Map` de cache em
-  `src/services/overpass.ts`, com as coordenadas arredondadas para o GPS a oscilar não
-  gerar pedidos novos.
-- **A área dos pinos encaixa numa grelha (`MAP_PINS_GRID_DEG`), e é isso que faz a cache
-  servir para alguma coisa.** A chave é a área pedida com quatro casas decimais, ou seja ao
-  metro: sem grelha, arrastar o dedo um bocadinho dava uma chave diferente e **um pedido
-  novo**. A cache existia e quase nunca acertava. Medido: quarenta paragens do mapa a andar
-  pela cidade passaram de 40 pedidos para 15, e quinze ajustes na mesma zona de 15 para 2.
-- **Uma falha a ir buscar os pinos tem de se ver.** Esteve calada de propósito, com o
-  argumento de que o mapa continua a servir — e o resultado foi pior do que o problema: a
-  Overpass recusa de vez em quando, os pinos da zona nova não apareciam, e nada no ecrã
-  distinguia "não há negócios aqui" de "o serviço não respondeu". Lia-se como avaria da
-  aplicação.
-- **O limite é por grupo de etiquetas, e não por consulta.** É a avaria mais recente e a
-  mais difícil de ver. A consulta era uma união — restaurantes e afins, depois as lojas,
-  depois o alojamento — com **um `out center 80` só no fim**. A Overpass preenche esse
-  limite pela ordem dos grupos e, dentro de cada grupo, **por número de identificação no
-  OpenStreetMap**, que não diz nada sobre onde as coisas ficam. Resultado numa zona com
-  gente: os 80 lugares iam todos para o primeiro grupo, escolhidos de um lado ao outro da
-  área pedida — **das lojas não vinha nenhuma**, e dos restaurantes vinham oitenta
-  espalhados pelos quilómetros da consulta, a maior parte fora do ecrã. Ficava o mapa sem
-  pinos **sem erro nenhum**, e numa zona vazia aparecia tudo, o que dava a impressão de que
-  às vezes funcionava e às vezes não. Hoje cada grupo leva o seu `out` — ver `taggedQuery`
-  — e o que vier repetido tira-se pelo par tipo+número, porque um sítio pode ser loja e
-  restaurante ao mesmo tempo.
-- **O quadrado da grelha não pode ser muito maior do que o ecrã.** Pela mesma razão: tudo o
-  que se pede a mais são lugares que não se vão ver e que ainda assim ocupam lugar no limite
-  da resposta. `MAP_PINS_GRID_DEG` desceu de 0,01° para 0,005° — a cache acerta menos vezes
-  e em troca pede-se a área do ecrã e não quatro vezes ela.
-- **O que já está em memória aparece de imediato, sem esperar pelo `MAP_PINS_DEBOUNCE_MS`.**
-  A espera existe para não atirar um pedido à Overpass a cada arrastar do dedo, e uma
-  resposta guardada não atira pedido nenhum — esperar por ela era cumprir a letra da regra
-  contra a razão dela. Ver `cachedInBounds`, que consulta a cache **sem pedir nada** e
-  devolve `null` quando não tem: é o que distingue "não há negócios aqui" de "ainda não se
-  perguntou". Medido num passeio de quarenta paragens do mapa, com voltas para trás:
-  **metade delas passou de cerca de três segundos para instantânea, com exatamente os mesmos
-  vinte pedidos.**
-- **Dois pedidos iguais ao mesmo tempo passaram a ser um.** A fila espaça os pedidos dois
-  segundos; quem chegasse nesse intervalo a pedir a mesma área — e chega, porque voltar a uma
-  zona dá a mesma chave — entrava na fila atrás do primeiro em vez de esperar por ele, e a
-  cache só começava a valer depois de o primeiro **acabar**. Hoje partilha-se a promessa
-  (`emCurso`, em `overpass.ts`): o segundo recebe a resposta do primeiro, sem pedido nenhum e
-  sem esperar pelo intervalo.
-- **Os pinos guardam-se por quadrado da grelha, e pede-se só o que falta.** Guardados por
-  área, arrastar o mapa meio ecrã para o lado dava uma chave nova e um pedido do ecrã
-  inteiro — e até ele voltar, o que já se conhecia não ganhava os pinos da parte nova.
-  Hoje cada quadrado de `MAP_PINS_GRID_DEG` tem a sua entrada (`cells`, em `overpass.ts`):
-  o que já se conhece aparece de imediato e à Overpass pede-se só o retângulo dos quadrados
-  em falta. Numa simulação, meio ecrã ao lado passou a pedir **um terço da área** e a mostrar
-  logo dois terços dos pinos. Um quadrado que venha vazio fica guardado vazio: é uma
-  resposta, não uma falta dela.
-- **Um pedido em fila que já ninguém quer não sai.** Arrastar o mapa três vezes deixava três
-  pedidos na fila, dois segundos um atrás do outro, e o da zona que se está a ver era o
-  último. A fila (`rateLimit.ts`) pergunta agora `isWanted` quando chega a vez de cada um;
-  quem já foi substituído é saltado com `SupersededError`, e não conta para o intervalo.
-  Num pedido partilhado basta **um** dos interessados querê-lo para ele sair.
-- **Há um segundo servidor para quando o principal recusa** (`OVERPASS_FALLBACK_URL`, o
-  `overpass.private.coffee`, listado no wiki do OpenStreetMap). Só se usa depois de o
-  principal falhar — 429, 504, rede, ou 200 com `remark` — e nunca os dois ao mesmo tempo.
-  Passam por ele os pinos e os radares (`askOverpass`). **Não foi experimentado**: o
-  ambiente de desenvolvimento bloqueia os dois.
-- **`MAP_PINS_LIMIT` desceu de 100 para 40 por grupo.** Com três grupos, cem cada um eram
-  trezentos lugares por consulta: trezentos conjuntos de etiquetas a resolver do lado da
-  Overpass, umas centenas de kilobytes a descarregar e trezentos símbolos a desenhar. Num
-  quadrado de meio quilómetro, cento e vinte pinos já é mais do que cabe no ecrã sem se
-  taparem uns aos outros — o que passa disso é trabalho feito para não se ver.
-
-### OSRM — cálculo de percursos
-
-- Usar **`https://`** e não `http://`. O documento original indicava o endereço com
-  `http://`, mas o Android bloqueia ligações não seguras desde a versão 9, por isso os
-  pedidos falhariam.
-- **Não se usa o `router.project-osrm.org`.** Esse é o servidor de demonstração do OSRM e
-  **só tem o perfil de carro instalado**: um pedido a pé devolvia na mesma o percurso de
-  carro, com os sentidos únicos respeitados e o tempo a velocidade de automóvel. Isto
-  esteve muito tempo escrito aqui como "por confirmar" — foi confirmado na rua, com 719
-  metros a pé a darem "2 minutos" e um desvio grande por causa de uma rua de sentido único.
-- Usam-se os **três servidores da FOSSGIS** (`routed-car`, `routed-foot`, `routed-bike`),
-  que são os mesmos que o openstreetmap.org usa no seu painel de direções. Cada um é uma
-  instalação separada com o seu perfil — daí o meio de transporte estar no endereço, em
-  `OSRM_ENDPOINTS`, e não só no caminho.
-- As condições de utilização deles pedem **no máximo um pedido por segundo**, um
-  `User-Agent` válido e a atribuição ao OpenStreetMap e ao OSRM. A fila está em `osrm.ts`
-  (`OSRM_MIN_INTERVAL_MS`) e o crédito no ecrã de definições. **Não desligar nem um nem
-  outro.**
-- São servidores comunitários, sem garantias de funcionamento. Para uso pessoal servem
-  muito bem; convém contar com a possibilidade de estarem em baixo e mostrar uma mensagem
-  de erro decente quando isso acontecer.
-- O percurso é pedido com `steps=true`, que traz as manobras uma a uma. A tradução para
-  português está em `src/utils/maneuvers.ts`.
-
-### Protomaps — mapas offline
-
-- O planeta em PMTiles é publicado **para ser usado assim**, incluindo recortado. Não há
-  limite de pedidos a respeitar nem User-Agent obrigatório.
-- As compilações são diárias e ficam num endereço com a data. A de hoje pode ainda não
-  estar pronta à hora a que o workflow corre — por isso ele recua até dez dias à procura de
-  uma que exista.
-- Os dados continuam a ser do OpenStreetMap, por isso **a atribuição mantém-se obrigatória**
-  quando o mapa vetorial for desenhado.
-
-O endereço base, o `User-Agent`, o intervalo entre pedidos e o tempo de espera da pesquisa
-estão todos em `src/services/config.ts` — é aí que se mexe, não espalhado pelo código.
-
-## Estilo de código
-
-- TypeScript limpo, com tipos bem definidos para **todas** as respostas das APIs (Nominatim
-  e OSRM). Nada de `any` nos dados que vêm da Internet — os tipos ficam em `src/types/`.
-- Componentes em forma de função, com Hooks (`useState`, `useEffect`, `useCallback`).
-- Os estilos ficam agrupados no fim de cada ficheiro de componente, numa função
-  `makeStyles(theme)` que devolve um `StyleSheet.create`. Nunca escrever cores à mão.
-- Ícones: `@expo/vector-icons`, família `MaterialCommunityIcons`. Antes de usar um nome
-  novo, confirmar que existe — a lista está em
+- Clean TypeScript, with types for **every** API response — no `any` for data from the
+  Internet; types live in `src/types/`.
+- Function components with hooks.
+- Styles grouped at the end of each component file, in a `makeStyles(theme)` returning a
+  `StyleSheet.create`. Never hand-written colours.
+- Icons: `@expo/vector-icons`, `MaterialCommunityIcons`. Check a new name exists in
   `node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/`.
-- Comentários e nomes de variáveis: o código em inglês, como é hábito; os comentários podem
-  ser em português.
-- Ao instalar um pacote do Expo, tirar a versão de
-  `node_modules/expo/bundledNativeModules.json` em vez de usar a mais recente do npm. As
-  versões do npm não acompanham o SDK e instalam coisas incompatíveis.
+- **Code, comments and this file in English.** User-facing text only in `src/i18n/` (Portuguese
+  in `pt.ts`, English in `en.ts`). Some variable names are still Portuguese (`falha`,
+  `semRede`…); rename them only when touching that code anyway. Data keys the app or the
+  workflows read (`horarios`, `estacoes`, `regioes`, `gerado`, `fim`, the workflow modes
+  `gerar`, `descobrir`, `sondar`…) **must not be renamed** — published files use them.
+- When installing an Expo package, take the version from
+  `node_modules/expo/bundledNativeModules.json` instead of npm's latest.
 
-## Trabalhar com o Git
+## Working with Git
 
-- O branch principal é o `main`. O desenvolvimento desta tarefa acontece no branch
-  `claude/claude-md-documentation-k64ki9`.
-- **O repositório é público.** Foi uma decisão pensada e não é por descuido: os mapas dos
-  países são descarregados de uma Release por um endereço sem autenticação, e num
-  repositório privado isso dá erro. A alternativa seria meter uma credencial dentro do
-  APK, o que não se faz. Se um dia se quiser voltar a fechar o repositório, é preciso mudar
-  primeiro a forma de distribuir os mapas.
-- **Nunca guardar chaves de API nem ficheiros `.env` no repositório.** Vale sempre, e
-  agora com mais razão.
-- O `.gitignore` vem do Expo e já cobre `node_modules/`, `.expo/`, as pastas `android/` e
-  `ios/` geradas na compilação, e os ficheiros de assinatura (`*.jks`, `*.p12`).
-- O `package-lock.json` fica no repositório — é o que garante que uma instalação futura usa
-  exatamente as mesmas versões.
-- **Não abrir um Pull Request sem ser explicitamente pedido.**
-- **Não lançar compilações sem ser pedido.** O autor pediu isto expressamente.
+- The main branch is `main`. Development happens on `claude/claude-md-documentation-k64ki9`.
+- **The repository is public**, on purpose: the country maps download from a Release without
+  authentication, which a private repository would break (the alternative would be a
+  credential inside the APK, which is not done).
+- **Never commit API keys or `.env` files.**
+- The `.gitignore` comes from Expo and covers `node_modules/`, `.expo/`, the generated
+  `android/` and `ios/`, and signing files (`*.jks`, `*.p12`).
+- `package-lock.json` stays in the repository.
+- **Do not open a Pull Request unless explicitly asked.**
+- **Do not start builds unless asked.** The author asked for this expressly.
 
-## O que se aprendeu por tentativa e erro
 
-Erros já cometidos neste projeto, para não se repetirem.
+## Lessons learnt by trial and error
 
-- **O `SafeAreaView` do `react-native` não faz nada no Android.** Foi assim que a barra de
-  pesquisa foi parar por baixo da câmara do telemóvel. Usar sempre o
-  `react-native-safe-area-context`.
-- **"Ocorreu um problema ao analisar o pacote"** ao instalar o APK não era ficheiro
-  truncado — a primeira suspeita estava errada. As causas reais eram o `versionCode`
-  repetido e o tamanho de incluir quatro arquiteturas.
-- **O tempo errado nas estradas de terra não é falta de dados.** As estradas já estão
-  marcadas como não alcatroadas; é o OSRM que assume 40 km/h onde se anda a 20. Verificar
-  antes de propor "melhorar os dados no OpenStreetMap".
-- **Os filtros de categoria devem procurar na área visível, não à volta do GPS.** Com o
-  mapa noutra zona, os resultados vinham fora do ecrã e parecia que o botão estava avariado.
-- **Uma camada de texto precisa de glifos.** Uma tentativa de mostrar os nomes dos negócios
-  no mapa falhou por o estilo não ter servidor de tipos de letra. Foi por isso que os
-  glifos passaram a ir dentro do APK.
-- **Ler o ficheiro antes de escrever o estilo.** As camadas e os valores dos filtros do
-  mapa vetorial saíram de decifrar o próprio `.pmtiles`, não da documentação. Um filtro
-  errado não dá erro — dá uma camada invisível, que é muito pior de encontrar.
-- **O `gh release create` precisa de `-R`** quando o workflow não faz checkout do
-  repositório, senão procura-o na pasta atual e falha.
-- **Uma linha sem pontos não é GeoJSON válido, e leva a fonte inteira atrás.** Ao dividir
-  o percurso em "já andado" e "falta", a primeira metade começa vazia — e o MapLibre
-  deitava fora a fonte toda, **sem dar erro nenhum**: o percurso desaparecia por completo
-  do mapa. Daí as duas metades irem hoje em fontes separadas, cada uma só desenhada a
-  partir de dois pontos. Ao mexer aqui, garantir sempre o mínimo de dois.
-- **Um serviço WMS pode ter mais do que uma camada, e a errada não dá erro.** As ortofotos
-  da Direção-Geral do Território publicam `-CorVerdadeira` e `-FalsaCor`. Pedir só
-  `ortoSat2023` devolvia a segunda: imagem nítida, bem posicionada, e **todo o campo a
-  vermelho vivo**, porque é infravermelho. Ao usar um WMS, ler os nomes das camadas em vez
-  de assumir que o nome do serviço chega.
-- **Um servidor de demonstração pode ter só um perfil, e não o diz.** O percurso a pé vinha
-  do `router.project-osrm.org` com os sentidos únicos respeitados e o tempo a velocidade de
-  carro. Não dava erro nenhum — devolvia um percurso perfeitamente válido, do meio de
-  transporte errado. Ao usar um serviço partilhado, confirmar que ele tem mesmo o que se
-  lhe está a pedir.
-- **Ler o código do serviço em vez de adivinhar os nomes dos campos.** Os da Carris
-  Metropolitana foram todos adivinhados mal à primeira: `name`, `locality` e `lines` não
-  existem — são `long_name`, `locality_name` e `line_ids`. A posição vinha certa, por isso
-  a lista aparecia com as distâncias todas boas e o nome "Paragem" repetido seis vezes.
-  Nenhum erro, nenhum aviso. O serviço é aberto no GitHub; bastava lê-lo.
-- **"Sem posição" não é "sem permissão".** As duas andavam juntas no arranque: qualquer
-  falta de posição contava como recusa. E como o botão do GPS só aparecia depois da primeira
-  posição, bastava o GPS não responder — dentro de casa, ou parado, onde o seguimento lento
-  pode nunca dar uma leitura — para **o botão e o ponto azul desaparecerem de vez**. Era o
-  contrário do que devia: é sem posição que o botão faz mais falta. Hoje a recusa
-  pergunta-se a quem sabe, e o botão só desaparece quando a permissão foi mesmo recusada.
-- **No Android não pode haver dois pedidos de permissão ao mesmo tempo.** O segundo rebenta
-  do lado nativo, e uma exceção nativa numa aplicação compilada fecha-a sem mais. Isto era
-  fácil de provocar: ao arrancar, a leitura inicial e o seguimento pediam os dois quase ao
-  mesmo tempo. Hoje o `requestPermission()` **pergunta antes de pedir** — uma vez concedida
-  nunca mais abre diálogo nenhum — e, se mesmo assim for preciso pedir, quem chega a seguir
-  espera pela resposta do primeiro em vez de abrir outro.
-- **Uma posição não é só um sítio: é um sítio a uma hora.** Centrar o mapa levava de vez em
-  quando a um sítio onde já se tinha estado, depois de a aplicação passar pelo segundo
-  plano — onde o Android corta as leituras de GPS. A posição guardada não estava errada,
-  estava velha, e nada no código distinguia as duas coisas. Ao guardar uma leitura, guardar
-  **a hora a que foi medida** e não a hora a que chegou: o Android entrega às vezes uma
-  posição da cache mal se volta a subscrever o GPS, e carimbá-la à chegada dá-a como
-  acabada de medir. Ver "Uma posição guardada tem prazo".
-- **Um aviso de progresso é por bocado escrito, não por percentagem.** O
-  `File.downloadFileAsync` chama de volta a cada pedaço que grava, o que num ficheiro de
-  centenas de megabytes são milhares de chamadas por segundo. Ligar isso diretamente a um
-  `setState` punha o telemóvel a passar o tempo a desenhar a lista em vez de a descarregar —
-  a barra andava na mesma, por isso não se via que estava mal. Hoje só se avisa quando a
-  percentagem inteira muda: cem avisos em vez de milhares.
-- **"O mais recente" pode não ser o mais recente do que se procura.** O `/releases/latest`
-  do GitHub devolve a Release publicada há menos tempo, seja de que etiqueta for — e este
-  repositório publica também mapas e horários como Releases. A procura de versões novas
-  teria deixado de funcionar na primeira vez que se gerassem mapas depois de compilar, com
-  um 200 e uma Release verdadeira pelo meio: nada que se parecesse com uma avaria. Antes de
-  usar um atalho de uma API, ver se o que ele escolhe é mesmo o que se quer.
-- **Uma propriedade com "initial" no nome é lida uma vez e nunca mais.** O
-  `initialViewState` da câmara é avaliado quando a câmara nasce — e nessa altura o GPS
-  ainda não respondeu. A aplicação abria em Lisboa e **lá ficava**, mesmo depois de a
-  posição chegar, até alguém carregar no botão de centrar. Parecia a câmara a ignorar a
-  posição; era a posição a chegar tarde de mais. A saída é esperar pelo
-  `onDidFinishLoadingMap` e mover a câmara — a posição chega quase sempre antes de o mapa
-  acabar de carregar, e uma ordem de movimento dada a um mapa que não está pronto perde-se
-  **sem dar erro**.
-- **Refazer um componente nativo custa, e o custo aparece longe da causa.** A primeira
-  versão do ponto acima refazia a câmara com uma `key`, como o `followNonce`. Dava o
-  resultado certo e um sintoma noutro sítio: **o teclado demorava a subir na primeira
-  pesquisa**. Desmontar e montar a câmara é trabalho nativo, e caía poucos instantes depois
-  do arranque — exatamente quando a pessoa toca na barra de pesquisa. Recriar resolve
-  qualquer coisa e é sempre a saída mais cara; antes de a escolher, ver se há um sinal de
-  "pronto" a que se possa esperar.
-- **Duas fontes de imagem com nitidez muito diferente não se trocam de repente.** As
-  ortofotos entravam a 100% de opacidade ao passar o zoom 12, por cima de uma imagem dez
-  vezes mais grosseira: o salto lia-se como avaria. A troca faz-se a desvanecer ao longo de
-  um nível de zoom, e isso não custa pedidos nenhuns — o `minzoom` fica onde estava, muda só
-  a opacidade.
-- **Um canto do ecrã pode estar ocupado por algo que não é um componente nosso.** A bússola
-  do MapLibre foi posta no canto inferior esquerdo com um comentário a dizer que o canto
-  estava livre — e estava lá o botão da régua. Como a bússola só aparece com o mapa rodado,
-  a sobreposição passou despercebida. Hoje a altura dela é calculada no `App.tsx`, ao lado
-  das dos outros botões flutuantes: a aritmética das posições tem de viver toda no mesmo
-  sítio, senão um dia deixa de bater certo e ninguém dá por isso.
-- **Um botão flutuante que não sobe com os painéis fica atrás deles.** A régua e o botão dos
-  transportes ficavam tapados quando a fita métrica abria — e a régua é justamente o botão
-  que a desliga. Ao acrescentar um painel de baixo ou um botão flutuante, confirmar as três
-  situações: mapa limpo, painel aberto e a navegar. São nove combinações com as margens de
-  ecrã possíveis, e é fácil verificá-las de cabeça com uma folha de contas.
-- **E a mesma lição outra vez, porque metade do arranjo não é arranjo nenhum.** A régua
-  passou a subir com o painel *da fita métrica* e continuou a ficar por baixo do painel de um
-  sítio ou de um percurso — que é o painel que se abre a toda a hora. Apareceu numa
-  fotografia do autor, por cima do texto de um erro. A condição de subir é uma só e é igual
-  para os cinco elementos: `selectedPlace || destination || measuring`. E a bússola e o
-  velocímetro estavam os dois a `insets.bottom + 130` durante a navegação — uma em cima do
-  outro a viagem toda, e com o mapa a rodar no sentido da marcha a bússola está sempre à
-  vista. **Vale a pena escrever a matriz**: há um script que enumera cada elemento por
-  cenário e acusa qualquer par que se toque, e foi ele que apanhou a bússola.
-- **Uma cache cuja chave é exata quase nunca acerta.** A dos pinos do mapa guardava por
-  área com precisão de um metro: bastava o dedo mexer para a chave ser outra e o pedido
-  sair na mesma. Existia, parecia certa, e não poupava nada — e a Overpass, que é o serviço
-  mais pesado, ia recusando. Uma cache de posição precisa de uma grelha; sem ela é
-  decoração.
-- **Um indicador que desaparece é pior do que um indicador a zero.** A primeira versão do
-  velocímetro fora da navegação desligava-se assim que a velocidade caísse — e **sumia em
-  cada semáforo**, para voltar ao arrancar. Foi a simulação da viagem que o apanhou, não o
-  código: vale a pena percorrer um caso de uso inteiro, paragem a paragem, antes de dar uma
-  funcionalidade por feita.
-- **Um limite numa resposta não escolhe o que interessa — escolhe o que lhe calha à
-  frente.** O `out center 80` da Overpass estava no fim de uma união de três grupos de
-  etiquetas, e gastava-se todo no primeiro, por ordem de número de identificação no
-  OpenStreetMap. Das lojas não vinha nenhuma e dos restaurantes vinham oitenta espalhados
-  pela área toda, quase nenhum no ecrã. Nada disto dava erro, e numa aldeia funcionava
-  perfeitamente — foi por isso que passou duas rondas de correções. Ao pôr um limite numa
-  consulta, perguntar **por que ordem** é que o serviço o aplica.
-- **Uma lista "perto de si" tem de seguir o mapa, não o GPS — e já se aprendeu isto duas
-  vezes.** Estava escrito aqui em cima para os botões de categoria, e as paragens dos
-  transportes voltaram a nascer presas à posição do telemóvel: arrastar o mapa para outra
-  terra não trazia nada, e sem posição não aparecia nada de todo. Ao escrever uma lista de
-  "o que há aqui à volta", o "aqui" é o meio do mapa.
-- **Uma espera que existe para proteger um serviço não tem de se aplicar a quem não lhe vai
-  pedir nada.** Os pinos do mapa esperavam o segundo e dois décimos do travão da Overpass
-  mesmo quando a resposta já estava em memória — e como se anda para trás e para a frente
-  pela mesma zona, era metade das vezes. Parecia lentidão da aplicação e era uma regra
-  aplicada à letra onde a razão dela não se aplicava. Ao pôr um travão, perguntar **o que é
-  que ele está a proteger** e deixar passar o que não lhe toca.
-- **Uma fila que espaça pedidos não impede dois pedidos iguais — adia o segundo.** A cache da
-  Overpass só começava a valer depois de o primeiro pedido **acabar**; quem chegasse no meio
-  ia para a fila. Uma cache de respostas precisa de uma segunda, de pedidos por responder.
-- **Uma mensagem de erro que diz sempre a mesma coisa esconde a avaria.** Já se tinha
-  aprendido com os horários, e a pesquisa continuava com "verifique a ligação à Internet"
-  para tudo — até o autor a ver em todas as pesquisas com a Internet a funcionar. Um serviço
-  que recusa, um que demora e uma rede em baixo pedem soluções diferentes; a mensagem tem de
-  os distinguir, com o número de resposta à vista.
-- **Uma fila que espaça pedidos também tem de saber desistir.** Os dois segundos da Overpass
-  cumpriam-se, mas cumpriam-se a despachar pedidos de zonas que já não estavam no ecrã, à
-  frente do único que interessava. Espaçar é proteger o serviço; saltar o que ninguém quer
-  protege-o mais e ainda poupa tempo a quem espera.
-- **Uma permissão do Android em falta pode não dar erro nenhum até ao dia em que dá.** A
-  `RECEIVE_BOOT_COMPLETED` nunca fez falta enquanto não houve tarefas em segundo plano; no
-  dia em que a navegação passou a usar uma, a falta dela passou a fechar a aplicação à
-  primeira leitura de GPS. Ao acrescentar uma biblioteca que corre em segundo plano, ver que
-  permissões é que o código nativo dela **assume** que a aplicação declara — o manifesto dela
-  pode declarar o recetor e deixar a permissão para quem a usa, que é exatamente o caso aqui.
-- **Uma biblioteca pode ter uma porta protegida e outra não, para a mesma coisa.** O
-  `expo-speech` responde a "dá-me as vozes" de duas maneiras conforme o motor esteja
-  arrancado ou não: com ele pronto, corre dentro de um `AsyncFunction` e um erro vira
-  promessa recusada; com ele frio, o pedido fica numa fila despejada dentro do `onInit`, sem
-  `try` nenhum — e aí o mesmo erro fecha a aplicação. **A mesma chamada, duas consequências
-  opostas, conforme o instante em que se faz.** Antes de chamar alguma coisa cedo de mais no
-  arranque, ver por que caminho é que ela passa nesse instante.
-- **Uma tarefa registada no `expo-task-manager` sobrevive à aplicação.** Ele grava-as e
-  volta a registá-las sozinho no arranque seguinte (`restoreTasks()`, no `TaskService.java`).
-  Para uma tarefa que só faz sentido durante uma viagem isso é errado: uma aplicação fechada
-  a meio de uma navegação voltava a abrir com o GPS subscrito e sem ninguém a ouvir. Larga-se
-  no arranque, em `location.ts`.
-- **Três sintomas diferentes podem ser uma causa só** — "fecha-se ao calcular um percurso",
-  "fecha-se mal abre" e "fecha-se cinco segundos depois de abrir" eram a mesma avaria, a
-  falta da permissão `RECEIVE_BOOT_COMPLETED` (ver "10-B"). **E o que a encontrou foi o rasto
-  do erro, não o raciocínio.** Duas rondas de leitura do código produziram uma hipótese bem
-  fundamentada, com o mecanismo lido na biblioteca e uma simulação a apoiá-la — e **estava
-  errada**. O rasto, fotografado no telemóvel, respondeu em dois minutos. A seguir a uma
-  falha que não se consegue reproduzir, o primeiro pedido a quem a tem à frente é a mensagem
-  de erro, antes de mais uma hipótese.
-- **Uma simulação com dados inventados prova o que se inventou.** A correção dos trajetos
-  de autocarro foi provada numa simulação — com duas paragens da mesma linha, porque foi
-  isso que se imaginou. Nos dados verdadeiros as paragens mais perto quase nunca partilham
-  uma linha, e o resultado continuou zero. Quando há como correr o código a sério contra o
-  serviço verdadeiro (aqui, pelo GitHub Actions), é isso que decide, e não a simulação.
-- **Um campo que um serviço deixa de mandar não dá erro — dá uma lista vazia.** Os trajetos
-  de autocarro dependiam do `trip_id` em todas as passagens; a Carris mudou de fonte e passou
-  a mandá-lo só com tempo real. A aplicação continuou a responder, só que sempre "não há
-  autocarro direto". Quando uma funcionalidade que dependia de um serviço externo deixa de
-  dar resultados, a primeira pergunta é **o que mudou do lado de lá** — o histórico do código
-  deles responde depressa.
-- **Uma biblioteca pode apanhar o tipo de exceção errado.** O `expo-task-manager` embrulha o
-  `jobScheduler.schedule()` num `try` que apanha `IllegalStateException`; o Android atira
-  `IllegalArgumentException`, que não é um deles. Ter um `try` à volta não quer dizer estar
-  protegido — o que conta é **qual** o tipo apanhado.
-- **O `expo-location` não lança exceção quando o serviço em primeiro plano não pode
-  arrancar.** Com a aplicação no fundo, o `maybeStartForegroundService` deles desiste e
-  escreve um aviso no registo; o `startLocationUpdatesAsync` resolve-se como se tivesse
-  corrido bem. Ou seja, o `catch` que estava escrito para esse caso nunca corre, e a
-  navegação ficava sem serviço **em silêncio**. Quem resolve isto é não parar o serviço entre
-  subscrições (`SERVICE_STOP_GRACE_MS`) e não o `catch`. Lido em
-  `taskConsumers/LocationTaskConsumer.kt`, depois de o comentário aqui ter afirmado o
-  contrário.
-- **Confirmar as APIs do MapLibre v11 antes de as usar.** Vários nomes mudaram em relação
-  à documentação mais espalhada pela Internet (`fitBounds`, `attribution`), e as
-  funcionalidades de uma fonte vêm em `event.features`, não em `event.nativeEvent.features`.
+Mistakes already made in this project, so they are not repeated.
+
+- **`react-native`'s `SafeAreaView` does nothing on Android.** The search bar ended up under
+  the camera. Always `react-native-safe-area-context`.
+- **"There was a problem parsing the package"** was not a truncated file — the first suspicion
+  was wrong. The real causes were a repeated `versionCode` and the size of four architectures.
+- **Wrong times on dirt roads are not missing data.** The roads are tagged unpaved; it is OSRM
+  assuming 40 km/h where people drive at 20. Check before proposing "improve the OSM data".
+- **Category filters search the visible area, not around the GPS.**
+- **A text layer needs glyphs.** An attempt to show business names failed for lack of a font
+  server; that is why the glyphs ship in the APK.
+- **Read the file before writing the style.** The vector map's layers and filters came from
+  decoding the `.pmtiles` itself. A wrong filter gives an invisible layer, not an error.
+- **`gh release create` needs `-R`** when the workflow does not check out the repository.
+- **A line without points is not valid GeoJSON, and takes the whole source with it.** Splitting
+  the route into "done" and "left", the first half starts empty — and MapLibre threw the whole
+  source away, **silently**. Hence two separate sources, each drawn only from two points.
+- **A WMS service can have more than one layer, and the wrong one gives no error.** Asking
+  only for `ortoSat2023` returned the false-colour one: **every field bright red** (infrared).
+  Read the layer names.
+- **A demo server can have only one profile, and not say so.** Walking routes came back as
+  car routes. Confirm a shared service really has what is asked of it.
+- **Read the service's code instead of guessing field names.** Carris's were all guessed wrong
+  at first (`name`, `locality`, `lines` do not exist).
+- **"No position" is not "no permission".** Any missing position counted as refusal, and the
+  GPS button and blue dot disappeared for good indoors — exactly when the button is most
+  needed. The refusal is asked of whoever knows.
+- **On Android there cannot be two permission requests at once**; the second blows up natively
+  and a native exception closes a release build. `requestPermission()` **checks before
+  asking**, and whoever comes next waits for the first.
+- **A position is not just a place: it is a place at a time.** Store **the time it was
+  measured**, not when it arrived.
+- **Progress is per chunk written, not per percent.** `File.downloadFileAsync` calls back on
+  every chunk — thousands per second for hundreds of MB. Only notify when the whole percent
+  changes.
+- **"The latest" may not be the latest of what you want.** `/releases/latest` returns the
+  newest Release of any tag.
+- **A prop with "initial" in its name is read once.** `initialViewState` is read when the
+  camera is born, before the GPS answers. Wait for `onDidFinishLoadingMap` and move the camera
+  — a move given to a map not ready is lost **with no error**.
+- **Rebuilding a native component costs, and the cost shows far from the cause.** Rebuilding
+  the camera with a `key` made **the keyboard slow on the first search**. Look for a "ready"
+  signal before choosing to recreate.
+- **Two image sources with very different sharpness are not swapped abruptly** — fade over a
+  zoom level, at no request cost.
+- **A screen corner can be taken by something that is not our component.** The compass was put
+  bottom-left "because it was free" — the ruler button was there. Floating-button arithmetic
+  lives in one place, `App.tsx`.
+- **A floating button that does not rise with panels ends up behind them.** Check three
+  situations: clean map, panel open, navigating. The rise condition is one and the same for
+  every element (`selectedPlace || destination || measuring`), and the compass and speedometer
+  must not share a height. **Write the matrix**: a script listing every element per scenario
+  and flagging overlaps caught the compass.
+- **A cache whose key is exact almost never hits.** A position cache needs a grid.
+- **An indicator that disappears is worse than one at zero** — the speedometer vanished at
+  every traffic light. Walking a whole use case stop by stop caught it.
+- **A limit in a response does not pick what matters — it picks what comes first.** Ask in
+  **which order** the service applies a limit.
+- **A "near you" list follows the map, not the GPS — learnt twice.**
+- **A wait that protects a service need not apply to what asks it nothing.** Ask **what** a
+  brake protects and let through what does not touch it.
+- **A queue spacing requests does not stop two identical requests — it delays the second.** A
+  cache of answers needs a second one of pending requests.
+- **An error message that always says the same thing hides the fault.** Refusal, delay and no
+  network need different fixes; show the status code.
+- **A queue spacing requests must also know how to give up** on requests nobody wants.
+- **A missing Android permission may give no error until the day it does.**
+  `RECEIVE_BOOT_COMPLETED` was never needed until navigation used a background task. When
+  adding a library that runs in the background, check which permissions its native code
+  **assumes** the app declares.
+- **A library can have a protected door and an unprotected one for the same thing**
+  (`expo-speech` voices: promise when the engine is ready, crash in `onInit` when cold). Check
+  which path a call takes at that moment.
+- **A task registered with `expo-task-manager` outlives the app** (`restoreTasks()`); a
+  trip-only task is dropped at start-up, in `location.ts`.
+- **Three different symptoms can be one cause** — and **the stack trace found it, not the
+  reasoning.** Ask for the error message first.
+- **A simulation with made-up data proves what was made up.** When the code can run against the
+  real service (here, through GitHub Actions), that decides.
+- **A field a service stops sending gives no error — it gives an empty list.** When a feature
+  depending on an external service stops returning results, first ask **what changed on their
+  side**.
+- **A library can catch the wrong exception type** (`IllegalStateException` vs Android's
+  `IllegalArgumentException`). A `try` around it is not protection; the caught type is.
+- **`expo-location` throws no exception when the foreground service cannot start** — it logs
+  a warning and resolves. The fix is not stopping the service between subscriptions
+  (`SERVICE_STOP_GRACE_MS`), not a `catch`.
+- **Check MapLibre v11 APIs before using them.** Several names changed from the widely spread
+  docs (`fitBounds`, `attribution`), source features come in `event.features`, a zoom
+  expression must be the top-level `interpolate`/`step` (a `case` inside its stops is fine),
+  and `UserLocation`'s children **replace** the default puck.
+- **Not every service in the documentation is open.** OSRM's `maxspeed` annotation is
+  Mapbox-only; the DGT's aerial orthophotos are not published as an open service. Probe before
+  building on it.
+- **An identifier can arrive in a different unit after the provider changes.** TML sends
+  `timestamp` in milliseconds where Carris sent seconds; every bus was "from the future".
+
