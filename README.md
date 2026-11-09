@@ -1,158 +1,158 @@
 # PalmMap
 
-Uma aplicação de mapas para Android, feita **só com serviços abertos e gratuitos**. Sem
-Google Maps, sem chaves de API, sem contas.
+A maps app for Android, built **only with open and free services**. No Google Maps, no API
+keys, no accounts.
 
-É um projeto pessoal: nasceu para ser usado por uma pessoa, não para servir milhares. Isso
-é uma decisão, não uma limitação — significa que as soluções simples chegam, e que os
-serviços públicos mantidos por voluntários dão de sobra, desde que se seja bem-educado com
-eles.
+It is a personal project: made to be used by one person, not to serve thousands. That is a
+choice, not a limitation — it means simple solutions are enough, and the public services run
+by volunteers are plenty, as long as one is polite to them.
 
-## Instalar
+## Install
 
-Vá às [Releases](../../releases) e descarregue o `PalmMap.apk` mais recente. Abra-o no
-telemóvel e instale.
+Go to [Releases](../../releases) and download the latest `PalmMap.apk`. Open it on the phone
+and install.
 
-É a aplicação completa: instala por cima da anterior sem perder definições, favoritos nem
-mapas já descarregados. Só precisa de autorizar a instalação de aplicações fora da Play
-Store, no navegador ou no gestor de ficheiros que abrir o ficheiro.
+It is the full app: it installs over the previous one without losing settings, saved places
+or downloaded maps. You only need to allow installing apps from outside the Play Store, in
+the browser or file manager that opens the file.
 
-> Em telemóveis Xiaomi/POCO costuma aparecer um aviso extra de segurança. Se a instalação
-> for bloqueada, desligue a verificação automática de aplicações nas definições de
-> segurança.
+> Xiaomi/POCO phones usually show an extra security warning. If the install is blocked,
+> turn off automatic app scanning in the security settings.
 
-O APK é compilado só para **arm64-v8a**, que é o processador de qualquer telemóvel Android
-atual.
+The APK is built only for **arm64-v8a**, the processor of every current Android phone.
 
-## O que faz
+## What it does
 
-**Mapa** — desenhado, imagem de satélite ou rede de transportes públicos, em tema claro ou
-escuro conforme o telemóvel. Abre onde está; dois toques no botão do GPS põem o mapa a
-andar consigo.
+**Map** — drawn, satellite imagery or the public transport network, in light or dark theme
+following the phone. It opens where you are; a double tap on the GPS button makes the map
+follow you.
 
-**Pesquisa** — moradas e negócios, com os últimos destinos e os sítios guardados à mão.
+**Search** — addresses and businesses, by typing or by voice, with recent destinations and
+saved places at hand.
 
-**Atualiza-se sozinha** — avisa quando há versão nova e instala-a a partir das definições,
-sem ter de ir ao GitHub descarregar o ficheiro à mão.
+**Updates itself** — tells you when there is a new version and installs it from Settings,
+with no trip to GitHub to download the file by hand.
 
-**Percursos** — de carro, a pé, de bicicleta ou de autocarro. Com caminhos alternativos,
-paragens pelo caminho, e a opção de evitar portagens.
+**Routes** — by car, on foot, by bike or by bus. With alternative routes, stops along the
+way, and the option to avoid tolls.
 
-**Navegação** — segue a posição, anuncia as manobras em voz alta, recalcula se sair do
-caminho, avisa de radares, mostra a que velocidade vai, mantém o ecrã aceso e poupa bateria
-nas retas longas.
+**Navigation** — follows your position, reads the manoeuvres aloud, shows the lanes,
+recalculates when you leave the route, warns about speed cameras and the road's speed
+limit, shows your speed, keeps the screen on and saves battery on long straight roads.
 
-**Transportes públicos** — os autocarros a andar no mapa, ao vivo, com o número da linha.
-As paragens perto de si com as horas a que passa o próximo, em tempo real, e as estações de
-comboio e metro com os horários. Trajetos de um ponto ao outro pelos dois. Na Área
-Metropolitana de Lisboa.
+**Public transport** — buses moving on the map, live, with the line number. The stops near
+you with the time of the next bus, in real time, and the train and metro stations with
+their timetables. Trips from one point to another with both. In the Lisbon Metropolitan
+Area.
 
-**Mapas offline** — países inteiros guardados no telemóvel, que funcionam sem rede nenhuma,
-a qualquer zoom e em sítios onde nunca esteve. E o mesmo para os horários de comboio.
+**Offline maps** — whole countries stored on the phone, working with no network at all, at
+any zoom and in places you have never been. And the same for train timetables.
 
-**Fita métrica** — distâncias e áreas medidas em cima do mapa, como no Google Earth.
+**Measuring tape** — distances and areas measured on the map, as in Google Earth.
 
-**Português e inglês** — segue a língua do telemóvel, e muda-se à mão nas definições. A voz
-da navegação, a pesquisa e até o separador decimal acompanham.
+**Portuguese and English** — follows the phone's language, and can be changed by hand in
+Settings. The navigation voice, the search and even the decimal separator follow.
 
-## Mapas sem rede
+## Maps without a network
 
-Nas definições, em "Mapas de países", escolhe-se um país e ele descarrega. A partir daí
-esse país funciona em modo de avião: o GPS não precisa de Internet, e o mapa passa a vir do
-ficheiro em vez de vir da rede.
+In Settings, under "Country maps", pick a country and it downloads. From then on that
+country works in airplane mode: the GPS needs no Internet, and the map comes from the file
+instead of the network.
 
-Portugal continental são 325 MB; São Tomé e Príncipe são 2 MB. A diferença para os mapas
-normais é que estes trazem **geometria** em vez de imagens — é por isso que um país inteiro
-cabe num ficheiro só.
+Mainland Portugal is 325 MB; São Tomé and Príncipe is 2 MB. The difference from normal maps
+is that these carry **geometry** instead of images — that is why a whole country fits in one
+file.
 
-| Já publicados |
+| Already published |
 | --- |
-| Portugal continental, Madeira, Açores, São Tomé e Príncipe, Cabo Verde, Guiné-Bissau, Espanha, Itália, Alemanha, Reino Unido, Irlanda, Países Baixos, Bélgica, Luxemburgo, Suíça, Áustria |
+| Mainland Portugal, Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Spain, Italy, Germany, United Kingdom, Ireland, Netherlands, Belgium, Luxembourg, Switzerland, Austria |
 
-O catálogo tem 90 regiões do mundo todo; geram-se a pedido, com o workflow "Gerar mapa
-offline".
+The catalogue has 90 regions from all over the world; they are generated on request, with
+the "Build offline maps" workflow.
 
-## O que isto não faz, e porquê
+## What it does not do, and why
 
-Vale a pena dizer com todas as letras, porque em quase todos os casos não é falta de
-trabalho — é falta de dados abertos.
+Worth saying plainly, because in almost every case it is not a lack of work — it is a lack
+of open data.
 
-**Trânsito.** Não há. É o que separa mesmo o Google Maps de tudo o resto, e os dados dele e
-do Waze vêm dos telemóveis dos próprios utilizadores, aos milhões. A TomTom e a HERE vendem
-os deles. Não há aqui uma solução engenhosa por encontrar.
+**Live traffic.** There is none. It is what really sets Google Maps apart from everything
+else, and its data and Waze's come from their own users' phones, by the million. TomTom and
+HERE sell theirs. There is no clever solution waiting to be found here.
 
-**Preço das portagens.** Em Portugal não existe fonte aberta com os valores. A aplicação
-evita-as se lhe pedir, mas não lhe diz quanto custam.
+**Reports from people** (accidents, police, roadworks). Same reason: they come from millions
+of phones sending to a company's server.
 
-**Radares móveis.** Não existem em mapa nenhum — mudam de sítio todos os dias. Os fixos, os
-de semáforo e o controlo de velocidade média são avisados, a partir do OpenStreetMap. É uma
-ajuda, não é uma garantia.
+**Toll prices.** Portugal has no open source with the amounts. The app avoids tolls if asked,
+but does not tell you what they cost.
 
-**Horários fora de Lisboa.** Só a Área Metropolitana de Lisboa tem uma fonte aberta com
-horários em tempo real. No resto do país cada operador guarda os seus.
+**Mobile speed cameras.** They are on no map — they move every day. Fixed ones, red-light
+cameras and average-speed checks are announced, from OpenStreetMap. It is a help, not a
+guarantee.
 
-**Tempo real do comboio e do metro.** Destes há o horário — a CP e o Metro de Lisboa
-descarregam-se nas definições e depois funcionam sem rede — mas não há o atraso. Só os
-autocarros da Carris Metropolitana publicam tempo real, e são os únicos que aqui levam ponto
-verde.
+**Timetables outside Lisbon.** Only the Lisbon Metropolitan Area has an open source with
+real-time times. In the rest of the country each operator keeps its own.
 
-**Fertagus, barcos do Tejo, Metro Sul do Tejo e a Carris de Lisboa.** Não têm horário aberto
-que se tenha conseguido encontrar. O Metro Sul do Tejo não publica nada por ser concessão
-privada; dos outros a fonte está por descobrir. Aparecem as estações no mapa, sem horas.
+**Real time for trains and the metro.** For these there is the timetable — CP, Metro de
+Lisboa and Metro Sul do Tejo download in Settings and then work offline — but not the
+delay. Only Carris Metropolitana buses publish real time, and they are the only ones that
+get a green dot here.
 
-**Satélite ao pormenor fora de Portugal.** O Sentinel-2 vê a Terra a 10 metros por pixel, e
-é o melhor que há de graça e à escala mundial. Em Portugal há as ortofotos do Estado, que
-vêem a menos de um metro.
+**Fertagus, Tagus ferries and Carris de Lisboa.** No open timetable could be found. Their
+stations show on the map, without times.
 
-## Como está feito
+**Detailed satellite imagery outside Portugal.** Sentinel-2 sees the Earth at 10 metres per
+pixel, and it is the best there is for free worldwide. In Portugal there are the state's
+orthophotos, which see at under a metre.
 
-| Para quê | Escolha |
+## How it is built
+
+| What for | Choice |
 | --- | --- |
-| Base | React Native 0.86 + Expo SDK 57, em TypeScript |
-| Mapa | [MapLibre](https://maplibre.org/) — livre, sem qualquer ligação ao Google |
-| Mapa (tiles) | [OpenStreetMap](https://www.openstreetmap.org/), [CARTO](https://carto.com/) no tema escuro |
-| Satélite | [Sentinel-2 cloudless da EOX](https://s2maps.eu/), e as [ortofotos da DGT](https://www.dgterritorio.gov.pt/) em Portugal |
-| Transportes (mapa) | [ÖPNVKarte](https://www.öpnvkarte.de/), do memomaps.de |
-| Pesquisa | [Nominatim](https://nominatim.org/) |
-| Negócios e radares | [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) |
-| Percursos | [OSRM](https://project-osrm.org/) nos servidores da [FOSSGIS](https://routing.openstreetmap.de/) |
-| Horários | [API aberta da Carris Metropolitana](https://github.com/carrismetropolitana/api), e GTFS estático dos outros operadores |
-| Mapas offline | [Protomaps](https://protomaps.com/) (PMTiles), recortados do mapa mundial |
+| Base | React Native 0.86 + Expo SDK 57, in TypeScript |
+| Map | [MapLibre](https://maplibre.org/) — free, with no tie to Google |
+| Map tiles | [OpenStreetMap](https://www.openstreetmap.org/), [CARTO](https://carto.com/) in the dark theme, business pins from [OpenFreeMap](https://openfreemap.org/) |
+| Satellite | [EOX Sentinel-2 cloudless](https://s2maps.eu/), and the [DGT orthophotos](https://www.dgterritorio.gov.pt/) in Portugal |
+| Transport map | [ÖPNVKarte](https://www.öpnvkarte.de/), from memomaps.de |
+| Search | [Nominatim](https://nominatim.org/), with [Photon](https://photon.komoot.io/) as a fallback |
+| Businesses, cameras and speed limits | [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) |
+| Routes | [OSRM](https://project-osrm.org/) on the [FOSSGIS](https://routing.openstreetmap.de/) servers |
+| Timetables | [Carris Metropolitana open API](https://github.com/carrismetropolitana/api), and static GTFS from the other operators |
+| Offline maps | [Protomaps](https://protomaps.com/) (PMTiles), cut from the world map |
 
-Não há servidores próprios. O APK compila-se num workflow do GitHub Actions, e os mapas
-offline geram-se noutro — nenhum dos dois precisa de computador nem de conta paga.
+There are no servers of our own. The APK is built in a GitHub Actions workflow, and the
+offline maps are generated in another — neither needs a computer or a paid account.
 
-## Créditos
+## Credits
 
-Os dados do mapa são de quem contribui para o **OpenStreetMap**, sob licença
-[ODbL](https://www.openstreetmap.org/copyright). A imagem de satélite é **Sentinel-2
-cloudless da EOX IT Services GmbH**, com dados Copernicus Sentinel modificados. As
-ortofotos de Portugal são da **Direção-Geral do Território**. O mapa dos transportes é
-**memomaps.de**, sob CC-BY-SA. Os percursos são calculados pelo **OSRM** em servidores da
-**FOSSGIS**. Os horários dos autocarros vêm da **Carris Metropolitana**.
+The map data comes from the **OpenStreetMap** contributors, under the
+[ODbL](https://www.openstreetmap.org/copyright). The satellite imagery is **Sentinel-2
+cloudless by EOX IT Services GmbH**, with modified Copernicus Sentinel data. The Portuguese
+orthophotos are from the **Direção-Geral do Território**. The transport map is
+**memomaps.de**, under CC-BY-SA. Routes are calculated by **OSRM** on **FOSSGIS** servers.
+Bus times come from **Carris Metropolitana**.
 
-Nada disto cobra nada a este projeto. Se algum destes serviços lhe for útil, considere
-contribuir para eles.
+None of this charges this project anything. If any of these services is useful to you,
+consider contributing to them.
 
-## Desenvolvimento
+## Development
 
 ```bash
 npm install
 npx expo start
 ```
 
-O MapLibre traz código nativo, por isso **o Expo Go não serve** — é preciso uma
-*development build*:
+MapLibre ships native code, so **Expo Go will not do** — you need a *development build*:
 
 ```bash
-npx expo run:android        # com o Android Studio instalado
+npx expo run:android        # with Android Studio installed
 ```
 
-Antes de dar trabalho por terminado:
+Before calling work done:
 
 ```bash
 npx tsc --noEmit
 ```
 
-O [`CLAUDE.md`](CLAUDE.md) explica o porquê de cada decisão do projeto, incluindo os erros
-já cometidos e o que se aprendeu com eles. Se vai mexer no código, comece por aí.
+[`CLAUDE.md`](CLAUDE.md) explains the reason behind every decision in the project,
+including the mistakes already made and what was learnt from them. If you are going to
+touch the code, start there. (It is still in Portuguese; the translation is under way.)

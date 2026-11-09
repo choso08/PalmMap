@@ -1,4 +1,4 @@
-name: Gerar mapa offline
+name: Build offline maps
 
 # Recorta países do mapa mundial do Protomaps e publica os ficheiros numa
 # Release, para a aplicação os poder descarregar e usar sem rede.
@@ -117,7 +117,7 @@ jobs:
 
           # A Release tem de existir antes de se lhe enviar seja o que for.
           if ! gh release view mapas -R "$REPO" > /dev/null 2>&1; then
-            gh release create mapas -R "$REPO" --title "Mapas offline" --notes "A gerar…"
+            gh release create mapas -R "$REPO" --title "Offline maps" --notes "Generating…"
           fi
 
           echo '{"regioes":[' > manifesto.tmp
@@ -248,9 +248,9 @@ jobs:
           gh release upload mapas mapas.json -R "$REPO" --clobber
 
           gh release edit mapas -R "$REPO" \
-            --title "Mapas offline" \
-            --notes "Mapas vetoriais para usar sem rede, recortados do mapa mundial do Protomaps.
+            --title "Offline maps" \
+            --notes "Vector maps for use without a network, cut from the Protomaps world map.
 
-          Cada país é um ficheiro só. A aplicação descarrega-os nas definições, em \"Mapas de países\".
+          Each country is a single file. The app downloads them in Settings, under \"Country maps\".
 
           $(jq -r '.regioes[] | "- \(.nome): \(.bytes/1048576 | floor) MB (zoom \(.maxzoom))"' mapas.json)"

@@ -1,4 +1,4 @@
-name: Gerar horários
+name: Build timetables
 
 # Converte os horários em GTFS estático num ficheiro compacto e publica-o numa
 # Release, para a aplicação o descarregar e usar — tal como o workflow dos mapas
@@ -127,7 +127,7 @@ jobs:
 
           if ! gh release view horarios -R "$REPO" > /dev/null 2>&1; then
             gh release create horarios -R "$REPO" \
-              --title "Horários" --notes "A gerar…"
+              --title "Timetables" --notes "Generating…"
           fi
 
           for FICHEIRO in horarios/*.json; do
@@ -152,11 +152,11 @@ jobs:
           gh release upload horarios horarios.json -R "$REPO" --clobber
 
           gh release edit horarios -R "$REPO" \
-            --title "Horários" \
-            --notes "Horários de comboio, metro e barco, convertidos do GTFS estático de cada operador.
+            --title "Timetables" \
+            --notes "Train, metro, ferry and light-rail timetables, converted from each operator's static GTFS.
 
-          A aplicação descarrega-os nas definições, em \"Horários\". São ficheiros pequenos e funcionam sem rede.
+          The app downloads them in Settings, under \"Timetables\". They are small files and work offline.
 
-          Válidos até à data indicada — passado isso é preciso correr o workflow outra vez.
+          Valid until the date shown — after that the workflow has to run again.
 
-          $(jq -r '.horarios[] | "- \(.nome): \(.estacoes) estações, \(.bytes/1024 | floor) KB, até \(.fim)"' horarios.json)"
+          $(jq -r '.horarios[] | "- \(.nome): \(.estacoes) stations, \(.bytes/1024 | floor) KB, until \(.fim)"' horarios.json)"

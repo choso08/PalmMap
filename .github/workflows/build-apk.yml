@@ -1,4 +1,4 @@
-name: Compilar APK
+name: Build APK
 
 # Compila a aplicação nos servidores do GitHub e publica o APK numa Release,
 # para poder ser descarregado e instalado diretamente no telemóvel.
@@ -110,7 +110,7 @@ jobs:
           fi
 
           if [ ! -s MUDANCAS.md ]; then
-            echo "- Sem alterações de código desde a compilação anterior." > MUDANCAS.md
+            echo "- No code changes since the previous build." > MUDANCAS.md
           fi
 
           echo "ANTERIOR=$ANTERIOR" >> "$GITHUB_ENV"
@@ -126,20 +126,20 @@ jobs:
           VERSAO=$(jq -r '.expo.version' app.json)
 
           {
-            echo "## O que mudou"
+            echo "## What changed"
             echo
             cat MUDANCAS.md
             echo
-            echo "## Instalar"
+            echo "## Install"
             echo
-            echo "Descarregue o \`PalmMap.apk\` aqui em baixo e abra-o no telemóvel."
-            echo "É a aplicação completa: instala por cima da anterior sem perder as"
-            echo "definições, os favoritos nem os mapas já descarregados."
+            echo "Download \`PalmMap.apk\` below and open it on the phone."
+            echo "It is the full app: it installs over the previous one without losing"
+            echo "settings, saved places or downloaded maps."
             echo
-            echo "Versão $VERSAO · $SIZE · início do SHA-256: \`$SHA\`"
+            echo "Version $VERSAO · $SIZE · SHA-256 starts with \`$SHA\`"
             if [ -n "$ANTERIOR" ]; then
               echo
-              echo "Alterações a detalhe: https://github.com/${{ github.repository }}/compare/$ANTERIOR...apk-${{ github.run_number }}"
+              echo "Full changes: https://github.com/${{ github.repository }}/compare/$ANTERIOR...apk-${{ github.run_number }}"
             fi
           } > NOTAS.md
 

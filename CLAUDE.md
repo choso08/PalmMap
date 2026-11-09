@@ -74,9 +74,14 @@ telemóvel ainda:
 - **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
   outros. Partes antigas deste ficheiro ainda dizem o contrário.
 
+**Ideia para mais tarde (do autor): um "modo trilho"**, coisa que o Google Maps não tem — os postes
+de sinalização dos trilhos (`tourism=information` + `information=guidepost`, como os "TB.4xx" de
+Monsanto, que saíram dos pinos normais por serem lixo fora desse modo), os painéis, os percursos
+pedestres e de bicicleta marcados. Não começar sem o autor pedir.
+
 **A tradução para inglês está a meio** (serviços, tipos, utilitários, `settings.tsx` e todos os
-componentes menos o `MapView.tsx` já em inglês; o `App.tsx`, o `MapView.tsx`, os scripts, o
-README e este ficheiro ainda não).
+componentes menos o `MapView.tsx`, o README e os textos que os workflows publicam nas Releases já
+em inglês; o `App.tsx`, o `MapView.tsx`, os scripts e este ficheiro ainda não).
 
 ## Objetivo do projeto
 
