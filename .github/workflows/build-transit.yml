@@ -40,6 +40,9 @@ on:
       dias:
         description: 'Quantos dias de horário guardar'
         default: '60'
+      sondar:
+        description: 'Probe mode only: which checks to run (arrivals vehicles light_rail satellite mts). Empty runs all.'
+        default: ''
 
 permissions:
   contents: write
@@ -73,7 +76,7 @@ jobs:
       # stations and which satellite editions exist. Publishes nothing.
       - name: Probe services
         if: inputs.modo == 'sondar'
-        run: python3 scripts/probe.py
+        run: python3 scripts/probe.py ${{ inputs.sondar }}
 
       - name: Sondar as passagens dos autocarros
         if: inputs.modo == 'passagens'

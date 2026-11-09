@@ -1,3 +1,4 @@
+import { lineLabel } from './transit';
 import axios from 'axios';
 
 import {
@@ -90,7 +91,14 @@ export async function liveVehicles(): Promise<LiveVehicle[]> {
   for (const vehicle of Array.isArray(data) ? data : []) {
     const latitude = toNumber(vehicle.lat);
     const longitude = toNumber(vehicle.lon);
-    const reportedAt = toNumber(vehicle.timestamp);
+    const rawTimestamp = toNumber(vehicle.timestamp);
+    // **Milliseconds since the TML hub, seconds before.** Measured on 9
+    // November 2026: every timestamp was ~1.79e12, and read as seconds every
+    // bus looked like it came from the future and was dropped — an empty map
+    // with no error at all. Anything above 1e12 is milliseconds; a value in
+    // seconds will not reach that for another thirty thousand years.
+    const reportedAt =
+      rawTimestamp !== null && rawTimestamp > 1e12 ? rawTimestamp / 1000 : rawTimestamp;
 
     // Without a position it is a fleet record, not a bus on the street.
     if (latitude === null || longitude === null || reportedAt === null || !vehicle.id) {
@@ -107,7 +115,7 @@ export async function liveVehicles(): Promise<LiveVehicle[]> {
 
     moving.push({
       id: vehicle.id,
-      line: vehicle.line_id ?? vehicle.route_id ?? '—',
+      line: lineLabel(vehicle.line_id ?? vehicle.route_id),
       coordinates: { latitude, longitude },
       bearing: toNumber(vehicle.bearing),
       // The service sends metres per second; everyone's speedometer is in

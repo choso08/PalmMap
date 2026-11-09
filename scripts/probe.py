@@ -120,8 +120,39 @@ def satellite():
         print(sorted(set(re.findall(r"wms/([a-zA-Z0-9_]+)", body.decode("utf-8", "replace")))))
 
 
+def mts():
+    section("METRO SUL DO TEJO WEBSITE (frequencies)")
+    import re
+    seen = set()
+    queue = ["https://www.mts.pt/", "https://mts.pt/"]
+    while queue and len(seen) < 25:
+        url = queue.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        status, ctype, body = get(url, 40)
+        print(f"\n--- {url} -> {status} {ctype} {len(body)} bytes")
+        if status != 200 or "html" not in ctype:
+            continue
+        html = body.decode("utf-8", "replace")
+        for href in re.findall(r'href="([^"#]+)"', html):
+            full = href if href.startswith("http") else "https://www.mts.pt" + ("" if href.startswith("/") else "/") + href
+            if "mts.pt" in full and re.search(r"hor|freq|linha|rede|servi|pdf|tarif", full, re.I) and full not in seen:
+                queue.append(full)
+        text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html, flags=re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
+        for m in re.finditer(r"(.{0,160}(?:minutos|frequ|intervalo|\b\d{1,2}h\d{2}\b|\b\d{1,2}:\d{2}\b).{0,160})", text, re.I):
+            print("  >", m.group(1).strip())
+    print("visited:", sorted(seen))
+
+
 if __name__ == "__main__":
-    for step in (arrivals, vehicles, light_rail, satellite):
+    import sys
+    steps = (arrivals, vehicles, light_rail, satellite, mts)
+    if len(sys.argv) > 1:
+        steps = [globals()[n] for n in sys.argv[1:]]
+    for step in steps:
         try:
             step()
         except Exception as e:  # noqa: BLE001

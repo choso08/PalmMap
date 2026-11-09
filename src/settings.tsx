@@ -239,14 +239,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             // ganho definições novas desde a última vez que se guardou.
             ...DEFAULT_SETTINGS,
             ...JSON.parse(stored),
-            // O tipo de mapa é a única definição que **não** se lembra, e é de
-            // propósito: é uma escolha do momento, não uma preferência para a
-            // vida. Vê-se o satélite para espreitar um terreno e os transportes
-            // para saber por onde passa o autocarro — e depois quer-se o mapa
-            // outra vez. Guardá-lo fazia a aplicação abrir dias mais tarde nos
-            // Transportes, com os autocarros a pedir dados de vinte em vinte
-            // segundos, só porque foi ali que se fechou da última vez.
-            mapType: DEFAULT_SETTINGS.mapType,
+            // The map type is remembered too, at the author's request: closing
+            // on satellite and reopening on the drawn map was the wrong way
+            // round. An unknown value (from an older or newer version) falls
+            // back to the drawn map.
+            mapType: MAP_TYPES.some((m) => m.id === JSON.parse(stored).mapType)
+              ? JSON.parse(stored).mapType
+              : DEFAULT_SETTINGS.mapType,
           });
         }
       } catch {

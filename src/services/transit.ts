@@ -93,6 +93,20 @@ async function carrisGet<T>(path: string, timeout?: number): Promise<T> {
   }
 }
 
+/**
+ * The line number as painted on the bus: `[YA15B]3527` → `3527`.
+ *
+ * Since Carris started taking its data from the TML hub (August 2026), line,
+ * route, pattern and trip ids carry one or more bracketed prefixes — seen in a
+ * probe of the real API on 9 November 2026. They mean something to TML's
+ * systems and nothing to someone at the stop. Only the label loses them: the
+ * ids used for matching (`pattern_id`, `trip_id`) stay as they come.
+ */
+export function lineLabel(raw: string | null | undefined): string {
+  const clean = (raw ?? '').replace(/^(\[[^\]]*\])+/, '').trim();
+  return clean || '—';
+}
+
 /** A stop ready to show on screen. */
 export interface TransitStop {
   id: string;
@@ -318,7 +332,7 @@ export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArri
     }
 
     upcoming.push({
-      line: arrival.line_id ?? arrival.route_id ?? '—',
+      line: lineLabel(arrival.line_id ?? arrival.route_id),
       destination: arrival.headsign ?? '',
       minutes: Math.max(0, minutesLeft),
       time: clockOf(when),
@@ -766,7 +780,7 @@ export async function planBusTrips(
         trips.push({
           tripId: key,
           kind: 'bus',
-          line: arrival.line_id ?? arrival.route_id ?? '—',
+          line: lineLabel(arrival.line_id ?? arrival.route_id),
           headsign: arrival.headsign ?? '',
           from: stop,
           to: arrivalPass.stop,
