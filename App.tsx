@@ -23,16 +23,16 @@ import {
 } from './src/services/update';
 import { guarded, installCrashHandler } from './src/services/crash';
 
-/** Quando se procurou versão nova pela última vez. Ver o efeito que o usa. */
+/** When a new version was last looked for. See the effect that uses it. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
 
 /**
- * A versão que se mandou embora, para o aviso não voltar a aparecer.
+ * The version that was dismissed, so the notice does not come back.
  *
- * Guarda-se o **número** da compilação adiada e não um sim-ou-não: assim o aviso
- * cala-se para aquela versão e volta a falar quando sair a seguinte, que é o
- * comportamento que se quer. Um aviso que reaparece a cada arranque deixa de ser
- * lido ao fim de dois dias — é a mesma lição dos avisos de radar.
+ * The **number** of the postponed build is stored, not a yes-or-no: the notice
+ * goes quiet for that version and speaks again when the next one comes out,
+ * which is the behaviour wanted. A notice that reappears at every start stops
+ * being read after two days — the same lesson as the camera warnings.
  */
 const UPDATE_DISMISSED_KEY = 'palmmap.versaoAdiada';
 import { MapView, type MapViewRef } from './src/components/MapView';
@@ -140,21 +140,21 @@ import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry
 import { speak, stopSpeaking } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 
-// **Antes de tudo o resto.** Um erro que aconteça a carregar os módulos abaixo
-// já tem quem o escreva — e é precisamente aí que um erro não tem mais nenhuma
-// forma de se dar a conhecer. Ver `src/services/crash.ts`.
+// **Before everything else.** An error while loading the modules below already
+// has someone to write it down — and that is exactly where an error has no other
+// way of making itself known. See `src/services/crash.ts`.
 installCrashHandler();
 
-// Identifica-nos junto do OpenStreetMap logo no arranque, antes de qualquer tile.
+// Identifies us to OpenStreetMap right at start-up, before any tile.
 configureTileRequests();
 
-/** As definições têm de envolver tudo, porque o tema sai delas. */
+/** Settings have to wrap everything, because the theme comes from them. */
 export default function App() {
   return (
     <SafeAreaProvider>
       {/*
-        Por fora de tudo: um erro a desenhar o ecrã passa a ficar à vista em vez
-        de fechar a aplicação sem explicação nenhuma. Ver `ErrorBoundary`.
+        Outside everything: an error while drawing the screen shows instead of
+        closing the app with no explanation. See `ErrorBoundary`.
       */}
       <ErrorBoundary>
         <SettingsProvider>
@@ -168,8 +168,8 @@ export default function App() {
 function PalmMap() {
   const theme = useTheme();
   const strings = useT();
-  // As margens do sistema: barra de estado, câmara ao centro e barra de
-  // navegação. No Android é preciso pedi-las — o mapa desenha por baixo delas.
+  // The system margins: status bar, centre camera and navigation bar. On
+  // Android they have to be asked for — the map draws under them.
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
@@ -178,46 +178,46 @@ function PalmMap() {
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   /**
-   * A versão nova, quando há.
+   * The new version, when there is one.
    *
-   * Vive aqui e não dentro das definições porque marca o botão das definições
-   * com um ponto — quem não abrir as definições tem de ver na mesma que há
-   * novidade.
+   * It lives here and not inside Settings because it marks the Settings button
+   * with a dot — someone who never opens Settings still has to see there is
+   * something new.
    */
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   /**
-   * Se a versão nova se pode descarregar sozinha: só em Wi-Fi.
+   * Whether the new version may download by itself: only on Wi-Fi.
    *
-   * Lê-se **uma vez, ao procurar**, e não a cada desenho: mudar de rede a meio
-   * de uma descarga não a deve mandar recomeçar nem parar.
+   * Read **once, when checking**, not on every render: changing network in the
+   * middle of a download must not restart or stop it.
    */
   const [updateOnWifi, setUpdateOnWifi] = useState(false);
-  /** A versão que já se mandou embora. 0 quando ainda não se mandou nenhuma. */
+  /** The version already dismissed. 0 when none was. */
   const [updateDismissed, setUpdateDismissed] = useState(0);
   /** The installer was opened last time and the new version is not running. */
   const [installUnfinished, setInstallUnfinished] = useState(false);
-  /** Painel das paragens e horas de passagem. */
+  /** The stops and arrival times panel. */
   const [transitVisible, setTransitVisible] = useState(false);
   /**
-   * Fita métrica: quando está ligada, cada toque no mapa põe um ponto em vez de
-   * mostrar a dica. É a única coisa que muda o que um toque faz, por isso vale a
-   * pena que se note bem que está ligada.
+   * Measuring tape: while on, each tap on the map adds a point instead of
+   * showing the hint. It is the only thing that changes what a tap does, so it is
+   * worth making it obvious that it is on.
    */
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<Coordinates[]>([]);
   /**
-   * Medir ao longo de uma linha ou medir uma forma fechada.
+   * Measure along a line or measure a closed shape.
    *
-   * São duas coisas diferentes: o caminho de casa ao trabalho não se fecha, e
-   * fechá-lo sozinho dava um número errado a quem só queria a distância.
+   * Two different things: the way from home to work does not close, and closing
+   * it by itself gave a wrong number to someone who only wanted the distance.
    */
   const [measureMode, setMeasureMode] = useState<MeasureMode>('linha');
   /**
-   * As paragens perto de si, no mapa dos transportes.
+   * The stops near you, on the transport map.
    *
-   * Vivem aqui e não no painel porque os pinos têm de aparecer no mapa **só por
-   * se estar no mapa dos transportes** — sem ser preciso abrir o painel das
-   * horas para os ver.
+   * They live here and not in the panel because the pins have to show on the map
+   * **just by being on the transport map** — without opening the arrivals panel
+   * to see them.
    */
   const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
   // Every stop in view on the transport map, so a tap on any of them opens its
@@ -225,48 +225,48 @@ function PalmMap() {
   const [mapStops, setMapStops] = useState<TransitStop[]>([]);
   const [transitLoading, setTransitLoading] = useState(false);
   const [transitError, setTransitError] = useState<string | null>(null);
-  /** Fora da Área Metropolitana de Lisboa, onde não há dados abertos. */
+  /** Outside the Lisbon Metropolitan Area, where there is no open data. */
   const [transitOutside, setTransitOutside] = useState(false);
   /**
-   * Estações de comboio, metro, metro de superfície e barco perto de si.
+   * Train, metro, light-rail and ferry stations near you.
    *
-   * Destas só se sabe onde ficam. Aparecem na mesma porque saber que há uma
-   * estação de comboio ali é metade da questão — e é o primeiro passo para um
-   * dia haver horários também.
+   * They show even without timetables, because knowing there is a station there
+   * is half the question — and the first step towards one day having its times.
    */
   const [transitStations, setTransitStations] = useState<TransitStation[]>([]);
 
   /**
-   * Os autocarros a andar, e se o zoom já dá para os mostrar.
+   * The moving buses, and whether the zoom is close enough to show them.
    *
-   * O zoom vive numa `ref` (o `viewport`), que um efeito não pode observar. Por
-   * isso guarda-se aqui só o **booleano** de estar acima do limite: muda duas
-   * vezes numa sessão em vez de a cada arrastar do dedo.
+   * The zoom lives in a `ref` (the `viewport`), which an effect cannot watch. So
+   * only the **boolean** of being above the threshold is kept here: it changes
+   * twice a session instead of on every drag.
    */
   const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
   const [vehicleZoomOk, setVehicleZoomOk] = useState(false);
   /**
-   * O meio do mapa, em texto e arredondado a três casas — uns cem metros.
+   * The middle of the map, as text and rounded to three decimals — about a
+   * hundred metres.
    *
-   * Pela mesma razão do booleano acima: o `viewport` é uma `ref` e um efeito não
-   * a consegue observar. É isto que faz as paragens e as estações seguirem o
-   * mapa em vez do GPS.
+   * For the same reason as the boolean above: the `viewport` is a `ref` and an
+   * effect cannot watch it. This is what makes stops and stations follow the map
+   * instead of the GPS.
    */
   const [mapCentre, setMapCentre] = useState<string | null>(null);
-  /** A paragem aberta. Vive aqui porque se abre da lista **ou** do mapa. */
+  /** The open stop. It lives here because it opens from the list **or** the map. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
   /**
-   * A última posição, fora do ciclo de desenho.
+   * The last position, outside the render cycle.
    *
-   * O percurso lê-a daqui em vez de depender do estado. Se dependesse, cada
-   * leitura do GPS — de dez em dez segundos — mandava um pedido novo ao OSRM
-   * enquanto houvesse um destino escolhido.
+   * The route reads it from here instead of depending on state. If it depended on
+   * it, every GPS reading — every ten seconds — sent a new request to OSRM while
+   * a destination was chosen.
    */
   const userLocationRef = useRef<Coordinates | null>(null);
-  /** Passa a verdadeiro na primeira posição. É o que destranca o percurso. */
+  /** Becomes true on the first position. It is what unlocks the route. */
   const [hasLocation, setHasLocation] = useState(false);
 
   const [destination, setDestination] = useState<Place | null>(null);
@@ -281,19 +281,18 @@ function PalmMap() {
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
   /**
-   * Paragens pelo caminho, pela ordem por que se passa por elas.
+   * Stops along the way, in the order they are passed.
    *
-   * "Passa pela farmácia e depois vai para casa" — o destino continua a ser o
-   * destino, estas são os pontos por onde o percurso tem de ir antes de lá
-   * chegar.
+   * "Go by the pharmacy and then home" — the destination is still the
+   * destination; these are the points the route has to go through before it.
    */
   const [waypoints, setWaypoints] = useState<Place[]>([]);
   /**
-   * Os caminhos que o serviço devolveu, e qual está escolhido.
+   * The routes the service returned, and which one is chosen.
    *
-   * O OSRM sabe dar dois ou três caminhos diferentes para o mesmo destino. O
-   * primeiro é o que ele considera melhor, mas quem conduz é que sabe qual
-   * prefere — daí serem todos guardados e desenhados.
+   * OSRM can give two or three different routes to the same destination. The
+   * first is the one it considers best, but the driver knows which they prefer —
+   * so they are all kept and drawn.
    */
   const [routeOptions, setRouteOptions] = useState<Route[]>([]);
   const [routeIndex, setRouteIndex] = useState(0);
@@ -303,11 +302,11 @@ function PalmMap() {
     setRouteIndex(0);
   }, []);
   /**
-   * Trajetos de autocarro, quando o meio escolhido são os transportes.
+   * Bus trips, when the chosen mode is public transport.
    *
-   * Ficam à parte do `routeOptions` de propósito: um trajeto de autocarro não é
-   * um percurso desenhado no mapa, é uma lista de horas. Misturá-los obrigava
-   * tudo o que lê o percurso a saber distinguir os dois.
+   * Kept apart from `routeOptions` on purpose: a bus trip is not a route drawn on
+   * the map, it is a list of times. Mixing them would force everything that
+   * reads the route to tell the two apart.
    */
   const [transitTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
   const [transitTripIndex, setTransitTripIndex] = useState(0);
@@ -316,46 +315,46 @@ function PalmMap() {
   const [stepsVisible, setStepsVisible] = useState(false);
 
   const [category, setCategory] = useState<SearchCategory | null>(null);
-  /** Negócios da categoria escolhida (botões) ou da área visível do mapa. */
+  /** Businesses from the chosen category (buttons) or the visible map area. */
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  /** Ponto largado no mapa com um toque longo, ainda sem percurso traçado. */
+  /** Point dropped on the map with a long press, with no route drawn yet. */
   const [droppedPin, setDroppedPin] = useState<Coordinates | null>(null);
 
-  /** Sítios guardados, lidos do telemóvel ao arrancar. */
+  /** Saved places, read from the phone at start-up. */
   const [favourites, setFavourites] = useState<Place[]>([]);
-  /** Últimos destinos, para não se ter de escrever a mesma morada outra vez. */
+  /** Recent destinations, so the same address does not have to be typed again. */
   const [recents, setRecents] = useState<Place[]>([]);
 
-  /** Radares em cima do percurso, pela ordem por que se passa por eles. */
+  /** Speed cameras on the route, in the order they are passed. */
   const [cameras, setCameras] = useState<SpeedCamera[]>([]);
-  /** O radar de que se está a avisar neste momento, se houver algum. */
+  /** The camera being warned about right now, if any. */
   const [cameraAhead, setCameraAhead] = useState<{
     camera: SpeedCamera;
     meters: number;
   } | null>(null);
-  /** Radares já anunciados, para não repetir o mesmo a cada leitura do GPS. */
+  /** Cameras already announced, so the same one is not repeated on every GPS reading. */
   const warnedCameras = useRef(new Set<number>());
 
   /**
-   * Verdadeiro quando a manobra seguinte ainda vai longe e se pode ler o GPS
-   * menos vezes.
+   * True when the next manoeuvre is still far and the GPS can be read less often.
    *
-   * Mudar isto volta a subscrever o GPS, por isso não pode andar a saltar: as
-   * duas distâncias são de propósito diferentes, para não ficar a ligar e a
-   * desligar em cima do limite.
+   * Changing this resubscribes the GPS, so it must not flip back and forth: the
+   * two distances are different on purpose, so it does not switch on and off
+   * right at the threshold.
    */
   const [slowGps, setSlowGps] = useState(false);
 
   /**
-   * A câmara anda com a pessoa, fora da navegação. Liga-se com dois toques no
-   * botão do GPS e desliga-se ao arrastar o mapa — ver `handleLocatePress`.
+   * The camera moves with the person, outside navigation. Turned on with a
+   * double tap on the GPS button and off by dragging the map — see
+   * `handleLocatePress`.
    */
   const [followUser, setFollowUser] = useState(false);
-  /** Quando foi o último toque no botão do GPS, para reconhecer o toque duplo. */
+  /** When the GPS button was last tapped, to recognise a double tap. */
   const lastLocateTap = useRef(0);
 
-  /** Navegação a decorrer: segue a posição e anuncia as manobras. */
+  /** Navigation running: follows the position and announces the manoeuvres. */
   const [navigating, setNavigating] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [nextStep, setNextStep] = useState<RouteStep | null>(null);
@@ -366,10 +365,10 @@ function PalmMap() {
   const [distanceToStep, setDistanceToStep] = useState(0);
   const [remaining, setRemaining] = useState({ meters: 0, seconds: 0 });
   /**
-   * A que velocidade se vai, em km/h. `null` enquanto o GPS não a souber dizer.
+   * The speed, in km/h. `null` while the GPS cannot tell it.
    *
-   * Vem de graça dentro das leituras da navegação, por isso não há aqui
-   * subscrição nenhuma a mais — ver `watchPosition`.
+   * It comes free inside the navigation readings, so there is no extra
+   * subscription here — see `watchPosition`.
    */
   const [speedKmh, setSpeedKmh] = useState<number | null>(null);
   /** The speed limit of the road being driven, in km/h, during navigation. */
@@ -381,27 +380,28 @@ function PalmMap() {
   const limitsBusy = useRef(false);
   const limitsFailedAt = useRef(0);
   /**
-   * Vai-se a andar depressa o suficiente para isto ser um carro.
+   * Moving fast enough for this to be a car.
    *
-   * É o que liga o velocímetro fora da navegação e acelera as leituras do GPS.
-   * A pé ou parado fica desligado, e aí o GPS volta ao ritmo lento de sempre —
-   * é isso que impede esta funcionalidade de custar bateria a quem não a usa.
+   * It is what turns on the speedometer outside navigation and speeds up the GPS
+   * readings. On foot or standing still it is off, and the GPS goes back to its
+   * usual slow pace — that is what stops this feature costing battery to someone
+   * who does not use it.
    */
   const [drivingGps, setDrivingGps] = useState(false);
-  /** Quando se viu velocidade de carro pela última vez. Ver `DRIVING_LINGER_MS`. */
+  /** When car speed was last seen. See `DRIVING_LINGER_MS`. */
   const lastDrivingAt = useRef(0);
   /**
-   * O ritmo desta viagem: quantas vezes mais tempo se está mesmo a levar do que
-   * o que o percurso previa. `null` enquanto ainda não se andou o suficiente
-   * para ter algum sentido — ver `PACE_MIN_MS`.
+   * This trip's pace: how many times longer it is really taking than the route
+   * predicted. `null` until enough has been travelled for it to mean anything —
+   * see `PACE_MIN_MS`.
    */
   const [livePace, setLivePace] = useState<number | null>(null);
   /**
-   * De onde se começou a contar o ritmo: a hora, o que já se tinha andado e o
-   * que o percurso previa até ali.
+   * Where the pace started being counted: the time, the distance already done
+   * and what the route predicted up to there.
    *
-   * Volta a zero a cada recálculo, porque o percurso novo tem outra distância
-   * total e as contas de "quanto já andei" deixariam de bater certo.
+   * Reset on every recalculation, because the new route has another total
+   * distance and the "how far have I gone" sums would stop adding up.
    */
   const paceStart = useRef<{
     atMs: number;
@@ -409,49 +409,48 @@ function PalmMap() {
     assumedSeconds: number;
   } | null>(null);
   /**
-   * O ritmo medido e o meio de transporte em que foi medido, para ficar
-   * guardado quando a viagem terminar.
+   * The measured pace and the travel mode it was measured in, to be stored when
+   * the trip ends.
    *
-   * Numa `ref` e com o meio lá dentro de propósito: quem guarda é o efeito que
-   * vê a navegação acabar, e esse não pode depender das definições sem voltar a
-   * correr a cada mudança delas.
+   * In a `ref` and with the mode inside on purpose: the one storing it is the
+   * effect that sees navigation end, and that one cannot depend on the settings
+   * without running again on every change to them.
    */
   const paceToLearn = useRef<{ mode: TravelMode; factor: number } | null>(null);
-  /** Até que ponto do percurso já se andou. O mapa apaga o que fica para trás. */
+  /** How far along the route the person is. The map fades what is behind. */
   const [progressIndex, setProgressIndex] = useState(0);
-  /** Quantas leituras seguidas fora do percurso já se viram. */
+  /** How many readings in a row have been off the route. */
   const offRouteStrikes = useRef(0);
-  /** Manobras já anunciadas, para não repetir a mesma vezes sem conta. */
+  /** Manoeuvres already announced, so the same one is not repeated endlessly. */
   const announced = useRef(new Set<string>());
   const [placesError, setPlacesError] = useState<string | null>(null);
 
   /**
-   * Mostra a dica de como marcar um ponto, durante uns segundos.
+   * Shows the hint on how to drop a point, for a few seconds.
    *
-   * Aparece só quando a pessoa toca no mapa e não acontece nada — que é
-   * precisamente quando faz falta saber que o toque tem de ser longo. Estar
-   * sempre no ecrã só tapava o mapa a quem já sabe.
+   * It only appears when the person taps the map and nothing happens — which is
+   * exactly when it helps to know the press has to be long. Always on screen it
+   * only covered the map for those who already know.
    */
   const [hintVisible, setHintVisible] = useState(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
   /**
-   * As paragens perto, sempre que se está no mapa dos transportes.
+   * The stops nearby, whenever the transport map is on.
    *
-   * **Perto do meio do mapa, e não perto do GPS.** Isto esteve preso à posição
-   * do telemóvel, e era a mesma avaria que os botões de categoria já tinham
-   * tido: arrastar o mapa para outra terra não trazia paragem nenhuma de lá, e
-   * quem abrisse o painel sem o GPS ter respondido — dentro de casa, por
-   * exemplo — não via nada de todo, nem paragens nem horas de passagem. O que
-   * se está a ver é que manda; a posição fica como recurso para quando ainda
-   * não houve mapa nenhum.
+   * **Near the middle of the map, not near the GPS.** This was tied to the
+   * phone's position, the same fault the category buttons had already had:
+   * dragging the map to another town brought no stops from there, and whoever
+   * opened the panel before the GPS answered — indoors, for example — saw
+   * nothing at all, neither stops nor times. What is in view rules; the position
+   * is the fallback for when there has been no map yet.
    *
-   * **Depende das coordenadas arredondadas, não do objeto da posição.** O GPS
-   * devolve um objeto novo de dez em dez segundos, e depender dele fazia isto
-   * correr outra vez a cada leitura — a lista reordenava-se debaixo do dedo e
-   * os pinos do mapa eram redesenhados sem nada ter mudado. Arredondado a três
-   * casas são uns cem metros, que é a escala a que a resposta muda mesmo.
+   * **It depends on the rounded coordinates, not on the position object.** The
+   * GPS returns a new object every ten seconds, and depending on it made this run
+   * again on every reading — the list reordered under the finger and the map pins
+   * were redrawn with nothing changed. Rounded to three decimals is about a
+   * hundred metres, the scale at which the answer really changes.
    */
   const perto =
     mapCentre ??
@@ -472,8 +471,8 @@ function PalmMap() {
     setTransitLoading(true);
     void (async () => {
       try {
-        // As estações vêm ao mesmo tempo que as paragens: são quatro listas
-        // curtas e ficam em memória a seguir ao primeiro pedido.
+        // The stations come together with the stops: four short lists, kept in
+        // memory after the first request.
         const [encontradas, estacoes] = await Promise.all([
           nearbyStops({ latitude: lat, longitude: lon }),
           nearbyStations({ latitude: lat, longitude: lon }).catch(() => []),
@@ -482,9 +481,9 @@ function PalmMap() {
           return;
         }
         setTransitStations(estacoes);
-        // Os três estados repõem-se sempre, e não só quando correm mal: sem
-        // isso, abrir o painel fora de Lisboa e depois entrar na área deixava
-        // o aviso de "não há horários" por cima de uma lista cheia.
+        // The three states are always reset, not only when something fails: without
+        // that, opening the panel outside Lisbon and then entering the area left the
+        // "no timetables" notice on top of a full list.
         setTransitOutside(encontradas === null);
         setTransitStops(encontradas ?? []);
         setTransitError(null);
@@ -509,17 +508,16 @@ function PalmMap() {
   }, [settings.mapType, perto]);
 
   /**
-   * Os autocarros a andar, no mapa dos transportes.
+   * The moving buses, on the transport map.
    *
-   * **Três travões, e nenhum é decorativo.** A resposta é a frota inteira, 1,1 MB
-   * de cada vez, porque o serviço não tem filtro por área nem por linha. Por isso
-   * só se pede quando se está mesmo a olhar para os transportes (`mapType`), com
-   * o mapa aproximado ao ponto de os autocarros se distinguirem uns dos outros
-   * (`vehicleZoomOk`), e com a definição ligada.
+   * **Three brakes, and none is decoration.** The answer is the whole fleet,
+   * 1.1 MB each time, because the service has no filter by area or line. So it is
+   * only asked for when actually looking at transport (`mapType`), with the map
+   * zoomed in enough to tell buses apart (`vehicleZoomOk`), and with the setting
+   * on.
    *
-   * Falhar aqui não merece mensagem nenhuma: ficam os autocarros da última vez e
-   * a atualização seguinte tenta outra vez. Isto é informação a mais no mapa,
-   * não é o mapa.
+   * A failure here is not worth a message: the buses from last time stay and the
+   * next update tries again. This is extra information on the map, not the map.
    */
   useEffect(() => {
     if (settings.mapType !== 'transit' || !settings.showVehicles || !vehicleZoomOk) {
@@ -536,7 +534,7 @@ function PalmMap() {
           setVehicles(lista);
         }
       } catch {
-        // Ver acima: sem posições novas, ficam as antigas.
+        // See above: without new positions, the old ones stay.
       }
     };
 
@@ -549,34 +547,33 @@ function PalmMap() {
     };
   }, [settings.mapType, settings.showVehicles, vehicleZoomOk]);
 
-  /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
+  /** Visible area of the map, updated when the map stops moving. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
   const stopsRequest = useRef(0);
   /** Whether a downloaded country's business file covers the view. */
   const [localPoisHere, setLocalPoisHere] = useState(false);
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
+  /** Identifies the latest request, to ignore late answers. */
   const latestPlaces = useRef(0);
-  /** Mapas de países guardados, para o mapa poder funcionar sem rede. */
+  /** Country maps stored, so the map can work without a network. */
   const [offlineRegions, setOfflineRegions] = useState<OfflineRegion[]>([]);
-  /** Passa a verdadeiro quando os tipos de letra do mapa já estão no sítio. */
+  /** Becomes true once the map's fonts are in place. */
   const [labelsReady, setLabelsReady] = useState(false);
 
-  // O tamanho do mapa guardado, sempre que a definição muda.
+  // The map cache size, whenever the setting changes.
   useEffect(() => {
     setMapCacheSize(cacheMegabytesFor(settings.cacheSize));
   }, [settings.cacheSize]);
 
-  // Sítios guardados, lidos uma vez ao arrancar.
+  // Saved places, read once at start-up.
   useEffect(() => {
     void loadFavourites().then(setFavourites);
     void loadRecents().then(setRecents);
   }, []);
 
-  // O mapa que vem dentro da aplicação e os tipos de letra têm de ser postos na
-  // pasta da aplicação antes de o mapa os ir procurar. Só faz alguma coisa no
-  // primeiro arranque. Se falhar, perde-se o mapa offline e mais nada, por isso
-  // não se interrompe o arranque por causa disso.
+  // The fonts have to be placed in the app's folder before the map looks for
+  // them. It only does anything on the first start. If it fails, only the
+  // offline map is lost, so start-up is not interrupted for it.
   useEffect(() => {
     void installBundledAssets()
       .then(() => setLabelsReady(true))
@@ -585,18 +582,18 @@ function PalmMap() {
   }, []);
 
   /**
-   * Renova os mapas de países que já têm versão mais recente, ao arrancar.
+   * Refreshes the country maps that have a newer version, at start-up.
    *
-   * **Só por Wi-Fi.** Um país são centenas de megabytes — Portugal continental
-   * são 325 MB — e descarregar isso sozinho pelos dados móveis de alguém era
-   * gastar-lhe o plafond sem perguntar. Por Wi-Fi não custa nada e é o que se
-   * quer: o mapa vai-se mantendo em dia sem ninguém ter de pensar nisso.
+   * **Only on Wi-Fi.** A country is hundreds of megabytes — mainland Portugal is
+   * 325 MB — and downloading that by itself over someone's mobile data was
+   * spending their allowance without asking. On Wi-Fi it costs nothing and is
+   * what is wanted: the map keeps up to date without anyone thinking about it.
    *
-   * Fora do Wi-Fi não acontece nada aqui, e o ecrã dos mapas marca-os como
-   * desatualizados para quem os quiser renovar à mão.
+   * Off Wi-Fi nothing happens here, and the maps screen marks them as outdated
+   * for whoever wants to refresh them by hand.
    *
-   * Em silêncio de ponta a ponta: quem não pediu isto não tem de ver nem um
-   * indicador a rodar nem um erro. Ver `refreshOutdatedOnWifi`.
+   * Silent from end to end: someone who did not ask for this does not need to
+   * see a spinner or an error. See `refreshOutdatedOnWifi`.
    */
   useEffect(() => {
     void refreshOutdatedOnWifi().then((renovados) => {
