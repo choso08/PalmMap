@@ -121,7 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   timeAdjustment: 'none',
   cacheSize: 'medium',
   mapType: 'map',
-  satelliteDetail: 'normal',
+  satelliteDetail: 'alta',
   speedCameraAlerts: true,
   speedLimitAlerts: false,
   avoidTolls: false,
@@ -196,6 +196,8 @@ export const APPEARANCE_MODES: { id: AppearanceMode; icon: string }[] = [
 ];
 
 const STORAGE_KEY = 'palmmap.settings';
+/** Marks that high satellite detail was switched on once, as the new default. */
+const SATELLITE_HIGH_KEY = 'palmmap.satelliteAltaPorDefeito';
 
 /**
  * The pace the person really travels at, per travel mode.
@@ -240,8 +242,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        // High satellite detail became the default in November 2026, at the
+        // author's request. Settings are saved whole, so every phone had
+        // 'normal' stored without anyone choosing it: switched once, and the
+        // marker keeps a later choice of 'normal' from being undone.
+        const highDefaultApplied = await AsyncStorage.getItem(SATELLITE_HIGH_KEY);
+        if (!highDefaultApplied) {
+          void AsyncStorage.setItem(SATELLITE_HIGH_KEY, '1').catch(() => undefined);
+        }
         if (stored) {
-          setSettings({
+          const merged: Settings = {
             // Merged with the defaults in case the app gained new settings since
             // they were last saved.
             ...DEFAULT_SETTINGS,
@@ -256,7 +266,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             bikeType: ['road', 'normal', 'mtb'].includes(JSON.parse(stored).bikeType)
               ? JSON.parse(stored).bikeType
               : DEFAULT_SETTINGS.bikeType,
-          });
+          };
+          if (!highDefaultApplied && merged.satelliteDetail !== 'alta') {
+            merged.satelliteDetail = 'alta';
+            void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged)).catch(() => undefined);
+          }
+          setSettings(merged);
         }
       } catch {
         // With no saved settings, the defaults stay. No reason to fail.

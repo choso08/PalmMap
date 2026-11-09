@@ -458,7 +458,7 @@ in one place instead of spread through the code.
   | `showPlacesOnMap` | Show businesses on the map by themselves |
   | `voiceGuidance` | Read instructions aloud while navigating |
   | `mapType` | Drawn map, satellite or transport — **remembered between sessions** |
-  | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal) |
+  | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal) — **high by default** since November 2026 (author's request; switched once on existing phones, `palmmap.satelliteAltaPorDefeito`) |
   | `speedCameraAlerts` | Warn about cameras on the route |
   | `speedLimitAlerts` | Warn when over the road's limit — **off by default** (author's request) |
   | `avoidTolls` | Ask for a toll-free route |
