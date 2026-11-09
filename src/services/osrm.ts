@@ -2,15 +2,18 @@ import axios from 'axios';
 import { t } from '../i18n';
 
 import {
+  ALTERNATIVES_MAX_KM,
   OSRM_ENDPOINTS,
   OSRM_MIN_INTERVAL_MS,
   OSRM_PROFILE_PATH,
   REQUEST_TIMEOUT_MS,
+  ROUTE_MAX_KM,
   USER_AGENT,
 } from './config';
 import { createRateLimiter } from './rateLimit';
 import type { Coordinates, Route, RouteStep } from '../types/geo';
 import type { OsrmRouteResponse, OsrmStep } from '../types/osrm';
+import { distanceMeters } from '../utils/geometry';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
 import { type BikeType, valhallaBikeDuration, valhallaBikeRoutes } from './valhalla';
 
@@ -28,6 +31,24 @@ const schedule = createRateLimiter(OSRM_MIN_INTERVAL_MS);
 
 /** Error with a readable message, so the screen can show something useful. */
 export class RouteError extends Error {}
+
+/** The straight-line length through every point, in km. */
+function straightKm(points: Coordinates[]): number {
+  let meters = 0;
+  for (let i = 1; i < points.length; i++) {
+    meters += distanceMeters(points[i - 1], points[i]);
+  }
+  return meters / 1000;
+}
+
+/** Refuses, before asking anything, a route too long for the mode — see `ROUTE_MAX_KM`. */
+function checkDistance(points: Coordinates[], profile: 'driving' | 'walking' | 'cycling'): number {
+  const km = straightKm(points);
+  if (km > ROUTE_MAX_KM[profile]) {
+    throw new RouteError(t().errors.tooFar[profile]);
+  }
+  return km;
+}
 
 /**
  * Whether a manoeuvre deserves to be said out loud.
@@ -91,6 +112,7 @@ export async function getDuration(
   bike: BikeType = 'normal',
 ): Promise<{ distanceMeters: number; durationSeconds: number }> {
   const points = [from, ...via, to];
+  checkDistance(points, profile);
   const path = points.map((p) => `${p.longitude.toFixed(5)},${p.latitude.toFixed(5)}`).join(';');
   const key = `${profile}${profile === 'cycling' ? `:${bike}` : ''}|${path}`;
   const cached = durationCache.get(key);
@@ -156,6 +178,7 @@ export async function getRoutes(
 ): Promise<Route[]> {
   // OSRM expects the coordinates in this order: longitude,latitude.
   const points = [from, ...via, to];
+  const km = checkDistance(points, profile);
 
   // Bicycles go to Valhalla first, which knows the type of bike (road, normal,
   // mountain). Any failure there and OSRM's bicycle server answers instead:
@@ -176,7 +199,7 @@ export async function getRoutes(
     steps: 'true',
   };
 
-  if (via.length === 0) {
+  if (via.length === 0 && km <= ALTERNATIVES_MAX_KM) {
     // Three is enough: more than that are variations of a few metres that only confuse.
     params.alternatives = '3';
   }

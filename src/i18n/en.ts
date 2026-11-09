@@ -402,6 +402,11 @@ export const en: typeof pt = {
 
   errors: {
     noRoute: 'No route between these points.',
+    tooFar: {
+      driving: 'Too far to drive.',
+      walking: 'Too far to walk.',
+      cycling: 'Too far to cycle.',
+    },
     routeFailed: "Couldn't reach the routing service.",
     routeGeneric: "Couldn't work out the route.",
     noLocationForRoute: 'Without GPS the route cannot be calculated.',

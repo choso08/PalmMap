@@ -438,6 +438,11 @@ export const pt = {
 
   errors: {
     noRoute: 'Não há percurso entre estes pontos.',
+    tooFar: {
+      driving: 'Demasiado longe para ir de carro.',
+      walking: 'Demasiado longe para ir a pé.',
+      cycling: 'Demasiado longe para ir de bicicleta.',
+    },
     routeFailed: 'Não foi possível contactar o serviço de percursos.',
     routeGeneric: 'Não foi possível calcular o percurso.',
     noLocationForRoute: 'Sem GPS não dá para calcular o percurso.',

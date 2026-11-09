@@ -621,6 +621,22 @@ export const SERVICE_STOP_GRACE_MS = 2000;
  */
 export const SEARCH_DEBOUNCE_MS = 1000;
 
+/**
+ * The farthest a route is asked for, per travel mode, in straight-line km.
+ *
+ * A bicycle from Monte da Caparica to the Taklamakan desert (the author's test,
+ * November 2026) is some 9000 km: hundreds of thousands of points and thousands
+ * of steps, times four with the alternatives. Parsing and drawing that froze
+ * the phone until Android closed the app. Nobody walks 200 km in one go, and a
+ * route this long is planned in stages anyway; past these the panel says the
+ * place is too far for that mode, and nothing is asked.
+ */
+export const ROUTE_MAX_KM = { walking: 200, cycling: 600, driving: 4000 } as const;
+
+/** Past this straight-line distance, no alternative routes: each one is the
+ * whole route again, and far apart they are rarely what anyone compares. */
+export const ALTERNATIVES_MAX_KM = 1000;
+
 /** Maximum time waiting for a response, in milliseconds. */
 export const REQUEST_TIMEOUT_MS = 15000;
 

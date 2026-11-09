@@ -1699,6 +1699,10 @@ The heaviest of the services: each query makes the server walk OpenStreetMap's d
   to OSM and OSRM. The queue is in `osrm.ts` (`OSRM_MIN_INTERVAL_MS`); the credit is on the
   Settings screen. **Switch off neither.**
 - Community servers, no guarantees: show a decent error when they are down.
+- **A route too long for its mode is refused before asking** (`ROUTE_MAX_KM`, straight line:
+  walking 200 km, bike 600, car 4000), and alternatives stop past `ALTERNATIVES_MAX_KM`
+  (1000). A bike to the Taklamakan (~9000 km) answered with so many points and steps that
+  parsing and drawing them froze the phone until Android closed the app.
 - Routes are requested with `steps=true` (manoeuvres one by one, phrased in
   `src/utils/maneuvers.ts`) and come with lanes. **No `maxspeed` annotation** on this server
   (see 6-H).
