@@ -454,6 +454,44 @@ def ortos2():
             else:
                 print(st, url)
 
+def gtfs_feeds():
+    """Which GTFS feeds for Lisbon operators answer, and what is inside (agencies, counts)."""
+    import io
+    import zipfile
+
+    feeds = {
+        "tml-plans": "https://go.tmlmobilidade.pt/hub/api/v1/plans/gtfs",
+        "carris-lisboa": "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS",
+        "ttsl": "https://api.transtejo.pt/files/GTFS.zip",
+        "fertagus-mdb": "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-lisboa-fertagus-gtfs-1034.zip?alt=media",
+        "fertagus-transporlis": "http://www.transporlis.pt/Portals/0/OpenData/gtfs/zip/13/gtfs_13.zip",
+        "fertagus-site": "https://www.fertagus.pt/gtfs/gtfs.zip",
+    }
+    for name, url in feeds.items():
+        section(name)
+        status, ctype, body = get(url, timeout=180)
+        print(status, ctype, len(body), "bytes")
+        if status != 200:
+            print(body[:300])
+            continue
+        if body[:2] != b"PK":
+            print("not a zip:", body[:300])
+            continue
+        z = zipfile.ZipFile(io.BytesIO(body))
+        print("files:", z.namelist())
+        for f in ("agency.txt", "feed_info.txt", "calendar.txt"):
+            if f in z.namelist():
+                print("--", f)
+                print(z.read(f).decode("utf-8-sig", "replace")[:1200])
+        if "calendar_dates.txt" in z.namelist():
+            lines = z.read("calendar_dates.txt").decode("utf-8-sig", "replace").splitlines()
+            dates = sorted({l.split(",")[1] for l in lines[1:] if l.count(",") >= 2})
+            print("calendar_dates:", dates[:1], "…", dates[-1:])
+        if "routes.txt" in z.namelist():
+            r = z.read("routes.txt").decode("utf-8-sig", "replace").splitlines()
+            print("routes:", len(r) - 1, r[:6])
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
