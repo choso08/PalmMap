@@ -7,15 +7,15 @@ import type { Theme } from '../theme';
 import { SEARCH_CATEGORIES, type SearchCategory } from '../utils/categories';
 
 interface CategoryBarProps {
-  /** Categoria escolhida, ou null quando nenhuma está ativa. */
+  /** The chosen category, or null when none is active. */
   selected: SearchCategory | null;
   onSelect: (category: SearchCategory | null) => void;
   disabled?: boolean;
 }
 
 /**
- * Fila de botões para procurar negócios por tipo — "Restaurantes", "Farmácias"…
- * Tocar outra vez no que está ativo desliga a pesquisa.
+ * Row of buttons to look for businesses by kind — "Restaurants", "Pharmacies"…
+ * Tapping the active one again turns the search off.
  */
 export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) {
   const theme = useTheme();
@@ -40,8 +40,8 @@ export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) 
             onPress={() => onSelect(active ? null : category)}
           >
             <MaterialCommunityIcons
-              // Os nomes vêm de `SEARCH_CATEGORIES` e foram todos confirmados
-              // contra a lista de ícones do pacote.
+              // The names come from `SEARCH_CATEGORIES` and were all checked
+              // against the package's icon list.
               name={category.icon as never}
               size={16}
               color={active ? theme.onAccent : theme.textMuted}
@@ -59,7 +59,7 @@ function makeStyles(theme: Theme) {
     content: {
       gap: 8,
       paddingVertical: 10,
-      // Começa alinhado com a barra de pesquisa e sai pela direita ao rolar.
+      // Starts aligned with the search bar and runs off to the right when scrolled.
       paddingLeft: 14,
       paddingRight: 14,
     },

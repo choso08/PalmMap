@@ -5,44 +5,44 @@ import { t } from './i18n';
 import { downloadUpdate, installUpdate, type UpdateInfo } from './services/update';
 
 /**
- * Descarregar a versão nova e abrir o instalador.
+ * Download the new version and open the installer.
  *
- * Vive aqui, e não dentro de um dos ecrãs, porque **são dois os sítios que
- * fazem isto**: o aviso que aparece ao abrir a aplicação e a secção das
- * definições. Duas cópias do mesmo código acabariam por divergir — e a parte
- * que divergiria era a que trata dos erros, que é justamente a que ninguém
- * experimenta.
+ * It lives here, and not inside one of the screens, because **two places do
+ * this**: the notice that appears when the app opens and the settings section.
+ * Two copies of the same code would drift apart — and the part that would
+ * drift is the error handling, which is exactly the part nobody tries.
  *
- * Fica ao nível do `src/`, ao lado do `settings.tsx`, que é onde já moram os
- * ganchos usados por mais do que um componente.
+ * It sits at the level of `src/`, next to `settings.tsx`, where the hooks used
+ * by more than one component already live.
  */
 export function useUpdateDownload() {
   const [progress, setProgress] = useState<number | null>(null);
-  /** O APK já descarregado, à espera de ser instalado. */
+  /** The APK already downloaded, waiting to be installed. */
   const [ready, setReady] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
-   * Se alguém desistiu enquanto isto descarregava.
+   * Whether someone gave up while this was downloading.
    *
-   * Existe por causa da descarga automática: quem abre a aplicação e encontra
-   * uma atualização a andar sozinha tem de poder dizer "agora não" **antes** de
-   * o instalador lhe saltar à frente. Numa `ref` e não em estado porque quem a
-   * lê é a função que já está a correr, e essa ficou com o valor do arranque.
+   * It exists because of the automatic download: someone who opens the app and
+   * finds an update running on its own must be able to say "not now" **before**
+   * the installer jumps in front of them. In a `ref` and not in state because
+   * the reader is the function already running, which kept the value it
+   * started with.
    */
-  const desistiu = useRef(false);
+  const gaveUp = useRef(false);
 
   const start = useCallback(async (info: UpdateInfo) => {
-    desistiu.current = false;
+    gaveUp.current = false;
     setProgress(0);
     setError(null);
     try {
-      const ficheiro = await downloadUpdate(info, setProgress);
-      setReady(ficheiro);
-      // Abre-se o instalador logo a seguir: quem carregou em "atualizar" não
-      // quer carregar noutro botão a seguir. Se fechar o instalador sem
-      // instalar, o botão fica lá para o voltar a abrir.
-      if (!desistiu.current) {
-        await installUpdate(ficheiro);
+      const file = await downloadUpdate(info, setProgress);
+      setReady(file);
+      // The installer opens right after: whoever pressed "update" does not
+      // want to press another button. If they close the installer without
+      // installing, the button stays there to open it again.
+      if (!gaveUp.current) {
+        await installUpdate(file);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t().common.failed);
@@ -52,13 +52,14 @@ export function useUpdateDownload() {
   }, []);
 
   /**
-   * Desistir: o que já está a descarregar acaba, mas o instalador não abre.
+   * Give up: what is already downloading finishes, but the installer does not
+   * open.
    *
-   * Não se cancela a descarga a meio de propósito — o ficheiro fica na cache e,
-   * se a pessoa mudar de ideias daqui a nada, já cá está.
+   * The download is deliberately not cancelled halfway — the file stays in the
+   * cache and, if the person changes their mind shortly, it is already here.
    */
   const cancel = useCallback(() => {
-    desistiu.current = true;
+    gaveUp.current = true;
   }, []);
 
   const install = useCallback(async () => {
@@ -74,7 +75,7 @@ export function useUpdateDownload() {
   }, [ready]);
 
   return {
-    /** Quanto já vai, de 0 a 1. `null` quando não está a descarregar. */
+    /** How far it has got, from 0 to 1. `null` when not downloading. */
     progress,
     downloading: progress !== null,
     ready: ready !== null,

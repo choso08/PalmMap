@@ -5,26 +5,26 @@ import type { Theme } from '../theme';
 
 interface SpeedBadgeProps {
   /**
-   * A velocidade em km/h, ou `null` quando não se sabe.
+   * The speed in km/h, or `null` when it is not known.
    *
-   * `null` é mesmo "não sei" e não "parado": o velocímetro desaparece em vez de
-   * mostrar zero. Num túnel, mostrar zero a quem vai a 100 seria pior do que não
-   * mostrar nada.
+   * `null` really is "don't know", not "stopped": the speedometer disappears
+   * instead of showing zero. In a tunnel, showing zero to someone doing 100
+   * would be worse than showing nothing.
    */
   kmh: number | null;
-  /** Vai-se acima do limite conhecido. Pinta o número de vermelho. */
+  /** Going over the known limit. Paints the number red. */
   overLimit?: boolean;
-  /** Onde fica, em pontos a contar da borda de baixo do ecrã. */
+  /** Where it sits, in points from the bottom edge of the screen. */
   bottom: number;
 }
 
 /**
- * O velocímetro.
+ * The speedometer.
  *
- * Vive à parte porque aparece em **dois sítios**: dentro do ecrã de navegação e
- * por cima do mapa a andar de carro sem navegar. Duas cópias do mesmo desenho
- * acabariam por divergir — e o que divergiria era o alinhamento, que é o que se
- * nota a conduzir.
+ * It lives on its own because it appears in **two places**: inside the
+ * navigation screen and over the map while driving without navigating. Two
+ * copies of the same drawing would end up drifting apart — and what would
+ * drift is the alignment, which is what shows while driving.
  */
 export function SpeedBadge({ kmh, overLimit = false, bottom }: SpeedBadgeProps) {
   const theme = useTheme();
@@ -73,8 +73,8 @@ function makeStyles(theme: Theme, bottom: number) {
       fontWeight: '800',
       color: theme.text,
       letterSpacing: -0.8,
-      // Sem isto a caixa mudava de altura entre "9" e "90", e o velocímetro
-      // dava um salto de cada vez que se passava uma dezena.
+      // Without this the box changed height between "9" and "90", and the
+      // speedometer jumped every time it crossed a ten.
       lineHeight: 30,
     },
     valueOver: {
