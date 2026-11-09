@@ -181,6 +181,8 @@ function PalmMap() {
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  // Settings opened from the route panel's shortcut: only the navigation group.
+  const [settingsNavOnly, setSettingsNavOnly] = useState(false);
   /**
    * The new version, when there is one.
    *
@@ -2295,6 +2297,10 @@ function PalmMap() {
                 error={routeError}
                 onClear={handleClearRoute}
                 onShowSteps={() => setStepsVisible(true)}
+                onOpenNavSettings={() => {
+                  setSettingsNavOnly(true);
+                  setSettingsVisible(true);
+                }}
                 onStart={handleStartNavigation}
                 favourite={isFavourite(lastDestination)}
                 onToggleFavourite={() => toggleFavourite(lastDestination)}
@@ -2492,8 +2498,10 @@ function PalmMap() {
         onRecentsCleared={() => setRecents([])}
         update={updateInfo}
         onUpdateFound={setUpdateInfo}
+        onlyNavigation={settingsNavOnly}
         onClose={() => {
           setSettingsVisible(false);
+          setSettingsNavOnly(false);
           // A country may have been downloaded or deleted in there.
           setOfflineRegions(installedRegions());
         }}

@@ -43,6 +43,8 @@ interface RoutePanelProps {
   error: string | null;
   onClear: () => void;
   onShowSteps: () => void;
+  /** Opens the navigation settings (voice, cameras, tolls, time correction…). */
+  onOpenNavSettings?: () => void;
   onStart: () => void;
   favourite: boolean;
   onToggleFavourite: () => void;
@@ -55,7 +57,9 @@ interface RoutePanelProps {
   bikeType: BikeType;
   onChangeBikeType: (bike: BikeType) => void;
   /** How long the other modes take, for the time on each chip. `null` = no route. */
-  modeTimes?: Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>;
+  modeTimes?: Partial<
+    Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>
+  >;
   /** Where the route starts, as text ("My location" or a place's name). */
   fromLabel?: string;
   /** Opens the Directions screen to change the start or the destination. */
@@ -102,6 +106,7 @@ export function RoutePanel({
   error,
   onClear,
   onShowSteps,
+  onOpenNavSettings,
   onStart,
   favourite,
   onToggleFavourite,
@@ -141,7 +146,9 @@ export function RoutePanel({
       return route ? formatDuration(eta(route.distanceMeters, route.durationSeconds)) : null;
     }
     const known = modeTimes[mode];
-    return known ? formatDuration(eta(known.distanceMeters, known.durationSeconds, null, mode)) : null;
+    return known
+      ? formatDuration(eta(known.distanceMeters, known.durationSeconds, null, mode))
+      : null;
   };
 
   // The fastest alternative gets the tag, whatever OSRM's order.
@@ -261,11 +268,7 @@ export function RoutePanel({
         <View style={styles.paragens}>
           {waypoints.map((w, i) => (
             <View key={`${w.id}-${i}`} style={styles.paragem}>
-              <MaterialCommunityIcons
-                name="map-marker-path"
-                size={16}
-                color={theme.textMuted}
-              />
+              <MaterialCommunityIcons name="map-marker-path" size={16} color={theme.textMuted} />
               <Text style={styles.paragemNome} numberOfLines={1}>
                 {w.name}
               </Text>
@@ -377,10 +380,7 @@ export function RoutePanel({
                         formatDuration(t.change.departsAt - t.change.arrivesAt),
                       )} · `
                     : ''}
-                  {strings.route.walkFrom(
-                    formatDuration(walkSecondsEntre(t.to.meters)),
-                    t.to.name,
-                  )}
+                  {strings.route.walkFrom(formatDuration(walkSecondsEntre(t.to.meters)), t.to.name)}
                 </Text>
               </Pressable>
             );
@@ -454,11 +454,7 @@ export function RoutePanel({
           */}
           {avoidTollsWanted && travelMode === 'driving' && !route.avoidedTolls ? (
             <View style={styles.aviso}>
-              <MaterialCommunityIcons
-                name="cash-remove"
-                size={16}
-                color={theme.textMuted}
-              />
+              <MaterialCommunityIcons name="cash-remove" size={16} color={theme.textMuted} />
               <Text style={styles.avisoTexto}>{strings.route.tollsNotAvoided}</Text>
             </View>
           ) : null}
@@ -470,8 +466,21 @@ export function RoutePanel({
             </Pressable>
             {route.steps.length > 0 ? (
               <Pressable style={[styles.secondaryButton, styles.buttonSide]} onPress={onShowSteps}>
-                <MaterialCommunityIcons name="format-list-bulleted" size={18} color={theme.accent} />
+                <MaterialCommunityIcons
+                  name="format-list-bulleted"
+                  size={18}
+                  color={theme.accent}
+                />
                 <Text style={styles.secondaryText}>{strings.route.steps}</Text>
+              </Pressable>
+            ) : null}
+            {onOpenNavSettings ? (
+              <Pressable
+                style={[styles.secondaryButton, styles.buttonSquare]}
+                onPress={onOpenNavSettings}
+                accessibilityLabel={strings.settings.navigation}
+              >
+                <MaterialCommunityIcons name="tune-variant" size={20} color={theme.accent} />
               </Pressable>
             ) : null}
           </View>
@@ -749,6 +758,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     buttonSide: {
       flex: 1,
+    },
+    buttonSquare: {
+      width: 52,
     },
     button: {
       flexDirection: 'row',

@@ -467,8 +467,11 @@ in one place instead of spread through the code.
   It was deliberately not stored before because of the live buses (1.1 MB every twenty
   seconds) — the author chose no brake. An unknown value falls back to the drawn map.
 - **The navigation options are grouped in a collapsible "Navigation" section**
-  (`Collapsible`), at the author's request: voice, speed limit, cameras, tolls, speedometer
-  and battery.
+  (`Collapsible`), at the author's request: the arrival-time correction for bad roads and
+  terrain (with the learned pace), voice, speed limit, cameras, tolls, speedometer and battery.
+- **The route panel has a shortcut to it** (the square button next to Start and Steps,
+  `onOpenNavSettings`): Settings opens with `onlyNavigation` — titled "Navigation", no
+  search, no other sections, the group already open.
 - **Settings has a search box** at the top (`show`, in `SettingsSheet`): it hides whatever
   does not match the text (name, hint or section, accents ignored) and opens the sections
   holding a match by themselves (`forceOpen` on `Collapsible`). A new option must go into

@@ -61,6 +61,12 @@ interface SettingsSheetProps {
   onUpdateFound: (info: UpdateInfo | null) => void;
   visible: boolean;
   onClose: () => void;
+  /**
+   * Show only the navigation options, opened from the route panel's shortcut
+   * (the author's request): no search, no other sections, the group already
+   * open.
+   */
+  onlyNavigation?: boolean;
 }
 
 /**
@@ -117,6 +123,7 @@ export function SettingsSheet({
   onRecentsCleared,
   update: novaVersao,
   onUpdateFound,
+  onlyNavigation = false,
 }: SettingsSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -136,11 +143,15 @@ export function SettingsSheet({
   const [filter, setFilter] = useState('');
   const show = useMemo(() => {
     const q = normalise(filter.trim());
-    const has = (...terms: string[]) => !q || terms.some((term) => normalise(term).includes(q));
     const nav = s.navigation;
+    // From the route panel's shortcut, only what mentions the navigation group.
+    const has = (...terms: string[]) =>
+      onlyNavigation
+        ? terms.includes(nav)
+        : !q || terms.some((term) => normalise(term).includes(q));
     const result = {
       language: has(s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
-      time: has(s.timeAdjustment, s.forgetPace),
+      time: has(nav, s.timeAdjustment, s.forgetPace),
       appearance: has(s.appearance, ...Object.values(s.appearanceModes)),
       satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
@@ -161,9 +172,10 @@ export function SettingsSheet({
     };
     return {
       ...result,
-      searching: q.length > 0,
+      searching: q.length > 0 || onlyNavigation,
       map: result.places || result.vehicles,
       navigation:
+        result.time ||
         result.voice ||
         result.limit ||
         result.cameras ||
@@ -172,7 +184,7 @@ export function SettingsSheet({
         result.battery,
       nothing: !Object.values(result).some(Boolean),
     };
-  }, [filter, s, strings]);
+  }, [filter, s, strings, onlyNavigation]);
 
   /**
    * The last time the app closed by itself, if it did.
@@ -240,28 +252,30 @@ export function SettingsSheet({
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{s.title}</Text>
+          <Text style={styles.title}>{onlyNavigation ? s.navigation : s.title}</Text>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
             <MaterialCommunityIcons name="close" size={22} color={theme.textMuted} />
           </Pressable>
         </View>
 
-        <View style={styles.searchRow}>
-          <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            value={filter}
-            onChangeText={setFilter}
-            placeholder={s.searchPlaceholder}
-            placeholderTextColor={theme.placeholder}
-            returnKeyType="search"
-          />
-          {filter ? (
-            <Pressable onPress={() => setFilter('')} hitSlop={10}>
-              <MaterialCommunityIcons name="close" size={18} color={theme.textMuted} />
-            </Pressable>
-          ) : null}
-        </View>
+        {onlyNavigation ? null : (
+          <View style={styles.searchRow}>
+            <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              value={filter}
+              onChangeText={setFilter}
+              placeholder={s.searchPlaceholder}
+              placeholderTextColor={theme.placeholder}
+              returnKeyType="search"
+            />
+            {filter ? (
+              <Pressable onPress={() => setFilter('')} hitSlop={10}>
+                <MaterialCommunityIcons name="close" size={18} color={theme.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        )}
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {show.nothing ? <Text style={styles.note}>{s.searchNothing}</Text> : null}
@@ -271,7 +285,7 @@ export function SettingsSheet({
             report — without the phone at hand, a photographed message saves
             several rounds of guessing.
           */}
-          {falha ? (
+          {falha && !onlyNavigation ? (
             <View style={styles.falha}>
               <Text style={styles.falhaTitulo}>{s.lastCrash}</Text>
               <Text style={styles.falhaMensagem} selectable>
@@ -310,37 +324,6 @@ export function SettingsSheet({
                 styles={styles}
                 theme={theme}
               />
-            </>
-          ) : null}
-
-          {show.time ? (
-            <>
-              <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
-              <ChoiceRow
-                options={TIME_ADJUSTMENTS}
-                label={(id) => s.timeAdjustments[id]}
-                value={settings.timeAdjustment}
-                onChange={(id) => update('timeAdjustment', id)}
-                styles={styles}
-                theme={theme}
-              />
-
-              {/*
-            What the app learnt stays visible and can be forgotten. A value
-            learnt in silence that nobody can see or clear is the kind of thing
-            that, the day it goes wrong, has no explanation at all — and the
-            manual correction above would stop working without anyone knowing
-            why.
-          */}
-              {ritmo ? (
-                <>
-                  <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
-                  <Pressable style={styles.forgetRow} onPress={forgetPace}>
-                    <MaterialCommunityIcons name="speedometer" size={19} color={theme.danger} />
-                    <Text style={styles.clearText}>{s.forgetPace}</Text>
-                  </Pressable>
-                </>
-              ) : null}
             </>
           ) : null}
 
@@ -462,6 +445,37 @@ export function SettingsSheet({
           {/* Every navigation option in one group, closed by default (author's request). */}
           {show.navigation ? (
             <Collapsible title={s.navigation} forceOpen={show.searching}>
+              {/* The time correction for bad roads and terrain belongs with the trip (author's request). */}
+              {show.time ? (
+                <>
+                  <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
+                  <ChoiceRow
+                    options={TIME_ADJUSTMENTS}
+                    label={(id) => s.timeAdjustments[id]}
+                    value={settings.timeAdjustment}
+                    onChange={(id) => update('timeAdjustment', id)}
+                    styles={styles}
+                    theme={theme}
+                  />
+
+                  {/*
+            What the app learnt stays visible and can be forgotten. A value
+            learnt in silence that nobody can see or clear is the kind of thing
+            that, the day it goes wrong, has no explanation at all — and the
+            manual correction above would stop working without anyone knowing
+            why.
+          */}
+                  {ritmo ? (
+                    <>
+                      <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
+                      <Pressable style={styles.forgetRow} onPress={forgetPace}>
+                        <MaterialCommunityIcons name="speedometer" size={19} color={theme.danger} />
+                        <Text style={styles.clearText}>{s.forgetPace}</Text>
+                      </Pressable>
+                    </>
+                  ) : null}
+                </>
+              ) : null}
               {show.voice ? (
                 <>
                   <View style={styles.switchRow}>
