@@ -18,11 +18,12 @@ biggest unknown and no longer is.
 
 1. **The version comes from the build number** (`7.0.<n>`) — see "Installing on the phone".
    The author asked: **build only when they say so.** Do not start the workflow unasked.
-2. **The maps are published under the `mapas` tag**: mainland Portugal, Madeira, Azores,
-   São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Spain, Italy, Germany, United Kingdom,
-   Ireland, Netherlands, Belgium, Luxembourg, Switzerland and Austria. **France failed** for
-   going over GitHub's 2 GB limit — to have it, lower its `maxzoom` to 12 in
-   `map-regions.json` and run the workflow again.
+2. **The maps are published under the `mapas` tag** — 27 regions in November 2026: mainland
+   Portugal, Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Angola,
+   Mozambique, Timor-Leste, Brazil, Morocco, Spain, France, Italy, Germany, United Kingdom,
+   Ireland, Netherlands, Belgium, Luxembourg, Switzerland, Austria, Poland, Czechia,
+   Croatia, Denmark and Greece. The manifest (`mapas.json` in that Release) is the truth;
+   read it rather than this list.
 3. **When touching the offline map, always test with data off.** If the stored map fails to
    open, the app falls back to the Internet tiles by itself and everything looks fine — a
    fault goes unnoticed with a network.
@@ -53,7 +54,9 @@ environment cannot reach.
   2027**.
 - **Fast business pins.** With the country downloaded they come from a **business file**
   (`<id>.pois`, generated from Geofabrik by the maps workflow, read by squares in
-  `localPois.ts`): mainland Portugal has 218,642 businesses in 24.5 MB. Without a downloaded
+  `localPois.ts`): mainland Portugal has 164,658 businesses in 18.3 MB (218,642 in 24.5 MB before the
+  twins below were dropped; regenerated 9 November 2026 for the 16 Portugal-and-Western-Europe
+  regions — the other 11 still carry twins, which `localPlacesInBounds` hides). Without a downloaded
   country they come **inside the OpenFreeMap tiles** (`poi` layer), and a tap asks Overpass
   for that one place only (`placeDetails`). Overpass is no longer called for automatic pins —
   **on the transport map either** (there are no automatic pins there; it only produced
