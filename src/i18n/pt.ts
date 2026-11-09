@@ -395,6 +395,7 @@ export const pt = {
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',
+    requestMap: 'Falta um país? Peça-o no GitHub',
     offlineMapsNote: 'Os maiores têm centenas de MB: use Wi-Fi.',
 
     schedules: 'Horários',

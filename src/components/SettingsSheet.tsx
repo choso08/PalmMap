@@ -17,6 +17,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
+import { MAP_REQUEST_URL } from '../services/config';
 import { clearMapCache } from '../services/tiles';
 import { Collapsible } from './Collapsible';
 import { OfflineMaps } from './OfflineMaps';
@@ -144,7 +145,7 @@ export function SettingsSheet({
       places: has(s.map, s.showPlaces),
       vehicles: has(s.map, s.showVehicles, s.showVehiclesCost),
       cache: has(s.cache, s.clearCache),
-      offline: has(s.offlineMaps, s.offlineMapsNote),
+      offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.schedules),
       voice: has(nav, s.voice),
       limit: has(nav, s.speedLimit),
@@ -439,6 +440,14 @@ export function SettingsSheet({
             <Collapsible title={s.offlineMaps} forceOpen={show.searching}>
               <OfflineMaps />
               <Text style={styles.note}>{s.offlineMapsNote}</Text>
+              {/* A country missing from the list: ask for it on GitHub. */}
+              <Pressable
+                style={styles.forgetRow}
+                onPress={() => void Linking.openURL(MAP_REQUEST_URL)}
+              >
+                <MaterialCommunityIcons name="map-plus" size={19} color={theme.accent} />
+                <Text style={styles.linkText}>{s.requestMap}</Text>
+              </Pressable>
             </Collapsible>
           ) : null}
 
@@ -729,6 +738,11 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.surfaceMuted,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
+    },
+    linkText: {
+      color: theme.accent,
+      fontSize: 15,
+      fontWeight: '700',
     },
     clearText: {
       color: theme.danger,

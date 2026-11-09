@@ -68,7 +68,9 @@ file.
 | Mainland Portugal, Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Spain, Italy, Germany, United Kingdom, Ireland, Netherlands, Belgium, Luxembourg, Switzerland, Austria |
 
 The catalogue has 90 regions from all over the world; they are generated on request, with
-the "Build offline maps" workflow.
+the "Build offline maps" workflow. **Want another country?** [Open an issue](../../issues/new?title=Map%20request%3A%20)
+saying which, or use "Missing a country? Ask on GitHub" at the end of the country list in
+the app.
 
 ## What it does not do, and why
 

@@ -95,11 +95,11 @@ interface MapViewProps {
    */
   pinned?: Place | null;
   route: Route | null;
-  /** Negócios a marcar no mapa. */
+  /** Businesses to mark on the map. */
   places: Place[];
-  /** Chamado quando o mapa para de se mexer, com a área visível e o zoom. */
+  /** Called when the map stops moving, with the visible area and the zoom. */
   onViewportChange: (bounds: Bounds, zoom: number) => void;
-  /** Chamado ao tocar num pino de negócio. */
+  /** Called on a tap on a business pin. */
   onPlacePress: (placeId: number) => void;
   /**
    * Draw the businesses that come inside OpenFreeMap's vector tiles. They
@@ -109,120 +109,121 @@ interface MapViewProps {
   tilePois?: boolean;
   /** A tap on one of those pins, with what the tile knows about it. */
   onTilePoiPress?: (place: Place) => void;
-  /** Pino largado com um toque longo, à espera de virar destino. */
+  /** Pin dropped with a long press, waiting to become the destination. */
   droppedPin: Coordinates | null;
-  /** Chamado num toque longo em qualquer ponto do mapa. */
+  /** Called on a long press anywhere on the map. */
   onDropPin: (coordinates: Coordinates) => void;
   /**
-   * Chamado num toque simples no mapa, fora de qualquer pino.
+   * Called on a single tap on the map, away from any pin.
    *
-   * Leva as coordenadas porque a fita métrica precisa delas — para os outros
-   * usos basta saber que houve um toque.
+   * It carries the coordinates because the measuring tape needs them — for the
+   * other uses, knowing there was a tap is enough.
    */
   onTapEmpty: (coordinates: Coordinates) => void;
-  /** Pontos da fita métrica, pela ordem em que foram postos. */
+  /** The measuring tape's points, in the order they were placed. */
   measurePoints?: Coordinates[];
-  /** Se a fita está a medir uma forma fechada em vez de uma linha. */
+  /** Whether the tape is measuring a closed shape instead of a line. */
   measureClosed?: boolean;
-  /** Os caminhos que não foram escolhidos, desenhados apagados por baixo. */
+  /** The routes not chosen, drawn faded underneath. */
   alternativeRoutes?: Route[];
-  /** Paragens pelo caminho, marcadas ao longo do percurso. */
+  /** Stops along the way, marked on the route. */
   waypoints?: Coordinates[];
-  /** Durante a navegação o mapa segue a posição e roda no sentido da marcha. */
+  /** While navigating the map follows the position and turns with the heading. */
   following?: boolean;
   /**
-   * Fora da navegação: a câmara anda com a pessoa, sem rodar o mapa.
+   * Outside navigation: the camera moves with the person, without turning the map.
    *
-   * É o que se liga com dois toques no botão do GPS. Não roda de propósito — a
-   * conduzir, virar o mapa no sentido da marcha ajuda; a pé, a olhar para o
-   * telemóvel, um mapa que roda sozinho é só desorientação.
+   * It is what a double tap on the GPS button turns on. It does not turn on
+   * purpose — when driving, turning the map with the heading helps; on foot,
+   * looking at the phone, a map that turns by itself only disorients.
    */
   followUser?: boolean;
   /**
-   * Chamado quando o seguimento cai por si.
+   * Called when following drops by itself.
    *
-   * O MapLibre larga-o assim que a pessoa arrasta o mapa — e sem este aviso o
-   * botão ficava aceso a dizer que seguia quando já não seguia.
+   * MapLibre lets go as soon as the person drags the map — and without this the
+   * button stayed lit saying it followed when it no longer did.
    */
   onFollowUserChange?: (following: boolean) => void;
   /**
-   * Até que ponto do percurso já se andou, durante a navegação.
+   * How far along the route the person is, while navigating.
    *
-   * O que fica para trás desenha-se apagado, para o que falta se distinguir
-   * de relance — a conduzir não há tempo para procurar onde ia a linha.
+   * What is behind is drawn faded, so what is left stands out at a glance —
+   * when driving there is no time to look for where the line was.
    */
   progressIndex?: number;
   /**
-   * Radares em cima do percurso, para se verem antes de se lá chegar.
+   * Speed cameras on the route, to be seen before getting there.
    *
-   * São só os do percurso: marcar todos os da zona enchia o mapa de pontos que
-   * não interessam a quem vai por outro lado.
+   * Only the route's: marking every one in the area filled the map with points
+   * that do not matter to someone going another way.
    */
   cameras?: SpeedCamera[];
-  /** Paragens de transporte a marcar no mapa, com o painel aberto. */
+  /** Transport stops to mark on the map, while the panel is open. */
   transitStops?: TransitStop[];
-  /** A paragem aberta no painel, desenhada em destaque. */
+  /** The stop open in the panel, drawn highlighted. */
   selectedStopId?: string | null;
-  /** Chamado ao tocar num pino de paragem. */
+  /** Called on a tap on a stop pin. */
   onStopPress?: (stopId: string) => void;
   /**
-   * Estações de comboio, metro, metro de superfície e barco.
+   * Train, metro, light-rail and ferry stations.
    *
-   * Destas só se sabe onde ficam — não há horários abertos destes operadores.
-   * Aparecem na mesma porque saber que há uma estação ali é metade da questão.
+   * For some of these only the location is known — not every operator has open
+   * timetables. They show anyway: knowing there is a station there is half the
+   * question.
    */
   transitStations?: TransitStation[];
   /**
-   * Os autocarros a andar neste momento, com o número da linha.
+   * The buses moving right now, with the line number.
    *
-   * Só chegam aqui os que deram sinal há pouco — o serviço devolve a frota
-   * inteira, parada incluída. Ver `src/services/vehicles.ts`.
+   * Only those that reported recently get here — the service returns the whole
+   * fleet, parked ones included. See `src/services/vehicles.ts`.
    */
   vehicles?: LiveVehicle[];
   /**
-   * A que altura fica a bússola, em pontos a contar da borda de baixo do ecrã.
+   * How high the compass sits, in points from the bottom edge of the screen.
    *
-   * O canto inferior esquerdo é partilhado com o botão da régua e é tapado
-   * pelos painéis de baixo — ver `compassBottom`, no `App.tsx`.
+   * The bottom-left corner is shared with other buttons and covered by the
+   * bottom panels — see `compassBottom`, in `App.tsx`.
    */
   compassBottom: number;
-  /** Mapas de países guardados no telemóvel, para usar sem rede. */
+  /** Country maps stored on the phone, for use without a network. */
   offlineRegions: OfflineRegion[];
   /**
-   * Se os tipos de letra já estão instalados.
+   * Whether the fonts are installed yet.
    *
-   * Sem eles, uma camada de texto não desenha nada e não dá erro — foi assim que
-   * uma tentativa anterior de escrever os nomes falhou sem se perceber porquê.
+   * Without them a text layer draws nothing and gives no error — that is how an
+   * earlier attempt at writing the names failed without anyone knowing why.
    */
   labelsReady: boolean;
   ref?: Ref<MapViewRef>;
 }
 
 export interface MapViewRef {
-  /** Leva a câmara de volta à posição atual. */
+  /** Takes the camera back to the current position. */
   recenter: (coordinates: Coordinates) => void;
-  /** Volta a prender a câmara ao carro, durante a navegação. */
+  /** Ties the camera to the car again, while navigating. */
   followAgain: () => void;
   /** During navigation: let go of the car and frame what is left of the route. */
   overview: () => void;
 }
 
-/** Ponto de partida da câmara quando ainda não se sabe onde a pessoa está. */
+/** Where the camera starts while the person's position is not yet known. */
 const DEFAULT_CENTER: [number, number] = [-9.1393, 38.7223]; // Lisboa
 const DEFAULT_ZOOM = 11;
 
 /**
- * Abaixo deste zoom já não se muda de país guardado.
+ * Below this zoom the stored country no longer changes.
  *
- * O 5 é o nível a que se vê meia Europa: mais longe do que isto, nenhum país
- * chega para encher o ecrã, por isso escolher entre eles não muda nada do que se
- * vê — só faz o mapa recarregar, e era isso que dava os saltos.
+ * 5 is the level at which half of Europe is in view: further out, no country
+ * fills the screen, so choosing between them changes nothing that is seen — it
+ * only makes the map reload, and that is what caused the jumps.
  */
 const OFFLINE_SWITCH_MIN_ZOOM = 5;
 
 /**
- * Desenha o mapa com os tiles do OpenStreetMap, a posição atual, os negócios,
- * o destino e a linha do percurso.
+ * Draws the map with the OpenStreetMap tiles, the current position, the
+ * businesses, the destination and the route line.
  */
 export function MapView({
   userLocation,
@@ -260,24 +261,24 @@ export function MapView({
   const theme = useTheme();
   const { settings } = useSettings();
 
-  /** O mapa guardado que cobre a zona que se está a ver, se houver algum. */
+  /** The stored map covering the area in view, if there is one. */
   const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
   /**
-   * Os mapas guardados que não abriram.
+   * The stored maps that failed to open.
    *
-   * Guarda-se **por país**, e não um sim-ou-não para tudo. Antes era um trinco
-   * que, uma vez fechado, desligava o offline o resto da sessão: bastava uma
-   * falha passageira num país para o mapa de outro — descarregado e perfeito —
-   * nunca mais ser usado, o que em modo de avião dá um ecrã vazio sem
-   * explicação nenhuma.
+   * Kept **per country**, not as one yes-or-no for everything. It used to be a
+   * latch that, once closed, turned offline off for the rest of the session: one
+   * passing failure in one country was enough for another country's map —
+   * downloaded and perfect — never to be used again, which in airplane mode is
+   * an empty screen with no explanation at all.
    */
   const [failedRegions, setFailedRegions] = useState<string[]>([]);
   /**
-   * Muda sempre que se pede para voltar ao carro durante a navegação.
+   * Changes every time going back to the car is asked for while navigating.
    *
-   * Serve de `key` à câmara. Assim que a pessoa arrasta o mapa, o MapLibre
-   * larga o seguimento — e voltar a pedi-lo não adianta, porque a propriedade
-   * não mudou. Recriar a câmara volta a prendê-la à posição.
+   * It is the camera's `key`. As soon as the person drags the map, MapLibre
+   * drops following — and asking again does nothing, because the prop did not
+   * change. Recreating the camera ties it to the position again.
    */
   const [followNonce, setFollowNonce] = useState(0);
   /** Navigation overview: the camera stops following so the route can be framed. */
@@ -289,16 +290,16 @@ export function MapView({
   }, [following]);
 
   /**
-   * Se há mesmo Internet a chegar ao telemóvel.
+   * Whether the Internet really reaches the phone.
    *
-   * **`isInternetReachable` e não `isConnected`**: estar ligado a um Wi-Fi não
-   * quer dizer que se chegue lá fora — um hotel com portal de entrada, ou uma
-   * rede sem saída, dá ligado e sem Internet. O que interessa aqui é se os
-   * tiles vão mesmo chegar.
+   * **`isInternetReachable`, not `isConnected`**: being on a Wi-Fi does not
+   * mean getting out — a hotel with a login portal, or a network with no way
+   * out, is connected and without Internet. What matters here is whether the
+   * tiles will actually arrive.
    *
-   * Começa `null` — "ainda não se sabe" — e enquanto assim for **não se usa o
-   * mapa guardado**: no arranque quase sempre há rede, e trocar o estilo duas
-   * vezes seguidas faz o mapa recarregar à frente de quem está a olhar.
+   * It starts `null` — "not known yet" — and while it is, **the stored map is
+   * not used**: at start-up there is nearly always a network, and switching
+   * style twice in a row makes the map reload in front of whoever is looking.
    */
   const [internetReachable, setInternetReachable] = useState<boolean | null>(null);
 
@@ -312,9 +313,9 @@ export function MapView({
       })
       .catch(() => undefined);
 
-    // A rede vai e vem a meio de uma viagem — é precisamente o caso que os mapas
-    // guardados servem. Sem ficar à escuta, quem entrasse num túnel ficava com o
-    // mapa em branco até fechar e abrir a aplicação.
+    // The network comes and goes mid-trip — exactly the case stored maps are
+    // for. Without listening, entering a tunnel left the map blank until the
+    // app was closed and opened again.
     const subscricao = Network.addNetworkStateListener((estado) => {
       setInternetReachable(estado.isInternetReachable ?? estado.isConnected ?? null);
     });
@@ -325,13 +326,13 @@ export function MapView({
     };
   }, []);
 
-  /** Quantos pontos do percurso já ficaram para trás. */
+  /** How many route points are already behind. */
   const andado = following ? progressIndex : 0;
 
   /**
-   * Os pontos da fita, já com o regresso ao princípio quando se está a medir uma
-   * área. Sem isto, a forma aparecia sombreada com um dos lados por desenhar — e
-   * o perímetro que o painel mostra não batia certo com o que se via.
+   * The tape's points, with the return to the start when measuring an area.
+   * Without this the shape showed shaded with one side not drawn — and the
+   * perimeter the panel shows did not match what was seen.
    */
   const measureLine = useMemo(() => {
     const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
@@ -342,7 +343,7 @@ export function MapView({
     return linha;
   }, [measurePoints, measureClosed]);
 
-  /** Os troços a medir, já a contar com o que fecha a forma. */
+  /** The segments being measured, including the one that closes the shape. */
   const measureSegments = useMemo(() => {
     const pontos =
       measureClosed && measurePoints.length >= 3
@@ -353,8 +354,8 @@ export function MapView({
   }, [measurePoints, measureClosed]);
 
   /**
-   * As duas metades do percurso, em [longitude, latitude] — que é a ordem que o
-   * GeoJSON quer. Sobrepõem-se num ponto, senão ficava uma falha entre elas.
+   * The two halves of the route, as [longitude, latitude] — the order GeoJSON
+   * wants. They overlap by one point, otherwise there was a gap between them.
    */
   const { andadoLine, faltaLine } = useMemo(() => {
     const pontos = route?.coordinates ?? [];
@@ -391,35 +392,35 @@ export function MapView({
   }));
 
   /**
-   * Abre o mapa onde a pessoa está.
+   * Opens the map where the person is.
    *
-   * **O `initialViewState` da câmara só é lido quando ela nasce**, e nessa altura
-   * o GPS ainda não respondeu — por isso a aplicação abria em Lisboa e lá ficava,
-   * mesmo depois de a posição chegar, até alguém carregar no botão de centrar.
-   * Não era a câmara a ignorar a posição: era a posição a chegar tarde de mais
-   * para uma propriedade que é de arranque e não se volta a ler.
+   * **The camera's `initialViewState` is only read when it is born**, and by
+   * then the GPS has not answered — so the app opened in Lisbon and stayed
+   * there, even after the position arrived, until someone pressed the centre
+   * button. It was not the camera ignoring the position: it was the position
+   * arriving too late for a start-up prop that is never read again.
    *
-   * **Espera-se que o mapa esteja carregado e move-se a câmara.** Uma ordem de
-   * movimento dada a um mapa que ainda não está pronto perde-se sem dar erro, e
-   * a posição chega quase sempre antes de o mapa acabar de carregar — daí ficar
-   * guardada em `openAt` até haver a quem a dar.
+   * **Wait for the map to load, then move the camera.** A move given to a map
+   * that is not ready is lost without an error, and the position nearly always
+   * arrives before the map finishes loading — so it waits in `openAt` until
+   * there is someone to give it to.
    *
-   * Já se fez isto refazendo a câmara com uma `key`, como o `followNonce`. Dava
-   * o resultado certo mas ao preço errado: desmontar e voltar a montar a câmara
-   * é trabalho nativo, e caía **poucos instantes depois do arranque** — que é
-   * precisamente quando a pessoa está a tocar na barra de pesquisa e o teclado
-   * tem de subir. Mover é muito mais barato do que reconstruir.
+   * This was once done by rebuilding the camera with a `key`, like
+   * `followNonce`. It gave the right result at the wrong price: unmounting and
+   * mounting the camera is native work, and it landed **moments after start-up**
+   * — exactly when the person is tapping the search bar and the keyboard has to
+   * come up. Moving is much cheaper than rebuilding.
    *
-   * Sem animação de propósito: a câmara está em Lisboa e a pessoa pode estar em
-   * São Tomé — vê-la atravessar o Atlântico não é uma abertura, é um espetáculo.
+   * No animation on purpose: the camera is in Lisbon and the person may be in
+   * São Tomé — watching it cross the Atlantic is not an opening, it is a show.
    *
-   * Trata da **primeira** posição que chega, e só dessa. A partir daí a câmara é
-   * de quem está a mexer no mapa.
+   * It handles the **first** position that arrives, and only that one. After
+   * that the camera belongs to whoever is moving the map.
    */
   const openedOnUser = useRef(false);
-  /** O mapa já acabou de carregar? Antes disso não vale a pena mandá-lo mexer. */
+  /** Has the map finished loading? Before that, telling it to move is pointless. */
   const mapReady = useRef(false);
-  /** Onde abrir, enquanto se espera que o mapa fique pronto. */
+  /** Where to open, while waiting for the map to be ready. */
   const openAt = useRef<Coordinates | null>(null);
 
   const openOn = useCallback((posicao: Coordinates) => {
@@ -435,9 +436,9 @@ export function MapView({
       return;
     }
 
-    // A partir daqui o momento da abertura já passou, tenha-se chegado a centrar
-    // ou não. Sem isto, uma pesquisa feita antes de o GPS responder via a câmara
-    // ser-lhe tirada da mão assim que ele respondesse.
+    // From here on the opening moment has passed, whether it centred or not.
+    // Without this, a search made before the GPS answered had the camera taken
+    // out of its hands as soon as the GPS did answer.
     openedOnUser.current = true;
     if (destination || route || following) {
       return;
@@ -451,11 +452,11 @@ export function MapView({
   }, [userLocation, destination, route, following, openOn]);
 
   /**
-   * O mapa acabou de carregar.
+   * The map finished loading.
    *
-   * Dispara também a cada troca de estilo — ao entrar num país guardado, por
-   * exemplo. Por isso a posição de abertura é consumida e apagada: só serve à
-   * primeira vez.
+   * It also fires on every style change — entering a stored country, for
+   * example. That is why the opening position is used up and cleared: it is
+   * only for the first time.
    */
   const handleMapReady = useCallback(() => {
     mapReady.current = true;
@@ -466,30 +467,30 @@ export function MapView({
     }
   }, [openOn]);
 
-  // Sempre que há um percurso novo, enquadra-o todo no ecrã.
+  // Whenever there is a new route, fit all of it on screen.
   useEffect(() => {
     if (!route || route.coordinates.length === 0 || following) {
       return;
     }
 
-    // Numa passagem só: `Math.min(...pontos)` passa-os todos como argumentos da
-    // função, e com `overview=full` um percurso longo traz dezenas de milhares
-    // de pontos — o suficiente para rebentar a pilha.
+    // In one pass: `Math.min(...points)` passes them all as function arguments,
+    // and with `overview=full` a long route has tens of thousands of points —
+    // enough to blow the stack.
     const area = boundsOf(route.coordinates);
 
     cameraRef.current?.fitBounds(
       // Ordem exigida pelo MapLibre: oeste, sul, este, norte.
       [area.west, area.south, area.east, area.north],
       {
-        // Margem em pixels, para a linha não ficar colada às extremidades nem
-        // escondida por baixo da barra de pesquisa e do painel do percurso.
+        // Padding in pixels, so the line is not stuck to the edges or hidden
+        // under the search bar and the route panel.
         padding: { top: 160, right: 40, bottom: 260, left: 40 },
         duration: 600,
       },
     );
   }, [route, following]);
 
-  // Sem percurso, mas com destino: centra no destino.
+  // No route, but a destination: centre on the destination.
   useEffect(() => {
     if (route || !destination) {
       return;
@@ -516,18 +517,17 @@ export function MapView({
       const [west, south, east, north] = bounds;
       onViewportChange({ south, west, north, east }, zoom);
 
-      // Muito afastado, o ecrã toca em vários países ao mesmo tempo e a região
-      // escolhida mudava a cada arrastar do dedo. Como trocar de estilo recarrega
-      // o mapa inteiro, isso dava um salto atrás do outro. Daí este chão: ao
-      // longe fica-se com o que está, e é o próprio estilo que trata de mostrar
-      // os tiles da Internet por cima.
+      // Zoomed far out, the screen touches several countries at once and the
+      // chosen region changed with every drag. Since switching style reloads the
+      // whole map, that gave one jump after another. Hence this floor: far out,
+      // keep what is there, and the style itself shows the Internet tiles on top.
       if (zoom < OFFLINE_SWITCH_MIN_ZOOM) {
         return;
       }
 
-      // Ao entrar num país cujo mapa está guardado, passa-se a usá-lo. Compara-se
-      // pelo id para o estilo só ser trocado quando muda mesmo de região — trocar
-      // de estilo recarrega o mapa, e a cada arrastar do dedo seria insuportável.
+      // Entering a country whose map is stored, use it. Compared by id so the
+      // style only switches when the region really changes — switching style
+      // reloads the map, and on every drag that would be unbearable.
       const seguinte = regionForView({ west, south, east, north }, offlineRegions);
       setOfflineRegion((atual) => (atual?.id === seguinte?.id ? atual : seguinte));
     },
@@ -535,17 +535,18 @@ export function MapView({
   );
 
   /**
-   * O MapLibre avisa aqui quando muda o modo de seguimento — incluindo quando é
-   * ele a largá-lo, que é o que acontece assim que a pessoa arrasta o mapa.
+   * MapLibre reports here when the tracking mode changes — including when it is
+   * the one dropping it, which happens as soon as the person drags the map.
    *
-   * **Só se comunica a queda.** Ligar é sempre decisão de quem carrega no botão;
-   * o que se aproveita daqui é o "deixei de seguir", para o botão não ficar aceso
-   * a mentir. Sem isto, a única forma de o apagar era carregar nele — o que o
-   * ligava outra vez.
+   * **Only the drop is passed on.** Turning it on is always the decision of
+   * whoever presses the button; what is used from here is "I stopped
+   * following", so the button does not stay lit and lie. Without this, the only
+   * way to turn it off was to press it — which turned it on again.
    *
-   * Reparar em quem larga o seguimento por esta via, e não pelo `userInteraction`
-   * do `onRegionDidChange`: aproximar o mapa com dois dedos também é interação da
-   * pessoa e **não** desliga o seguimento. Quem sabe a diferença é a biblioteca.
+   * Notice the drop through this, not through `onRegionDidChange`'s
+   * `userInteraction`: pinching to zoom is also the person's interaction and
+   * does **not** drop following. The library is the one that knows the
+   * difference.
    */
   const handleTrackChange = useCallback(
     (event: NativeSyntheticEvent<TrackUserLocationChangeEvent>) => {
@@ -557,16 +558,16 @@ export function MapView({
   );
 
   /**
-   * Se o mapa guardado não abrir, volta-se aos tiles da Internet.
+   * If the stored map does not open, fall back to the Internet tiles.
    *
-   * Vale a pena ter isto: o mapa guardado é a parte mais recente e a que menos
-   * garantias tem. Sem este recuo, uma falha dava ecrã em branco em vez de um
-   * mapa normal — e ninguém perceberia porquê.
+   * Worth having: the stored map is the newest part and the one with fewest
+   * guarantees. Without this fallback a failure gave a blank screen instead of a
+   * normal map — and nobody would know why.
    */
   const handleFailure = useCallback(() => {
-    // Marca-se este país como falhado e recua-se para os tiles da Internet. O
-    // `setState` não pode ter efeitos lá dentro: o React pode correr a função
-    // duas vezes, e aí registava a falha a dobrar.
+    // Mark this country as failed and fall back to the Internet tiles. The
+    // `setState` updater cannot have side effects: React may run it twice, and
+    // then the failure would be recorded twice.
     const falhado = offlineRegion?.id;
     if (falhado) {
       setFailedRegions((atuais) =>
@@ -577,28 +578,28 @@ export function MapView({
   }, [offlineRegion]);
 
   /**
-   * **Com rede, o mapa guardado não entra.**
+   * **With a network, the stored map is not used.**
    *
-   * Os mapas de países existem para quando não há rede — é para isso que se
-   * descarregam. Usá-los também com rede trocava o mapa por outro de aspeto
-   * completamente diferente assim que o país enchia o ecrã, e via-se um salto
-   * grande de nitidez a meio de um simples aproximar do dedo. Não é avaria
-   * nenhuma: são dois mapas, um desenhado a partir de geometria e outro feito de
-   * imagens, e nunca se vão parecer.
+   * Country maps exist for when there is no network — that is why they are
+   * downloaded. Using them with a network too swapped the map for one that
+   * looks completely different as soon as the country filled the screen, with a
+   * big jump in sharpness in the middle of a simple zoom. Not a fault: they are
+   * two maps, one drawn from geometry and one made of images, and they will
+   * never look alike.
    *
-   * Assim, quem tem rede vê sempre o mesmo mapa do princípio ao fim, e o
-   * ficheiro guardado entra exatamente quando faz falta: em modo de avião, no
-   * meio da serra ou sem dados.
+   * So whoever has a network sees the same map from start to end, and the
+   * stored file comes in exactly when needed: in airplane mode, in the
+   * mountains or without data.
    *
-   * **A contrapartida, dita com franqueza:** com rede passam a pedir-se tiles ao
-   * OpenStreetMap em zonas que já estavam guardadas, o que gasta dados e carrega
-   * um serviço de voluntários. Se um dia isso pesar, o meio-termo é usar o
-   * ficheiro guardado também nos dados móveis e a Internet só em Wi-Fi.
+   * **The trade-off, said plainly:** with a network, tiles are requested from
+   * OpenStreetMap in areas already stored, which uses data and loads a volunteer
+   * service. If that ever matters, the middle ground is to use the stored file
+   * on mobile data too and the Internet only on Wi-Fi.
    */
   const semRede = internetReachable === false;
 
-  // O estilo só se recalcula quando algo que o define muda. Se fosse criado a
-  // cada desenho, o mapa recarregava sozinho de cada vez.
+  // The style is only rebuilt when something that defines it changes. Created
+  // on every render, the map would reload by itself each time.
   const mapStyle = useMemo(
     () =>
       mapStyleFor(
@@ -699,20 +700,20 @@ export function MapView({
       mapStyle={mapStyle}
       attribution
       logo={false}
-      // A bússola do MapLibre aparece sozinha assim que o mapa deixa de estar
-      // virado a norte — e o sítio de origem dela é o canto superior direito,
-      // mesmo por trás da barra de pesquisa, onde só se via um bocado a espreitar.
+      // MapLibre's compass shows by itself as soon as the map is not facing
+      // north — and its default place is the top-right corner, right behind the
+      // search bar, where only a sliver peeked out.
       //
-      // **O canto inferior esquerdo não está livre: é o da régua.** Esteve aqui
-      // escrito que estava, e não estava — a bússola ficava por baixo do botão
-      // da fita métrica, meio tapada, e como só aparece com o mapa rodado a
-      // sobreposição passava despercebida a quem nunca rodava o mapa.
+      // **The bottom-left corner is not free.** It was written here that it
+      // was, and it was not — the compass sat under the measuring-tape button,
+      // half covered, and since it only shows with the map rotated the overlap
+      // went unnoticed by anyone who never rotated the map.
       //
-      // A altura vem de fora (`compassBottom`): quem a decide é o `App.tsx`,
-      // onde vivem as medidas dos outros botões flutuantes. Espalhar essa
-      // aritmética por dois ficheiros era garantir que um dia deixavam de bater
-      // certo — e a bússola só aparece com o mapa rodado, por isso o desalinho
-      // passaria despercebido a quem nunca roda o mapa.
+      // The height comes from outside (`compassBottom`): `App.tsx` decides it,
+      // where the other floating buttons' measurements live. Spreading that
+      // arithmetic over two files was a guarantee that one day they would stop
+      // matching — and since the compass only shows with the map rotated, the
+      // misalignment would go unnoticed.
       compassPosition={{ bottom: compassBottom, left: 16 }}
       onDidFinishLoadingMap={handleMapReady}
       onDidFailLoadingMap={handleFailure}
@@ -724,14 +725,13 @@ export function MapView({
       onLongPress={handleLongPress}
     >
       <Camera
-        // Recriar a câmara é o que volta a prendê-la à posição depois de a
-        // pessoa ter arrastado o mapa. Ver `followNonce`.
+        // Recreating the camera is what ties it to the position again after the
+        // person dragged the map. See `followNonce`.
         key={`camera-${followNonce}`}
         ref={cameraRef}
-        // 'course' aponta o mapa no sentido em que se segue, como na navegação
-        // do Maps. O 'default' acompanha a pessoa sem lhe virar o mapa — é o que
-        // se liga com dois toques no botão do GPS. Sem nenhum dos dois, a câmara
-        // fica livre.
+        // 'course' points the map the way one is going, as in Maps navigation.
+        // 'default' follows the person without turning the map — what a double
+        // tap on the GPS button turns on. With neither, the camera is free.
         trackUserLocation={
           following && !overviewing ? 'course' : followUser && !following ? 'default' : undefined
         }
@@ -744,17 +744,18 @@ export function MapView({
         }}
       />
 
-      {/* Só se mostra o ponto azul se houver mesmo permissão de localização. */}
+      {/* The blue dot only shows with location permission actually granted. */}
       {userLocation ? <UserLocation /> : null}
 
       {/*
-        O troço entre onde a pessoa está e onde o percurso começa mesmo.
+        The stretch between where the person is and where the route really
+        starts.
 
-        O serviço de percursos só anda por estradas: num aeroporto ou no meio do
-        campo, encosta o início à estrada mais próxima, que pode ficar a
-        centenas de metros. Sem isto, a linha parecia começar noutro sítio sem
-        explicação. A tracejado, porque esse bocado é por conta de quem anda —
-        não é um caminho que alguém tenha calculado.
+        The routing service only follows roads: at an airport or in the middle of
+        a field, it snaps the start to the nearest road, which can be hundreds of
+        metres away. Without this, the line seemed to start somewhere else with
+        no explanation. Dashed, because that bit is up to whoever walks it — it
+        is not a path anyone calculated.
       */}
       {userLocation && route?.startsAt && route.startAwayMeters > 40 ? (
         <GeoJSONSource
@@ -785,16 +786,16 @@ export function MapView({
       ) : null}
 
       {/*
-        Os negócios vão todos numa única camada, em vez de um componente por
-        pino. Com dezenas de pinos, a diferença de fluidez é grande.
+        The businesses all go in a single layer, instead of one component per
+        pin. With dozens of pins, the difference in smoothness is large.
       */}
       {/*
-        A fita métrica.
+        The measuring tape.
 
-        A forma fechada só se desenha a partir de três pontos, que é quando passa
-        a existir área. A linha precisa de dois — e com menos do que isso não se
-        desenha nada, porque uma linha sem pontos suficientes não é GeoJSON
-        válido e leva a fonte inteira atrás. Já aconteceu com o percurso.
+        The closed shape is only drawn from three points, which is when there is
+        an area. The line needs two — and with fewer nothing is drawn, because a
+        line without enough points is not valid GeoJSON and takes the whole
+        source with it. It already happened with the route.
       */}
       {measureClosed && measurePoints.length >= 3 ? (
         <GeoJSONSource
@@ -807,7 +808,7 @@ export function MapView({
               coordinates: [
                 [
                   ...measurePoints.map((p) => [p.longitude, p.latitude]),
-                  // O GeoJSON exige que um polígono feche no ponto de partida.
+                  // GeoJSON requires a polygon to close on its starting point.
                   [measurePoints[0].longitude, measurePoints[0].latitude],
                 ],
               ],
@@ -845,10 +846,10 @@ export function MapView({
       ) : null}
 
       {/*
-        A medida de cada troço, escrita a meio dele — como no Google Earth.
+        Each segment's length, written halfway along it — as in Google Earth.
 
-        Sem isto via-se o total no painel mas não se sabia quanto valia cada
-        bocado, que é metade da utilidade de medir por partes.
+        Without this the panel showed the total but not what each piece was
+        worth, which is half the point of measuring in parts.
       */}
       {measureSegments.length > 0 && labelsReady ? (
         <GeoJSONSource
@@ -912,10 +913,10 @@ export function MapView({
       ) : null}
 
       {/*
-        As estações de comboio, metro, metro de superfície e barco.
+        Train, metro, light-rail and ferry stations.
 
-        Vão antes das paragens de autocarro para ficarem por baixo delas: as
-        paragens é que se tocam, estas são só referência.
+        They go before the bus stops so they sit under them: the stops are what
+        gets tapped, these are only for reference.
       */}
       {transitStations.length > 0 ? (
         <GeoJSONSource
@@ -970,19 +971,19 @@ export function MapView({
       ) : null}
 
       {/*
-        As paragens de transporte, enquanto o painel delas está aberto.
+        The transport stops, while their panel is open.
 
-        Cada uma leva o nome ao lado, porque é isso que permite ligar a linha da
-        lista ao ponto no mapa — sem nome, seis pontos iguais não dizem nada. A
-        que está aberta fica maior e com a cor de destaque.
+        Each one gets its name next to it, because that is what links the row in
+        the list to the point on the map — without a name, six identical points
+        say nothing. The open one is bigger and in the highlight colour.
       */}
       {transitStops.length > 0 ? (
         <GeoJSONSource
           id="paragens"
           onPress={(event) => {
-            // Ver a nota nos negócios: o toque não pode subir para o mapa.
+            // See the note on the businesses: the tap must not reach the map.
             event.stopPropagation?.();
-            // Igual ao dos negócios: as funcionalidades vêm em `nativeEvent`.
+            // Same as the businesses: the features come in `nativeEvent`.
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
               onStopPress?.(id);
@@ -1090,16 +1091,16 @@ export function MapView({
       ) : null}
 
       {/*
-        Os autocarros a andar, com o número da linha lá dentro.
+        The moving buses, with the line number inside.
 
-        **Vão por cima das paragens, e é de propósito:** a paragem está sempre no
-        mesmo sítio e o autocarro é que é a novidade. Tapar um autocarro com uma
-        paragem seria tapar o que se veio ver.
+        **They go over the stops, on purpose:** the stop is always in the same
+        place and the bus is the news. Covering a bus with a stop would cover
+        what one came to see.
 
-        Não levam seta a indicar o sentido, apesar de o serviço mandar o
-        `bearing`. Uma seta precisava de uma imagem ou de um caractere que os
-        glifos incluídos não têm — são dois blocos de Noto Sans, que chegam para
-        o português e não trazem símbolos. Fica anotado para quando fizer falta.
+        They have no arrow for the direction, even though the service sends the
+        `bearing`. An arrow would need an image or a character the bundled glyphs
+        lack — two Noto Sans blocks, enough for Portuguese and with no symbols.
+        Noted for when it is needed.
       */}
       {vehicles.length > 0 ? (
         <GeoJSONSource
@@ -1110,9 +1111,9 @@ export function MapView({
               type: 'Feature',
               properties: {
                 linha: v.line,
-                // Um autocarro parado numa paragem desenha-se mais apagado: a
-                // diferença entre "está a andar" e "está ali parado" é o que
-                // torna isto útil a quem espera.
+                // A bus standing at a stop is drawn fainter: the difference
+                // between "moving" and "standing there" is what makes this
+                // useful to someone waiting.
                 parado: v.atStop ? 1 : 0,
               },
               geometry: {
@@ -1141,8 +1142,8 @@ export function MapView({
                 'text-field': ['get', 'linha'],
                 'text-font': ['Noto Sans Medium'],
                 'text-size': 10,
-                // Sobrepostos de propósito: o número tem de ficar dentro do
-                // círculo mesmo quando há autocarros encostados uns aos outros.
+                // Overlapping on purpose: the number has to stay inside the
+                // circle even when buses are right next to each other.
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
               }}
@@ -1153,8 +1154,8 @@ export function MapView({
       ) : null}
 
       {/*
-        Os radares. Vão depois do percurso e antes dos negócios, para ficarem
-        por cima da linha e por baixo dos pinos em que se toca.
+        The speed cameras. After the route and before the businesses, so they sit
+        over the line and under the pins that get tapped.
       */}
       {cameras.length > 0 ? (
         <GeoJSONSource
@@ -1272,9 +1273,9 @@ export function MapView({
             })),
           }}
           onPress={(event) => {
-            // Sem isto o toque sobe também para o mapa: com a fita métrica
-            // ligada, tocar num negócio abria a ficha **e** deixava lá um ponto
-            // de medição por cima do pino.
+            // Without this the tap also reaches the map: with the measuring tape
+            // on, tapping a business opened its card **and** left a measuring
+            // point on top of the pin.
             event.stopPropagation?.();
             const feature = event.nativeEvent.features[0];
             const placeId = feature?.properties?.placeId;
@@ -1293,11 +1294,11 @@ export function MapView({
       ) : null}
 
       {/*
-        Os caminhos que não foram escolhidos, apagados e por baixo do escolhido.
+        The routes not chosen, faded and under the chosen one.
 
-        Desenham-se antes de propósito: no MapLibre a ordem em que as camadas
-        entram é a ordem em que se sobrepõem, e o caminho escolhido tem de ficar
-        por cima para se perceber qual é.
+        Drawn first on purpose: in MapLibre the order layers are added is the
+        order they stack, and the chosen route has to be on top to tell which it
+        is.
       */}
       {alternativeRoutes.map((alt, i) =>
         alt.coordinates.length >= 2 ? (
@@ -1328,15 +1329,15 @@ export function MapView({
       )}
 
       {/*
-        O percurso vai em duas fontes separadas — o que já ficou para trás e o
-        que falta — e não numa só com um filtro a distinguir as duas.
+        The route goes in two separate sources — what is behind and what is left
+        — not in one with a filter telling them apart.
 
-        **A razão é uma avaria já apanhada:** com as duas linhas na mesma fonte,
-        no arranque da navegação a primeira ainda não tinha ponto nenhum, e uma
-        linha sem pontos não é GeoJSON válido. O MapLibre deitava fora a fonte
-        inteira e o percurso **desaparecia todo** do mapa, sem dar erro nenhum.
-        Daí as duas verificações de comprimento aqui em baixo: uma linha precisa
-        de dois pontos para existir.
+        **The reason is a fault already caught:** with both lines in the same
+        source, at the start of navigation the first had no points yet, and a
+        line without points is not valid GeoJSON. MapLibre threw away the whole
+        source and the route **vanished entirely** from the map, with no error
+        at all. Hence the two length checks below: a line needs two points to
+        exist.
       */}
       {andadoLine.length >= 2 ? (
         <GeoJSONSource
@@ -1380,7 +1381,7 @@ export function MapView({
       ) : null}
 
       {/*
-        As paragens do percurso, numeradas pela ordem por que se passa por elas.
+        The route's stops, numbered in the order they are passed.
       */}
       {waypoints.length > 0 ? (
         <GeoJSONSource
@@ -1423,8 +1424,8 @@ export function MapView({
       <Images images={POI_IMAGE_SOURCES} />
 
       {/*
-        O pino largado com o dedo. Fica com um aspeto diferente do destino,
-        para se perceber que ainda não há percurso traçado.
+        The pin dropped with a finger. It looks different from the destination,
+        to show there is no route drawn yet.
       */}
       {droppedPin ? (
         <Marker id="dropped-pin" lngLat={[droppedPin.longitude, droppedPin.latitude]}>
@@ -1435,9 +1436,10 @@ export function MapView({
       ) : null}
 
       {/*
-        O pino vermelho em gota, como nos mapas que toda a gente conhece: o sítio
-        cuja ficha está aberta, ou o destino. Leva lá dentro o ícone do tipo de
-        negócio. A ponta da gota é que marca o sítio — daí o \`anchor\` em baixo.
+        The red teardrop pin, as in the maps everyone knows: the place whose
+        card is open, or the destination. It carries the business-kind icon
+        inside. The tip of the drop marks the spot — hence the \`anchor\` at the
+        bottom.
       */}
       {pinned || destination ? (
         <Marker
@@ -1473,14 +1475,14 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  // A gota rodada tem a ponta a 38 pontos do cimo; a caixa acaba logo a
-  // seguir, para o \`anchor="bottom"\` pôr a ponta em cima do sítio.
+  // The rotated drop has its tip 38 points from the top; the box ends right
+  // after, so \`anchor="bottom"\` puts the tip on the spot.
   pin: {
     width: 34,
     height: 39,
     alignItems: 'center',
   },
-  // Um quadrado com três cantos redondos, rodado 45°: a gota clássica.
+  // A square with three rounded corners, rotated 45°: the classic drop.
   pinDrop: {
     position: 'absolute',
     top: 2,

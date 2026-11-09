@@ -359,6 +359,7 @@ export const en: typeof pt = {
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',
+    requestMap: 'Missing a country? Ask on GitHub',
     offlineMapsNote: 'The largest are hundreds of MB: use Wi-Fi.',
 
     schedules: 'Timetables',

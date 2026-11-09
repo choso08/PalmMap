@@ -11,6 +11,10 @@
  * Anonymous requests are refused. If this project changes owner or address,
  * update this line.
  */
+/** Where someone asks for a country map that is not published yet: a pre-filled GitHub issue. */
+export const MAP_REQUEST_URL =
+  'https://github.com/choso08/PalmMap/issues/new?title=Map%20request%3A%20';
+
 export const USER_AGENT = 'PalmMap/1.0 (personal project; https://github.com/choso08/PalmMap)';
 
 /** Address search. */
