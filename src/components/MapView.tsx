@@ -993,33 +993,59 @@ export function MapView({
             })),
           }}
         >
+          {/*
+            Small bus symbols, as in the Maps — the big circles covered the
+            street. The open stop gets a ring under it and a bigger symbol.
+          */}
           <Layer
-            id="paragens-circle"
+            id="paragens-aberta"
             type="circle"
+            filter={['==', ['get', 'aberta'], 1]}
             paint={{
-              'circle-radius': ['case', ['==', ['get', 'aberta'], 1], 11, 8],
-              'circle-color': [
-                'case',
-                ['==', ['get', 'aberta'], 1],
-                theme.accent,
-                theme.destination,
-              ],
-              'circle-stroke-width': 2.5,
-              'circle-stroke-color': theme.poiOutline,
+              'circle-radius': 15,
+              'circle-color': theme.accent,
+              'circle-opacity': 0.25,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': theme.accent,
             }}
           />
+          <Layer
+            id="paragens-icon"
+            type="symbol"
+            layout={{
+              'icon-image': 'stop-bus',
+              // Zoom on the outside: the spec only allows it at the top.
+              'icon-size': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                14,
+                ['case', ['==', ['get', 'aberta'], 1], 1.3, 0.75],
+                17,
+                ['case', ['==', ['get', 'aberta'], 1], 1.5, 1.05],
+              ],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+          />
+          {/* The names only close in (zoom 17), or for the open stop: at street
+              level a dozen names on top of each other said nothing. */}
           {labelsReady ? (
+            <>
             <Layer
               id="paragens-label"
               type="symbol"
+              minzoom={17}
+              filter={['==', ['get', 'aberta'], 0]}
               layout={{
                 'text-field': ['get', 'nome'],
                 'text-font': ['Noto Sans Medium'],
-                'text-size': 11,
-                'text-offset': [0, 1.4],
+                'text-size': 10,
+                'text-offset': [0, 1.1],
                 'text-anchor': 'top',
                 'text-max-width': 9,
                 'text-allow-overlap': false,
+                'text-optional': true,
               }}
               paint={{
                 'text-color': theme.text,
@@ -1027,6 +1053,27 @@ export function MapView({
                 'text-halo-width': 1.6,
               }}
             />
+            <Layer
+              id="paragens-label-aberta"
+              type="symbol"
+              filter={['==', ['get', 'aberta'], 1]}
+              layout={{
+                'text-field': ['get', 'nome'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 10,
+                'text-offset': [0, 1.1],
+                'text-anchor': 'top',
+                'text-max-width': 9,
+                'text-allow-overlap': false,
+                'text-optional': true,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.6,
+              }}
+            />
+            </>
           ) : null}
         </GeoJSONSource>
       ) : null}

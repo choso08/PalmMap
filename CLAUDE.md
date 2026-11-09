@@ -42,7 +42,7 @@ telemóvel ainda:
   dos horários. As duas passagens do 3601 com um minuto de diferença **não são repetidas**: uma é
   um autocarro com meia hora de atraso.
 - **Tocar numa paragem no mapa dos transportes abre o painel dela.** As paragens da ÖPNVKarte são
-  imagem; desenham-se por cima as da Carris a partir do zoom 15 (`stopsInBounds`).
+  imagem; desenham-se por cima as da Carris a partir do zoom 15 (`stopsInBounds`). Desenham-se **pequenas, como no Maps**: um disco azul com um autocarro branco (`stop-bus`, gerado pelo `generate-poi-icons.py`), com o nome só a partir do zoom 17 ou na paragem aberta. Um trajeto de transportes fechado já não deixa o mapa a mostrar só as duas paragens dele (`transitTrips` limpa-se sem destino) — era por isso que "faltavam paragens".
 - **Metro Sul do Tejo com horários a sério**, do serviço do próprio site
   (`https://www.mts.pt/mts-timetable-api/`: `lines`, `stations` por POST com `line_id`, `search` por
   POST com `line`, `stations`, `day_type` e `season`). Convertido por `build_mts()` em

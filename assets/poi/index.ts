@@ -14,4 +14,5 @@ export const POI_IMAGE_SOURCES = {
   'shop-shopping': require('./shop-shopping.png'),
   'food-silverware-fork-knife': require('./food-silverware-fork-knife.png'),
   'leisure-tree': require('./leisure-tree.png'),
+  'stop-bus': require('./stop-bus.png'),
 };
