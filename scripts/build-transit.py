@@ -1,38 +1,38 @@
 #!/usr/bin/env python3
 """
-Converte GTFS estático num ficheiro compacto de horários, para a aplicação usar.
+Converts static GTFS into a compact timetable file for the app.
 
-## Porquê
+## Why
 
-Os autocarros da Área Metropolitana de Lisboa têm uma API aberta com tempo real,
-e é isso que a aplicação usa. O comboio, o metro e o barco não têm nada disso —
-o que têm é GTFS estático: um ZIP com o horário todo, publicado de vez em quando.
+Buses in the Lisbon Metropolitan Area have an open real-time API, and the app
+uses it. Trains, the metro and ferries have nothing like that — what they have is
+static GTFS: a ZIP with the whole timetable, published every so often.
 
-Um GTFS não se pode usar diretamente num telemóvel. O `stop_times.txt` da CP tem
-centenas de milhares de linhas, e a aplicação teria de o ler inteiro para
-responder "a que horas passa o próximo aqui". Por isso converte-se aqui, uma vez,
-num formato que responde a essa pergunta de imediato.
+A GTFS cannot be used directly on a phone. CP's `stop_times.txt` has hundreds of
+thousands of lines, and the app would have to read all of it to answer "when is
+the next one here". So it is converted here, once, into a format that answers
+that question at once.
 
-É o mesmo padrão dos mapas offline: o trabalho pesado é feito no GitHub Actions,
-o resultado vai para uma Release, e a aplicação descarrega um ficheiro pequeno.
+Same pattern as the offline maps: the heavy work runs in GitHub Actions, the
+result goes to a Release, and the app downloads a small file.
 
-## O que se descarta, e porquê
+## What is dropped, and why
 
-- **Fora da janela de dias.** Um GTFS traz meses de calendário; guardam-se só os
-  próximos `--dias` (60 por omissão). Cortar o resto tira a maior parte do peso e
-  não tira nada de útil: quem quer saber a que horas passa o comboio daqui a três
-  meses vai ao sítio do operador.
-- **Os segundos.** Comboios andam ao minuto. Guardar segundos era mais um dígito
-  por cada paragem de cada viagem, para nada.
-- **As plataformas.** O GTFS separa a estação das linhas dela; junta-se tudo na
-  estação, que é o que interessa a quem espera.
+- **Outside the window of days.** A GTFS carries months of calendar; only the
+  next `--dias` (60 by default) are kept. Cutting the rest removes most of the
+  weight and nothing useful: whoever wants the train times three months ahead
+  goes to the operator's site.
+- **Seconds.** Trains run to the minute. Keeping seconds was one more digit for
+  every stop of every trip, for nothing.
+- **Platforms.** GTFS separates a station from its platforms; everything is
+  merged into the station, which is what matters to someone waiting.
 
-## O formato
+## The format
 
-Ver `src/types/schedule.ts`, do lado da aplicação, que descreve o mesmo com tipos.
-As chaves são curtas de propósito: repetem-se milhares de vezes no ficheiro.
+See `src/types/schedule.ts`, on the app side, which describes the same with types.
+The keys are short on purpose: they repeat thousands of times in the file.
 
-Só precisa da biblioteca padrão do Python — não há nada a instalar.
+Needs only Python's standard library — nothing to install.
 """
 
 from __future__ import annotations
@@ -50,9 +50,9 @@ import zipfile
 from datetime import date, timedelta
 from pathlib import Path
 
-USER_AGENT = "PalmMap/1.0 (projeto pessoal; https://github.com/choso08/PalmMap)"
+USER_AGENT = "PalmMap/1.0 (personal project; https://github.com/choso08/PalmMap)"
 
-# Pela ordem em que o GTFS os escreve em calendar.txt.
+# In the order GTFS writes them in calendar.txt.
 WEEKDAYS = [
     "monday",
     "tuesday",
@@ -68,7 +68,7 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
-# --- Descarregar --------------------------------------------------------------
+# --- Download ----------------------------------------------------------------
 
 
 def fetch(url: str, timeout: int = 180) -> bytes:
@@ -79,54 +79,54 @@ def fetch(url: str, timeout: int = 180) -> bytes:
 
 def download_feed(urls: list[str]) -> tuple[str, zipfile.ZipFile]:
     """
-    O primeiro endereço que devolva um ZIP com cara de GTFS.
+    The first address that returns a ZIP that looks like GTFS.
 
-    Um endereço que responda mas devolva outra coisa — uma página de erro, um
-    redireccionamento para o sítio do operador — não conta como bom. Já aconteceu
-    o suficiente para valer a pena confirmar em vez de assumir.
+    An address that answers but returns something else — an error page, a
+    redirect to the operator's site — does not count as good. It has happened
+    often enough to be worth checking instead of assuming.
     """
     if not urls:
-        raise RuntimeError("Sem endereços para tentar.")
+        raise RuntimeError("No addresses to try.")
 
     problemas = []
     for url in urls:
         try:
-            log(f"  A tentar {url}")
+            log(f"  Trying {url}")
             dados = fetch(url)
             arquivo = zipfile.ZipFile(io.BytesIO(dados))
             nomes = set(arquivo.namelist())
             if "stops.txt" not in nomes or "stop_times.txt" not in nomes:
-                raise RuntimeError(f"ZIP sem cara de GTFS (tem: {sorted(nomes)[:6]})")
+                raise RuntimeError(f"ZIP does not look like GTFS (has: {sorted(nomes)[:6]})")
             log(f"  OK — {len(dados) / 1048576:.1f} MB")
             return url, arquivo
         except (urllib.error.URLError, zipfile.BadZipFile, RuntimeError, OSError) as erro:
-            log(f"  Não serve: {erro}")
+            log(f"  Not usable: {erro}")
             problemas.append(f"{url}: {erro}")
 
-    raise RuntimeError("Nenhum endereço serviu.\n    " + "\n    ".join(problemas))
+    raise RuntimeError("No address worked.\n    " + "\n    ".join(problemas))
 
 
-# --- Ler o GTFS ----------------------------------------------------------------
+# --- Read the GTFS-------------------------------------------------------------
 
 
 def read_table(archive: zipfile.ZipFile, name: str) -> list[dict[str, str]]:
-    """Uma tabela do GTFS. Devolve lista vazia se o ficheiro não existir."""
+    """A GTFS table. Returns an empty list if the file does not exist."""
     if name not in archive.namelist():
         return []
     with archive.open(name) as bruto:
-        # utf-8-sig: muitos GTFS trazem BOM, e sem isto a primeira coluna fica
-        # com um caractere invisível colado ao nome e nunca mais é encontrada.
+        # utf-8-sig: many GTFS files carry a BOM, and without this the first
+        # column gets an invisible character stuck to its name and is never found.
         texto = io.TextIOWrapper(bruto, encoding="utf-8-sig", newline="")
         return list(csv.DictReader(texto))
 
 
 def parse_minutes(value: str) -> int | None:
     """
-    `HH:MM:SS` em minutos desde a meia-noite do dia de serviço.
+    `HH:MM:SS` as minutes since midnight of the service day.
 
-    **As horas do GTFS podem passar das 24.** `25:10:00` é a uma e dez da manhã
-    seguinte, ainda a contar como serviço do dia anterior — e é assim que fica
-    guardado, com 1510 minutos. Do lado da aplicação isso é tratado, não corrigido.
+    **GTFS hours can go past 24.** `25:10:00` is ten past one the next morning,
+    still counted as the previous day's service — and that is how it is stored,
+    as 1510 minutes. The app handles that; it is not corrected here.
     """
     partes = (value or "").strip().split(":")
     if len(partes) < 2:
@@ -141,13 +141,13 @@ def service_days(
     archive: zipfile.ZipFile, janela: list[str]
 ) -> dict[str, list[str]]:
     """
-    Em que dias da janela corre cada serviço.
+    On which days of the window each service runs.
 
-    Devolve a lista de datas mesmo, em vez da máscara de dias da semana com as
-    excepções à parte. É maior — umas dezenas de kilobytes — e vale bem a pena: a
-    aplicação passa a responder "corre hoje?" com uma procura numa lista, em vez
-    de ter de repetir aqui a aritmética dos feriados. Este género de conta feita
-    duas vezes acaba sempre por divergir numa delas.
+    Returns the actual list of dates, instead of the weekday mask with the
+    exceptions apart. It is bigger — a few tens of kilobytes — and well worth it:
+    the app answers "does it run today?" with a lookup in a list, instead of
+    repeating the holiday arithmetic. That kind of sum done twice always ends up
+    diverging in one of the two places.
     """
     dias: dict[str, set[str]] = {}
     na_janela = set(janela)
@@ -166,14 +166,14 @@ def service_days(
                 continue
             if fim and data > fim:
                 continue
-            # weekday(): 0 = segunda, que é a ordem do GTFS.
+            # weekday(): 0 = Monday, which is GTFS's order.
             if semana[date(int(data[:4]), int(data[4:6]), int(data[6:8])).weekday()]:
                 corre.add(data)
         dias[service] = corre
 
-    # As excepções mandam sobre o calendário: um feriado tira o serviço de um dia
-    # em que a semana dizia que corria, e um reforço acrescenta-o a um dia em que
-    # não corria. Há feeds que só têm isto e nem calendar.txt trazem.
+    # Exceptions override the calendar: a holiday removes the service from a day
+    # the week said it ran, and an extra service adds it to a day it did not.
+    # Some feeds only have this and carry no calendar.txt at all.
     for linha in read_table(archive, "calendar_dates.txt"):
         service = linha.get("service_id")
         data = (linha.get("date") or "").strip()
@@ -190,11 +190,11 @@ def service_days(
 
 def station_of(stops: dict[str, dict[str, str]], stop_id: str) -> str:
     """
-    A estação a que uma paragem pertence.
+    The station a stop belongs to.
 
-    O GTFS separa a estação das plataformas dela, e é a plataforma que aparece nos
-    horários. Quem espera pelo comboio quer saber a hora em "Pragal", não em
-    "Pragal — plataforma 2".
+    GTFS separates a station from its platforms, and it is the platform that
+    appears in the timetables. Someone waiting for the train wants the time at
+    "Pragal", not at "Pragal — platform 2".
     """
     linha = stops.get(stop_id)
     if not linha:
@@ -204,7 +204,7 @@ def station_of(stops: dict[str, dict[str, str]], stop_id: str) -> str:
 
 
 def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
-    """Converte um GTFS já descarregado no ficheiro compacto."""
+    """Converts an already downloaded GTFS into the compact file."""
     url, archive = download_feed(feed.get("urls") or [])
 
     stops_raw = {
@@ -213,7 +213,7 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         if linha.get("stop_id")
     }
     dias_por_servico = service_days(archive, janela)
-    log(f"  {len(dias_por_servico)} serviço(s) com dias dentro da janela")
+    log(f"  {len(dias_por_servico)} service(s) with days inside the window")
 
     routes = {
         linha["route_id"]: linha
@@ -221,19 +221,19 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         if linha.get("route_id")
     }
 
-    # As viagens que interessam: as de um serviço que corre na janela.
+    # The trips that matter: those of a service running in the window.
     viagens: dict[str, dict[str, str]] = {}
     for linha in read_table(archive, "trips.txt"):
         trip = linha.get("trip_id")
         if trip and linha.get("service_id") in dias_por_servico:
             viagens[trip] = linha
-    log(f"  {len(viagens)} viagem(ns) na janela")
+    log(f"  {len(viagens)} trip(s) in the window")
 
     if not viagens:
-        raise RuntimeError("Nenhuma viagem corre nos próximos dias. Feed fora de validade?")
+        raise RuntimeError("No trip runs in the coming days. Feed out of date?")
 
-    # As passagens, agrupadas por viagem. É a tabela grande — na CP são centenas
-    # de milhares de linhas — por isso guarda-se só o indispensável.
+    # The stop times, grouped by trip. It is the big table — hundreds of
+    # thousands of lines at CP — so only the essentials are kept.
     passagens: dict[str, list[tuple[int, str, int]]] = {}
     for linha in read_table(archive, "stop_times.txt"):
         trip = linha.get("trip_id")
@@ -249,10 +249,9 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
             ordem = 0
         passagens.setdefault(trip, []).append((ordem, stop, minuto))
 
-    # Índices: cada estação, letreiro e padrão de paragens aparece uma vez só, e
-    # as viagens referem-se a eles por número. É onde está a maior parte da
-    # poupança — numa linha de comboio, centenas de viagens partilham o mesmo
-    # punhado de padrões.
+    # Indices: each station, headsign and stop pattern appears once, and trips
+    # refer to them by number. That is where most of the saving is — on a train
+    # line, hundreds of trips share the same handful of patterns.
     idx_stops: dict[str, int] = {}
     lista_stops: list[dict] = []
     idx_routes: dict[str, int] = {}
@@ -280,8 +279,8 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         lista_stops.append(
             {
                 "n": (linha.get("stop_name") or "").strip() or estacao,
-                # Cinco casas decimais são pouco mais de um metro. Mais do que
-                # isso é ruído a ocupar espaço em milhares de linhas.
+                # Five decimals is just over a metre. More than that is noise
+                # taking up space on thousands of lines.
                 "y": round(lat, 5),
                 "x": round(lon, 5),
             }
@@ -301,8 +300,8 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
             i = stop_index(stop_id)
             if i is None:
                 continue
-            # Uma viagem que pare duas vezes seguidas na mesma estação (acontece
-            # com plataformas juntas depois de as colapsarmos) fica com uma.
+            # A trip stopping twice in a row at the same station (it happens with
+            # adjacent platforms once merged) keeps one.
             if percurso and percurso[-1] == i:
                 continue
             percurso.append(i)
@@ -339,8 +338,8 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
             idx_services[service_id] = len(lista_services)
             lista_services.append(dias_por_servico[service_id])
 
-        # A primeira hora é absoluta, as seguintes são o que se acrescenta à
-        # anterior. Ficam quase todas com um ou dois dígitos em vez de quatro.
+        # The first time is absolute, the following ones are what is added to
+        # the previous. Nearly all end up with one or two digits instead of four.
         deltas = [tempos[0]]
         for anterior, atual in zip(tempos, tempos[1:]):
             deltas.append(atual - anterior)
@@ -356,7 +355,7 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         )
 
     if not trips_out:
-        raise RuntimeError("Nenhuma viagem utilizável depois de converter.")
+        raise RuntimeError("No usable trip after converting.")
 
     lats = [s["y"] for s in lista_stops]
     lons = [s["x"] for s in lista_stops]
@@ -377,8 +376,8 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
     }
 
     log(
-        f"  {len(lista_stops)} estações, {len(lista_routes)} linhas, "
-        f"{len(lista_patterns)} padrões, {len(trips_out)} viagens"
+        f"  {len(lista_stops)} stations, {len(lista_routes)} lines, "
+        f"{len(lista_patterns)} patterns, {len(trips_out)} trips"
     )
 
     resultado["bbox"] = [
@@ -561,11 +560,11 @@ def build_mts(feed: dict, janela: list[str]) -> tuple[dict, str]:
     return resultado, MTS_API
 
 
-# --- Descobrir endereços -------------------------------------------------------
+# --- Discover addresses -----------------------------------------------------
 
 
 def probe(url: str, bytes_corpo: int = 500) -> None:
-    """Bate a uma porta e diz o que respondeu, sem tirar conclusões."""
+    """Knocks on a door and says what answered, without drawing conclusions."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=30) as resposta:
@@ -574,8 +573,8 @@ def probe(url: str, bytes_corpo: int = 500) -> None:
             log(f"  {resposta.status}  {tipo}  {url}")
             log(f"        {corpo[:bytes_corpo]!r}")
     except urllib.error.HTTPError as erro:
-        # 401 e 403 são a resposta que interessa distinguir: querem dizer que a
-        # porta existe mas está fechada, o que é diferente de não existir.
+        # 401 and 403 are the answers worth telling apart: they mean the door
+        # exists but is closed, which is different from not existing.
         log(f"  {erro.code}  {erro.reason}  {url}")
     except Exception as erro:  # noqa: BLE001
         log(f"  ---  {erro}  {url}")
@@ -583,29 +582,28 @@ def probe(url: str, bytes_corpo: int = 500) -> None:
 
 def probe_tml() -> None:
     """
-    Bate à porta da API da TML e diz o que responde.
+    Knocks on the TML API's door and says what answers.
 
-    **Porque é que isto existe.** A Transportes Metropolitanos de Lisboa agrega
-    tempo real de oito operadores — CP, Fertagus, Metro de Lisboa,
-    Transtejo/Soflusa e os autocarros — e diz publicamente que a maior parte dos
-    dados é aberta e sem tratamento especial: "toda a gente tem acesso à mesma
-    informação ao mesmo tempo". Também diz que **alguns** dados exigem
-    autenticação, sem especificar quais.
+    **Why this exists.** Transportes Metropolitanos de Lisboa aggregates real
+    time from eight operators — CP, Fertagus, Metro de Lisboa, Transtejo/Soflusa
+    and the buses — and says publicly that most data is open with no special
+    treatment: "everyone has access to the same information at the same time".
+    It also says **some** data requires authentication, without saying which.
 
-    De onde este código foi escrito não se chega lá, e adivinhar os endereços
-    seria repetir o erro que já está registado no CLAUDE.md — os nomes dos campos
-    da Carris foram todos adivinhados mal à primeira. Por isso em vez de escrever
-    código contra endereços supostos, pergunta-se-lhes daqui, de um sítio que tem
-    Internet, e escreve-se o que eles responderem.
+    Where this code was written cannot reach it, and guessing the addresses
+    would repeat the mistake already recorded in CLAUDE.md — the Carris field
+    names were all guessed wrong at first. So instead of writing code against
+    supposed addresses, they are asked from here, from a place with Internet,
+    and whatever they answer is written down.
 
-    O que se sabe do formato: GTFS estático para o planeado, e GTFS-RT para o
-    tempo real — alertas em JSON e em Protobuf, posições dos veículos em
-    Protobuf. **O Protobuf não é de graça neste projeto:** obrigava a uma
-    biblioteca nova só para o descodificar. Os alertas em JSON não.
+    What is known about the format: static GTFS for the plan, and GTFS-RT for
+    real time — alerts in JSON and Protobuf, vehicle positions in Protobuf.
+    **Protobuf is not free in this project:** it would need a new library just
+    to decode it. The JSON alerts would not.
     """
     base = "https://go.tmlmobilidade.pt/hub/api"
-    log("\n=== API da TML (tempo real de vários operadores) ===")
-    log("A documentação diz que a base é " + base + "/:version/:path\n")
+    log("\n=== TML API (real time from several operators) ===")
+    log("The documentation says the base is " + base + "/:version/:path\n")
 
     for caminho in [
         "",
@@ -620,8 +618,8 @@ def probe_tml() -> None:
     ]:
         probe(base + caminho)
 
-    # Os da Carris são o termo de comparação: sabe-se que funcionam sem chave.
-    log("\n--- Para comparar, os da Carris Metropolitana ---")
+    # Carris's are the yardstick: they are known to work without a key.
+    log("\n--- For comparison, Carris Metropolitana's ---")
     for url in [
         "https://api.carrismetropolitana.pt/v2/alerts",
         "https://api.carrismetropolitana.pt/gtfs",
@@ -631,79 +629,79 @@ def probe_tml() -> None:
 
 def probe_geoportal() -> None:
     """
-    Pergunta ao geoportal da TML que coleções tem.
+    Asks the TML geoportal which collections it has.
 
-    **Esta é a pista que interessa.** A pesquisa ao dados.gov.pt devolveu duas
-    coleções chamadas `gtfs_stops` e `gtfs_shapes` neste geoportal. Se existem
-    essas duas, podem existir as outras tabelas de um GTFS — e um GTFS publicado
-    pela TML seria o da **Área Metropolitana de Lisboa inteira**, com a CP, o
-    Fertagus, o Metro, os barcos e os autocarros todos no mesmo ficheiro. É
-    exatamente o que falta a este projeto.
+    **This is the lead that matters.** The dados.gov.pt search returned two
+    collections called `gtfs_stops` and `gtfs_shapes` on this geoportal. If those
+    two exist, the other GTFS tables might too — and a GTFS published by TML
+    would be the **whole Lisbon Metropolitan Area**'s, with CP, Fertagus, the
+    Metro, ferries and buses all in one file. Exactly what this project lacks.
+    (Answer, August 2026: no — only those two start with `gtfs_`.)
 
-    É uma OGC API, que tem sempre um `/collections` a dizer o que lá está. Em vez
-    de adivinhar nomes de coleções, pergunta-se-lhe.
+    It is an OGC API, which always has a `/collections` saying what is there.
+    Instead of guessing collection names, it is asked.
     """
     url = "https://geoportal.tmlmobilidade.pt/ogc-api/collections?f=json"
-    log("\n=== Geoportal da TML: que coleções existem ===")
+    log("\n=== TML geoportal: which collections exist ===")
     try:
         dados = json.loads(fetch(url, timeout=60))
     except Exception as erro:  # noqa: BLE001
-        log(f"  Não deu: {erro}")
+        log(f"  Failed: {erro}")
         return
 
     colecoes = dados.get("collections", [])
-    log(f"  {len(colecoes)} coleção(ões):")
+    log(f"  {len(colecoes)} collection(s):")
     for colecao in colecoes:
         identificador = colecao.get("id", "?")
         titulo = colecao.get("title", "")
         log(f"    {identificador:<28} {titulo}")
 
 
-# Endereços de GTFS que valia a pena existirem, para a AML ficar coberta.
-# Não estão no catálogo porque são palpites — isto é precisamente para deixarem
-# de o ser. O que responder passa para lá; o que não responder fica registado
-# como tentado, para não se voltar a tentar o mesmo.
+# GTFS addresses it would be worth having, to cover the Lisbon area.
+# They are not in the catalogue because they are guesses — this is exactly to
+# stop them being guesses. What answers moves there; what does not is recorded
+# as tried, so the same is not tried again.
 CANDIDATOS = [
-    # Carris de Lisboa — a da cidade, autocarros e elétricos. NÃO é a Carris
-    # Metropolitana, que serve os outros concelhos.
+    # Carris de Lisboa — the city's, buses and trams. NOT Carris
+    # Metropolitana, which serves the other municipalities.
     "https://www.carris.pt/gtfs/gtfs.zip",
     "https://gtfs.carris.pt/gtfs/gtfs.zip",
     "https://api.carris.pt/gtfs",
-    # CP — comboios urbanos de Lisboa, entre outros.
+    # CP — Lisbon urban trains, among others.
     "https://publico.cp.pt/gtfs/gtfs.zip",
     "https://www.cp.pt/gtfs/gtfs.zip",
-    # Fertagus e barcos.
+    # Fertagus and ferries.
     "https://www.fertagus.pt/gtfs/gtfs.zip",
     "https://ttsl.pt/gtfs/gtfs.zip",
     "https://www.transtejo.pt/gtfs/gtfs.zip",
-    # E a hipótese boa: um GTFS da AML inteira, publicado pela TML.
+    # And the good hypothesis: a GTFS for the whole area, published by TML.
     "https://api.tmlmobilidade.pt/gtfs",
     "https://go.tmlmobilidade.pt/hub/api/v1/gtfs.zip",
 ]
 
 
 def probe_candidatos() -> None:
-    log("\n=== Endereços de GTFS a testar ===")
+    log("\n=== GTFS addresses to test ===")
     for url in CANDIDATOS:
         probe(url)
 
 
 def probe_vehicles() -> None:
     """
-    Procura as posições dos autocarros em andamento.
+    Looks for the positions of moving buses.
 
-    O sítio da Carris Metropolitana mostra os autocarros a mexer no mapa, por
-    isso os dados existem. **O que decide se isto é possível aqui é o formato.**
+    Carris Metropolitana's site shows the buses moving on the map, so the data
+    exists. **What decides whether this is possible here is the format.**
 
-    - Se houver **JSON**, é de graça: entra como mais um pedido, como as horas de
-      passagem, e não obriga a dependência nenhuma nova.
-    - Se só houver **GTFS-RT em Protobuf**, obrigava a uma biblioteca só para o
-      descodificar. Não é impossível, mas é uma decisão diferente e mais cara.
+    - If there is **JSON**, it is free: one more request, like the arrival
+      times, with no new dependency.
+    - If there is only **GTFS-RT in Protobuf**, it would need a library just to
+      decode it. Not impossible, but a different and costlier decision.
 
-    Por isso pergunta-se em vez de assumir, e imprime-se o `Content-Type` de cada
-    resposta — que é o que separa uma coisa da outra.
+    So it asks instead of assuming, and prints each answer's `Content-Type` —
+    which is what tells one from the other.
     """
-    log("\n=== Posições dos autocarros em andamento ===")
+    log("\n=== Positions of moving buses ===")
     for url in [
         "https://api.carrismetropolitana.pt/v2/vehicles",
         "https://api.carrismetropolitana.pt/vehicles",
@@ -714,40 +712,39 @@ def probe_vehicles() -> None:
     ]:
         probe(url, 1400)
 
-    # **O tamanho decide o desenho.** Não há filtro por área nem por linha — o
-    # `by_line` dá 404 —, por isso a aplicação teria de descarregar a frota toda
-    # de cada vez que atualizasse. Se forem centenas de kilobytes de vinte em
-    # vinte segundos, isso é dados móveis a sério e a coisa tem de ser travada
-    # por zoom e por definição. Mede-se em vez de se adivinhar.
-    log("\n--- Quanto pesa a frota toda, e quantos estão mesmo a andar ---")
+    # **The size decides the design.** There is no filter by area or line —
+    # `by_line` gives 404 — so the app would have to download the whole fleet on
+    # every update. If that is hundreds of kilobytes every twenty seconds, it is
+    # serious mobile data and has to be braked by zoom and by a setting. Measured
+    # instead of guessed.
+    log("\n--- How heavy the whole fleet is, and how many are really moving ---")
     try:
         bruto = fetch("https://api.carrismetropolitana.pt/v2/vehicles", timeout=60)
         dados = json.loads(bruto)
         com_posicao = [v for v in dados if v.get("lat") and v.get("lon")]
-        log(f"  {len(bruto) / 1024:.0f} KB, {len(dados)} veículos na lista")
-        log(f"  {len(com_posicao)} com posição — os outros são só ficha da frota")
+        log(f"  {len(bruto) / 1024:.0f} KB, {len(dados)} vehicles in the list")
+        log(f"  {len(com_posicao)} with a position — the rest are only fleet records")
 
         if com_posicao:
             campos = sorted(com_posicao[0].keys())
-            log(f"  campos de um que anda: {campos}")
+            log(f"  fields of a moving one: {campos}")
             agora = max(v.get("timestamp", 0) for v in com_posicao)
             idades = sorted(agora - v.get("timestamp", 0) for v in com_posicao)
             meio = idades[len(idades) // 2]
-            log(f"  idade da posição: mediana {meio}s, pior {idades[-1]}s")
+            log(f"  position age: median {meio}s, worst {idades[-1]}s")
     except Exception as erro:  # noqa: BLE001
-        log(f"  Não deu: {erro}")
+        log(f"  Failed: {erro}")
 
 
 def probe_arrivals() -> None:
     """
-    Vê as passagens verdadeiras de duas paragens da mesma linha, e experimenta
-    nelas o emparelhamento de viagens que a aplicação faz (`tripKeys`, em
-    `src/services/transit.ts`).
+    Looks at the real arrivals of two stops on the same line, and tries on them
+    the trip matching the app does (`tripKeys`, in `src/services/transit.ts`).
 
-    Existe porque os trajetos de autocarro continuaram vazios depois da
-    correção de setembro de 2026, e o ambiente onde o código é escrito não chega
-    à API da Carris. Imprime os campos que vêm mesmo, quantas passagens trazem
-    cada um, e quantas viagens se conseguem emparelhar entre as duas paragens.
+    It exists because bus trips stayed empty after the September 2026 fix, and
+    the environment where the code is written cannot reach the Carris API. It
+    prints the fields that really come, how many arrivals carry each, and how
+    many trips can be matched between the two stops.
     """
     base = "https://api.carrismetropolitana.pt/v2"
 
@@ -755,28 +752,28 @@ def probe_arrivals() -> None:
         return json.loads(fetch(base + caminho, timeout=90))
 
     def resumo(nome: str, passagens: list) -> None:
-        log(f"  {nome}: {len(passagens)} passagens")
+        log(f"  {nome}: {len(passagens)} arrivals")
         if not passagens:
             return
         chaves = sorted({k for p in passagens for k in p.keys()})
-        log(f"    campos: {chaves}")
+        log(f"    fields: {chaves}")
         for campo in ["trip_id", "pattern_id", "stop_sequence", "scheduled_arrival_unix",
                       "estimated_arrival_unix", "observed_arrival", "line_id", "stop_id"]:
             preenchidos = [p.get(campo) for p in passagens if p.get(campo) not in (None, "")]
             tipos = sorted({type(v).__name__ for v in preenchidos})
             exemplo = preenchidos[0] if preenchidos else None
             log(f"    {campo}: {len(preenchidos)}/{len(passagens)} {tipos} ex={exemplo!r}")
-        log(f"    primeira: {json.dumps(passagens[0], ensure_ascii=False)[:700]}")
+        log(f"    first: {json.dumps(passagens[0], ensure_ascii=False)[:700]}")
 
-    log("\n=== Passagens verdadeiras e emparelhamento de viagens ===")
+    log("\n=== Real arrivals and trip matching ===")
     try:
         paragens = get("/stops")
     except Exception as erro:  # noqa: BLE001
-        log(f"  /stops não deu: {erro}")
+        log(f"  /stops failed: {erro}")
         return
     log(f"  /stops: {len(paragens)} paragens; campos: {sorted(paragens[0].keys())}")
 
-    # Perto do centro de Almada, que é servido pela Carris Metropolitana.
+    # Near the centre of Almada, served by Carris Metropolitana.
     alvo = (38.6790, -9.1569)
 
     def dist(p) -> float:
@@ -792,26 +789,26 @@ def probe_arrivals() -> None:
         try:
             passagens_a = get(f"/arrivals/by_stop/{paragem['id']}")
         except Exception as erro:  # noqa: BLE001
-            log(f"  /arrivals/by_stop/{paragem['id']} não deu: {erro}")
+            log(f"  /arrivals/by_stop/{paragem['id']} failed: {erro}")
             continue
         if passagens_a:
             origem = paragem
             break
     if origem is None:
-        log("  Nenhuma paragem perto de Almada devolveu passagens.")
+        log("  No stop near Almada returned arrivals.")
         return
     log(f"  Paragem A: {origem['id']} {origem.get('long_name')}")
     resumo("A", passagens_a)
 
     padrao = next((p.get("pattern_id") for p in passagens_a if p.get("pattern_id")), None)
     if not padrao:
-        log("  Sem pattern_id nas passagens de A — o emparelhamento não pode funcionar.")
+        log("  No pattern_id in A's arrivals — matching cannot work.")
         return
 
     try:
         dados_padrao = get(f"/patterns/{padrao}")
     except Exception as erro:  # noqa: BLE001
-        log(f"  /patterns/{padrao} não deu: {erro}")
+        log(f"  /patterns/{padrao} failed: {erro}")
         return
     if isinstance(dados_padrao, list):
         dados_padrao = dados_padrao[0] if dados_padrao else {}
@@ -824,18 +821,18 @@ def probe_arrivals() -> None:
         sid = sid or (passo.get("stop_id") if isinstance(passo, dict) else None)
         if sid:
             ids.append(str(sid))
-    log(f"  o padrão tem {len(ids)} paragens; primeira entrada: {json.dumps(caminho[:1], ensure_ascii=False)[:400]}")
+    log(f"  the pattern has {len(ids)} stops; first entry: {json.dumps(caminho[:1], ensure_ascii=False)[:400]}")
     if str(origem["id"]) not in ids:
-        log("  A paragem A não aparece no caminho do padrão.")
+        log("  Stop A is not on the pattern's path.")
         return
     i = ids.index(str(origem["id"]))
     j = min(i + 6, len(ids) - 1)
     if j == i:
-        log("  A é a última paragem do padrão; nada a emparelhar.")
+        log("  A is the pattern's last stop; nothing to match.")
         return
     destino = ids[j]
     passagens_b = get(f"/arrivals/by_stop/{destino}")
-    log(f"  Paragem B: {destino} (a {j - i} paragens de A no padrão {padrao})")
+    log(f"  Stop B: {destino} ({j - i} stops after A on pattern {padrao})")
     resumo("B", passagens_b)
 
     def chaves(passagens: list) -> tuple[dict, dict]:
@@ -857,7 +854,7 @@ def probe_arrivals() -> None:
 
     ka, pa = chaves(passagens_a)
     kb, pb = chaves(passagens_b)
-    log(f"  viagens do padrão {padrao}: A={pa.get(padrao)} B={pb.get(padrao)}")
+    log(f"  trips of pattern {padrao}: A={pa.get(padrao)} B={pb.get(padrao)}")
     em_b = {k: n for n, k in kb.items()}
     pares = 0
     exemplo = None
@@ -870,7 +867,7 @@ def probe_arrivals() -> None:
         if a["scheduled_arrival_unix"] >= b["scheduled_arrival_unix"]:
             continue
         if a.get("trip_id") and b.get("trip_id") and a["trip_id"] != b["trip_id"]:
-            log(f"    trip_id desencontrado em {k}: {a['trip_id']} vs {b['trip_id']}")
+            log(f"    trip_id mismatch at {k}: {a['trip_id']} vs {b['trip_id']}")
             continue
         pares += 1
         exemplo = exemplo or (k, a.get("scheduled_arrival"), b.get("scheduled_arrival"))
@@ -879,11 +876,11 @@ def probe_arrivals() -> None:
     # E como estava antes: pelo trip_id.
     ta = {p.get("trip_id") for p in passagens_a if p.get("trip_id")}
     tb = {p.get("trip_id") for p in passagens_b if p.get("trip_id")}
-    log(f"  pelo trip_id: {len(ta & tb)} em comum")
+    log(f"  by trip_id: {len(ta & tb)} in common")
 
 
-# As palavras por que se procura. Uma só não chega: nem toda a gente escreve
-# "GTFS" no título, e foi assim que a CP e o Fertagus não apareceram à primeira.
+# The words searched for. One is not enough: not everyone writes "GTFS" in the
+# title, and that is how CP and Fertagus did not show up at first.
 CONSULTAS = [
     "GTFS",
     "comboios",
@@ -892,10 +889,10 @@ CONSULTAS = [
     "Transtejo Soflusa",
     "horários transportes públicos",
     "transportes ferroviários",
-    # O alvo é a Área Metropolitana de Lisboa. As de cima apanharam o Metro de
-    # Lisboa e, por acaso, os autocarros de Braga — mas ficaram de fora a Carris
-    # de Lisboa (a da cidade, que não é a Carris Metropolitana), os comboios
-    # urbanos e os barcos, que são o que falta para cobrir a AML.
+    # The target is the Lisbon Metropolitan Area. The ones above caught Metro de
+    # Lisboa and, by chance, the Braga buses — but missed Carris de Lisboa (the
+    # city's, which is not Carris Metropolitana), the urban trains and the
+    # ferries, which are what is missing to cover the area.
     "Carris",
     "Área Metropolitana de Lisboa",
     "Metropolitano de Lisboa",
@@ -907,17 +904,17 @@ CONSULTAS = [
 
 def discover() -> None:
     """
-    Procura GTFS no dados.gov.pt e imprime o que encontra.
+    Searches dados.gov.pt for GTFS and prints what it finds.
 
-    Existe porque os endereços do catálogo não puderam ser confirmados de onde
-    este código foi escrito. Correr isto no GitHub Actions, que tem Internet, e
-    copiar para o `transit-feeds.json` os que responderem.
+    It exists because the catalogue addresses could not be confirmed from where
+    this code was written. Run it in GitHub Actions, which has Internet, and copy
+    the ones that answer into `transit-feeds.json`.
 
-    **Prefere-se sempre o endereço estável.** O dados.gov.pt dá dois endereços
-    para o mesmo ficheiro: um com a data lá dentro, que muda a cada publicação, e
-    um `/datasets/r/<id>` que aponta sempre para a versão mais recente. É este
-    que vai para o catálogo — senão o horário deixava de descarregar assim que o
-    operador publicasse a versão seguinte.
+    **The stable address is always preferred.** dados.gov.pt gives two addresses
+    for the same file: one with the date inside, which changes on every
+    publication, and a `/datasets/r/<id>` that always points to the latest
+    version. That one goes into the catalogue — otherwise the timetable stopped
+    downloading as soon as the operator published the next version.
     """
     vistos: set[str] = set()
 
@@ -926,11 +923,11 @@ def discover() -> None:
             "https://dados.gov.pt/api/1/datasets/"
             f"?q={urllib.parse.quote(consulta)}&page_size=30"
         )
-        log(f"\n=== A pesquisar: {consulta} ===")
+        log(f"\n=== Searching: {consulta} ===")
         try:
             dados = json.loads(fetch(url, timeout=60))
-        except Exception as erro:  # noqa: BLE001 — aqui qualquer falha é só "não deu"
-            log(f"  Não deu: {erro}")
+        except Exception as erro:  # noqa: BLE001 — here any failure just means "did not work"
+            log(f"  Failed: {erro}")
             continue
 
         for conjunto in dados.get("data", []):
@@ -955,11 +952,11 @@ def discover() -> None:
                 )
                 log(f"   {r.get('format', '?'):>5}  {r.get('url')}")
                 if estavel:
-                    log(f"          estável: {estavel}")
+                    log(f"          stable: {estavel}")
             log("")
 
 
-# --- Entrada -------------------------------------------------------------------
+# --- Entry ---------------------------------------------------------------------
 
 
 def main() -> int:
@@ -969,23 +966,23 @@ def main() -> int:
     parser.add_argument(
         "--ids",
         default="",
-        help='Ids separados por espaços. "todos" faz o catálogo inteiro.',
+        help='Space-separated ids. "todos" does the whole catalogue.',
     )
     parser.add_argument("--dias", type=int, default=60)
     parser.add_argument(
         "--veiculos",
         action="store_true",
-        help="Só sonda as posições dos autocarros e sai.",
+        help="Only probes the bus positions and exits.",
     )
     parser.add_argument(
         "--passagens",
         action="store_true",
-        help="Só sonda as passagens da Carris e o emparelhamento de viagens.",
+        help="Only probes Carris arrivals and trip matching.",
     )
     parser.add_argument(
         "--descobrir",
         action="store_true",
-        help="Só procura endereços no dados.gov.pt e sai.",
+        help="Only searches dados.gov.pt for addresses and exits.",
     )
     args = parser.parse_args()
 
@@ -1025,22 +1022,22 @@ def main() -> int:
             if feed.get("fonte") == "mts-api":
                 resultado, url = build_mts(feed, janela)
             elif not feed.get("urls"):
-                # Sem endereço não é falha da corrida, é uma fonte que ainda não
-                # se encontrou. Diz-se e passa-se à frente, sem manchar o resto.
-                log(f"  SEM ENDEREÇO — {feed.get('notas') or 'nada publicado.'}")
+                # No address is not a failure of the run, it is a source not yet
+                # found. Say so and move on, without tainting the rest.
+                log(f"  NO ADDRESS — {feed.get('notas') or 'nothing published.'}")
                 log("::endgroup::")
                 continue
             else:
                 resultado, url = build(feed, janela)
             destino = pasta / f"{feed['id']}.json"
-            # separators sem espaços: são milhares de vírgulas, e cada uma
-            # poupada é um byte a menos a descarregar num telemóvel.
+            # separators without spaces: thousands of commas, and each one saved
+            # is a byte less to download on a phone.
             destino.write_text(
                 json.dumps(resultado, ensure_ascii=False, separators=(",", ":")),
                 encoding="utf-8",
             )
             bytes_ = destino.stat().st_size
-            log(f"  {destino}: {bytes_ / 1024:.0f} KB  (de {url})")
+            log(f"  {destino}: {bytes_ / 1024:.0f} KB  (from {url})")
 
             entradas.append(
                 {
@@ -1054,13 +1051,13 @@ def main() -> int:
                     "estacoes": len(resultado["stops"]),
                     "bbox": resultado["bbox"],
                     "origem": url,
-                    # Só se escreve quando é false, para a lista não ficar cheia
-                    # de campos que dizem o que já é a regra.
+                    # Only written when false, so the list is not full of fields
+                    # stating what is already the rule.
                     **({} if feed.get("naApp", True) else {"naApp": False}),
                 }
             )
-        except Exception as erro:  # noqa: BLE001 — um operador não leva os outros atrás
-            log(f"  FALHOU: {erro}")
+        except Exception as erro:  # noqa: BLE001 — one operator does not take the others down
+            log(f"  FAILED: {erro}")
             falhados.append(f"{feed['id']} ({erro})")
         finally:
             log("::endgroup::")
@@ -1071,10 +1068,10 @@ def main() -> int:
     )
 
     if falhados:
-        log("::warning::Operadores que não saíram: " + "; ".join(falhados))
+        log("::warning::Operators that did not come out: " + "; ".join(falhados))
 
     if not entradas:
-        log("Nenhum operador gerado.")
+        log("No operator generated.")
         return 1
 
     return 0
