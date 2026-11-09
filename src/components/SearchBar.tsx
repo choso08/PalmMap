@@ -22,21 +22,21 @@ import type { Bounds, Place } from '../types/geo';
 interface SearchBarProps {
   onSelect: (place: Place) => void;
   /**
-   * A área que o mapa está a mostrar, para a pesquisa preferir o que está perto.
+   * The area the map is showing, so the search prefers what is near.
    *
-   * Vem como função e não como valor porque só interessa no momento em que se
-   * pesquisa — se fosse um valor, cada arrastar do mapa redesenhava isto tudo.
+   * A function rather than a value because it only matters at the moment of
+   * searching — as a value, every drag of the map would redraw all of this.
    */
   getBounds: () => Bounds | null;
   onOpenSettings?: () => void;
   /** Opens the Directions screen (start and destination). */
   onOpenDirections?: () => void;
   /**
-   * Há versão nova à espera.
+   * A new version is waiting.
    *
-   * Marca o botão das definições com um ponto. É o único sinal que quem não abre
-   * as definições chega a ver — e uma atualização que ninguém vê não serve de
-   * nada. Um ponto e não um número: não é urgente, é só novidade.
+   * Marks the Settings button with a dot. It is the only sign someone who never
+   * opens Settings gets to see — and an update nobody sees is no use. A dot,
+   * not a number: it is not urgent, just new.
    */
   updateAvailable?: boolean;
   /**
@@ -45,18 +45,18 @@ interface SearchBarProps {
    * maps app, instead of a short list over the map.
    */
   onFocusChange?: (focused: boolean) => void;
-  /** Sítios guardados, mostrados enquanto não se escreve nada. */
+  /** Saved places, shown while nothing is typed. */
   favourites: Place[];
-  /** Últimos destinos, mostrados a seguir aos guardados. */
+  /** Recent destinations, shown after the saved ones. */
   recents: Place[];
 }
 
 /**
- * Barra de pesquisa de moradas e negócios.
+ * The search bar for addresses and businesses.
  *
- * Importante: não pesquisa a cada tecla escrita. Espera que a pessoa pare de
- * escrever (SEARCH_DEBOUNCE_MS) ou que carregue em Enter — é uma exigência das
- * regras de utilização do Nominatim, não uma preferência de interface.
+ * Important: it does not search on every keystroke. It waits for the person to
+ * stop typing (SEARCH_DEBOUNCE_MS) or press Enter — a requirement of
+ * Nominatim's usage policy, not an interface preference.
  */
 export function SearchBar({
   onSelect,
@@ -73,7 +73,7 @@ export function SearchBar({
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [query, setQuery] = useState('');
-  /** Verdadeiro enquanto a caixa está em uso, para mostrar os favoritos. */
+  /** True while the box is in use, to show the saved places. */
   const [focused, setFocusedState] = useState(false);
   const setFocused = useCallback(
     (value: boolean) => {
@@ -103,23 +103,23 @@ export function SearchBar({
     setError(null);
 
     try {
-      // Doze e não oito: a pesquisa dá preferência ao que está à vista, e com
-      // uma lista curta um negócio noutra terra era empurrado para fora por
-      // ruas e lugares daqui com nome parecido.
+      // Twelve, not eight: the search favours what is in view, and with a short
+      // list a business in another town was pushed out by local streets and
+      // places with a similar name.
       const places = await searchPlaces(
         term,
         12,
         getBounds(),
-        // Se entretanto se escreveu mais, esta pesquisa não chega a sair.
+        // If more was typed meanwhile, this search never goes out.
         () => searchId === latestSearch.current,
       );
-      // Se entretanto já houve outra pesquisa, esta resposta não interessa.
+      // If another search happened meanwhile, this answer does not matter.
       if (searchId === latestSearch.current) {
         setResults(places);
       }
     } catch (err) {
       if (searchId === latestSearch.current) {
-        // A mensagem do serviço diz o que falhou — rede, demora ou recusa.
+        // The service's message says what failed — network, delay or refusal.
         setError(err instanceof Error && err.message ? err.message : t().search.failed);
         setResults([]);
       }
@@ -131,15 +131,16 @@ export function SearchBar({
   }, [getBounds]);
 
   /**
-   * O texto que a própria barra escreveu ao escolher um resultado.
+   * The text the bar itself wrote when a result was chosen.
    *
-   * Escolher põe o nome do sítio na caixa, e isso contava como texto novo: um
-   * segundo depois saía uma pesquisa ao Nominatim com esse nome, que ninguém
-   * pediu, ocupava a fila e fazia a lista reaparecer por baixo do destino.
+   * Choosing puts the place's name in the box, and that counted as new text: a
+   * second later a Nominatim search for that name went out, which nobody asked
+   * for, took a place in the queue and made the list reappear under the
+   * destination.
    */
   const escolhido = useRef<string | null>(null);
 
-  // O atraso que evita pesquisar a cada tecla escrita.
+  // The delay that avoids searching on every keystroke.
   useEffect(() => {
     if (query === escolhido.current) {
       return;
@@ -154,7 +155,7 @@ export function SearchBar({
 
   const handleSelect = (place: Place) => {
     escolhido.current = place.name;
-    // Uma pesquisa que ainda venha a caminho já não interessa.
+    // A search still on its way no longer matters.
     latestSearch.current += 1;
     setLoading(false);
     setQuery(place.name);
@@ -164,10 +165,9 @@ export function SearchBar({
     onSelect(place);
   };
 
-  // Sem nada escrito, a lista mostra os sítios guardados e depois os últimos
-  // destinos. É o que dá jeito quando não há rede: ambos estão no telemóvel e a
-  // pesquisa não. Um sítio que seja as duas coisas aparece só uma vez, como
-  // guardado — que é a marca mais forte das duas.
+  // With nothing typed, the list shows saved places and then recent
+  // destinations. Handy without a network: both are on the phone and the search
+  // is not. A place that is both shows once, as saved — the stronger mark.
   const parado = query.trim().length === 0 && focused;
   const guardadosERecentes = [
     ...favourites.map((place) => ({ place, guardado: true, local: true })),
@@ -176,11 +176,11 @@ export function SearchBar({
       .map((place) => ({ place, guardado: false, local: true })),
   ];
 
-  // **Enquanto se escreve, o que está no telemóvel aparece logo.** A pesquisa na
-  // Internet tem de esperar o segundo do SEARCH_DEBOUNCE_MS — é regra do
-  // Nominatim e não se encurta — mas os guardados e os últimos destinos não
-  // pedem nada a ninguém. Quem escreve "casa" ou o nome de um sítio onde já foi,
-  // que é a maior parte das pesquisas de destino, tem-no à primeira letra.
+  // **While typing, what is on the phone shows at once.** The Internet search
+  // has to wait SEARCH_DEBOUNCE_MS — Nominatim's rule, not to be shortened — but
+  // saved places and recent destinations ask nobody for anything. Someone
+  // typing "home" or a place they have been, which is most destination
+  // searches, gets it from the first letter.
   const termo = normalizar(query.trim());
   const locais =
     termo.length >= 2
@@ -203,7 +203,7 @@ export function SearchBar({
       ];
 
   const showingSuggestions = parado && sugestoes.length > 0;
-  // Só com a caixa em uso: depois de escolher, a lista não tem nada a fazer.
+  // Only while the box is in use: once something is chosen, the list has no job.
   const list = focused && (showingSuggestions || !parado) ? sugestoes : [];
 
   return (
@@ -237,7 +237,7 @@ export function SearchBar({
 
         {loading ? <ActivityIndicator size="small" color={theme.accent} /> : null}
 
-        {/* Limpar o que está escrito, quando há alguma coisa. */}
+        {/* Clear the text, when there is some. */}
         {query.length > 0 && !loading ? (
           <Pressable onPress={() => setQuery('')} hitSlop={10}>
             <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
@@ -283,7 +283,7 @@ export function SearchBar({
                 <Text style={styles.resultName} numberOfLines={1}>
                   {place.name}
                 </Text>
-                {/* O tipo de negócio, quando o OpenStreetMap o sabe. */}
+                {/* The kind of business, when OpenStreetMap knows it. */}
                 {place.category ? (
                   <Text style={styles.resultCategory}>{place.category}</Text>
                 ) : null}
@@ -299,7 +299,7 @@ export function SearchBar({
   );
 }
 
-/** Quantos guardados e recentes aparecem por cima dos resultados, ao escrever. */
+/** How many saved and recent places show above the results while typing. */
 const MAX_LOCAL_MATCHES = 4;
 
 /**
@@ -318,7 +318,7 @@ function normalizar(texto: string): string {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     container: {
-      // Igual dos dois lados: é o que faz a barra ficar ao meio do ecrã.
+      // Equal on both sides: that is what centres the bar on screen.
       marginHorizontal: 14,
       backgroundColor: theme.surface,
       // Cápsula bem arredondada, como a barra de pesquisa do Maps.
@@ -360,7 +360,7 @@ function makeStyles(theme: Theme) {
     settingsButton: {
       paddingLeft: 4,
     },
-    /** O ponto que diz que há versão nova, no canto do botão. */
+    /** The dot saying a new version is out, on the button's corner. */
     updateDot: {
       position: 'absolute',
       top: -1,
@@ -369,7 +369,7 @@ function makeStyles(theme: Theme) {
       height: 9,
       borderRadius: 5,
       backgroundColor: theme.accent,
-      // A borda da cor da barra recorta o ponto do ícone que está por baixo.
+      // A border in the bar's colour cuts the dot out from the icon beneath.
       borderWidth: 1.5,
       borderColor: theme.surface,
     },
