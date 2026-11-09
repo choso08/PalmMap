@@ -490,6 +490,9 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
   escolheu não ter travão nenhum. Um valor desconhecido volta ao mapa desenhado.
 - **As opções da navegação estão agrupadas numa secção que abre e fecha** ("Navegação", com o
   `Collapsible`), a pedido do autor: voz, limite, radares, portagens, velocímetro e bateria.
+- **O ecrã de definições tem uma caixa de pesquisa** no cimo (`show`, no `SettingsSheet`): esconde o
+  que não bate com o texto (nome, linha de ajuda ou secção, sem contar acentos) e abre sozinhas as
+  secções que têm resultados (`forceOpen` no `Collapsible`). Uma opção nova tem de entrar no `show`.
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
   quando a aplicação se fechou sozinha — ver "6-K".
@@ -2138,6 +2141,11 @@ Todas estas regras já estão cumpridas no código. O que se segue explica onde,
 serem desfeitas sem se perceber o que se está a desligar.
 
 ### Nominatim — pesquisa de moradas
+
+- **Pesquisa por voz** (microfone na barra, com a caixa vazia): abre o reconhecimento de voz do
+  próprio Android (`RECOGNIZE_SPEECH`, pelo `expo-intent-launcher` que já cá estava — sem biblioteca
+  nova nem chave), e o que se ouviu é pesquisado logo, como o Enter. Ver `voiceInput.ts`. Sem
+  reconhecedor no telemóvel diz-se isso na barra. **Ainda não visto no telemóvel.**
 
 - No máximo **1 pedido por segundo**. É um limite rígido do serviço público.
   *No código:* `src/services/nominatim.ts` tem uma fila que espera o tempo necessário entre

@@ -87,6 +87,9 @@ export const en: typeof pt = {
     saved: 'Saved',
     recents: 'Recent destinations',
     mapPoint: 'Point on the map',
+    voice: 'Search by voice',
+    voicePrompt: 'Say where you want to go',
+    voiceUnavailable: 'This phone has no speech recognition.',
   },
 
   categories: {
@@ -274,6 +277,8 @@ export const en: typeof pt = {
   },
 
   settings: {
+    searchPlaceholder: 'Search settings',
+    searchNothing: 'No setting by that name.',
     title: 'Settings',
 
     installUnfinished: 'The install did not finish',

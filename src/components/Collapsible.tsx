@@ -9,6 +9,8 @@ interface Props {
   title: string;
   /** A short line under the title, visible while closed. */
   hint?: string;
+  /** Keep it open regardless of the toggle — used while searching the settings. */
+  forceOpen?: boolean;
   children: ReactNode;
 }
 
@@ -20,10 +22,11 @@ interface Props {
  * and the contents are only mounted while open: the list of countries is not
  * even requested until someone wants to see it.
  */
-export function Collapsible({ title, hint, children }: Props) {
+export function Collapsible({ title, hint, forceOpen = false, children }: Props) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const [open, setOpen] = useState(false);
+  const [toggled, setOpen] = useState(false);
+  const open = toggled || forceOpen;
 
   return (
     <View style={styles.wrapper}>

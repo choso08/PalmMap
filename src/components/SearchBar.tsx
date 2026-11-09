@@ -15,6 +15,7 @@ import {
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { isSamePlace } from '../services/favourites';
 import { searchPlaces } from '../services/nominatim';
+import { listenOnce } from '../services/voiceInput';
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Bounds, Place } from '../types/geo';
@@ -153,6 +154,21 @@ export function SearchBar({
     return () => clearTimeout(timer);
   }, [query, runSearch]);
 
+  /** Fill the box with what was said, and search straight away, as Enter does. */
+  const handleVoice = async () => {
+    try {
+      const heard = await listenOnce();
+      if (heard) {
+        setFocused(true);
+        setQuery(heard);
+        void runSearch(heard);
+      }
+    } catch (err) {
+      setFocused(true);
+      setError(err instanceof Error ? err.message : t().search.voiceUnavailable);
+    }
+  };
+
   const handleSelect = (place: Place) => {
     escolhido.current = place.name;
     // A search still on its way no longer matters.
@@ -241,6 +257,17 @@ export function SearchBar({
         {query.length > 0 && !loading ? (
           <Pressable onPress={() => setQuery('')} hitSlop={10}>
             <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
+          </Pressable>
+        ) : null}
+
+        {/* Search by voice, when the box is empty. */}
+        {query.length === 0 && !loading ? (
+          <Pressable
+            onPress={() => void handleVoice()}
+            hitSlop={10}
+            accessibilityLabel={strings.search.voice}
+          >
+            <MaterialCommunityIcons name="microphone" size={21} color={theme.textMuted} />
           </Pressable>
         ) : null}
 

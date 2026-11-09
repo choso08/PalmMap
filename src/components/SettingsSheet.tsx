@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
@@ -126,6 +127,51 @@ export function SettingsSheet({
   const [clearing, setClearing] = useState(false);
 
   /**
+   * The settings search: what is typed hides every option whose name, hint or
+   * section does not contain it (accents and case ignored), and opens the
+   * groups that hold a match — so nobody has to dig through the groups.
+   */
+  const [filter, setFilter] = useState('');
+  const show = useMemo(() => {
+    const q = normalise(filter.trim());
+    const has = (...terms: string[]) => !q || terms.some((term) => normalise(term).includes(q));
+    const nav = s.navigation;
+    const result = {
+      language: has(s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
+      time: has(s.timeAdjustment, s.forgetPace),
+      appearance: has(s.appearance, ...Object.values(s.appearanceModes)),
+      satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
+      places: has(s.map, s.showPlaces),
+      vehicles: has(s.map, s.showVehicles, s.showVehiclesCost),
+      cache: has(s.cache, s.clearCache),
+      offline: has(s.offlineMaps, s.offlineMapsNote),
+      schedules: has(s.schedules),
+      voice: has(nav, s.voice),
+      limit: has(nav, s.speedLimit),
+      cameras: has(nav, s.cameras, s.camerasHint),
+      tolls: has(nav, s.tolls, s.tollsHint),
+      speed: has(nav, s.speed, s.speedNote),
+      battery: has(nav, s.batterySaver, s.batterySaverHint),
+      recents: has(s.recents, s.forgetRecents),
+      updates: has(s.updates),
+      about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'CARTO', 'Overpass'),
+    };
+    return {
+      ...result,
+      searching: q.length > 0,
+      map: result.places || result.vehicles,
+      navigation:
+        result.voice ||
+        result.limit ||
+        result.cameras ||
+        result.tolls ||
+        result.speed ||
+        result.battery,
+      nothing: !Object.values(result).some(Boolean),
+    };
+  }, [filter, s, strings]);
+
+  /**
    * The last time the app closed by itself, if it did.
    *
    * **It comes first, on purpose.** Whoever comes here because the app closed
@@ -197,7 +243,25 @@ export function SettingsSheet({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.searchRow}>
+          <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={filter}
+            onChangeText={setFilter}
+            placeholder={s.searchPlaceholder}
+            placeholderTextColor={theme.placeholder}
+            returnKeyType="search"
+          />
+          {filter ? (
+            <Pressable onPress={() => setFilter('')} hitSlop={10}>
+              <MaterialCommunityIcons name="close" size={18} color={theme.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {show.nothing ? <Text style={styles.note}>{s.searchNothing}</Text> : null}
           {/*
             What closed the app last time, when something did. See
             `src/services/crash.ts`: this does not fix the fault, it fixes the
@@ -232,262 +296,338 @@ export function SettingsSheet({
             they cannot understand the screen has to find it without reading
             the rest.
           */}
-          <Text style={styles.sectionTitle}>{s.language}</Text>
-          <ChoiceRow
-            options={LANGUAGES}
-            label={(id) => strings.languages[id]}
-            value={settings.language}
-            onChange={(id) => update('language', id)}
-            styles={styles}
-            theme={theme}
-          />
+          {show.language ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.language}</Text>
+              <ChoiceRow
+                options={LANGUAGES}
+                label={(id) => strings.languages[id]}
+                value={settings.language}
+                onChange={(id) => update('language', id)}
+                styles={styles}
+                theme={theme}
+              />
+            </>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
-          <ChoiceRow
-            options={TIME_ADJUSTMENTS}
-            label={(id) => s.timeAdjustments[id]}
-            value={settings.timeAdjustment}
-            onChange={(id) => update('timeAdjustment', id)}
-            styles={styles}
-            theme={theme}
-          />
+          {show.time ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
+              <ChoiceRow
+                options={TIME_ADJUSTMENTS}
+                label={(id) => s.timeAdjustments[id]}
+                value={settings.timeAdjustment}
+                onChange={(id) => update('timeAdjustment', id)}
+                styles={styles}
+                theme={theme}
+              />
 
-          {/*
+              {/*
             What the app learnt stays visible and can be forgotten. A value
             learnt in silence that nobody can see or clear is the kind of thing
             that, the day it goes wrong, has no explanation at all — and the
             manual correction above would stop working without anyone knowing
             why.
           */}
-          {ritmo ? (
-            <>
-              <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
-              <Pressable style={styles.forgetRow} onPress={forgetPace}>
-                <MaterialCommunityIcons
-                  name="speedometer"
-                  size={19}
-                  color={theme.danger}
-                />
-                <Text style={styles.clearText}>{s.forgetPace}</Text>
-              </Pressable>
+              {ritmo ? (
+                <>
+                  <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
+                  <Pressable style={styles.forgetRow} onPress={forgetPace}>
+                    <MaterialCommunityIcons name="speedometer" size={19} color={theme.danger} />
+                    <Text style={styles.clearText}>{s.forgetPace}</Text>
+                  </Pressable>
+                </>
+              ) : null}
             </>
           ) : null}
 
-          <Text style={styles.sectionTitle}>{s.appearance}</Text>
-          <ChoiceRow
-            options={APPEARANCE_MODES}
-            label={(id) => s.appearanceModes[id]}
-            value={settings.appearance}
-            onChange={(id) => update('appearance', id)}
-            styles={styles}
-            theme={theme}
-          />
-
-          <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
-          <ChoiceRow
-            options={SATELLITE_DETAILS}
-            label={(id) => s.satelliteDetails[id]}
-            value={settings.satelliteDetail}
-            onChange={(id) => update('satelliteDetail', id)}
-            styles={styles}
-            theme={theme}
-          />
-          {settings.satelliteDetail === 'alta' ? (
-            <Text style={styles.note}>{s.satelliteHighHint}</Text>
+          {show.appearance ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.appearance}</Text>
+              <ChoiceRow
+                options={APPEARANCE_MODES}
+                label={(id) => s.appearanceModes[id]}
+                value={settings.appearance}
+                onChange={(id) => update('appearance', id)}
+                styles={styles}
+                theme={theme}
+              />
+            </>
           ) : null}
 
-          <Text style={styles.sectionTitle}>{s.map}</Text>
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.showPlaces}</Text>
-            </View>
-            <Switch
-              value={settings.showPlacesOnMap}
-              onValueChange={(next) => update('showPlacesOnMap', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
+          {show.satellite ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
+              <ChoiceRow
+                options={SATELLITE_DETAILS}
+                label={(id) => s.satelliteDetails[id]}
+                value={settings.satelliteDetail}
+                onChange={(id) => update('satelliteDetail', id)}
+                styles={styles}
+                theme={theme}
+              />
+              {settings.satelliteDetail === 'alta' ? (
+                <Text style={styles.note}>{s.satelliteHighHint}</Text>
+              ) : null}
+            </>
+          ) : null}
 
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>{s.showVehicles}</Text>
-              {/*
+          {show.map ? <Text style={styles.sectionTitle}>{s.map}</Text> : null}
+          {show.places ? (
+            <>
+              <View style={styles.switchRow}>
+                <View style={styles.switchText}>
+                  <Text style={styles.switchLabel}>{s.showPlaces}</Text>
+                </View>
+                <Switch
+                  value={settings.showPlacesOnMap}
+                  onValueChange={(next) => update('showPlacesOnMap', next)}
+                  trackColor={{ true: theme.accent, false: theme.border }}
+                />
+              </View>
+            </>
+          ) : null}
+
+          {show.vehicles ? (
+            <>
+              <View style={styles.switchRow}>
+                <View style={styles.switchText}>
+                  <Text style={styles.switchLabel}>{s.showVehicles}</Text>
+                  {/*
                 The cost has to be written. The service cannot be asked for just
                 the area in view — the whole fleet comes every time, by far the
                 heaviest request this app makes.
               */}
-              <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
-            </View>
-            <Switch
-              value={settings.showVehicles}
-              onValueChange={(next) => update('showVehicles', next)}
-              trackColor={{ true: theme.accent, false: theme.border }}
-            />
-          </View>
+                  <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
+                </View>
+                <Switch
+                  value={settings.showVehicles}
+                  onValueChange={(next) => update('showVehicles', next)}
+                  trackColor={{ true: theme.accent, false: theme.border }}
+                />
+              </View>
+            </>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>{s.cache}</Text>
-          <ChoiceRow
-            options={CACHE_SIZES}
-            label={(id) => s.cacheSizes[id]}
-            value={settings.cacheSize}
-            onChange={(id) => update('cacheSize', id)}
-            styles={styles}
-            theme={theme}
-          />
-          {settings.cacheSize === 'off' ? <Text style={styles.note}>{s.cacheOffHint}</Text> : null}
+          {show.cache ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.cache}</Text>
+              <ChoiceRow
+                options={CACHE_SIZES}
+                label={(id) => s.cacheSizes[id]}
+                value={settings.cacheSize}
+                onChange={(id) => update('cacheSize', id)}
+                styles={styles}
+                theme={theme}
+              />
+              {settings.cacheSize === 'off' ? (
+                <Text style={styles.note}>{s.cacheOffHint}</Text>
+              ) : null}
 
-          <Pressable
-            style={styles.clearButton}
-            onPress={() => void handleClearCache()}
-            disabled={clearing}
-          >
-            <MaterialCommunityIcons name="delete-outline" size={18} color={theme.danger} />
-            <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
-          </Pressable>
+              <Pressable
+                style={styles.clearButton}
+                onPress={() => void handleClearCache()}
+                disabled={clearing}
+              >
+                <MaterialCommunityIcons name="delete-outline" size={18} color={theme.danger} />
+                <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
+              </Pressable>
+            </>
+          ) : null}
 
-          <Collapsible title={s.offlineMaps}>
-            <OfflineMaps />
-            <Text style={styles.note}>{s.offlineMapsNote}</Text>
-          </Collapsible>
+          {show.offline ? (
+            <Collapsible title={s.offlineMaps} forceOpen={show.searching}>
+              <OfflineMaps />
+              <Text style={styles.note}>{s.offlineMapsNote}</Text>
+            </Collapsible>
+          ) : null}
 
-          <Collapsible title={s.schedules}>
-            <Schedules />
-          </Collapsible>
+          {show.schedules ? (
+            <Collapsible title={s.schedules} forceOpen={show.searching}>
+              <Schedules />
+            </Collapsible>
+          ) : null}
 
           {/* Every navigation option in one group, closed by default (author's request). */}
-          <Collapsible title={s.navigation}>
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.voice}</Text>
-                {/*
+          {show.navigation ? (
+            <Collapsible title={s.navigation} forceOpen={show.searching}>
+              {show.voice ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.voice}</Text>
+                      {/*
                   Only when the phone does **not** have the region's voice. The app
                   cannot install voices — that is Android's settings — but it can
                   say why an accent nobody asked for is heard, which otherwise
                   reads as an app fault.
                 */}
-                {hasRegionVoice(language) === false ? (
-                  <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
-                ) : null}
-              </View>
-              <Switch
-                value={settings.voiceGuidance}
-                onValueChange={(next) => update('voiceGuidance', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
+                      {hasRegionVoice(language) === false ? (
+                        <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
+                      ) : null}
+                    </View>
+                    <Switch
+                      value={settings.voiceGuidance}
+                      onValueChange={(next) => update('voiceGuidance', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                </>
+              ) : null}
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.speedLimit}</Text>
-              </View>
-              <Switch
-                value={settings.speedLimitAlerts}
-                onValueChange={(next) => update('speedLimitAlerts', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
+              {show.limit ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.speedLimit}</Text>
+                    </View>
+                    <Switch
+                      value={settings.speedLimitAlerts}
+                      onValueChange={(next) => update('speedLimitAlerts', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                </>
+              ) : null}
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.cameras}</Text>
-                <Text style={styles.switchHint}>{s.camerasHint}</Text>
-              </View>
-              <Switch
-                value={settings.speedCameraAlerts}
-                onValueChange={(next) => update('speedCameraAlerts', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
+              {show.cameras ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.cameras}</Text>
+                      <Text style={styles.switchHint}>{s.camerasHint}</Text>
+                    </View>
+                    <Switch
+                      value={settings.speedCameraAlerts}
+                      onValueChange={(next) => update('speedCameraAlerts', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                </>
+              ) : null}
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.tolls}</Text>
-                <Text style={styles.switchHint}>{s.tollsHint}</Text>
-              </View>
-              <Switch
-                value={settings.avoidTolls}
-                onValueChange={(next) => update('avoidTolls', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
+              {show.tolls ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.tolls}</Text>
+                      <Text style={styles.switchHint}>{s.tollsHint}</Text>
+                    </View>
+                    <Switch
+                      value={settings.avoidTolls}
+                      onValueChange={(next) => update('avoidTolls', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                </>
+              ) : null}
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.speed}</Text>
-              </View>
-              <Switch
-                value={settings.showSpeed}
-                onValueChange={(next) => update('showSpeed', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
-            <Text style={styles.note}>{s.speedNote}</Text>
+              {show.speed ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.speed}</Text>
+                    </View>
+                    <Switch
+                      value={settings.showSpeed}
+                      onValueChange={(next) => update('showSpeed', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                  <Text style={styles.note}>{s.speedNote}</Text>
+                </>
+              ) : null}
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>{s.batterySaver}</Text>
-                <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
-              </View>
-              <Switch
-                value={settings.batterySaver}
-                onValueChange={(next) => update('batterySaver', next)}
-                trackColor={{ true: theme.accent, false: theme.border }}
-              />
-            </View>
-          </Collapsible>
+              {show.battery ? (
+                <>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.batterySaver}</Text>
+                      <Text style={styles.switchHint}>{s.batterySaverHint}</Text>
+                    </View>
+                    <Switch
+                      value={settings.batterySaver}
+                      onValueChange={(next) => update('batterySaver', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                </>
+              ) : null}
+            </Collapsible>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>{s.recents}</Text>
-          <Pressable
-            style={styles.forgetRow}
-            onPress={() => void clearRecents().then(onRecentsCleared)}
-          >
-            <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
-            <Text style={styles.clearText}>{s.forgetRecents}</Text>
-          </Pressable>
+          {show.recents ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.recents}</Text>
+              <Pressable
+                style={styles.forgetRow}
+                onPress={() => void clearRecents().then(onRecentsCleared)}
+              >
+                <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
+                <Text style={styles.clearText}>{s.forgetRecents}</Text>
+              </Pressable>
+            </>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>{s.updates}</Text>
-          <Updates found={novaVersao} onFound={onUpdateFound} />
+          {show.updates ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.updates}</Text>
+              <Updates found={novaVersao} onFound={onUpdateFound} />
+            </>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>{s.about}</Text>
-          <Text style={styles.about}>{s.aboutText}</Text>
+          {show.about ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.about}</Text>
+              <Text style={styles.about}>{s.aboutText}</Text>
 
-          {/*
+              {/*
             The credits. Several of these services require attribution by
             licence — not a courtesy, a condition of use. Proper names are not
             translated; what each one does is.
           */}
-          <Pressable
-            style={styles.creditRow}
-            onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}
-          >
-            <Text style={styles.creditName}>OpenStreetMap</Text>
-            <Text style={styles.creditRole}>{s.credits.osm}</Text>
-          </Pressable>
+              <Pressable
+                style={styles.creditRow}
+                onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}
+              >
+                <Text style={styles.creditName}>OpenStreetMap</Text>
+                <Text style={styles.creditRole}>{s.credits.osm}</Text>
+              </Pressable>
 
-          <Pressable
-            style={styles.creditRow}
-            onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html')}
-          >
-            <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
-            <Text style={styles.creditRole}>{s.credits.osrm}</Text>
-          </Pressable>
+              <Pressable
+                style={styles.creditRow}
+                onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html')}
+              >
+                <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
+                <Text style={styles.creditRole}>{s.credits.osrm}</Text>
+              </Pressable>
 
-          <Pressable
-            style={styles.creditRow}
-            onPress={() => void Linking.openURL('https://carto.com/attribution')}
-          >
-            <Text style={styles.creditName}>CARTO</Text>
-            <Text style={styles.creditRole}>{s.credits.carto}</Text>
-          </Pressable>
+              <Pressable
+                style={styles.creditRow}
+                onPress={() => void Linking.openURL('https://carto.com/attribution')}
+              >
+                <Text style={styles.creditName}>CARTO</Text>
+                <Text style={styles.creditRole}>{s.credits.carto}</Text>
+              </Pressable>
 
-          <View style={styles.creditRow}>
-            <Text style={styles.creditName}>Overpass</Text>
-            <Text style={styles.creditRole}>{s.credits.overpass}</Text>
-          </View>
+              <View style={styles.creditRow}>
+                <Text style={styles.creditName}>Overpass</Text>
+                <Text style={styles.creditRole}>{s.credits.overpass}</Text>
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </View>
     </Modal>
   );
+}
+
+/** Lower case, without accents: "Navegação" is found by "navegacao". */
+function normalise(text: string): string {
+  const lower = text.toLowerCase();
+  return typeof lower.normalize === 'function'
+    ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    : lower;
 }
 
 function makeStyles(theme: Theme, insets: EdgeInsets) {
@@ -517,6 +657,22 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       padding: 6,
       borderRadius: 20,
       backgroundColor: theme.surfaceMuted,
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginHorizontal: 20,
+      marginTop: 12,
+      paddingHorizontal: 12,
+      borderRadius: 22,
+      backgroundColor: theme.surfaceMuted,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 9,
+      fontSize: 15,
+      color: theme.text,
     },
     content: {
       padding: 20,
