@@ -221,6 +221,12 @@ export const VEHICLES_REFRESH_MS = 20000;
 export const VEHICLES_MIN_ZOOM = 12;
 
 /**
+ * From which zoom every stop in view is drawn on the transport map, ready to
+ * be tapped. Further out they would be hundreds of dots on top of each other.
+ */
+export const STOPS_MAP_MIN_ZOOM = 15;
+
+/**
  * Minimum interval between requests to Overpass.
  * It is a shared service and heavy to run — it pays to be generous here.
  */

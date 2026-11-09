@@ -443,7 +443,7 @@ export const pt = {
    */
   attributions: {
     sentinel:
-      'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2024)',
+      'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2025)',
     orthophotos: 'Ortofotos © Direção-Geral do Território',
   },
 

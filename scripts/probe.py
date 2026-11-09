@@ -147,6 +147,24 @@ def mts():
     print("visited:", sorted(seen))
 
 
+def mts_form():
+    section("MTS TIMETABLE FORM")
+    import re
+    status, _, body = get("https://www.mts.pt/horarios/", 40)
+    html = body.decode("utf-8", "replace")
+    for form in re.findall(r"<form.*?</form>", html, re.S | re.I):
+        print("\nFORM:", re.sub(r"\s+", " ", form)[:3000])
+    for tag in re.findall(r"<(?:table|ul)[^>]*class=\"[^\"]*(?:hor|result|time)[^\"]*\".*?</(?:table|ul)>", html, re.S | re.I)[:3]:
+        print("\nRESULT BLOCK:", re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " | ", tag))[:3000])
+    idx = html.find("Resultados da Pesquisa")
+    print("\nAROUND RESULTS:", re.sub(r"\s+", " ", html[idx - 500: idx + 6000]))
+    for src in re.findall(r'<script[^>]+src="([^"]+)"', html):
+        if "mts" in src and ("hor" in src or "main" in src or "app" in src or "custom" in src):
+            print("script:", src)
+    for m in re.findall(r"(?:ajax|admin-ajax|action)[^\n]{0,200}", html)[:20]:
+        print("ajax:", m)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)

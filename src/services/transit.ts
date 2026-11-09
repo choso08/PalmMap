@@ -12,7 +12,7 @@ import {
 } from './config';
 import { createRateLimiter } from './rateLimit';
 import { t } from '../i18n';
-import type { Coordinates } from '../types/geo';
+import type { Bounds, Coordinates } from '../types/geo';
 import type { CarrisArrival, CarrisFacility, CarrisStop } from '../types/transit';
 import { distanceMeters } from '../utils/geometry';
 
@@ -246,6 +246,35 @@ export async function nearbyStops(
   }
 
   return near;
+}
+
+/**
+ * Every stop inside the visible part of the map, nearest the centre first.
+ *
+ * It is what makes the stops on the transport map tappable. The stops drawn by
+ * ÖPNVKarte are part of the tile image, so a tap on one reaches nothing; these
+ * are drawn on top, from the list already in memory — **no request at all**
+ * once `/stops` has been loaded.
+ */
+export async function stopsInBounds(bounds: Bounds, limit = 200): Promise<TransitStop[]> {
+  const all = await loadStops();
+  const centre = {
+    latitude: (bounds.south + bounds.north) / 2,
+    longitude: (bounds.west + bounds.east) / 2,
+  };
+  const inside: TransitStop[] = [];
+  for (const stop of all) {
+    const { latitude, longitude } = stop.coordinates;
+    if (
+      latitude >= bounds.south &&
+      latitude <= bounds.north &&
+      longitude >= bounds.west &&
+      longitude <= bounds.east
+    ) {
+      inside.push({ ...stop, meters: distanceMeters(centre, stop.coordinates) });
+    }
+  }
+  return inside.sort((a, b) => a.meters - b.meters).slice(0, limit);
 }
 
 /** `HH:MM` from seconds since 1970, in the phone's time zone. */

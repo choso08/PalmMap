@@ -180,8 +180,8 @@ const DARK_STYLE = rasterStyle(
  * is here.
  */
 const SATELLITE_STYLE = rasterStyle(
-  ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg'],
-  'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2024)',
+  ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg'],
+  'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2025)',
   14,
 );
 
@@ -242,7 +242,7 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
     base: {
       type: 'raster',
       tiles: [
-        'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
+        'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg',
       ],
       tileSize: 256,
       maxzoom: 14,

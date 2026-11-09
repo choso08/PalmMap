@@ -399,7 +399,7 @@ export const en: typeof pt = {
   attributions: {
     // The wording EOX asks for, copied rather than translated.
     sentinel:
-      'Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)',
+      'Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
     orthophotos: 'Aerial imagery © Direção-Geral do Território',
   },
 

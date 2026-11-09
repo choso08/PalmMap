@@ -51,6 +51,7 @@ import {
   KEEP_AWAKE_TAG,
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
+  STOPS_MAP_MIN_ZOOM,
   VEHICLES_REFRESH_MS,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
@@ -97,6 +98,7 @@ import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
   nearbyStations,
   nearbyStops,
+  stopsInBounds,
   planBusTrips,
   type TransitTrip,
   type TransitStation,
@@ -202,6 +204,9 @@ function PalmMap() {
    * horas para os ver.
    */
   const [transitStops, setTransitStops] = useState<TransitStop[]>([]);
+  // Every stop in view on the transport map, so a tap on any of them opens its
+  // times — see `stopsInBounds`.
+  const [mapStops, setMapStops] = useState<TransitStop[]>([]);
   const [transitLoading, setTransitLoading] = useState(false);
   const [transitError, setTransitError] = useState<string | null>(null);
   /** Fora da Área Metropolitana de Lisboa, onde não há dados abertos. */
@@ -539,6 +544,7 @@ function PalmMap() {
 
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
+  const stopsRequest = useRef(0);
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
   const latestPlaces = useRef(0);
@@ -1030,6 +1036,22 @@ function PalmMap() {
       ).toFixed(3)}`;
       setMapCentre((atual) => (atual === centro ? atual : centro));
 
+      // The stops in view, only on the transport map and close enough in for
+      // them to be told apart. From memory: no request once `/stops` is loaded.
+      if (settings.mapType === 'transit' && zoom >= STOPS_MAP_MIN_ZOOM) {
+        const pedido = (stopsRequest.current += 1);
+        void stopsInBounds(bounds)
+          .then((found) => {
+            if (pedido === stopsRequest.current) {
+              setMapStops(found);
+            }
+          })
+          .catch(() => undefined);
+      } else {
+        stopsRequest.current += 1;
+        setMapStops((atual) => (atual.length === 0 ? atual : []));
+      }
+
       if (pinsTimer.current) {
         clearTimeout(pinsTimer.current);
       }
@@ -1061,7 +1083,7 @@ function PalmMap() {
         void searchPlacesIn(bounds, zoom, category);
       }, MAP_PINS_DEBOUNCE_MS);
     },
-    [category, searchPlacesIn, settings.showPlacesOnMap],
+    [category, searchPlacesIn, settings.showPlacesOnMap, settings.mapType],
   );
 
   useEffect(() => {
@@ -1714,6 +1736,57 @@ function PalmMap() {
    * autocarro costuma ir a pé, mas pode ir de bicicleta ou deixar o carro lá
    * perto. Trocar a definição por baixo do nariz da pessoa era decidir por ela.
    */
+  // Switching to the transport map draws the stops already in view, without
+  // waiting for the map to move.
+  useEffect(() => {
+    const current = viewport.current;
+    if (settings.mapType !== 'transit' || !current || current.zoom < STOPS_MAP_MIN_ZOOM) {
+      setMapStops([]);
+      return;
+    }
+    let cancelled = false;
+    void stopsInBounds(current.bounds)
+      .then((found) => {
+        if (!cancelled) {
+          setMapStops(found);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.mapType]);
+
+  /** What the transport map draws: the stops in view plus the panel's list. */
+  const mapStopsShown = useMemo(() => {
+    const byId = new Map<string, TransitStop>();
+    for (const stop of [...transitStops, ...mapStops]) {
+      if (!byId.has(stop.id)) {
+        byId.set(stop.id, stop);
+      }
+    }
+    return [...byId.values()];
+  }, [transitStops, mapStops]);
+
+  /**
+   * The panel's list, with the stop tapped on the map at the top when it is
+   * not already among the nearest — otherwise tapping a stop a few streets
+   * away opened a panel that did not show it.
+   */
+  const sheetStops = useMemo(() => {
+    if (!selectedStopId || transitStops.some((s) => s.id === selectedStopId)) {
+      return transitStops;
+    }
+    const tapped = mapStops.find((s) => s.id === selectedStopId);
+    return tapped ? [tapped, ...transitStops] : transitStops;
+  }, [transitStops, mapStops, selectedStopId]);
+
+  /** A tap on a stop opens its times straight away, without the clock button. */
+  const handleStopPress = useCallback((stopId: string) => {
+    setSelectedStopId(stopId);
+    setTransitVisible(true);
+  }, []);
+
   const handleGoToStop = useCallback((stop: TransitStop) => {
     setTransitVisible(false);
     setSelectedStopId(null);
@@ -1780,10 +1853,10 @@ function PalmMap() {
         transitStops={
           transitTrips?.[transitTripIndex]
             ? [transitTrips[transitTripIndex].from, transitTrips[transitTripIndex].to]
-            : transitStops
+            : mapStopsShown
         }
         selectedStopId={selectedStopId}
-        onStopPress={setSelectedStopId}
+        onStopPress={handleStopPress}
         transitStations={transitStations}
         vehicles={vehicles}
         compassBottom={compassBottom}
@@ -2127,7 +2200,7 @@ function PalmMap() {
             {(drag) => (
               <TransitSheet
                 dragHandlers={drag}
-                stops={transitStops}
+                stops={sheetStops}
                 stations={transitStations}
                 loading={transitLoading}
                 error={transitError}
