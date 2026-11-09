@@ -33,20 +33,40 @@ voz depois do filtro das manobras, o velocímetro — que precisa de um telemóv
 os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
 ambiente de desenvolvimento não chega.
 
-**Há trabalho por compilar:** os trajetos de autocarro, que na 7.0.23 continuavam vazios,
-foram reparados de novo e desta vez provados contra a API verdadeira (ver "6-B-2").
+**Há trabalho por compilar (7.0.24), feito a 9 de novembro de 2026.** Nada disto foi visto num
+telemóvel ainda:
 
-**A última APK é a 7.0.23.** Traz os trajetos de autocarro reparados, os pinos dos negócios
-por quadrado com um segundo servidor da Overpass, a pesquisa a mostrar logo os guardados, e
-o Photon como segundo recurso da pesquisa — que em setembro de 2026 falhava sempre com
-"verifique a ligação" apesar de haver rede. Nada disso foi ainda visto num telemóvel. **Continua a valer a regra: só compilar quando o autor
-pedir.**
+- **Autocarros:** o prefixo `[YA15B]` saiu do número da linha (`lineLabel`, em `transit.ts`); os
+  autocarros a andar voltaram — a TML manda o `timestamp` em **milissegundos** e todos eram
+  deitados fora como "vindos do futuro" (`vehicles.ts`). Provado com o modo `sondar` do workflow
+  dos horários. As duas passagens do 3601 com um minuto de diferença **não são repetidas**: uma é
+  um autocarro com meia hora de atraso.
+- **Tocar numa paragem no mapa dos transportes abre o painel dela.** As paragens da ÖPNVKarte são
+  imagem; desenham-se por cima as da Carris a partir do zoom 15 (`stopsInBounds`).
+- **Metro Sul do Tejo com horários a sério**, do serviço do próprio site
+  (`https://www.mts.pt/mts-timetable-api/`: `lines`, `stations` por POST com `line_id`, `search` por
+  POST com `line`, `stations`, `day_type` e `season`). Convertido por `build_mts()` em
+  `build-transit.py`. Os horários da zona descarregam-se sozinhos ao abrir o mapa dos transportes
+  (`ensureFeedsFor`). Todos os horários valem agora **até 6 de fevereiro de 2027**.
+- **Pinos dos negócios rápidos.** Com o país descarregado vêm de um **ficheiro de negócios**
+  (`<id>.pois`, gerado do Geofabrik pelo workflow dos mapas, lido por quadrados em `localPois.ts`):
+  Portugal continental tem 218 642 negócios em 24,5 MB. Sem país descarregado, vêm **dentro dos
+  tiles do OpenFreeMap** (camada `poi`), e ao tocar pede-se à Overpass só esse sítio
+  (`placeDetails`). A Overpass deixou de ser chamada para os pinos automáticos fora do mapa dos
+  transportes. O workflow dos mapas tem a opção `apenas_negocios`.
+- **O tipo de mapa passou a ficar guardado**, a pedido do autor, sem travão nos autocarros ao vivo.
+  Desfaz a regra antiga da secção "Definições".
+- **Ecrã de Direções** (botão ao lado da pesquisa): origem e destino quaisquer, trocar, meio de
+  transporte. A navegação parte sempre do GPS.
+- **Satélite:** Sentinel-2 passou a 2025. As ortofotos da DGT continuam em 2023 — não há mais
+  recentes publicadas (sondado).
+- **Lista de mapas:** tenta duas vezes, guarda a última lista inteira, está por ordem alfabética, e
+  mapas e horários ficaram em secções que abrem e fecham nas definições.
+- **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
+  outros. Partes antigas deste ficheiro ainda dizem o contrário.
 
-**Os horários estão gerados e publicados**, na etiqueta `horarios`: **CP** (454 estações,
-960 KB) e **Metro de Lisboa** (50 estações, 159 KB). Foram provados contra os dados reais —
-ver "6-B-4". **Falta o Fertagus, os barcos do Tejo e a Carris de Lisboa**, que não têm fonte
-encontrada. Os ficheiros valem **até 7 de outubro de 2026**; depois disso é preciso correr o
-workflow outra vez.
+**A tradução para inglês está a meio** (serviços, tipos, utilitários e alguns componentes já em
+inglês; o `App.tsx`, o `MapView.tsx`, o resto dos componentes, os scripts e este ficheiro ainda não).
 
 ## Objetivo do projeto
 
@@ -451,12 +471,10 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - Ao acrescentar uma definição nova: juntar ao tipo `Settings`, dar-lhe um valor em
   `DEFAULT_SETTINGS` e mostrá-la no `SettingsSheet`. Os valores guardados são fundidos com
   os de origem ao arrancar, por isso versões antigas não rebentam.
-- **O tipo de mapa é a exceção: abre sempre no mapa desenhado.** É uma escolha do momento e
-  não uma preferência para a vida — vê-se o satélite para espreitar um terreno e os
-  transportes para saber por onde passa o autocarro, e a seguir quer-se o mapa outra vez.
-  Guardá-lo fazia a aplicação abrir dias depois nos Transportes, com os autocarros a pedir
-  1,1 MB de vinte em vinte segundos, só porque foi ali que se fechou da última vez. O sítio
-  onde se desfaz isto é o `mapType: DEFAULT_SETTINGS.mapType` da leitura, em `settings.tsx`.
+- **O tipo de mapa fica guardado entre sessões**, a pedido do autor (novembro de 2026): fechar no
+  satélite e reabrir no mapa desenhado era o contrário do que ele queria. Esteve de propósito sem
+  se guardar, por causa dos autocarros ao vivo (1,1 MB de vinte em vinte segundos) — o autor
+  escolheu não ter travão nenhum. Um valor desconhecido volta ao mapa desenhado.
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
   quando a aplicação se fechou sozinha — ver "6-K".
