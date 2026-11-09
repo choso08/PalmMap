@@ -142,7 +142,7 @@ import type { SearchCategory } from './src/utils/categories';
 import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
-import { speak, stopSpeaking } from './src/utils/voice';
+import { namesArePortuguese, speak, stopSpeaking } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 
 // **Before everything else.** An error while loading the modules below already
@@ -1583,6 +1583,9 @@ function PalmMap() {
                         instruction,
                       )
                     : `${step.instruction}.`,
+                  // In English, Portuguese street names are read with the
+                  // Portuguese voice — see `speak`.
+                  step.streetName && namesArePortuguese(position) ? [step.streetName] : [],
                 );
                 break;
               }

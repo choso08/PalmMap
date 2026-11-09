@@ -188,9 +188,98 @@ function onEngineAnswer(): void {
   void prepareVoices();
 }
 
-export function speak(text: string): void {
+/**
+ * Lusophone places: Portugal (mainland, Madeira, Azores), São Tomé and
+ * Príncipe, Cape Verde and Guinea-Bissau, as rough boxes [west, south, east,
+ * north]. Inside them street names are Portuguese.
+ */
+const PORTUGUESE_NAMES: [number, number, number, number][] = [
+  [-9.6, 36.9, -6.1, 42.2],
+  [-17.4, 32.3, -16.2, 33.2],
+  [-31.4, 36.8, -24.9, 39.8],
+  [6.4, -0.1, 7.6, 1.8],
+  [-25.5, 14.7, -22.6, 17.3],
+  [-16.8, 10.8, -13.6, 12.7],
+];
+
+/** Whether the street names around this point are Portuguese. */
+export function namesArePortuguese(point: { latitude: number; longitude: number } | null): boolean {
+  return (
+    !!point &&
+    PORTUGUESE_NAMES.some(
+      ([w, s, e, n]) =>
+        point.longitude >= w &&
+        point.longitude <= e &&
+        point.latitude >= s &&
+        point.latitude <= n,
+    )
+  );
+}
+
+/** One piece of a sentence, and the language it is read in. */
+interface Piece {
+  text: string;
+  language: Language;
+}
+
+/**
+ * Cuts a sentence around the names that must be read in Portuguese.
+ *
+ * "Turn left onto Rua Augusta." becomes "Turn left onto" in English and "Rua
+ * Augusta." in Portuguese. Punctuation right after a name goes with it, so no
+ * piece is a lone full stop.
+ */
+function splitAroundNames(text: string, names: string[], base: Language): Piece[] {
+  const wanted = names.filter((n) => n && n.trim().length > 1);
+  if (wanted.length === 0) {
+    return [{ text, language: base }];
+  }
+  // Longest first, so "Rua Augusta" wins over "Augusta".
+  const pattern = new RegExp(
+    `(${wanted
+      .sort((a, b) => b.length - a.length)
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|')})([.,;:!?]*)`,
+    'g',
+  );
+  const pieces: Piece[] = [];
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    if (start > last) {
+      pieces.push({ text: text.slice(last, start), language: base });
+    }
+    pieces.push({ text: match[0], language: 'pt' });
+    last = start + match[0].length;
+  }
+  if (last < text.length) {
+    pieces.push({ text: text.slice(last), language: base });
+  }
+  return pieces.filter((p) => p.text.trim().length > 0);
+}
+
+/**
+ * Says a sentence.
+ *
+ * `portugueseNames` are street names to be read **with the Portuguese voice**
+ * when the app speaks another language — an English voice saying "Rua
+ * Augusta" was hard to understand (the author's complaint, November 2026).
+ * The sentence is then read in pieces, one voice after the other. That leaves a
+ * short pause before and after the name; the author preferred it to the
+ * accent. The caller decides whether the names are Portuguese
+ * (`namesArePortuguese`): in London an English voice is right.
+ */
+export function speak(text: string, portugueseNames: string[] = []): void {
+  const base = activeLanguage();
+  const pieces =
+    base === 'pt' ? [{ text, language: base }] : splitAroundNames(text, portugueseNames, base);
+  for (const piece of pieces) {
+    speakPiece(piece.text.trim(), piece.language);
+  }
+}
+
+function speakPiece(text: string, language: Language): void {
   try {
-    const language = activeLanguage();
     // The chosen voice only comes in after the engine has answered: giving it
     // earlier made `speakOut` walk `textToSpeech.voices` from inside the queue,
     // which is the path that closes the app. The first sentence goes with the

@@ -1475,7 +1475,14 @@ the system's voice.
 option: otherwise an unexpected accent reads as an app fault, and the fix is in Android's
 Text-to-speech settings.
 
-**One sentence is not read with two voices** — two readings have an audible pause.
+**In English, Portuguese street names are read with the Portuguese voice** (the author's
+request, November 2026, reversing an earlier decision): an English voice saying "Rua Augusta"
+was hard to understand. `speak(text, portugueseNames)` cuts the sentence around the names
+(`splitAroundNames`) and queues the pieces, each with its voice; the short pause around the
+name was judged better than the accent. Only where names are Portuguese
+(`namesArePortuguese`: Portugal, Madeira, Azores, São Tomé, Cape Verde, Guinea-Bissau) — in
+London the English voice is right. Today only the manoeuvre's street (`step.streetName`) is
+passed.
 
 **Distances are spelled out** (`formatDistanceSpoken`): "850 m" read aloud is "eight hundred
 and fifty em". The screen keeps the abbreviation.
