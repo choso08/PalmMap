@@ -22,88 +22,88 @@ import { type Theme, themeFor } from './theme';
 import { blendPace, modelSeconds } from './utils/eta';
 
 /**
- * Definições da aplicação: guardadas no telemóvel e disponíveis a toda a
- * aplicação através do contexto.
+ * The app's settings: kept on the phone and available to the whole app
+ * through the context.
  */
 
-/** Aspeto do mapa e da interface. */
+/** How the map and the interface look. */
 export type AppearanceMode = 'system' | 'light' | 'dark';
 
 /**
- * Meio de transporte usado para calcular o percurso.
+ * The travel mode used to calculate the route.
  *
- * Os três primeiros são perfis do OSRM. O `transit` **não é**: os transportes
- * não se calculam com um motor de percursos, montam-se a partir das horas de
- * passagem das paragens — ver `src/services/transit.ts`.
+ * The first three are OSRM profiles. `transit` **is not**: public transport is
+ * not calculated by a routing engine, it is put together from the stops'
+ * arrival times — see `src/services/transit.ts`.
  */
 export type TravelMode = 'driving' | 'walking' | 'cycling' | 'transit';
 
-/** Só os três que o OSRM sabe calcular. `null` para os transportes. */
+/** Only the three OSRM can calculate. `null` for public transport. */
 export function osrmProfile(mode: TravelMode): 'driving' | 'walking' | 'cycling' | null {
   return mode === 'transit' ? null : mode;
 }
 
 /**
- * Correção do tempo estimado.
+ * A correction to the estimated time.
  *
- * O OSRM calcula o tempo a partir do tipo de estrada e da etiqueta `surface` do
- * OpenStreetMap. Onde essa etiqueta falta — e falta em muitos sítios — ele
- * assume piso bom e fica optimista demais. Isto permite corrigir à mão.
+ * OSRM works the time out from the road type and OpenStreetMap's `surface`
+ * tag. Where that tag is missing — and it is in many places — it assumes a good
+ * surface and is too optimistic. This allows correcting it by hand.
  */
 export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 
-/** Quanto do mapa já visto se guarda no telemóvel. `off` desliga a cache. */
+/** How much of the map already seen is kept on the phone. `off` turns the cache off. */
 export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 
-/** Mapa desenhado, imagem de satélite ou rede de transportes públicos. */
+/** Drawn map, satellite imagery or the public transport network. */
 export type MapType = 'map' | 'satellite' | 'transit';
 
 /**
- * Quanto detalhe se pede à imagem de satélite.
+ * How much detail is asked of the satellite imagery.
  *
- * `normal` é o Sentinel-2, que cobre o mundo mas vê a 10 metros por pixel.
- * `alta` acrescenta-lhe por cima as ortofotos oficiais, que vêem a menos de um
- * metro — mas só existem para Portugal, e gastam muito mais dados.
+ * `normal` is Sentinel-2, which covers the world but sees 10 metres per pixel.
+ * `alta` adds the official orthophotos on top, which see under a metre — but
+ * they only exist for Portugal and use far more data.
  */
 export type SatelliteDetail = 'normal' | 'alta';
 
 export interface Settings {
-  /** Língua da aplicação. Em `auto` segue a do telemóvel. */
+  /** The app's language. On `auto` it follows the phone's. */
   language: LanguagePreference;
   appearance: AppearanceMode;
   travelMode: TravelMode;
-  /** Mostrar negócios sozinhos no mapa, à medida que se navega. */
+  /** Show businesses on the map by themselves, as one moves around. */
   showPlacesOnMap: boolean;
-  /** Ler as instruções em voz alta durante a navegação. */
+  /** Read the instructions aloud while navigating. */
   voiceGuidance: boolean;
-  /** Correção aplicada ao tempo estimado. */
+  /** The correction applied to the estimated time. */
   timeAdjustment: TimeAdjustment;
-  /** Quanto do mapa já visto fica guardado. */
+  /** How much of the map already seen is kept. */
   cacheSize: CacheSize;
-  /** Mapa desenhado ou imagem de satélite. */
+  /** Drawn map, satellite imagery or transport. */
   mapType: MapType;
-  /** Quanto detalhe se pede à imagem de satélite. */
+  /** How much detail is asked of the satellite imagery. */
   satelliteDetail: SatelliteDetail;
-  /** Avisar de radares e controlos de velocidade durante a navegação. */
+  /** Warn about speed cameras and speed checks while navigating. */
   speedCameraAlerts: boolean;
   /** Warn, as Waze does, when going over the road's speed limit (OSM maxspeed). */
   speedLimitAlerts: boolean;
-  /** Pedir ao OSRM um percurso que evite estradas com portagem. */
+  /** Ask OSRM for a route avoiding toll roads. */
   avoidTolls: boolean;
-  /** Ler o GPS menos vezes quando a manobra seguinte ainda vai longe. */
+  /** Read the GPS less often while the next manoeuvre is still far away. */
   batterySaver: boolean;
   /**
-   * Mostrar a velocidade a que se vai, durante a navegação.
+   * Show the current speed while navigating.
    *
-   * Não custa bateria nenhuma: a velocidade vem dentro das leituras de GPS que a
-   * navegação já faz de qualquer maneira.
+   * It costs no battery at all: the speed comes inside the GPS readings
+   * navigation makes anyway.
    */
   showSpeed: boolean;
   /**
-   * Mostrar os autocarros a andar, no tipo de mapa dos transportes.
+   * Show the moving buses, on the transport map type.
    *
-   * Fica ligado de origem porque é a razão de se ir ao mapa dos transportes,
-   * mas é o pedido mais pesado da aplicação — ver `VEHICLES_MIN_ZOOM`.
+   * On by default because it is the reason to open the transport map, but it
+   * is the app's heaviest request — see `VEHICLES_MIN_ZOOM`.
    */
   showVehicles: boolean;
 }
@@ -127,10 +127,10 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
- * Os tipos de mapa, pela ordem por que o botão os percorre.
+ * The map types, in the order the button cycles through them.
  *
- * O botão mostra sempre o ícone do **seguinte**, não o do atual: é o que se vai
- * buscar ao carregar.
+ * The button always shows the **next** one's icon, not the current one's: that
+ * is what a tap brings.
  */
 export const MAP_TYPES: { id: MapType; icon: string }[] = [
   { id: 'map', icon: 'map-outline' },
@@ -138,7 +138,7 @@ export const MAP_TYPES: { id: MapType; icon: string }[] = [
   { id: 'transit', icon: 'bus' },
 ];
 
-/** O tipo de mapa a seguir a este, para o botão do canto. */
+/** The map type after this one, for the corner button. */
 export function nextMapType(current: MapType): MapType {
   const i = MAP_TYPES.findIndex((t) => t.id === current);
   return MAP_TYPES[(i + 1) % MAP_TYPES.length].id;
@@ -194,15 +194,15 @@ export const APPEARANCE_MODES: { id: AppearanceMode; icon: string }[] = [
 const STORAGE_KEY = 'palmmap.settings';
 
 /**
- * A que ritmo a pessoa anda mesmo, por meio de transporte.
+ * The pace the person really travels at, per travel mode.
  *
- * Um fator: 1,3 quer dizer "leva um terço mais tempo do que o serviço de
- * percursos diz". Mede-se durante a navegação e fica guardado, para a estimativa
- * seguinte já nascer certa — a que interessa é a que se lê **antes** de partir.
+ * A factor: 1.3 means "takes a third longer than the routing service says". It
+ * is measured while navigating and kept, so the next estimate is right from the
+ * start — the one that matters is the one read **before** setting off.
  *
- * **Não é uma definição, e por isso não está no tipo `Settings`:** ninguém a
- * escolhe, a aplicação é que a aprende. Vive aqui e não num serviço próprio
- * porque é exatamente o mesmo ciclo de vida do resto do que este ficheiro guarda.
+ * **It is not a setting, so it is not in the `Settings` type:** nobody chooses
+ * it, the app learns it. It lives here rather than in a service of its own
+ * because it has exactly the same lifecycle as the rest of what this file keeps.
  */
 export type LearnedPace = Partial<Record<TravelMode, number>>;
 
@@ -210,14 +210,14 @@ const PACE_KEY = 'palmmap.pace';
 
 interface SettingsContextValue {
   settings: Settings;
-  /** O ritmo aprendido, por meio de transporte. Vazio enquanto não se mediu nada. */
+  /** The learnt pace, per travel mode. Empty until something is measured. */
   pace: LearnedPace;
-  /** Junta o ritmo de uma viagem ao que já estava guardado. */
+  /** Blends one trip's pace into what was already kept. */
   learnPace: (mode: TravelMode, measured: number) => void;
-  /** Esquece tudo o que foi aprendido. */
+  /** Forgets everything learnt. */
   forgetPace: () => void;
   theme: Theme;
-  /** A língua a usar mesmo, já com o "automático" resolvido. */
+  /** The language actually in use, with "automatic" already resolved. */
   language: Language;
   /** Os textos dessa língua. */
   strings: Strings;
@@ -231,15 +231,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [pace, setPace] = useState<LearnedPace>({});
 
-  // Lê as definições guardadas uma vez, no arranque.
+  // Reads the saved settings once, at startup.
   useEffect(() => {
     void (async () => {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
         if (stored) {
           setSettings({
-            // Junta-se aos valores por omissão para o caso de a aplicação ter
-            // ganho definições novas desde a última vez que se guardou.
+            // Merged with the defaults in case the app gained new settings since
+            // they were last saved.
             ...DEFAULT_SETTINGS,
             ...JSON.parse(stored),
             // The map type is remembered too, at the author's request: closing
@@ -252,7 +252,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch {
-        // Sem definições guardadas, ficam as de origem. Não é motivo para falhar.
+        // With no saved settings, the defaults stay. No reason to fail.
       }
 
       try {
@@ -261,7 +261,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setPace(JSON.parse(stored));
         }
       } catch {
-        // Sem ritmo guardado, a estimativa é a do serviço até se medir um.
+        // With no saved pace, the estimate is the service's until one is measured.
       }
     })();
   }, []);
@@ -269,17 +269,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback<SettingsContextValue['update']>((key, value) => {
     setSettings((current) => {
       const next = { ...current, [key]: value };
-      // Guardar é secundário: se falhar, a definição continua a valer nesta sessão.
+      // Saving is secondary: if it fails, the setting still holds this session.
       void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
       return next;
     });
   }, []);
 
   /**
-   * Guarda o ritmo de uma viagem que acabou de terminar.
+   * Keeps the pace of a trip that just ended.
    *
-   * Guardar é secundário, como nas definições: se falhar, o valor continua a
-   * valer nesta sessão.
+   * Saving is secondary, as with the settings: if it fails, the value still
+   * holds this session.
    */
   const learnPace = useCallback((mode: TravelMode, measured: number) => {
     setPace((current) => {
@@ -302,9 +302,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     const language = resolveLanguage(settings.language);
 
-    // Os serviços não podem usar hooks e leem a língua de uma variável do
-    // módulo. É aqui que ela se põe — no mesmo sítio onde a preferência é
-    // resolvida, para não haver duas fontes da mesma verdade.
+    // Services cannot use hooks and read the language from a module variable.
+    // This is where it is set — the same place the preference is resolved, so
+    // there are not two sources of the same truth.
     setActiveLanguage(language);
 
     return {
@@ -325,33 +325,33 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 function useSettingsContext(): SettingsContextValue {
   const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error('Falta o SettingsProvider à volta da aplicação.');
+    throw new Error('SettingsProvider is missing around the app.');
   }
   return context;
 }
 
-/** As definições atuais e a forma de as mudar. */
+/** The current settings and how to change them. */
 export function useSettings() {
   const { settings, update } = useSettingsContext();
   return { settings, update };
 }
 
-/** Quantos megabytes guardar, conforme a definição escolhida. */
+/** How many megabytes to keep, for the chosen setting. */
 export function cacheMegabytesFor(size: CacheSize): number {
   return CACHE_SIZES.find((option) => option.id === size)?.megabytes ?? 250;
 }
 
 /**
- * O tempo que se mostra, a partir do que o serviço de percursos respondeu.
+ * The time shown, from what the routing service answered.
  *
- * Recebe a distância **e** a duração porque o modelo de bicicleta precisa das
- * duas — ver `modelSeconds`. O terceiro argumento é o ritmo medido nesta viagem,
- * que só o ecrã de navegação tem; os outros ecrãs deixam-no de fora e ficam com
- * o que foi aprendido das viagens anteriores.
+ * It takes the distance **and** the duration because the cycling model needs
+ * both — see `modelSeconds`. The third argument is the pace measured on this
+ * trip, which only the navigation screen has; other screens leave it out and
+ * get what was learnt from earlier trips.
  *
- * A ordem é sempre a mesma: **o desta viagem ganha ao aprendido, e o aprendido
- * ganha à correção manual.** O medido ganha ao adivinhado, e nunca se
- * multiplicam — ver a nota no cabeçalho de `utils/eta.ts`.
+ * The order is always the same: **this trip's beats the learnt one, and the
+ * learnt one beats the manual correction.** Measured beats guessed, and they
+ * are never multiplied — see the note at the top of `utils/eta.ts`.
  */
 export function useEta(): (
   distanceMeters: number,
@@ -374,32 +374,31 @@ export function useEta(): (
   );
 }
 
-/** O ritmo aprendido e a forma de o esquecer, para o ecrã de definições. */
+/** The learnt pace and how to forget it, for the Settings screen. */
 export function useLearnedPace() {
   const { pace, learnPace, forgetPace } = useSettingsContext();
   return { pace, learnPace, forgetPace };
 }
 
 /**
- * As cores a usar agora, já a contar com a preferência guardada e com o tema
- * do telemóvel.
+ * The colours to use now, counting the saved preference and the phone's theme.
  */
 export function useTheme(): Theme {
   return useSettingsContext().theme;
 }
 
 /**
- * Os textos na língua atual.
+ * The texts in the current language.
  *
- * É um hook de propósito: assim um componente redesenha-se quando a língua muda,
- * sem ser preciso reiniciar a aplicação. Quem não pode usar hooks — os serviços —
- * tem o `t()` do `src/i18n`.
+ * A hook on purpose: a component then redraws when the language changes,
+ * without restarting the app. Whoever cannot use hooks — the services — has
+ * `t()` from `src/i18n`.
  */
 export function useT(): Strings {
   return useSettingsContext().strings;
 }
 
-/** A língua a usar mesmo, para quem precisa do código e não do texto. */
+/** The language actually in use, for whoever needs the code rather than the text. */
 export function useLanguage(): Language {
   return useSettingsContext().language;
 }
