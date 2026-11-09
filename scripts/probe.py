@@ -288,6 +288,35 @@ def openfreemap():
         print("attribution:", tj.get("attribution"))
 
 
+def stops():
+    """Stops the transport map shows (from OSM) but the app does not draw."""
+    section("STOPS")
+    status, _, body = get(f"{CARRIS}/stops")
+    print("status", status, "bytes", len(body))
+    data = json.loads(body)
+    print("count", len(data), "fields", sorted(data[0].keys()) if data else None)
+    by_id = {str(s.get("id")): s for s in data}
+    for sid in ("020657", "020707", "020555"):
+        s = by_id.get(sid)
+        print(sid, "->", json.dumps(s, ensure_ascii=False)[:600] if s else "MISSING")
+    # Everything within 400 m of the Lazarim roundabout.
+    import math
+    lat0, lon0 = 38.6585, -9.1700
+    for ref in ("020555",):
+        if ref in by_id:
+            lat0, lon0 = float(by_id[ref]["lat"]), float(by_id[ref]["lon"])
+    for s in data:
+        try:
+            dy = (float(s["lat"]) - lat0) * 111320
+            dx = (float(s["lon"]) - lon0) * 111320 * math.cos(math.radians(lat0))
+        except (KeyError, TypeError, ValueError):
+            continue
+        d = math.hypot(dx, dy)
+        if d < 400:
+            print(f"{d:5.0f} m", s.get("id"), s.get("long_name"), s.get("lat"), s.get("lon"),
+                  "lines", s.get("line_ids"), "status", s.get("operational_status"))
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)

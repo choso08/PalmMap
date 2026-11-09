@@ -84,7 +84,7 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
         <View style={styles.row}>
           <MaterialCommunityIcons name="bus-marker" size={22} color={theme.text} />
           <View style={styles.rowTexts}>
-            <Text style={styles.rowText}>{strings.settings.showVehicles}</Text>
+            <Text style={styles.rowLabel}>{strings.settings.showVehicles}</Text>
             <Text style={styles.rowHint}>{strings.settings.showVehiclesCost}</Text>
           </View>
           <Switch
@@ -186,6 +186,12 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     rowText: {
       flex: 1,
+      fontSize: 15,
+      color: theme.text,
+    },
+    // No `flex: 1` inside the column: it squashed the label to nothing and the
+    // hint was drawn over it.
+    rowLabel: {
       fontSize: 15,
       color: theme.text,
     },

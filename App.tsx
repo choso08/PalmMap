@@ -98,10 +98,8 @@ import {
 import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getDuration, getRoutes } from './src/services/osrm';
 import {
-  cachedInBounds,
   placeDetails,
   searchCategoryInBounds,
-  searchInBounds,
 } from './src/services/overpass';
 import { ensureFeedsFor, planScheduledTrips } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
@@ -1050,34 +1048,11 @@ function PalmMap() {
         return;
       }
 
-      // Where the map's own pins are drawn (OpenFreeMap), Overpass is not
-      // asked at all — they come with the tiles.
-      if (settings.mapType !== 'transit') {
-        setPlaces([]);
-        setPlacesError(null);
-        return;
-      }
-
-      try {
-        const found = await searchInBounds(bounds, stillWanted);
-        if (requestId === latestPlaces.current) {
-          setPlaces(found);
-          setPlacesError(null);
-        }
-      } catch (error) {
-        // **Uma falha tem de se ver.** Isto esteve calado de propósito, com o
-        // argumento de que o mapa continua a servir — e o resultado foi pior do
-        // que o problema: a Overpass recusa de vez em quando, os pinos da zona
-        // nova não apareciam, e não havia nada no ecrã que distinguisse "não há
-        // negócios aqui" de "o serviço não respondeu". Parecia avaria da
-        // aplicação. Os pinos que já lá estavam ficam, que é melhor do que
-        // apagar o que se tinha.
-        if (requestId === latestPlaces.current) {
-          setPlacesError(
-            error instanceof Error ? error.message : t().errors.placesFailed,
-          );
-        }
-      }
+      // Automatic pins never ask Overpass: on the drawn maps they come with the
+      // tiles, and the transport map is about stops, not shops. Asking there
+      // only produced "Could not search for places" whenever Overpass refused.
+      setPlaces([]);
+      setPlacesError(null);
     },
     [settings.showPlacesOnMap, settings.mapType],
   );
@@ -1160,27 +1135,12 @@ function PalmMap() {
         }
       }
 
-      if (!category && settings.mapType !== 'transit') {
-        // The pins come inside the map's tiles here: nothing to fetch.
+      if (!category) {
+        // The pins come inside the map's tiles, or not at all on the transport
+        // map: nothing to fetch.
         latestPlaces.current += 1;
         setPlaces((atual) => (atual.length === 0 ? atual : []));
         return;
-      }
-
-      if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
-        const guardados = cachedInBounds(bounds);
-        if (guardados.complete || guardados.places.length > 0) {
-          // O contador sobe para que uma resposta que ainda venha a caminho de
-          // uma área anterior não venha depois escrever por cima destes — e
-          // para que um pedido dessa área que ainda esteja na fila não saia.
-          latestPlaces.current += 1;
-          setPlaces(guardados.places);
-          setPlacesError(null);
-        }
-        // A área toda já conhecida: não há nada a pedir.
-        if (guardados.complete) {
-          return;
-        }
       }
 
       pinsTimer.current = setTimeout(() => {

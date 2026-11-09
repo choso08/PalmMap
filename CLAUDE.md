@@ -52,8 +52,9 @@ telemóvel ainda:
   (`<id>.pois`, gerado do Geofabrik pelo workflow dos mapas, lido por quadrados em `localPois.ts`):
   Portugal continental tem 218 642 negócios em 24,5 MB. Sem país descarregado, vêm **dentro dos
   tiles do OpenFreeMap** (camada `poi`), e ao tocar pede-se à Overpass só esse sítio
-  (`placeDetails`). A Overpass deixou de ser chamada para os pinos automáticos fora do mapa dos
-  transportes. O workflow dos mapas tem a opção `apenas_negocios`.
+  (`placeDetails`). A Overpass deixou de ser chamada para os pinos automáticos — **também no mapa dos
+  transportes** (aí não há pinos automáticos: só dava "Não foi possível procurar locais" quando a
+  Overpass recusava). Só os botões de categoria lhe perguntam. O workflow dos mapas tem a opção `apenas_negocios`.
 - **O tipo de mapa passou a ficar guardado**, a pedido do autor, sem travão nos autocarros ao vivo.
   Desfaz a regra antiga da secção "Definições".
 - **Ecrã de Direções** (botão ao lado da pesquisa): origem e destino quaisquer, trocar, meio de
