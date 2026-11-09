@@ -2,10 +2,10 @@
 """
 Gera os ícones do PalmMap para a pasta assets/.
 
-O logo é um pin de mapa verde com uma palmeira lá dentro — tronco castanho e
-folhas verdes — sobre fundo branco. Junta o "Map" e o "Palm" do nome. Até
-novembro de 2026 era ao contrário (pin branco sobre azul-petróleo); o autor pediu
-a paleta invertida.
+O logo é uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia
+com duas ondas por baixo, sobre fundo branco. Foi um pin de mapa com a palmeira
+lá dentro até novembro de 2026; parecia o do Google Maps, e o autor pediu outro.
+O `pin_layer` fica no ficheiro, sem uso, caso se queira voltar a ele.
 
 Correr a partir da raiz do projeto:
 
@@ -59,7 +59,8 @@ def frond(length: int, droop: float, color) -> Image.Image:
     Desenha-se numa tela quadrada com a base no centro, apontada para a direita.
     Assim pode rodar-se à volta do centro sem a base sair do sítio.
     """
-    canvas = length * 2
+    # Com folga: a folha ocupa até à borda e, rodada, a ponta ficava cortada.
+    canvas = int(length * 2.6)
     image = Image.new("RGBA", (canvas, canvas), TRANSPARENT)
     draw = ImageDraw.Draw(image)
 
@@ -163,6 +164,56 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
     return image
 
 
+SAND = (226, 186, 120, 255)
+SEA = (22, 132, 142, 255)
+
+
+def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA) -> Image.Image:
+    """
+    O logo: uma palmeira numa ilhota de areia, com duas ondas por baixo.
+
+    **Não é um pin de mapa, de propósito.** O pin com uma coisa lá dentro
+    lia-se como o logo do Google Maps (o autor reparou); a ilha é do nome —
+    "Palm" — e da paleta "Ilha" do mapa, e não se confunde com nada.
+    """
+    image = Image.new("RGBA", (size, size), TRANSPARENT)
+    draw = ImageDraw.Draw(image)
+    cx = size / 2
+
+    # As ondas: dois arcos de cada vez, lado a lado, por baixo da ilha.
+    stroke = max(2, int(size * 0.035))
+    for row, (y, half) in enumerate(((0.82, 0.30), (0.905, 0.20))):
+        yy = size * y
+        n = 3 if row == 0 else 2
+        width = size * half * 2 / n
+        x0 = cx - size * half
+        for i in range(n):
+            left = x0 + i * width
+            draw.arc(
+                [left, yy - width * 0.35, left + width, yy + width * 0.35],
+                200,
+                340,
+                fill=sea,
+                width=stroke,
+            )
+
+    # A ilhota: meia elipse de areia.
+    mound_w, mound_h = size * 0.56, size * 0.20
+    mound_y = size * 0.76
+    draw.pieslice(
+        [cx - mound_w / 2, mound_y - mound_h / 2, cx + mound_w / 2, mound_y + mound_h / 2],
+        180,
+        360,
+        fill=sand,
+    )
+
+    # A palmeira, com o tronco a assentar na areia.
+    p = size * 0.45
+    # O tronco acaba dentro da areia, acima da linha da água.
+    draw_palm(image, int(cx - p * 0.10), int(mound_y - mound_h * 0.55 - 0.66 * p), int(p), leaf, trunk)
+    return image
+
+
 def save(image: Image.Image, path: str, size: int) -> None:
     image.resize((size, size), Image.LANCZOS).save(path)
     print(f"escrito {path}")
@@ -175,7 +226,7 @@ def main() -> None:
     background = gradient_background(big).convert("RGBA")
     background.putalpha(rounded_mask(big))
 
-    pin = pin_layer(big)
+    pin = island_layer(big)
     # No ícone completo o pin fica um pouco mais pequeno, para respirar.
     inset = int(big * 0.16)
     pin_small = pin.resize((big - 2 * inset, big - 2 * inset), Image.LANCZOS)
@@ -201,7 +252,7 @@ def main() -> None:
     # Versão monocromática: o Android pinta-a com a cor do tema do telemóvel.
     mono = Image.new("RGBA", (big, big), TRANSPARENT)
     mono.alpha_composite(
-        pin_layer(big, (0, 0, 0, 255), (0, 0, 0, 255), (0, 0, 0, 255)).resize(
+        island_layer(big, *([(0, 0, 0, 255)] * 4)).resize(
             (big - 2 * fg_inset, big - 2 * fg_inset), Image.LANCZOS
         ),
         (fg_inset, fg_inset),
