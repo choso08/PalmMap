@@ -205,6 +205,8 @@ export const pt = {
     /** Spoken once when going over the road's limit. */
     overLimitVoice: (limit: number) => `Limite de velocidade: ${limit}.`,
     then: 'Depois',
+    /** On screen under the manoeuvre: "Radar a 300 m". */
+    cameraAt: (label: string, distance: string) => `${label} a ${distance}`,
     recenter: 'Recentrar',
     overview: 'Ver o percurso',
     arrived: 'Chegou ao destino.',

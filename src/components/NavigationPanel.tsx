@@ -14,7 +14,7 @@ import type { Lane, RouteStep } from "../types/geo";
 import { formatDistance, formatDuration } from "../utils/format";
 
 interface NavigationPanelProps {
-  /** A manobra que vem a seguir. */
+  /** The next manoeuvre. */
   step: RouteStep | null;
   /** The one after it, when the two come close together. */
   thenStep: RouteStep | null;
@@ -30,9 +30,9 @@ interface NavigationPanelProps {
   /** Quanto falta até ao destino. */
   remainingMeters: number;
   remainingSeconds: number;
-  /** Verdadeiro enquanto se recalcula o percurso por se ter saído dele. */
+  /** True while the route is being recalculated after leaving it. */
   recalculating: boolean;
-  /** Radar à frente, quando já está perto o suficiente para avisar. */
+  /** A camera ahead, once it is close enough to warn about. */
   camera: {
     label: string;
     icon: string;
@@ -40,26 +40,26 @@ interface NavigationPanelProps {
     meters: number;
   } | null;
   /**
-   * A que velocidade se vai, já em km/h, ou `null` quando não se sabe.
+   * The current speed, already in km/h, or `null` when it is not known.
    *
-   * `null` é mesmo "não sei" e não "parado": o velocímetro desaparece em vez de
-   * mostrar zero. Num túnel, mostrar zero a quem vai a 100 seria pior do que
-   * não mostrar nada.
+   * `null` really is "don't know", not "stopped": the speedometer disappears
+   * instead of showing zero. In a tunnel, showing zero to someone doing 100
+   * would be worse than showing nothing.
    */
   speedKmh: number | null;
   /**
-   * O ritmo medido nesta viagem, ou `null` enquanto ainda não se andou o
-   * suficiente para o medir. Ver `useEta`.
+   * The pace measured on this trip, or `null` until enough has been travelled
+   * to measure it. See `useEta`.
    */
   pace: number | null;
   onStop: () => void;
 }
 
 /**
- * Ecrã de navegação: a manobra seguinte em grande, com a distância a que está.
+ * The navigation screen: the next manoeuvre in big type, with how far away it is.
  *
- * A barra de cima é o que se lê a conduzir, por isso é o maior elemento da
- * aplicação toda. A de baixo tem o que falta e o botão de terminar.
+ * The top bar is what gets read while driving, so it is the biggest thing in
+ * the whole app. The bottom one has what is left and the finish button.
  */
 /** How far before a manoeuvre its lanes are shown. */
 const LANES_SHOW_METERS = 1500;
@@ -112,7 +112,7 @@ export function NavigationPanel({
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
   /**
-   * Vai-se depressa de mais?
+   * Going too fast?
    *
    * The limit is the camera's when one is close (it is the one being
    * enforced), otherwise the road's own from OSM's `maxspeed`. Where neither is
@@ -208,9 +208,9 @@ export function NavigationPanel({
         ) : null}
 
         {/*
-        O aviso do radar fica logo por baixo da manobra, e não em cima dela: o
-        que manda é sempre para onde se vira. Aparece só quando o radar já está
-        perto, e desaparece assim que se passa por ele.
+        The camera warning sits just under the manoeuvre, never above it: where
+        to turn always comes first. It shows only once the camera is close, and
+        goes as soon as it is passed.
       */}
         {camera ? (
           <View style={styles.camera}>
@@ -220,7 +220,7 @@ export function NavigationPanel({
               color={theme.onOverlay}
             />
             <Text style={styles.cameraText} numberOfLines={1}>
-              {camera.label} a {formatDistance(camera.meters)}
+              {strings.navigation.cameraAt(camera.label, formatDistance(camera.meters))}
             </Text>
             {camera.maxspeed ? (
               <View style={styles.limite}>
@@ -232,12 +232,13 @@ export function NavigationPanel({
       </View>
 
       {/*
-        O velocímetro, do lado oposto ao botão de voltar à posição e à mesma
-        altura. Fica fora do painel de baixo de propósito: aquele é informação da
-        viagem, este é o instante — e a conduzir procura-se sempre no mesmo sítio.
+        The speedometer, on the side opposite the re-centre button and at the
+        same height. It stays out of the bottom panel on purpose: that one is
+        about the trip, this one is the moment — and when driving one looks for
+        it always in the same place.
 
-        O desenho vive no `SpeedBadge` porque também aparece fora da navegação,
-        a andar de carro sem destino escolhido.
+        The drawing lives in `SpeedBadge` because it also shows outside
+        navigation, when driving with no destination chosen.
       */}
       <SpeedBadge
         kmh={speedKmh}
@@ -370,7 +371,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.onAccent,
     },
     camera: {
-      // Logo abaixo da barra da manobra (e do "Depois", quando há).
+      // Just under the manoeuvre bar (and the "Then" tab, when there is one).
       marginHorizontal: 16,
       marginTop: 8,
       flexDirection: "row",
@@ -429,7 +430,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       justifyContent: "center",
       backgroundColor: theme.signFace,
       borderWidth: 3,
-      // O vermelho do sinal de limite de velocidade, que se lê num instante.
+      // The red of a speed-limit sign, read at a glance.
       borderColor: theme.signEdge,
     },
     limiteText: {

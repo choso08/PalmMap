@@ -186,7 +186,7 @@ def post(url, params):
                                  headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded",
                                           "X-Requested-With": "XMLHttpRequest"})
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=90) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
@@ -334,14 +334,20 @@ def limits():
             thin.append(pts[i]); since = 0
     thin.append(pts[-1])
     line = ",".join(f"{a:.5f},{b:.5f}" for a, b in thin)
-    q = f'[out:json][timeout:25];\nway(around:25,{line})["highway"]["maxspeed"];\nout tags geom;'
-    print("route points", len(pts), "thinned", len(thin), "query bytes", len(q))
-    for server in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+    variants = {
+        "health": '[out:json][timeout:10];node(38.70,-9.15,38.701,-9.149);out ids 1;',
+        "way-around": f'[out:json][timeout:25];\nway(around:25,{line})["highway"]["maxspeed"];\nout tags geom;',
+        "node-around-bn": f'[out:json][timeout:25];\nnode(around:10,{line});\nway(bn)["highway"]["maxspeed"];\nout tags geom;',
+    }
+    print("route points", len(pts), "thinned", len(thin))
+    for name, q in variants.items():
+      for server in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+        print("--", name)
         data = urllib.parse.urlencode({"data": q}).encode()
         req = urllib.request.Request(server, data=data, headers={"User-Agent": UA})
         t0 = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 res = json.loads(r.read())
         except Exception as e:  # noqa: BLE001
             print(server, "FAILED", e); continue

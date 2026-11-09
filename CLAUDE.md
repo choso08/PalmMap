@@ -737,7 +737,10 @@ O painel do percurso (`RoutePanel.tsx`):
 - **Faixas de rodagem**, como no Maps e no Waze: as setas de cada faixa por baixo da manobra,
   com as que servem o percurso acesas, a partir de `LANES_SHOW_METERS` (1,5 km) da manobra.
   Vêm de graça na resposta do OSRM (`intersections[0].lanes` de cada passo, do `turn:lanes`
-  do OpenStreetMap) — sem pedido nenhum a mais. Onde o OpenStreetMap não as tem, não aparecem.
+  do OpenStreetMap) — sem pedido nenhum a mais. **Confirmado no servidor verdadeiro**: a saída
+  da A2 para Lisboa traz quatro faixas, as duas da direita válidas. Numa faixa pintada
+  "em frente e direita" desenha-se a seta que o percurso usa (`shown`). Onde o OpenStreetMap
+  não as tem, não aparecem.
 - **O lado do destino** já vinha da manobra de chegada ("Chegou ao destino, à sua direita").
 
 **O que não se pode imitar do Waze: o trânsito ao vivo e os avisos das pessoas** (acidentes,
@@ -1285,15 +1288,21 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   pé ou parado volta tudo ao ritmo lento, e é isso que impede isto de custar bateria a quem
   não conduz.
 - **Fica vermelho quando se passa o limite** — o do radar quando há um perto (é esse que
-  multa), senão **o da estrada**, que agora se sabe: o percurso de carro pede ao OSRM
-  `annotations=maxspeed`, o `maxspeed` do OpenStreetMap troço a troço (`Route.maxspeeds`, em
-  km/h; as milhas convertem-se). Ao lado do velocímetro aparece o **sinal do limite**, como no
+  multa), senão **o da estrada**, que agora se sabe: o `maxspeed` do OpenStreetMap, pedido à
+  **Overpass** ao longo do percurso (`speedLimitsAhead`, em `src/services/speedLimits.ts`).
+  **O OSRM não o dá** — o `annotations=maxspeed` só existe no serviço da Mapbox, e o servidor da
+  FOSSGIS responde "query string malformed" (sondado no GitHub Actions). A consulta segue a
+  linha com `around:` uma polilinha desbastada (um ponto a cada ~100 m) e cobre uma **janela**
+  de `LIMITS_WINDOW_M` (80 km) a partir do carro; a seguinte só se pede quando faltam
+  `LIMITS_REFETCH_M` (10 km) — cerca de um pedido por hora de autoestrada, e falhar só tira o
+  sinal (tenta outra vez ao fim de `LIMITS_RETRY_MS`). Cada ponto do percurso fica com o
+  limite da via mais perto a menos de `LIMITS_MATCH_M` (25 m). Ao lado do velocímetro aparece o **sinal do limite**, como no
   Waze, e a voz diz "Limite de velocidade: 50" **uma vez** ao passar, e não outra vez durante
   `LIMIT_WARNING_EVERY_MS` (um minuto) — um aviso que se repete a cada segundo desliga-se na
   primeira viagem. Definição própria (`speedLimitAlerts`). Onde o OpenStreetMap não tem o
   limite marcado, não há sinal e o velocímetro é só um número: pintá-lo por um limite
-  adivinhado era prometer o que não se tem. **Se o servidor não souber dar os limites**, o
-  pedido repete-se sem eles (antes da repetição sem portagens): o percurso conta mais.
+  adivinhado era prometer o que não se tem. Os limites implícitos (`PT:urban`, `PT:rural`)
+  ficam de fora: só se lê o número.
 - A margem de `SPEED_OVER_LIMIT_KMH` (5 km/h) não é permissividade: é a incerteza do
   próprio GPS. Sem ela, o aviso acendia-se sozinho a velocidade constante — e um aviso que
   acende sem razão deixa de ser lido, que é a mesma lição do corredor dos radares.

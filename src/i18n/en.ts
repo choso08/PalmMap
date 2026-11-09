@@ -184,6 +184,7 @@ export const en: typeof pt = {
     finish: 'Finish',
     overLimitVoice: (limit: number) => `Speed limit ${limit}.`,
     then: 'Then',
+    cameraAt: (label: string, distance: string) => `${label} in ${distance}`,
     recenter: 'Re-centre',
     overview: 'Route overview',
     arrived: "You've arrived.",
