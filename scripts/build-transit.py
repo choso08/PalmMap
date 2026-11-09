@@ -41,6 +41,7 @@ import argparse
 import csv
 import io
 import json
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -387,6 +388,177 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         round(max(lats), 4),
     ]
     return resultado, url
+
+
+# --- Metro Sul do Tejo (the operator's own timetable service) ------------------
+
+MTS_API = "https://www.mts.pt/mts-timetable-api/"
+
+# Station coordinates, from Carris Metropolitana's `/facilities/light_rail_stations`
+# (probe of 9 November 2026), keyed by the MTS service's station id. They come
+# from the same source the app uses to place the stations, so the app links the
+# timetable to the station exactly.
+MTS_COORDS = {
+    1: (38.637163, -9.151019), 2: (38.642502, -9.151832), 3: (38.647186, -9.153257),
+    4: (38.6564, -9.154345), 5: (38.66045, -9.157276), 6: (38.664459, -9.159932),
+    7: (38.667019, -9.165623), 8: (38.673456, -9.166254), 9: (38.676584, -9.164155),
+    10: (38.679353, -9.1575), 11: (38.682258, -9.152387), 12: (38.68421, -9.149815),
+    13: (38.687196, -9.147759), 14: (38.670185, -9.168259), 15: (38.66636, -9.180196),
+    16: (38.663803, -9.190167), 17: (38.665517, -9.194342), 18: (38.66457, -9.20021),
+    19: (38.663702, -9.209134),
+}
+
+
+def easter(year: int) -> date:
+    """Gregorian Easter Sunday (anonymous algorithm)."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(h + l - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+def pt_holidays(year: int) -> set[date]:
+    """Portugal's national public holidays. MTS runs its Sunday timetable on them."""
+    e = easter(year)
+    fixed = [(1, 1), (4, 25), (5, 1), (6, 10), (8, 15), (10, 5), (11, 1), (12, 1), (12, 8), (12, 25)]
+    return {date(year, m, d) for m, d in fixed} | {e - timedelta(days=2), e, e + timedelta(days=60)}
+
+
+def mts_season(day: date) -> int:
+    """MTS's two seasons, as its form lists them: summer (1) 15 Jul–7 Sep, winter (2) the rest."""
+    if (day.month, day.day) >= (7, 15) and (day.month, day.day) <= (9, 7):
+        return 1
+    return 2
+
+
+def mts_post(path: str, params: dict) -> object:
+    data = urllib.parse.urlencode(params).encode()
+    req = urllib.request.Request(
+        MTS_API + path,
+        data=data,
+        headers={"User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read())
+
+
+def build_mts(feed: dict, janela: list[str]) -> tuple[dict, str]:
+    """
+    Builds the compact timetable from MTS's own service.
+
+    The service answers, per line direction, day type and season: the stations
+    in order with the minutes from the previous one (`time_diff`), and every
+    departure from the first station (`start_time`, seconds after midnight).
+    Departures after midnight come as small numbers at the end of the list
+    (1800 = 00:30) and are moved past 1440, as GTFS does.
+    """
+    lines = json.loads(fetch(MTS_API + "lines"))["data"]
+    dias = [date(int(d[:4]), int(d[4:6]), int(d[6:])) for d in janela]
+    feriados = set().union(*(pt_holidays(y) for y in {d.year for d in dias}))
+
+    # One service per (season, day type), with its dates inside the window.
+    services: dict[tuple[int, int], list[str]] = {}
+    for d in dias:
+        tipo = 3 if (d.weekday() == 6 or d in feriados) else 2 if d.weekday() == 5 else 1
+        services.setdefault((mts_season(d), tipo), []).append(d.strftime("%Y%m%d"))
+
+    lista_stops: list[dict] = []
+    idx_stops: dict[int, int] = {}
+    lista_routes: list[list[str]] = []
+    idx_routes: dict[str, int] = {}
+    lista_headsigns: list[str] = []
+    lista_patterns: list[list[int]] = []
+    lista_services: list[list[str]] = []
+    idx_services: dict[tuple[int, int], int] = {}
+    trips_out: list[dict] = []
+
+    for line in lines:
+        stations = mts_post("stations", {"line_id": line["id"]})
+        stations = [s for s in stations if str(s.get("active", "1")) == "1"]
+        if len(stations) < 2:
+            continue
+        pattern = []
+        for s in stations:
+            sid = int(s["id"])
+            if sid not in MTS_COORDS:
+                raise RuntimeError(f"MTS station without coordinates: {s}")
+            if sid not in idx_stops:
+                idx_stops[sid] = len(lista_stops)
+                lat, lon = MTS_COORDS[sid]
+                lista_stops.append({"n": s["name"], "y": lat, "x": lon})
+            pattern.append(idx_stops[sid])
+        diffs = [int(s.get("time_diff") or 0) for s in stations][1:]
+        p = len(lista_patterns)
+        lista_patterns.append(pattern)
+
+        # "LINHA 1 - sentido Corroios / Cacilhas" → short "L1".
+        name = line.get("name") or ""
+        number = re.search(r"LINHA\s*(\d+)", name)
+        short = f"L{number.group(1)}" if number else name
+        if short not in idx_routes:
+            idx_routes[short] = len(lista_routes)
+            lista_routes.append([short, name.split(" - ")[0].title()])
+        h = len(lista_headsigns)
+        lista_headsigns.append(stations[-1]["name"])
+
+        for (season, tipo), datas in services.items():
+            res = mts_post(
+                "search",
+                {"line": line["id"], "stations": stations[0]["id"], "day_type": tipo, "season": season},
+            )
+            times = [int(t["start_time"]) for t in (res.get("data") or {}).get("times", [])]
+            if not times:
+                continue
+            if (season, tipo) not in idx_services:
+                idx_services[(season, tipo)] = len(lista_services)
+                lista_services.append(datas)
+            previous = -1
+            extra = 0
+            for secs in times:
+                if secs + extra < previous:
+                    extra += 86400  # past midnight: still the previous day's service
+                secs += extra
+                previous = secs
+                trips_out.append(
+                    {
+                        "r": idx_routes[short],
+                        "s": idx_services[(season, tipo)],
+                        "h": h,
+                        "p": p,
+                        "t": [round(secs / 60)] + diffs,
+                    }
+                )
+        log(f"  {name}: {len(stations)} stations")
+
+    if not trips_out:
+        raise RuntimeError("MTS: no trips in the window.")
+
+    lats = [s["y"] for s in lista_stops]
+    lons = [s["x"] for s in lista_stops]
+    resultado = {
+        "id": feed["id"],
+        "nome": feed["nome"],
+        "kind": feed.get("kind", "light_rail"),
+        "gerado": date.today().isoformat(),
+        "inicio": janela[0],
+        "fim": janela[-1],
+        "stops": lista_stops,
+        "routes": lista_routes,
+        "headsigns": lista_headsigns,
+        "patterns": lista_patterns,
+        "services": lista_services,
+        "trips": trips_out,
+        "bbox": [round(min(lons), 4), round(min(lats), 4), round(max(lons), 4), round(max(lats), 4)],
+    }
+    log(f"  {len(lista_stops)} stations, {len(lista_patterns)} patterns, {len(trips_out)} trips")
+    return resultado, MTS_API
 
 
 # --- Descobrir endereços -------------------------------------------------------
@@ -850,14 +1022,16 @@ def main() -> int:
 
         log(f"::group::{feed['nome']}")
         try:
-            if not feed.get("urls"):
+            if feed.get("fonte") == "mts-api":
+                resultado, url = build_mts(feed, janela)
+            elif not feed.get("urls"):
                 # Sem endereço não é falha da corrida, é uma fonte que ainda não
                 # se encontrou. Diz-se e passa-se à frente, sem manchar o resto.
                 log(f"  SEM ENDEREÇO — {feed.get('notas') or 'nada publicado.'}")
                 log("::endgroup::")
                 continue
-
-            resultado, url = build(feed, janela)
+            else:
+                resultado, url = build(feed, janela)
             destino = pasta / f"{feed['id']}.json"
             # separators sem espaços: são milhares de vírgulas, e cada uma
             # poupada é um byte a menos a descarregar num telemóvel.

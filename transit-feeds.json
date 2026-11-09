@@ -76,9 +76,10 @@
       "id": "mst",
       "nome": "Metro Sul do Tejo",
       "kind": "light_rail",
-      "confirmado": false,
+      "confirmado": true,
       "urls": [],
-      "notas": "Sem endereço nenhum, e não é por não se ter procurado: é uma concessão privada e não publica horários nem tempo real. Fica aqui escrito para não se voltar a procurar. Cuidado com a confusão fácil — existe GTFS da TST, Transportes Sul do Tejo, que é a empresa de autocarros do mesmo grupo e NÃO é o metro."
+      "notas": "No GTFS, but the operator's own website serves full timetables through a small JSON service (https://www.mts.pt/mts-timetable-api/: lines, stations with minutes between them, and every departure per day type and season). Found on 9 November 2026 by reading the timetable page's script. Converted by build_mts() in scripts/build-transit.py.",
+      "fonte": "mts-api"
     },
     {
       "id": "carris-lisboa",
