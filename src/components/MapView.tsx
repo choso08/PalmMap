@@ -88,6 +88,8 @@ const TILE_POI_FILTER = [
 
 interface MapViewProps {
   userLocation: Coordinates | null;
+  /** Which way the phone points (compass degrees), for the cone; `null` hides it. */
+  heading?: number | null;
   destination: Coordinates | null;
   /**
    * The place that gets the big red pin: the one whose card is open, or the
@@ -227,6 +229,7 @@ const OFFLINE_SWITCH_MIN_ZOOM = 5;
  */
 export function MapView({
   userLocation,
+  heading = null,
   destination,
   pinned = null,
   route,
@@ -745,7 +748,42 @@ export function MapView({
       />
 
       {/* The blue dot only shows with location permission actually granted. */}
-      {userLocation ? <UserLocation /> : null}
+      {/*
+        The blue dot, drawn by us so the compass cone can go under it, as in
+        Google Maps: the cone shows which way the phone points, standing still
+        too. While navigating the map itself turns with the heading, so no cone.
+      */}
+      {userLocation ? (
+        <UserLocation>
+          {heading !== null && !following ? (
+            <Layer
+              type="symbol"
+              id="user-heading-cone"
+              source="mlrn-user-location"
+              layout={{
+                'icon-image': 'heading-cone',
+                'icon-rotate': heading,
+                'icon-rotation-alignment': 'map',
+                'icon-pitch-alignment': 'map',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+          ) : null}
+          <Layer
+            type="circle"
+            id="user-dot-white"
+            source="mlrn-user-location"
+            paint={{ 'circle-radius': 9, 'circle-color': '#FFFFFF', 'circle-pitch-alignment': 'map' }}
+          />
+          <Layer
+            type="circle"
+            id="user-dot-blue"
+            source="mlrn-user-location"
+            paint={{ 'circle-radius': 6.5, 'circle-color': '#1A73E8', 'circle-pitch-alignment': 'map' }}
+          />
+        </UserLocation>
+      ) : null}
 
       {/*
         The stretch between where the person is and where the route really

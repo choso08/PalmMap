@@ -92,6 +92,7 @@ import {
   getCurrentPosition,
   getFreshPosition,
   requestPermission,
+  watchCompass,
   watchPosition,
   watchPositionIdle,
 } from './src/services/location';
@@ -730,6 +731,50 @@ function PalmMap() {
 
     return () => subscription.remove();
   }, [navigating]);
+
+  /**
+   * Which way the phone points, for the cone in front of the blue dot (as in
+   * Google Maps). Only outside navigation — there the map itself turns with
+   * the heading — and only while the app is on screen: the compass is a sensor
+   * reading many times a second, and nobody looks at the cone in a pocket.
+   */
+  const [compass, setCompass] = useState<number | null>(null);
+  useEffect(() => {
+    if (navigating || !hasLocation) {
+      setCompass(null);
+      return;
+    }
+    let stop: (() => void) | null = null;
+    // Each start gets a number; a subscription that arrives after a newer start
+    // or a stop is dropped at once, so none is left running.
+    let generation = 0;
+    const start = () => {
+      const mine = ++generation;
+      void watchCompass(setCompass).then((unsubscribe) => {
+        if (mine === generation) {
+          stop = unsubscribe;
+        } else {
+          unsubscribe();
+        }
+      });
+    };
+    const halt = () => {
+      generation += 1;
+      stop?.();
+      stop = null;
+    };
+    start();
+    const subscription = AppState.addEventListener('change', (estado) => {
+      halt();
+      if (estado === 'active') {
+        start();
+      }
+    });
+    return () => {
+      halt();
+      subscription.remove();
+    };
+  }, [navigating, hasLocation]);
 
   /**
    * Outside navigation, keep following the position slowly, so the blue dot
@@ -2044,6 +2089,7 @@ function PalmMap() {
       <MapView
         ref={mapRef}
         userLocation={userLocation}
+        heading={compass}
         destination={destination?.coordinates ?? null}
         pinned={selectedPlace ?? destination}
         route={route}

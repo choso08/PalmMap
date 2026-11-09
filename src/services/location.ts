@@ -526,3 +526,47 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
     return null;
   }
 }
+
+/** Smallest compass change worth redrawing the cone for. */
+const HEADING_MIN_CHANGE_DEG = 4;
+
+/**
+ * The compass: which way the phone points, in degrees from north.
+ *
+ * For the cone in front of the blue dot, as in Google Maps. It is the
+ * magnetometer, not the GPS course — it works standing still, which is when
+ * someone turns round to find their way.
+ *
+ * It only **checks** the permission, never asks (asking opens a dialog; see
+ * "Pedir permissão não se faz fora do arranque" in CLAUDE.md). Small changes are
+ * not passed on (`HEADING_MIN_CHANGE_DEG`), so the map is not redrawn many
+ * times a second for a wobble of the needle.
+ *
+ * Returns a function to stop. Always call it on leaving.
+ */
+export async function watchCompass(onChange: (degrees: number) => void): Promise<() => void> {
+  try {
+    const { granted } = await Location.getForegroundPermissionsAsync();
+    if (!granted) {
+      return () => undefined;
+    }
+    let last = -1000;
+    const subscription = await Location.watchHeadingAsync((reading) => {
+      // `trueHeading` is -1 until the phone knows where it is; magnetic north
+      // is a few degrees off in Portugal, which does not show on a cone.
+      const degrees = reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading;
+      if (degrees < 0) {
+        return;
+      }
+      const diff = Math.abs(((degrees - last + 540) % 360) - 180);
+      if (diff >= HEADING_MIN_CHANGE_DEG) {
+        last = degrees;
+        onChange(degrees);
+      }
+    });
+    return () => subscription.remove();
+  } catch {
+    // A phone without a magnetometer simply has no cone.
+    return () => undefined;
+  }
+}

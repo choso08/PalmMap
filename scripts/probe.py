@@ -407,6 +407,29 @@ out tags center 80;"""
             print(el["type"], el["id"], json.dumps(el.get("tags", {}), ensure_ascii=False))
         break
 
+
+def ortos():
+    """Which DGT orthophoto services exist, and which is the sharpest."""
+    import re as _re
+    section("DGT ORTHOPHOTOS")
+    for name in ("ortosat2023", "ortos2018", "ortos2021", "ortos2022", "ortos2023",
+                 "ortos2024", "ortos2025", "ortosat2024", "ortosat2025", "ortos"):
+        url = f"https://ortos.dgterritorio.gov.pt/wms/{name}?SERVICE=WMS&REQUEST=GetCapabilities"
+        try:
+            st, ct, b = get(url, timeout=40)
+        except Exception as e:  # noqa: BLE001
+            print(name, "failed", e)
+            continue
+        text = b.decode("utf-8", "replace") if isinstance(b, bytes) else str(b)
+        layers = _re.findall(r"<Layer[^>]*>\s*<Name>([^<]+)</Name>\s*<Title>([^<]*)</Title>", text)
+        abstract = _re.findall(r"<Abstract>([^<]{0,300})</Abstract>", text)
+        print(name, st, ct, "layers:", layers[:8])
+        if abstract:
+            print("   abstract:", abstract[0][:300])
+    st, ct, b = get("https://ortos.dgterritorio.gov.pt/", timeout=40)
+    text = b.decode("utf-8", "replace") if isinstance(b, bytes) else str(b)
+    print("index", st, sorted(set(_re.findall(r"/wms/([a-zA-Z0-9_-]+)", text)))[:40])
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
