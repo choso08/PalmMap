@@ -497,6 +497,9 @@ export const LIMITS_REFETCH_M = 10000;
 /** After a failed limits request, wait this long before asking again. */
 export const LIMITS_RETRY_MS = 120000;
 
+/** The limits request runs in the background, so it may wait longer than the rest. */
+export const LIMITS_TIMEOUT_MS = 60000;
+
 /**
  * Cycling speed, in metres per second. It is 12.5 km/h.
  *

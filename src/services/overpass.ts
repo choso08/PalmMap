@@ -47,11 +47,18 @@ const schedule = overpassSchedule;
  * at once. Throws `PlacesError`, with the "busy" message if that was the last
  * thing heard.
  */
-export async function askOverpass(query: string): Promise<OverpassResponse> {
+export async function askOverpass(
+  query: string,
+  timeoutMs?: number,
+): Promise<OverpassResponse> {
   let busy = false;
   for (const url of [OVERPASS_BASE_URL, OVERPASS_FALLBACK_URL]) {
     try {
-      const response = await overpassClient.post<OverpassResponse>(url, query);
+      const response = await overpassClient.post<OverpassResponse>(
+        url,
+        query,
+        timeoutMs ? { timeout: timeoutMs } : undefined,
+      );
       if (!response.data.remark) {
         return response.data;
       }

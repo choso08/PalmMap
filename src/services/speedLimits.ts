@@ -1,4 +1,4 @@
-import { LIMITS_WINDOW_M, LIMITS_MATCH_M } from './config';
+import { LIMITS_MATCH_M, LIMITS_TIMEOUT_MS, LIMITS_WINDOW_M } from './config';
 import { maxspeedOf } from './cameras';
 import { askOverpass, overpassSchedule } from './overpass';
 import type { Coordinates } from '../types/geo';
@@ -13,7 +13,7 @@ import { distanceMeters } from '../utils/geometry';
  * `maxspeed` along a stretch of the route, in one request.
  *
  * **A window, not the whole route.** The query follows the line with
- * `around:` a polyline; a 300 km trip would be a huge request on a service run
+ * `around:` a polyline (nodes within 10 m, then their ways); a 300 km trip would be a huge request on a service run
  * by volunteers. It covers `LIMITS_WINDOW_M` from where the car is, and the
  * next window is asked for only when the car gets near the end of this one —
  * about one request an hour on a motorway.
@@ -84,11 +84,18 @@ export async function speedLimitsAhead(
   }
 
   const line = thin.map((p) => `${p.latitude.toFixed(5)},${p.longitude.toFixed(5)}`).join(',');
+  // Nodes near the line first, then the roads they belong to: the same answer
+  // as `way(around:…)` on the real route (82 ways against 126, the extra being
+  // roads that only pass close by), and the main server answered it where the
+  // way version got a 502. Probed November 2026.
   const query =
-    `[out:json][timeout:25];\n` +
-    `way(around:${LIMITS_MATCH_M},${line})["highway"]["maxspeed"];\n` +
+    `[out:json][timeout:60];\n` +
+    `node(around:10,${line});\n` +
+    `way(bn)["highway"]["maxspeed"];\n` +
     `out tags geom;`;
-  const data = await overpassSchedule(() => askOverpass(query));
+  // Nobody waits on this — it fills in a sign while driving — so it gets far
+  // longer than the 15 s other requests have: on a busy day Overpass took 48 s.
+  const data = await overpassSchedule(() => askOverpass(query, LIMITS_TIMEOUT_MS));
 
   // The ways cut into segments, filed in a coarse grid so each route point only
   // looks at the few around it.

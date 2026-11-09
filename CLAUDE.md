@@ -1291,9 +1291,13 @@ A velocidade a que se vai, num canto do ecrã de navegação. Liga-se e desliga-
   multa), senão **o da estrada**, que agora se sabe: o `maxspeed` do OpenStreetMap, pedido à
   **Overpass** ao longo do percurso (`speedLimitsAhead`, em `src/services/speedLimits.ts`).
   **O OSRM não o dá** — o `annotations=maxspeed` só existe no serviço da Mapbox, e o servidor da
-  FOSSGIS responde "query string malformed" (sondado no GitHub Actions). A consulta segue a
-  linha com `around:` uma polilinha desbastada (um ponto a cada ~100 m) e cobre uma **janela**
-  de `LIMITS_WINDOW_M` (80 km) a partir do carro; a seguinte só se pede quando faltam
+  FOSSGIS responde "query string malformed" (sondado no GitHub Actions). A consulta apanha os nós a
+  menos de 10 m de uma polilinha desbastada (um ponto a cada ~100 m) e depois as vias deles
+  (`node(around)` → `way(bn)`), com prazo próprio de `LIMITS_TIMEOUT_MS` (60 s) porque ninguém
+  está à espera dela. **Provado com dados reais** (Lazarim → Marquês): 263 de 351 pontos com
+  limite — 70 na ponte 25 de Abril, 40 nas vias Via Verde da portagem, 90 e depois 50 na
+  Duarte Pacheco. A versão com `way(around)` dava o mesmo e levou um 502 do servidor
+  principal. A janela cobre `LIMITS_WINDOW_M` (80 km) a partir do carro; a seguinte só se pede quando faltam
   `LIMITS_REFETCH_M` (10 km) — cerca de um pedido por hora de autoestrada, e falhar só tira o
   sinal (tenta outra vez ao fim de `LIMITS_RETRY_MS`). Cada ponto do percurso fica com o
   limite da via mais perto a menos de `LIMITS_MATCH_M` (25 m). Ao lado do velocímetro aparece o **sinal do limite**, como no

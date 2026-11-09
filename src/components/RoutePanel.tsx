@@ -11,7 +11,7 @@ import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
 import type { TransitTrip } from '../services/transit';
 
-/** O ícone de cada meio, para os trajetos se distinguirem de relance. */
+/** Each mode's icon, so trips can be told apart at a glance. */
 const MEIOS: Record<string, string> = {
   bus: 'bus',
   train: 'train',
@@ -23,10 +23,10 @@ import { formatDistance, formatDuration } from '../utils/format';
 
 interface RoutePanelProps {
   /**
-   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
+   * The gestures of the handle at the top, so the panel can be shrunk.
    *
-   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
-   * painel inteiro.
+   * They come from `DraggableSheet` — see there why they live on the handle
+   * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
   destination: Place;
@@ -38,9 +38,9 @@ interface RoutePanelProps {
   onStart: () => void;
   favourite: boolean;
   onToggleFavourite: () => void;
-  /** Se a pessoa pediu para evitar portagens, nas definições. */
+  /** Whether the person asked to avoid tolls, in Settings. */
   avoidTollsWanted: boolean;
-  /** O meio de transporte em uso, e como o trocar. */
+  /** The travel mode in use, and how to change it. */
   travelMode: TravelMode;
   onChangeTravelMode: (mode: TravelMode) => void;
   /** How long the other modes take, for the time on each chip. `null` = no route. */
@@ -49,41 +49,41 @@ interface RoutePanelProps {
   fromLabel?: string;
   /** Opens the Directions screen to change the start or the destination. */
   onOpenDirections?: () => void;
-  /** Paragens pelo caminho, pela ordem por que se passa por elas. */
+  /** Stops along the way, in the order they are passed. */
   waypoints: Place[];
   onRemoveWaypoint: (index: number) => void;
   /**
-   * Trajetos de autocarro, quando o meio escolhido são os transportes.
+   * Bus trips, when public transport is the chosen mode.
    *
-   * `null` quer dizer "não é este o meio"; uma lista vazia quer dizer que não se
-   * encontrou nenhum — e são coisas diferentes de dizer.
+   * `null` means "not this mode"; an empty list means none was found — and
+   * those are different things to say.
    */
   transitTrips: TransitTrip[] | null;
   transitTripIndex: number;
   onChooseTransitTrip: (index: number) => void;
-  /** Caminhos alternativos, e qual está escolhido. */
+  /** Alternative routes, and which one is chosen. */
   options: Route[];
   optionIndex: number;
   onChooseOption: (index: number) => void;
 }
 
-/** `HH:MM` a partir de segundos desde 1970. */
+/** `HH:MM` from seconds since 1970. */
 function relogio(unixSeconds: number): string {
   const d = new Date(unixSeconds * 1000);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /**
- * O tempo a pé para uma distância, igual ao que o planeamento usa.
+ * The walking time for a distance, the same as trip planning uses.
  *
- * Repetido aqui de propósito e não importado do serviço: o serviço trabalha em
- * segundos e sem arredondamentos, isto só quer um número para escrever no ecrã.
+ * Repeated here on purpose rather than imported from the service: the service
+ * works in unrounded seconds, this only wants a number to write on screen.
  */
 function walkSecondsEntre(meters: number): number {
   return (meters * WALK_DETOUR) / WALK_SPEED_MS;
 }
 
-/** Painel inferior com a informação do percurso. */
+/** The bottom panel with the route's information. */
 export function RoutePanel({
   destination,
   route,
@@ -169,11 +169,11 @@ export function RoutePanel({
       </View>
 
       {/*
-        O meio de transporte, mesmo por cima do percurso.
-        
-        Está aqui e não só nas definições porque é aqui que a decisão se toma: a
-        pessoa escolhe o destino e só então pensa se vai a pé ou de carro.
-        Carregar recalcula na hora — e a escolha fica guardada para a próxima.
+        The travel mode, right above the route.
+
+        It lives here because this is where the decision is made: one picks the
+        destination and only then thinks about walking or driving. Tapping
+        recalculates at once — and the choice is kept for next time.
       */}
       {fromLabel ? (
         <Pressable style={styles.fromRow} onPress={onOpenDirections} hitSlop={6}>
@@ -212,9 +212,9 @@ export function RoutePanel({
       </View>
 
       {/*
-        As paragens pelo caminho. Aparecem pela ordem por que se passa por elas,
-        e cada uma sai com um toque — sem isto, uma paragem posta por engano
-        obrigava a começar o percurso de novo.
+        The stops along the way, in the order they are passed, each removed
+        with a tap — otherwise a stop added by mistake meant starting the route
+        over.
       */}
       {waypoints.length > 0 ? (
         <View style={styles.paragens}>
@@ -251,12 +251,12 @@ export function RoutePanel({
       ) : null}
 
       {/*
-        Os trajetos de autocarro. Cada um é uma linha só, sem transbordos — ver
-        `planBusTrips`, que explica porquê.
+        The bus trips. Each is a single line, no changes — see `planBusTrips`
+        for why.
 
-        O primeiro é o que chega mais cedo, e leva a marca de recomendado. Não é
-        opinião: é o que põe a pessoa no destino primeiro, contando com o tempo
-        a pé das duas pontas.
+        The first is the one that arrives earliest and carries the recommended
+        mark. That is not an opinion: it gets the person there first, counting
+        the walk at both ends.
       */}
       {transitTrips && !loading ? (
         <View style={styles.trajetos}>
@@ -274,9 +274,8 @@ export function RoutePanel({
               >
                 <View style={styles.trajetoTopo}>
                   {/*
-                    O ícone do meio de transporte. Numa lista que mistura
-                    autocarros e comboios, o número da linha sozinho não chega
-                    para se perceber ao que se vai.
+                    The mode's icon. In a list mixing buses and trains, the
+                    line number alone does not say what one is getting on.
                   */}
                   <MaterialCommunityIcons
                     name={(MEIOS[t.kind] ?? 'bus') as never}
@@ -324,11 +323,11 @@ export function RoutePanel({
       {route ? (
         <>
           {/*
-            Os caminhos, numa lista, como nos mapas que toda a gente conhece: o
-            tempo em grande, a distância e as estradas principais por baixo. O
-            OSRM devolve dois ou três para o mesmo destino (sem paragens pelo
-            meio — com paragens só sabe um); o mais rápido leva a etiqueta, e a
-            escolha é de quem conduz.
+            The routes as a list, as in the maps everyone knows: the time in big
+            type, the distance and the main roads underneath. OSRM returns two
+            or three for the same destination (with no stops in between — with
+            stops it knows only one); the fastest gets the label, and the choice
+            is the driver's.
           */}
           <View style={styles.caminhos}>
             {(options.length > 0 ? options : [route]).map((op, i) => {
@@ -361,11 +360,10 @@ export function RoutePanel({
           </View>
 
           {/*
-            O percurso só pode começar numa estrada. Quem o pede de dentro de um
-            aeroporto, de um centro comercial ou do meio do campo fica com o
-            inicio a alguma distância — e às vezes do outro lado de uma vedação.
-            Mais vale dizê-lo do que deixar a pessoa a olhar para um vazio entre
-            ela e a linha.
+            A route can only start on a road. Asked from inside an airport, a
+            shopping centre or the middle of a field, it starts some way off —
+            sometimes on the other side of a fence. Better to say so than leave
+            the person staring at a gap between them and the line.
           */}
           {route.startAwayMeters > 40 ? (
             <View style={styles.aviso}>
@@ -381,10 +379,10 @@ export function RoutePanel({
           ) : null}
 
           {/*
-            Quando a definição de evitar portagens está ligada mas o servidor não
-            a soube cumprir, diz-se. **Só de carro**: a pé e de bicicleta a
-            exclusão nem chega a ser pedida, e o aviso aparecia sempre. Prometer um caminho sem portagens e mandar a
-            pessoa por uma autoestrada paga era o pior dos dois mundos.
+            When "avoid tolls" is on but the server could not honour it, say so.
+            **Driving only**: walking and cycling never ask for the exclusion,
+            and the notice showed every time. Promising a toll-free route and
+            sending the person down a paid motorway was the worst of both.
           */}
           {avoidTollsWanted && travelMode === 'driving' && !route.avoidedTolls ? (
             <View style={styles.aviso}>
@@ -423,7 +421,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderTopRightRadius: 30,
       paddingHorizontal: 20,
       paddingTop: 10,
-      // Acima da barra de navegação do sistema.
+      // Above the system navigation bar.
       paddingBottom: insets.bottom + 24,
       elevation: 12,
       shadowColor: '#000000',
@@ -432,8 +430,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOffset: { width: 0, height: -3 },
     },
     handleZone: {
-      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
-      // de altura e ninguém acerta nisso com o polegar.
+      // A generous touch area around the handle: the visible target is 4 points
+      // tall and nobody hits that with a thumb.
       alignItems: 'center',
       paddingTop: 10,
       marginTop: -10,
