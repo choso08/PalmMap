@@ -1,38 +1,38 @@
 name: Build offline maps
 
-# Recorta países do mapa mundial do Protomaps e publica os ficheiros numa
-# Release, para a aplicação os poder descarregar e usar sem rede.
+# Cuts countries from the Protomaps world map and publishes the files in a
+# Release, so the app can download them and use them offline.
 #
-# As regiões estão em map-regions.json, na raiz do repositório. Para acrescentar
-# um país, junta-se uma linha lá e corre-se isto com o id dele.
+# The regions are in map-regions.json, at the repository root. To add a country,
+# add a line there and run this with its id.
 #
-# Porque é que isto é legítimo, ao contrário de descarregar tiles do
-# OpenStreetMap: o Protomaps publica o planeta inteiro precisamente para ser
-# recortado assim, e o `pmtiles extract` lê só os pedaços de que precisa. São
-# dezenas de pedidos, em vez dos milhares que seriam tile a tile.
+# Why this is legitimate, unlike downloading OpenStreetMap tiles: Protomaps
+# publishes the whole planet precisely to be cut like this, and `pmtiles
+# extract` reads only the pieces it needs. Dozens of requests, instead of the
+# thousands it would take tile by tile.
 #
-# **Gera-se por lotes, não tudo de uma vez.** O catálogo tem o mundo inteiro e
-# dá muitos gigabytes; uma corrida que tentasse fazer tudo esgotava o disco do
-# servidor e o limite de seis horas. Por isso indicam-se os ids que se quer, e
-# cada corrida **acrescenta** ao que já lá está em vez de substituir.
+# **Generated in batches, not all at once.** The catalogue has the whole world
+# and is many gigabytes; a run trying to do everything would exhaust the
+# server's disk and the six-hour limit. So the wanted ids are given, and each
+# run **adds** to what is already there instead of replacing it.
 #
-# Como usar: separador "Actions" > "Gerar mapa offline" > "Run workflow", e
-# escrever os ids separados por espaços. Por exemplo: `franca espanha italia`.
+# How to use: "Actions" tab > "Build offline maps" > "Run workflow", and type
+# the ids separated by spaces. For example: `franca espanha italia`.
 
 on:
-  # Todo o dia 1, às 4 da manhã. O OpenStreetMap muda todos os dias — abrem
-  # estradas, mudam nomes, aparecem sítios — e um mapa guardado no telemóvel
-  # envelhece sem ninguém dar por isso. Uma vez por mês chega: são alterações a
-  # conta-gotas, não é um mapa novo de cada vez.
+  # Every 1st of the month, at 4 a.m. OpenStreetMap changes every day — roads
+  # open, names change, places appear — and a map stored on the phone ages
+  # without anyone noticing. Once a month is enough: the changes trickle in, it
+  # is not a new map each time.
   #
-  # **Sem `regioes`, refaz exatamente as que já estão publicadas** — e não as 90
-  # do catálogo. Ver a nota no passo de recortar.
+  # **Without `regioes`, it redoes exactly the ones already published** — not
+  # the catalogue's 90. See the note in the cutting step.
   schedule:
     - cron: '0 4 1 * *'
   workflow_dispatch:
     inputs:
       regioes:
-        description: 'Ids separados por espaços (ver map-regions.json). "todas" só se souber o que está a fazer.'
+        description: 'Space-separated ids (see map-regions.json). "todas" only if you know what you are doing.'
         default: 'portugal'
         required: true
       apenas_negocios:
@@ -54,7 +54,7 @@ jobs:
       - name: Install osmium
         run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool > /dev/null && osmium --version | head -1
 
-      - name: Instalar o pmtiles
+      - name: Install pmtiles
         run: |
           VERSION=$(curl -sSL https://api.github.com/repos/protomaps/go-pmtiles/releases/latest \
             | grep -oP '"tag_name": "v\K[^"]+')
@@ -65,10 +65,9 @@ jobs:
           chmod +x pmtiles
           ./pmtiles version
 
-      # As compilações do Protomaps são diárias e ficam num endereço com a data.
-      # Recua-se até encontrar uma que exista, porque a de hoje pode ainda não
-      # estar pronta à hora a que isto corre.
-      - name: Descobrir a compilação mais recente do planeta
+      # Protomaps builds are daily, at an address with the date. Go back until
+      # one exists, because today's may not be ready when this runs.
+      - name: Find the latest planet build
         run: |
           for i in $(seq 0 10); do
             DAY=$(date -u -d "-$i day" +%Y%m%d)
@@ -78,15 +77,15 @@ jobs:
               echo "Encontrada: $URL"
               exit 0
             fi
-            echo "Não existe: $URL"
+            echo "Does not exist: $URL"
           done
-          echo "Nenhuma compilação encontrada nos últimos 10 dias."
+          echo "No build found in the last 10 days."
           exit 1
 
-      # Cada região é recortada, enviada e apagada logo a seguir. Sem isso, um
-      # lote grande enchia o disco do servidor a meio e perdia-se o trabalho
-      # todo — são só uns 20 GB livres, e há países que dão mais de 1 GB cada.
-      - name: Recortar e enviar
+      # Each region is cut, uploaded and deleted right after. Without that, a big
+      # batch filled the server's disk halfway and all the work was lost — there
+      # are only about 20 GB free, and some countries are over 1 GB each.
+      - name: Cut and upload
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -96,10 +95,10 @@ jobs:
           set -o pipefail
           mkdir -p mapas
 
-          # Numa corrida agendada não há `regioes` nenhumas: o mês virou e
-          # ninguém escreveu nada. Nesse caso refazem-se **as que já estão
-          # publicadas**, que são as que alguém pode ter no telemóvel — e não as
-          # 90 do catálogo, que seriam dias de trabalho e mais de 100 GB.
+          # A scheduled run has no `regioes`: the month turned and nobody typed
+          # anything. Then **the ones already published** are redone, which are
+          # the ones someone may have on their phone — not the catalogue's 90,
+          # which would be days of work and over 100 GB.
           # The published list, needed both by a scheduled run and by a
           # business-files-only run (which keeps each map's entry as it is).
           gh release download mapas -R "$REPO" -p mapas.json -O atuais.json 2>/dev/null || true
@@ -107,15 +106,15 @@ jobs:
           if [ -z "$PEDIDAS" ]; then
             if [ -f atuais.json ]; then
               PEDIDAS=$(jq -r '.regioes[].id' atuais.json | tr '\n' ' ')
-              echo "Corrida agendada: a refazer o que já está publicado — $PEDIDAS"
+              echo "Scheduled run: redoing what is already published — $PEDIDAS"
             fi
             if [ -z "$PEDIDAS" ]; then
-              echo "Nada publicado ainda e nada pedido. Não há o que fazer."
+              echo "Nothing published yet and nothing asked. Nothing to do."
               exit 0
             fi
           fi
 
-          # A Release tem de existir antes de se lhe enviar seja o que for.
+          # The Release has to exist before anything is uploaded to it.
           if ! gh release view mapas -R "$REPO" > /dev/null 2>&1; then
             gh release create mapas -R "$REPO" --title "Offline maps" --notes "Generating…"
           fi
@@ -146,7 +145,7 @@ jobs:
                 continue
               fi
             else
-              # Uma região que falhe não deve levar o lote inteiro atrás.
+              # One failing region must not take the whole batch down.
               if ! ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
                    --bbox="$BBOX" --maxzoom="$MAXZOOM"; then
                 echo "FALHOU: $NOME"
@@ -159,9 +158,9 @@ jobs:
               BYTES=$(stat -c%s "mapas/${ID}.pmtiles")
               echo "$NOME: $(numfmt --to=iec "$BYTES")"
 
-              # O GitHub recusa ficheiros acima de 2 GB numa Release.
+              # GitHub refuses files over 2 GB in a Release.
               if [ "$BYTES" -gt 2000000000 ]; then
-                echo "GRANDE DEMAIS para uma Release. Baixar o maxzoom em map-regions.json."
+                echo "TOO BIG for a Release. Lower the maxzoom in map-regions.json."
                 FALHADAS="$FALHADAS $ID(grande)"
                 rm -f "mapas/${ID}.pmtiles"
                 echo "::endgroup::"
@@ -171,10 +170,10 @@ jobs:
               gh release upload mapas "mapas/${ID}.pmtiles" -R "$REPO" --clobber
               rm -f "mapas/${ID}.pmtiles"
 
-              # O bbox vai no manifesto porque a aplicação precisa dele para saber
-              # se está dentro de um país guardado — e sem rede.
-              # A data vai no manifesto para a aplicação saber que o ficheiro que
-              # tem no telemóvel já é mais velho do que o que está publicado.
+              # The bbox goes in the manifest because the app needs it to know
+              # whether it is inside a stored country — without a network.
+              # The date goes in the manifest so the app knows the file on the
+              # phone is older than the one published.
               ENTRY=$(printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
                 "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)")
             fi
@@ -220,29 +219,29 @@ jobs:
           jq . manifesto.tmp > lote.json
 
           if [ -n "$FALHADAS" ]; then
-            echo "::warning::Regiões que não saíram:$FALHADAS"
+            echo "::warning::Regions that did not come out:$FALHADAS"
           fi
 
-      # O manifesto é a lista que a aplicação lê. Junta-se o que já lá estava
-      # com o deste lote, senão gerar França apagaria Portugal da lista.
-      - name: Atualizar a lista
+      # The manifest is the list the app reads. What was already there is merged
+      # with this batch's, otherwise generating France would erase Portugal.
+      - name: Update the list
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           if gh release download mapas -R "$REPO" -p mapas.json -O anterior.json 2>/dev/null; then
-            echo "Já lá estavam: $(jq '.regioes | length' anterior.json) região(ões)."
+            echo "Already there: $(jq '.regioes | length' anterior.json) region(s)."
           else
             echo '{"regioes":[]}' > anterior.json
           fi
 
-          # Em caso de repetido, fica o deste lote: um mapa regerado tem tamanho novo.
+          # On a repeat, this batch's wins: a regenerated map has a new size.
           jq -s '{regioes: (.[0].regioes + .[1].regioes)
                     | group_by(.id)
                     | map(.[-1])
                     | sort_by(.nome)}' anterior.json lote.json > mapas.json
 
-          echo "Ficam: $(jq '.regioes | length' mapas.json) região(ões)."
+          echo "Now: $(jq '.regioes | length' mapas.json) region(s)."
           jq -r '.regioes[] | "  \(.nome): \(.bytes/1048576 | floor) MB"' mapas.json
 
           gh release upload mapas mapas.json -R "$REPO" --clobber

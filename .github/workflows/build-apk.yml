@@ -1,7 +1,7 @@
 name: Build APK
 
-# Compila a aplicação nos servidores do GitHub e publica o APK numa Release,
-# para poder ser descarregado e instalado diretamente no telemóvel.
+# Builds the app on GitHub's servers and publishes the APK in a Release, so it
+# can be downloaded and installed straight on the phone.
 #
 # Como usar: separador "Actions" > "Compilar APK" > "Run workflow".
 
@@ -18,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # O histórico todo e as etiquetas: sem isto não há como saber o que
-          # mudou desde a compilação anterior, e a lista sairia vazia.
+          # The whole history and the tags: without them there is no way to know
+          # what changed since the previous build, and the list would be empty.
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -32,19 +32,19 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Instalar dependências
+      - name: Install dependencies
         run: npm ci
 
-      # A versão sai daqui, não da mão de ninguém.
+      # The version comes from here, not from anyone's hand.
       #
-      # O `app.json` guarda só a parte com significado — o 7.0 de "versão 7" —
-      # e o último número é o da compilação. Assim **nunca há duas com a mesma
-      # versão**, aconteça o que acontecer: já houve cinco seguidas todas a
-      # dizerem o mesmo, porque dependia de eu me lembrar de mexer no ficheiro.
+      # `app.json` keeps only the meaningful part — the 7.0 of "version 7" — and
+      # the last number is the build's. So **there are never two with the same
+      # version**, whatever happens: there were once five in a row all saying the
+      # same, because it depended on someone remembering to edit the file.
       #
-      # O `versionCode` é a mesma coisa para o Android: sem um número novo, ele
-      # recusa-se a instalar por cima de uma versão anterior.
-      - name: Numerar esta versão
+      # The `versionCode` is the same thing for Android: without a new number, it
+      # refuses to install over a previous version.
+      - name: Number this version
         env:
           RUN_NUMBER: ${{ github.run_number }}
         run: |
@@ -55,42 +55,41 @@ jobs:
             app.expo.version = maior + '.' + menor + '.' + process.env.RUN_NUMBER;
             app.expo.android.versionCode = Number(process.env.RUN_NUMBER);
             fs.writeFileSync('app.json', JSON.stringify(app, null, 2) + '\n');
-            console.log('Versão desta compilação: ' + app.expo.version);
+            console.log('This build\'s version: ' + app.expo.version);
           "
 
-      # A pasta android/ não está no repositório — é o Expo que a gera.
-      - name: Gerar o projeto Android
+      # The android/ folder is not in the repository — Expo generates it.
+      - name: Generate the Android project
         run: npx expo prebuild --platform android --no-install
 
-      # Só arm64-v8a: é o processador de qualquer telemóvel Android atual.
-      # Incluir as quatro arquiteturas triplicava o tamanho do ficheiro sem
-      # nenhum proveito, e um APK enorme é mais fácil de chegar truncado.
-      - name: Compilar o APK
+      # Only arm64-v8a: the processor of every current Android phone. Including
+      # all four architectures tripled the file size for no benefit, and a huge
+      # APK is more likely to arrive truncated.
+      - name: Build the APK
         working-directory: android
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
-      # Confirma que o APK saiu inteiro e bem assinado. Sem isto, um ficheiro
-      # estragado só se descobre no telemóvel, com um "erro ao analisar o pacote".
-      - name: Verificar o APK
+      # Confirms the APK came out whole and properly signed. Without this, a broken
+      # file is only found on the phone, with a "problem parsing the package".
+      - name: Check the APK
         run: |
           APK=android/app/build/outputs/apk/release/app-release.apk
           ls -l "$APK"
-          unzip -t "$APK" > /dev/null && echo "Arquivo íntegro."
+          unzip -t "$APK" > /dev/null && echo "Archive intact."
 
           TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          echo "--- identificação ---"
+          echo "--- identification ---"
           "$TOOLS/aapt2" dump badging "$APK" | grep -E "^package|sdkVersion|native-code"
-          echo "--- assinatura ---"
+          echo "--- signature ---"
           "$TOOLS/apksigner" verify --print-certs -v "$APK"
 
-      # A lista do que mudou desde a compilação anterior, tirada dos commits.
+      # The list of what changed since the previous build, taken from the commits.
       #
-      # A etiqueta da compilação anterior descobre-se pela ordem em que o GitHub
-      # as devolve — `apk-9` e `apk-10` não se ordenam bem por texto, por isso
-      # ordena-se pelo número depois do travessão.
-      - name: Reunir o que mudou
+      # The previous build's tag is found by number — `apk-9` and `apk-10` do not
+      # sort right as text, so they are sorted by the number after the dash.
+      - name: Gather what changed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -99,13 +98,13 @@ jobs:
             | sort -t- -k2 -n | tail -1)
 
           if [ -n "$ANTERIOR" ] && git rev-parse "$ANTERIOR" > /dev/null 2>&1; then
-            echo "Desde $ANTERIOR:"
-            # Só o assunto de cada commit, sem os de manutenção nem os do próprio
-            # changelog. O `--no-merges` tira o ruído das juntas de branches.
+            echo "Since $ANTERIOR:"
+            # Only each commit's subject, without maintenance ones. `--no-merges`
+            # removes the noise of branch merges.
             git log --no-merges --pretty=format:'- %s' "$ANTERIOR..HEAD" \
               | grep -viE '^- (merge|bump|wip|typo|formatar)' > MUDANCAS.md || true
           else
-            echo "Sem compilação anterior identificável — primeira lista."
+            echo "No identifiable previous build — first list."
             git log --no-merges --pretty=format:'- %s' -20 > MUDANCAS.md || true
           fi
 
@@ -116,7 +115,7 @@ jobs:
           echo "ANTERIOR=$ANTERIOR" >> "$GITHUB_ENV"
           cat MUDANCAS.md
 
-      - name: Publicar o APK
+      - name: Publish the APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
