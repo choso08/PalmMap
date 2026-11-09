@@ -286,7 +286,6 @@ export const en: typeof pt = {
       dark: 'Dark',
     },
 
-    travelMode: 'Travel mode',
     travelModes: {
       driving: 'Car',
       walking: 'Walking',

@@ -320,7 +320,6 @@ export const pt = {
       dark: 'Escuro',
     },
 
-    travelMode: 'Meio de transporte',
     travelModes: {
       driving: 'Carro',
       walking: 'A pé',

@@ -242,16 +242,6 @@ export function SettingsSheet({
             theme={theme}
           />
 
-          <Text style={styles.sectionTitle}>{s.travelMode}</Text>
-          <ChoiceRow
-            options={TRAVEL_MODES}
-            label={(id) => s.travelModes[id]}
-            value={settings.travelMode}
-            onChange={(id) => update('travelMode', id)}
-            styles={styles}
-            theme={theme}
-          />
-
           <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
           <ChoiceRow
             options={TIME_ADJUSTMENTS}

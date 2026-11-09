@@ -487,7 +487,10 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
   quando a aplicação se fechou sozinha — ver "6-K".
-- **O meio de transporte também se troca no painel do percurso**, com três botões por cima
+- **O meio de transporte já não está no ecrã de definições** (pedido do autor, novembro de
+  2026): escolhe-se no ecrã de Direções e no painel do percurso, e fica guardado na mesma
+  (`travelMode`). Estava repetido.
+- **O meio de transporte troca-se no painel do percurso**, com três botões por cima
   da distância. É aí que a decisão se toma na prática: escolhe-se o destino e só então se
   pensa em como lá ir. Carregar recalcula na hora e a escolha fica guardada.
 
