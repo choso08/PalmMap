@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 
 import { installedRegions, poisFile, type OfflineRegion } from './offlineMap';
+import { distanceMeters } from '../utils/geometry';
 import type { Bounds, Place } from '../types/geo';
 import { categoryLabel } from '../utils/categories';
 
@@ -263,8 +264,27 @@ export function localPlacesInBounds(
     }
   }
   // The nearest the centre first, when there are more than fit on screen.
-  return found
-    .sort((a, b) => a.d - b.d)
-    .slice(0, limit)
-    .map((f) => f.place);
+  // **The same name and kind a stone's throw apart is one place.** OSM often
+  // has a car park twice — the area and a point, or two halves of one lot —
+  // and the map showed "Parque da Biblioteca" twice (author's photo). The
+  // nearer copy stays.
+  const kept: Place[] = [];
+  for (const { place } of found.sort((a, b) => a.d - b.d)) {
+    if (kept.length >= limit) {
+      break;
+    }
+    const twin = kept.some(
+      (k) =>
+        k.kindValue === place.kindValue &&
+        k.name === place.name &&
+        distanceMeters(k.coordinates, place.coordinates) <= SAME_PLACE_M,
+    );
+    if (!twin) {
+      kept.push(place);
+    }
+  }
+  return kept;
 }
+
+/** How close two records with the same name and kind must be to count as one. */
+const SAME_PLACE_M = 150;

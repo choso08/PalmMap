@@ -569,6 +569,41 @@ def dup_parking():
             print(el["type"], el["id"], el.get("center") or (el.get("lat"), el.get("lon")), json.dumps(el.get("tags"), ensure_ascii=False))
 
 
+def tile_dup():
+    """The OpenFreeMap tile(s) around Parque da Biblioteca: how many poi features carry that name."""
+    import math
+    import subprocess
+    import sys
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "mapbox-vector-tile"], check=False)
+    import mapbox_vector_tile  # noqa: E402
+
+    status, _, body = get("https://tiles.openfreemap.org/planet", timeout=60)
+    tj = json.loads(body)
+    url = tj["tiles"][0]
+    print("tiles:", url, "maxzoom", tj.get("maxzoom"))
+    lat, lon = 38.6631576, -9.2056355
+    for z in (14,):
+        n = 2 ** z
+        x = int((lon + 180) / 360 * n)
+        y = int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                u = url.replace("{z}", str(z)).replace("{x}", str(x + dx)).replace("{y}", str(y + dy))
+                st, ct, raw = get(u, timeout=60)
+                if st != 200:
+                    print(u, st)
+                    continue
+                import gzip
+                if raw[:2] == b"\x1f\x8b":
+                    raw = gzip.decompress(raw)
+                tile = mapbox_vector_tile.decode(raw)
+                for layer, data in tile.items():
+                    for f in data["features"]:
+                        props = f.get("properties", {})
+                        if "Biblioteca" in str(props.get("name", "")):
+                            print(z, x + dx, y + dy, layer, f["geometry"]["type"], f["geometry"]["coordinates"], props)
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
