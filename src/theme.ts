@@ -56,6 +56,9 @@ export interface Theme {
   poi: string;
   /** Pin outline, so they stand out from the map. */
   poiOutline: string;
+  /** The big red pin of the chosen place, and its outline and glyph. */
+  pin: string;
+  pinOutline: string;
   /**
    * Moving buses, on the map.
    *
@@ -96,6 +99,8 @@ export const light: Theme = {
   destination: '#0F6E70',
   poi: '#C98526',
   poiOutline: '#FCF8F2',
+  pin: '#EA4335',
+  pinOutline: '#FFFFFF',
   vehicle: '#2F7D32',
   overlay: 'rgba(24, 38, 45, 0.80)',
   onOverlay: '#FCF8F2',
@@ -121,6 +126,8 @@ export const dark: Theme = {
   destination: '#3FAAA6',
   poi: '#E0AC55',
   poiOutline: '#152230',
+  pin: '#EA4335',
+  pinOutline: '#FFFFFF',
   vehicle: '#5FBF63',
   overlay: 'rgba(5, 11, 15, 0.86)',
   onOverlay: '#EDE5D8',

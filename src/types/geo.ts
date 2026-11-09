@@ -35,6 +35,12 @@ export interface Place {
   coordinates: Coordinates;
   /** Kind of place as readable text ("Restaurant"), when known. */
   category?: string;
+  /**
+   * The OpenStreetMap tag that says what it is (`amenity` / `restaurant`), when
+   * known. It decides the pin's icon and colour — see `utils/poiStyle.ts`.
+   */
+  kindKey?: string;
+  kindValue?: string;
   details?: PlaceDetails;
 }
 

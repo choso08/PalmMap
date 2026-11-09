@@ -64,6 +64,8 @@ function toPlace(raw: NominatimSearchResult): Place {
     // which is the same shape as OpenStreetMap tags — so the same translation
     // used for businesses coming from Overpass can be reused.
     category: categoryLabel({ [raw.category]: raw.type }),
+    kindKey: raw.category,
+    kindValue: raw.type,
     details: {
       phone: extra.phone ?? extra['contact:phone'],
       website: extra.website ?? extra['contact:website'],
@@ -287,6 +289,8 @@ function photonToPlace(feature: PhotonFeature, index: number): Place | null {
     address: parts.join(', '),
     coordinates: { latitude, longitude },
     category: p.osm_key && p.osm_value ? categoryLabel({ [p.osm_key]: p.osm_value }) : undefined,
+    kindKey: p.osm_key,
+    kindValue: p.osm_value,
     details: {
       phone: extra.phone ?? extra['contact:phone'],
       website: extra.website ?? extra['contact:website'],

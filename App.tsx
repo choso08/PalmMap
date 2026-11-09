@@ -1954,6 +1954,7 @@ function PalmMap() {
         ref={mapRef}
         userLocation={userLocation}
         destination={destination?.coordinates ?? null}
+        pinned={selectedPlace ?? destination}
         route={route}
         places={places}
         onViewportChange={handleViewportChange}

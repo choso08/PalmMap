@@ -2,6 +2,7 @@ import {
   Camera,
   type CameraRef,
   GeoJSONSource,
+  Images,
   Layer,
   VectorSource,
   Map,
@@ -20,6 +21,7 @@ import {
   useState,
   type Ref,
 } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Network from 'expo-network';
 import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
@@ -39,6 +41,25 @@ import { categoryLabel } from '../utils/categories';
 import { MAP_PINS_MIN_ZOOM } from '../services/config';
 import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { boundsOf, distanceMeters } from '../utils/geometry';
+import {
+  TILE_POI_COLOUR,
+  TILE_POI_ICON,
+  TILE_POI_PRIORITY,
+  poiLook,
+  type PoiFamily,
+} from '../utils/poiStyle';
+import { POI_IMAGE_SOURCES } from '../../assets/poi';
+
+/** The MaterialCommunityIcons glyph inside the red pin, per family. */
+const PIN_GLYPH: Record<PoiFamily, string> = {
+  food: 'silverware-fork-knife',
+  shop: 'shopping',
+  health: 'plus-thick',
+  lodging: 'bed',
+  service: 'map-marker',
+  leisure: 'camera',
+  other: 'circle',
+};
 
 
 /** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
@@ -65,6 +86,11 @@ const TILE_POI_FILTER = [
 interface MapViewProps {
   userLocation: Coordinates | null;
   destination: Coordinates | null;
+  /**
+   * The place that gets the big red pin: the one whose card is open, or the
+   * destination. Its kind picks the glyph inside the pin.
+   */
+  pinned?: Place | null;
   route: Route | null;
   /** Negócios a marcar no mapa. */
   places: Place[];
@@ -196,6 +222,7 @@ const OFFLINE_SWITCH_MIN_ZOOM = 5;
 export function MapView({
   userLocation,
   destination,
+  pinned = null,
   route,
   places,
   onViewportChange,
@@ -558,6 +585,79 @@ export function MapView({
       ),
     [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, failedRegions, semRede],
   );
+
+  /**
+   * The business pins, the same for every source (the country's business file,
+   * the OpenFreeMap tiles, the category buttons).
+   *
+   * Two layers, as in the maps apps people know. Underneath, a **small dot** in
+   * the family colour for every place. On top, the **icon** — a disc in the
+   * family colour with a white glyph — with the name under it in that colour.
+   * Icons do not overlap: when two collide the map keeps the one that matters
+   * more (food and health first, `symbol-sort-key`) and the other stays a dot.
+   * Zooming in makes room, and the dots turn into icons by themselves. The name
+   * is optional — the icon stays even when its name does not fit.
+   */
+  const poiLayers = (
+    id: string,
+    o: {
+      icon: unknown;
+      colour: unknown;
+      priority: unknown;
+      labelMinZoom: number;
+      sourceLayer?: string;
+      minzoom?: number;
+      filter?: FilterSpecification;
+    },
+  ) => {
+    const common = {
+      ...(o.sourceLayer ? { 'source-layer': o.sourceLayer } : {}),
+      ...(o.minzoom !== undefined ? { minzoom: o.minzoom } : {}),
+      ...(o.filter ? { filter: o.filter } : {}),
+    };
+    return [
+      <Layer
+        key={`${id}-dot`}
+        id={`${id}-dot`}
+        type="circle"
+        {...common}
+        paint={{
+          'circle-radius': 4,
+          'circle-color': o.colour as never,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': theme.poiOutline,
+        }}
+      />,
+      <Layer
+        key={`${id}-icon`}
+        id={`${id}-icon`}
+        type="symbol"
+        {...common}
+        layout={{
+          'icon-image': o.icon as never,
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.8, 17, 1] as never,
+          'icon-allow-overlap': false,
+          'symbol-sort-key': o.priority as never,
+          ...(labelsReady
+            ? {
+                'text-field': ['step', ['zoom'], '', o.labelMinZoom, ['get', 'name']] as never,
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 11.5,
+                'text-anchor': 'top',
+                'text-offset': [0, 1.1],
+                'text-max-width': 8,
+                'text-optional': true,
+              }
+            : {}),
+        }}
+        paint={{
+          'text-color': o.colour as never,
+          'text-halo-color': theme.surface,
+          'text-halo-width': 1.6,
+        }}
+      />,
+    ];
+  };
 
   return (
     <Map
@@ -1048,45 +1148,19 @@ export function MapView({
               address: '',
               coordinates: { latitude, longitude },
               category: categoryLabel({ amenity: kind }),
+              kindValue: kind,
             });
           }}
         >
-          <Layer
-            id="ofm-pois-circle"
-            type="circle"
-            source-layer="poi"
-            minzoom={MAP_PINS_MIN_ZOOM}
-            filter={TILE_POI_FILTER}
-            paint={{
-              'circle-radius': 6,
-              'circle-color': theme.poi,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': theme.poiOutline,
-            }}
-          />
-          {labelsReady ? (
-            <Layer
-              id="ofm-pois-label"
-              type="symbol"
-              source-layer="poi"
-              minzoom={16}
-              filter={TILE_POI_FILTER}
-              layout={{
-                'text-field': ['get', 'name'],
-                'text-font': ['Noto Sans Medium'],
-                'text-size': 11,
-                'text-anchor': 'top',
-                'text-offset': [0, 0.8],
-                'text-max-width': 9,
-                'text-optional': true,
-              }}
-              paint={{
-                'text-color': theme.text,
-                'text-halo-color': theme.surface,
-                'text-halo-width': 1.6,
-              }}
-            />
-          ) : null}
+{poiLayers('ofm-pois', {
+            icon: TILE_POI_ICON,
+            colour: TILE_POI_COLOUR,
+            priority: TILE_POI_PRIORITY,
+            labelMinZoom: 16,
+            sourceLayer: 'poi',
+            minzoom: MAP_PINS_MIN_ZOOM,
+            filter: TILE_POI_FILTER,
+          })}
         </VectorSource>
       ) : null}
 
@@ -1098,7 +1172,16 @@ export function MapView({
             features: places.map((place) => ({
               type: 'Feature',
               id: place.id,
-              properties: { placeId: place.id, name: place.name },
+              properties: (() => {
+                const look = poiLook(place.kindKey, place.kindValue);
+                return {
+                  placeId: place.id,
+                  name: place.name,
+                  icon: look.icon,
+                  cor: look.colour,
+                  prio: look.priority,
+                };
+              })(),
               geometry: {
                 type: 'Point',
                 coordinates: [place.coordinates.longitude, place.coordinates.latitude],
@@ -1117,47 +1200,12 @@ export function MapView({
             }
           }}
         >
-          <Layer
-            id="places-circle"
-            type="circle"
-            paint={{
-              'circle-radius': 7,
-              'circle-color': theme.poi,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': theme.poiOutline,
-            }}
-          />
-
-          {/*
-            O nome ao lado do pino. Faz falta em três sítios: no tema escuro,
-            onde o mapa por baixo quase não se lê; na imagem de satélite, que não
-            traz letra nenhuma; e no mapa guardado. Os tipos de letra vão dentro
-            da aplicação, por isso isto também funciona sem rede.
-
-            `text-optional` deixa o pino ficar mesmo quando não há espaço para o
-            nome — mais vale saber que ali há alguma coisa do que perder o pino.
-          */}
-          {labelsReady ? (
-            <Layer
-              id="places-label"
-              type="symbol"
-              minzoom={15}
-              layout={{
-                'text-field': ['get', 'name'],
-                'text-font': ['Noto Sans Medium'],
-                'text-size': 12,
-                'text-anchor': 'top',
-                'text-offset': [0, 0.9],
-                'text-max-width': 9,
-                'text-optional': true,
-              }}
-              paint={{
-                'text-color': theme.text,
-                'text-halo-color': theme.surface,
-                'text-halo-width': 1.8,
-              }}
-            />
-          ) : null}
+{poiLayers('places', {
+            icon: ['get', 'icon'],
+            colour: ['get', 'cor'],
+            priority: ['get', 'prio'],
+            labelMinZoom: 15,
+          })}
         </GeoJSONSource>
       ) : null}
 
@@ -1289,6 +1337,8 @@ export function MapView({
         </GeoJSONSource>
       ) : null}
 
+      <Images images={POI_IMAGE_SOURCES} />
+
       {/*
         O pino largado com o dedo. Fica com um aspeto diferente do destino,
         para se perceber que ainda não há percurso traçado.
@@ -1301,14 +1351,35 @@ export function MapView({
         </Marker>
       ) : null}
 
-      {destination ? (
-        <Marker id="destination" lngLat={[destination.longitude, destination.latitude]}>
-          <View
-            style={[
-              styles.marker,
-              { backgroundColor: theme.destination, borderColor: theme.poiOutline },
-            ]}
-          />
+      {/*
+        O pino vermelho em gota, como nos mapas que toda a gente conhece: o sítio
+        cuja ficha está aberta, ou o destino. Leva lá dentro o ícone do tipo de
+        negócio. A ponta da gota é que marca o sítio — daí o \`anchor\` em baixo.
+      */}
+      {pinned || destination ? (
+        <Marker
+          id="destination"
+          lngLat={
+            pinned
+              ? [pinned.coordinates.longitude, pinned.coordinates.latitude]
+              : [destination!.longitude, destination!.latitude]
+          }
+          anchor="bottom"
+        >
+          <View style={styles.pin}>
+            <View style={[styles.pinDrop, { backgroundColor: theme.pin, borderColor: theme.pinOutline }]} />
+            <View style={styles.pinGlyph}>
+              <MaterialCommunityIcons
+                name={
+                  (pinned
+                    ? PIN_GLYPH[poiLook(pinned.kindKey, pinned.kindValue).family]
+                    : 'circle') as never
+                }
+                size={pinned && poiLook(pinned.kindKey, pinned.kindValue).family !== 'other' ? 16 : 9}
+                color={theme.pinOutline}
+              />
+            </View>
+          </View>
         </Marker>
       ) : null}
     </Map>
@@ -1319,11 +1390,34 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  marker: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
+  // A gota rodada tem a ponta a 38 pontos do cimo; a caixa acaba logo a
+  // seguir, para o \`anchor="bottom"\` pôr a ponta em cima do sítio.
+  pin: {
+    width: 34,
+    height: 39,
+    alignItems: 'center',
+  },
+  // Um quadrado com três cantos redondos, rodado 45°: a gota clássica.
+  pinDrop: {
+    position: 'absolute',
+    top: 2,
+    width: 30,
+    height: 30,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 2,
+    borderWidth: 2,
+    transform: [{ rotate: '45deg' }],
+    elevation: 4,
+  },
+  pinGlyph: {
+    position: 'absolute',
+    top: 2,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   droppedPin: {
     width: 26,

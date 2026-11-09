@@ -67,6 +67,13 @@ export async function askOverpass(query: string): Promise<OverpassResponse> {
  * Memory of the requests already made. Overpass is heavy to run, so the same
  * query is never repeated.
  */
+/** The tag that says what a place is, for its pin — the first key that counts. */
+const KIND_KEYS = ['amenity', 'shop', 'tourism', 'leisure', 'healthcare', 'office', 'craft'];
+function kindOf(tags: Record<string, string>): { kindKey?: string; kindValue?: string } {
+  const key = KIND_KEYS.find((k) => tags[k]);
+  return key ? { kindKey: key, kindValue: tags[key] } : {};
+}
+
 const cache = new Map<string, Place[]>();
 
 /**
@@ -173,6 +180,7 @@ function toPlace(element: OverpassElement): Place | null {
     address,
     coordinates: { latitude, longitude },
     category: categoryLabel(tags),
+    ...kindOf(tags),
     details: {
       phone: tags.phone ?? tags['contact:phone'],
       website: tags.website ?? tags['contact:website'],

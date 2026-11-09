@@ -200,6 +200,8 @@ function toPlace(r: PoiRecord, index: number): Place {
     address: r[9] ?? '',
     coordinates: { latitude: r[1], longitude: r[0] },
     category: categoryLabel({ [r[3]]: r[4] }),
+    kindKey: r[3],
+    kindValue: r[4],
     details: {
       phone: r[6] || undefined,
       website: r[7] || undefined,

@@ -652,6 +652,31 @@ errar.
   percurso e os pinos continuam a aparecer, porque são camadas nossas. Um modo híbrido a
   sério (satélite com as ruas por cima) só é possível com o mapa vetorial.
 
+### 6-0. Os pinos dos negócios
+
+Desenham-se **como nos mapas que toda a gente conhece**, a pedido do autor (novembro de 2026):
+um círculo da cor da família com um ícone branco lá dentro, e o nome por baixo na mesma cor.
+Comida a laranja, compras a azul, saúde a vermelho, alojamento a rosa, serviços a cinzento-azul,
+lazer a verde. O sítio escolhido — ficha aberta ou destino — leva o **pino vermelho em gota**,
+com o ícone da família lá dentro.
+
+- **A tabela está em `src/utils/poiStyle.ts`**: valor do OpenStreetMap → ícone e família, com a
+  chave (`shop`, `office`…) como recurso. Serve as três fontes de negócios: o ficheiro do país,
+  os tiles do OpenFreeMap (aí em forma de expressão do estilo, `TILE_POI_*`, porque as
+  geometrias não são nossas) e os resultados das categorias. Cada `Place` traz `kindKey` e
+  `kindValue` para isto.
+- **Os ícones são imagens, desenhadas por `scripts/generate-poi-icons.py`** a partir da fonte
+  do MaterialCommunityIcons, em 1x, 2x e 3x, para `assets/poi/` (com um `index.ts` gerado que
+  os `require`). As cores vêm lidas do `poiStyle.ts`, por isso não divergem. **Não se editam à
+  mão**: muda-se a tabela e corre-se o script (precisa do Pillow). A cor vai dentro de cada
+  PNG, por isso o mesmo símbolo em duas famílias são duas imagens.
+- **Duas camadas**: por baixo, um ponto pequeno da cor da família para cada sítio; por cima, o
+  ícone, sem sobreposições. Quando dois ícones colidem, o mapa fica com o mais importante
+  (`symbol-sort-key`: comida e saúde primeiro) e o outro fica ponto. Aproximar abre espaço e os
+  pontos passam a ícones sozinhos. O nome é opcional — o ícone fica mesmo sem espaço para ele.
+- Validado contra a especificação do MapLibre e com todas as imagens presentes; **o aspeto no
+  telemóvel ainda não foi visto**.
+
 ### 6-A. Transportes públicos
 
 - A fonte é a **ÖPNVKarte**, do memomaps.de: desenha os **percursos** dos autocarros,
