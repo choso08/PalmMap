@@ -41,18 +41,18 @@ import { hasRegionVoice } from '../utils/voice';
 
 interface SettingsSheetProps {
   /**
-   * Avisa que os últimos destinos foram esquecidos.
+   * Says the recent destinations were forgotten.
    *
-   * Sem isto, apagá-los limpava o telemóvel mas não a lista que a pesquisa
-   * mostra: continuavam todos lá até se fechar a aplicação, e o botão parecia
-   * avariado.
+   * Without it, clearing them cleaned the phone but not the list the search
+   * shows: they all stayed until the app was closed, and the button looked
+   * broken.
    */
   onRecentsCleared: () => void;
   /**
-   * A versão nova que a procura automática encontrou, se encontrou alguma.
+   * The new version the automatic check found, if any.
    *
-   * Vive no `App.tsx` porque também marca o botão das definições com um ponto —
-   * duas cópias da mesma resposta acabariam por divergir.
+   * It lives in `App.tsx` because it also marks the Settings button with a dot
+   * — two copies of the same answer would drift apart.
    */
   update: UpdateInfo | null;
   onUpdateFound: (info: UpdateInfo | null) => void;
@@ -61,11 +61,11 @@ interface SettingsSheetProps {
 }
 
 /**
- * Um grupo de opções onde só uma pode estar escolhida.
+ * A group of options where only one can be chosen.
  *
- * O nome de cada opção vem de fora, por uma função. As listas de opções só
- * guardam o `id` e o ícone: quem sabe como se chamam é a tabela da língua, e
- * misturar as duas coisas obrigava a mexer nas listas para traduzir.
+ * Each option's name comes from outside, through a function. The option lists
+ * keep only the `id` and the icon: the language table knows what they are
+ * called, and mixing the two meant touching the lists to translate.
  */
 function ChoiceRow<T extends string>({
   options,
@@ -107,7 +107,7 @@ function ChoiceRow<T extends string>({
   );
 }
 
-/** Ecrã de definições. */
+/** The Settings screen. */
 export function SettingsSheet({
   visible,
   onClose,
@@ -126,14 +126,14 @@ export function SettingsSheet({
   const [clearing, setClearing] = useState(false);
 
   /**
-   * A última vez que a aplicação se fechou sozinha, se houve alguma.
+   * The last time the app closed by itself, if it did.
    *
-   * **Aparece em primeiro lugar, e é de propósito.** Quem vem cá por causa de a
-   * aplicação ter fechado não tem de procurar; quem nunca teve nenhuma falha não
-   * vê nada, porque a secção inteira só existe quando há o que mostrar.
+   * **It comes first, on purpose.** Whoever comes here because the app closed
+   * does not have to search; whoever never had a crash sees nothing, since the
+   * whole section only exists when there is something to show.
    *
-   * Lê-se ao abrir o ecrã e não no arranque da aplicação: é informação para quem
-   * a foi procurar, e não vale um acesso ao disco a cada vez que se abre o mapa.
+   * Read when the screen opens, not at app start: it is information for whoever
+   * came looking, and not worth a disk read every time the map opens.
    */
   const [falha, setFalha] = useState<CrashReport | null>(null);
   useEffect(() => {
@@ -152,11 +152,11 @@ export function SettingsSheet({
   }, [visible]);
 
   /**
-   * "Carro 1,3× · Bicicleta 1,1×", só com os meios em que já se mediu alguma
-   * coisa. Vazio quando não há nada aprendido — e aí a linha inteira não aparece.
+   * "Car 1.3× · Bike 1.1×", only with the modes where something was measured.
+   * Empty when nothing was learnt — and then the whole line is hidden.
    *
-   * A ordem é a dos `TRAVEL_MODES` e não a de chegada dos valores: uma lista que
-   * muda de ordem sozinha lê-se como se tivesse mudado de conteúdo.
+   * The order is `TRAVEL_MODES`'s, not the order the values arrived in: a list
+   * that reorders itself reads as if its content had changed.
    */
   const ritmo = useMemo(
     () =>
@@ -183,9 +183,9 @@ export function SettingsSheet({
       visible={visible}
       animationType="slide"
       onRequestClose={onClose}
-      // Sem isto, a margem em cima dependeria de o ecrã desenhar ou não por
-      // baixo da barra de estado, que varia. Assim desenha sempre por baixo e
-      // é a nossa margem que manda.
+      // Without this, the top margin would depend on whether the screen draws
+      // under the status bar, which varies. This way it always does, and our
+      // margin is the one that counts.
       statusBarTranslucent
       navigationBarTranslucent
     >
@@ -199,10 +199,10 @@ export function SettingsSheet({
 
         <ScrollView contentContainerStyle={styles.content}>
           {/*
-            O que fechou a aplicação da última vez, quando houve alguma coisa a
-            fechá-la. Ver `src/services/crash.ts`: isto não conserta a falha,
-            conserta o relato — sem telemóvel à mão, uma mensagem fotografada
-            poupa várias rondas de adivinhação.
+            What closed the app last time, when something did. See
+            `src/services/crash.ts`: this does not fix the fault, it fixes the
+            report — without the phone at hand, a photographed message saves
+            several rounds of guessing.
           */}
           {falha ? (
             <View style={styles.falha}>
@@ -228,9 +228,9 @@ export function SettingsSheet({
           ) : null}
 
           {/*
-            A língua fica em primeiro lugar de propósito: quem abriu as
-            definições porque não percebe o que está no ecrã tem de dar com ela
-            sem ter de ler o resto.
+            Language comes first on purpose: whoever opened Settings because
+            they cannot understand the screen has to find it without reading
+            the rest.
           */}
           <Text style={styles.sectionTitle}>{s.language}</Text>
           <ChoiceRow
@@ -253,11 +253,11 @@ export function SettingsSheet({
           />
 
           {/*
-            O que a aplicação aprendeu fica à vista, e pode ser esquecido.
-            Um valor aprendido em silêncio que ninguém consegue ver nem apagar é
-            o género de coisa que, no dia em que sair torta, não tem explicação
-            nenhuma — e a correção acima deixava de fazer efeito sem se perceber
-            porquê.
+            What the app learnt stays visible and can be forgotten. A value
+            learnt in silence that nobody can see or clear is the kind of thing
+            that, the day it goes wrong, has no explanation at all — and the
+            manual correction above would stop working without anyone knowing
+            why.
           */}
           {ritmo ? (
             <>
@@ -312,9 +312,9 @@ export function SettingsSheet({
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.showVehicles}</Text>
               {/*
-                O custo tem de estar escrito. O serviço não deixa pedir só a área
-                que se está a ver — vem a frota toda de cada vez, e é de longe o
-                pedido mais pesado que esta aplicação faz.
+                The cost has to be written. The service cannot be asked for just
+                the area in view — the whole fleet comes every time, by far the
+                heaviest request this app makes.
               */}
               <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
             </View>
@@ -359,10 +359,10 @@ export function SettingsSheet({
             <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.voice}</Text>
               {/*
-                Só quando o telemóvel **não** tem a voz da região. A aplicação não
-                pode instalar vozes — isso é das definições do Android — mas pode
-                dizer porque é que se está a ouvir um sotaque que ninguém pediu,
-                que de outra forma se lê como avaria da aplicação.
+                Only when the phone does **not** have the region's voice. The app
+                cannot install voices — that is Android's settings — but it can
+                say why an accent nobody asked for is heard, which otherwise
+                reads as an app fault.
               */}
               {hasRegionVoice(language) === false ? (
                 <Text style={styles.switchHint}>{s.voiceRegionHint}</Text>
@@ -450,9 +450,9 @@ export function SettingsSheet({
           <Text style={styles.about}>{s.aboutText}</Text>
 
           {/*
-            Os créditos. Vários destes serviços exigem atribuição por licença —
-            não é cortesia, é condição de uso. Os nomes próprios não se traduzem;
-            o que cada um faz, sim.
+            The credits. Several of these services require attribution by
+            licence — not a courtesy, a condition of use. Proper names are not
+            translated; what each one does is.
           */}
           <Pressable
             style={styles.creditRow}
@@ -584,8 +584,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       lineHeight: 17,
     },
     /*
-     * A última falha. Fica com ar de aviso e não de definição, porque não é uma
-     * — é uma coisa que aconteceu e que se pode apagar depois de lida.
+     * The last crash. It looks like a notice, not a setting, because it is not
+     * one — it is something that happened and can be cleared once read.
      */
     falha: {
       backgroundColor: theme.surface,
