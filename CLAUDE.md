@@ -33,7 +33,7 @@ voz depois do filtro das manobras, o velocímetro — que precisa de um telemóv
 os radares, as horas dos autocarros e as portagens, que dependem de serviços a que o
 ambiente de desenvolvimento não chega.
 
-**Há trabalho por compilar (7.0.24), feito a 9 de novembro de 2026.** Nada disto foi visto num
+**A 7.0.24 está compilada (9 de novembro de 2026) e traz isto tudo.** Nada disto foi visto num
 telemóvel ainda:
 
 - **Autocarros:** o prefixo `[YA15B]` saiu do número da linha (`lineLabel`, em `transit.ts`); os
