@@ -2,9 +2,10 @@
 """
 Gera os ícones do PalmMap para a pasta assets/.
 
-O logo é um pin de mapa branco com uma palmeira recortada lá dentro — junta o
-"Map" e o "Palm" do nome. O fundo é a água funda da paleta "Ilha", a mesma que o
-mar tem no mapa (ver src/theme.ts).
+O logo é um pin de mapa verde com uma palmeira lá dentro — tronco castanho e
+folhas verdes — sobre fundo branco. Junta o "Map" e o "Palm" do nome. Até
+novembro de 2026 era ao contrário (pin branco sobre azul-petróleo); o autor pediu
+a paleta invertida.
 
 Correr a partir da raiz do projeto:
 
@@ -20,22 +21,25 @@ from PIL import Image, ImageDraw
 SCALE = 4
 SIZE = 1024
 
-# Água funda, do claro para o escuro. Vem da paleta em src/theme.ts — ao mudar
-# uma, mudar a outra, senão o ícone deixa de pertencer à aplicação.
-WATER_TOP = (18, 122, 124)
-WATER_BOTTOM = (10, 68, 76)
+# Fundo branco, com um degradê quase invisível para não parecer um buraco no
+# ecrã do telemóvel.
+BG_TOP = (255, 255, 255)
+BG_BOTTOM = (241, 244, 238)
+PIN = (46, 125, 50, 255)
+LEAF = (67, 160, 71, 255)
+TRUNK = (141, 90, 43, 255)
 WHITE = (255, 255, 255, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
 
 def gradient_background(size: int) -> Image.Image:
-    """Fundo cor de água funda, com um degradê suave de cima para baixo."""
+    """Fundo branco, com um degradê muito suave de cima para baixo."""
     image = Image.new("RGB", (1, size))
     pixels = image.load()
     for y in range(size):
         t = y / max(size - 1, 1)
         pixels[0, y] = tuple(
-            round(WATER_TOP[i] + (WATER_BOTTOM[i] - WATER_TOP[i]) * t) for i in range(3)
+            round(BG_TOP[i] + (BG_BOTTOM[i] - BG_TOP[i]) * t) for i in range(3)
         )
     return image.resize((size, size))
 
@@ -81,7 +85,7 @@ def frond(length: int, droop: float, color) -> Image.Image:
     return image
 
 
-def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color) -> None:
+def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color, trunk_color=None) -> None:
     """Desenha uma palmeira centrada no ponto dado."""
     draw = ImageDraw.Draw(base)
 
@@ -95,7 +99,7 @@ def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color) -> None:
         y = trunk_bottom + (trunk_top - trunk_bottom) * t
         x = cx + size * 0.13 * (t**2)
         r = size * 0.085 * (1 - 0.4 * t)
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=color)
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=trunk_color or color)
 
     crown_x = cx + size * 0.13
     crown_y = trunk_top
@@ -114,8 +118,8 @@ def draw_palm(base: Image.Image, cx: int, cy: int, size: int, color) -> None:
     draw.ellipse([crown_x - r, crown_y - r, crown_x + r, crown_y + r], fill=color)
 
 
-def pin_layer(size: int, color=WHITE) -> Image.Image:
-    """O pin de mapa, com a palmeira recortada no buraco."""
+def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
+    """O pin de mapa, com a palmeira no buraco."""
     image = Image.new("RGBA", (size, size), TRANSPARENT)
     draw = ImageDraw.Draw(image)
 
@@ -135,21 +139,26 @@ def pin_layer(size: int, color=WHITE) -> Image.Image:
         fill=color,
     )
 
-    # O buraco do pin, aberto a sério (fica transparente).
+    # O buraco do pin, branco: a palmeira desenha-se por cima dele. Branco e não
+    # transparente, para a palmeira se ler também no ecrã de arranque escuro.
     hole = radius * 0.66
     draw.ellipse(
         [cx - hole, head_y - hole, cx + hole, head_y + hole],
-        fill=TRANSPARENT,
+        fill=TRANSPARENT if color[:3] == (0, 0, 0) else WHITE,
     )
 
     # A palmeira desenha-se numa camada à parte e só depois se recorta pelo
     # buraco, para nunca transbordar para fora do pin.
     palm = Image.new("RGBA", (size, size), TRANSPARENT)
-    draw_palm(palm, int(cx - hole * 0.07), int(head_y), int(hole * 1.02), color)
+    draw_palm(palm, int(cx - hole * 0.07), int(head_y), int(hole * 1.02), leaf, trunk)
 
     mask = Image.new("L", (size, size), 0)
     ImageDraw.Draw(mask).ellipse([cx - hole, head_y - hole, cx + hole, head_y + hole], fill=255)
-    image.paste(palm, (0, 0), Image.composite(palm.getchannel("A"), mask, mask.point(lambda v: 255 - v)))
+    # Só o que fica dentro do buraco, desenhado por cima do branco.
+    from PIL import ImageChops
+
+    palm.putalpha(ImageChops.multiply(palm.getchannel("A"), mask))
+    image.alpha_composite(palm)
 
     return image
 
@@ -162,7 +171,7 @@ def save(image: Image.Image, path: str, size: int) -> None:
 def main() -> None:
     big = SIZE * SCALE
 
-    # Ícone principal: fundo de água com cantos redondos e o pin por cima.
+    # Ícone principal: fundo branco com cantos redondos e o pin por cima.
     background = gradient_background(big).convert("RGBA")
     background.putalpha(rounded_mask(big))
 
@@ -192,7 +201,7 @@ def main() -> None:
     # Versão monocromática: o Android pinta-a com a cor do tema do telemóvel.
     mono = Image.new("RGBA", (big, big), TRANSPARENT)
     mono.alpha_composite(
-        pin_layer(big, (0, 0, 0, 255)).resize(
+        pin_layer(big, (0, 0, 0, 255), (0, 0, 0, 255), (0, 0, 0, 255)).resize(
             (big - 2 * fg_inset, big - 2 * fg_inset), Image.LANCZOS
         ),
         (fg_inset, fg_inset),

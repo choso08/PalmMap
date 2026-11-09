@@ -446,8 +446,10 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 
 ### 3. O logo
 
-- O logo é um pin de mapa branco com uma palmeira recortada lá dentro, sobre azul — junta
-  o "Map" e o "Palm" do nome.
+- O logo é um **pin de mapa verde com uma palmeira lá dentro — tronco castanho, folhas
+  verdes — sobre fundo branco**. Junta o "Map" e o "Palm" do nome. Até novembro de 2026 era
+  ao contrário (pin branco sobre azul-petróleo); o autor pediu a paleta invertida. O fundo do
+  ícone adaptativo e do ecrã de arranque passou a branco no `app.json`.
 - Os ficheiros em `assets/` **não se editam à mão**: são desenhados por
   `scripts/generate-icons.py`. Para mudar cores ou proporções, mexe-se no script e
   corre-se outra vez (`pip install Pillow && python3 scripts/generate-icons.py`).

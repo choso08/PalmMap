@@ -12,7 +12,7 @@
     "android": {
       "package": "com.palmmap.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0A444C",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -44,7 +44,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0A444C",
+          "backgroundColor": "#FFFFFF",
           "dark": {
             "backgroundColor": "#0B1319"
           }
