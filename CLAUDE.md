@@ -1852,6 +1852,12 @@ Mistakes already made in this project, so they are not repeated.
 - **Not every service in the documentation is open.** OSRM's `maxspeed` annotation is
   Mapbox-only; the DGT's aerial orthophotos are not published as an open service. Probe before
   building on it.
+- **An export can give the same object twice.** Geofabrik's GeoJSON (osmium) has every closed
+  way as the way (`w123`) **and** as its area (`a246`: a way's area is 2 × id, a relation's
+  2 × id + 1), with centres a few metres apart: 50,625 of mainland Portugal's 218,642 business
+  records were such twins, and the map showed "Parque da Biblioteca" twice. `build-pois.py`
+  now drops the way when its area exists, and `localPlacesInBounds` keeps one of the same name
+  and kind within `SAME_PLACE_M` (150 m) for files already on phones.
 - **An identifier can arrive in a different unit after the provider changes.** TML sends
   `timestamp` in milliseconds where Carris sent seconds; every bus was "from the future".
 

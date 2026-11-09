@@ -142,6 +142,25 @@ def main():
             cells.setdefault(key, []).append(record)
             count += 1
 
+    # The export gives a closed way twice: as the way ("w123") and as the area
+    # built from it ("a246" — osmium numbers a way's area 2 x id, a relation's
+    # 2 x id + 1). Same name, a few metres apart: the map showed "Parque da
+    # Biblioteca" twice. The area stays, the way goes.
+    areas = set()
+    for records in cells.values():
+        for r in records:
+            if len(r) > 8 and str(r[8]).startswith("a"):
+                try:
+                    n = int(str(r[8])[1:])
+                except ValueError:
+                    continue
+                if n % 2 == 0:
+                    areas.add(f"w{n // 2}")
+    for key in cells:
+        before = len(cells[key])
+        cells[key] = [r for r in cells[key] if not (len(r) > 8 and r[8] in areas)]
+        count -= before - len(cells[key])
+
     blocks = []
     index = {}
     offset = 0
