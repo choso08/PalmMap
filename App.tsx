@@ -17,7 +17,6 @@ import { UpdateSplash } from './src/components/UpdateSplash';
 import {
   checkForUpdate,
   forgetInstallAttempt,
-  onWifi,
   unfinishedInstall,
   type UpdateInfo,
 } from './src/services/update';
@@ -196,7 +195,6 @@ function PalmMap() {
    * Read **once, when checking**, not on every render: changing network in the
    * middle of a download must not restart or stop it.
    */
-  const [updateOnWifi, setUpdateOnWifi] = useState(false);
   /** The version already dismissed. 0 when none was. */
   const [updateDismissed, setUpdateDismissed] = useState(0);
   /** The installer was opened last time and the new version is not running. */
@@ -638,10 +636,9 @@ function PalmMap() {
    * the same network. The brake is a quarter of an hour — see
    * `UPDATE_CHECK_INTERVAL_MS`.
    *
-   * **The automatic download is Wi-Fi only**, a decision and not an oversight:
-   * it is tens of megabytes, and spending them from someone's allowance without
-   * asking is what was already ruled out for the country maps. On mobile data
-   * the notice shows anyway, with the button waiting.
+   * **Nothing downloads without a tap, not even on Wi-Fi** (the author's
+   * request, November 2026: "I'd rather be the one to click"). It used to start
+   * by itself on Wi-Fi; now the notice always waits for the button.
    *
    * A failure here must not put any error on screen: someone who asked for
    * nothing does not need to know a silent check could not reach the Internet.
@@ -671,14 +668,7 @@ function PalmMap() {
         // try again at every start for the whole day.
         await AsyncStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
 
-        // The network is read before the answer: so when the notice shows, it is
-        // already decided whether the download starts by itself or waits for a tap.
-        // The other way round, the notice was born not knowing and started
-        // downloading a moment after showing, which reads as a jump.
-        const wifi = await onWifi();
-        const encontrada = await checkForUpdate();
-        setUpdateOnWifi(wifi);
-        setUpdateInfo(encontrada);
+        setUpdateInfo(await checkForUpdate());
       } catch {
         // Silent, on purpose — see the note above.
       }
@@ -2480,7 +2470,7 @@ function PalmMap() {
         }
         unfinished={installUnfinished}
         // The installer is not opened by itself for someone who just saw it fail.
-        autoDownload={updateOnWifi && !installUnfinished}
+        autoDownload={false}
         onDismiss={() => {
           if (!updateInfo) {
             return;

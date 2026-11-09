@@ -1117,18 +1117,12 @@ notice opens with "The installation did not finish" and "Install now", **without
 again**. It does not start by itself — opening the installer to someone who just saw it fail
 would be insisting.
 
-**When the app opens, it updates itself as far as Android allows** (the author's request):
-check at start-up, and if there is a new version **and on Wi-Fi**, the download starts with
-no tap; when done, the installer opens. **The same happens after "Check for updates" in
-Settings on Wi-Fi**: the check sets `update`, and the notice, already knowing it is on Wi-Fi,
-starts the download — the author saw this in November 2026 ("it updated by itself").
-
-- **The automatic download is Wi-Fi only** (`onWifi`). Tens of megabytes on someone's plan
-  without asking is what was already ruled out for country maps.
-- **Whoever asked for nothing must be able to leave.** In a download the person asked for,
-  "Not now" disappears; **in the automatic one it stays**. Quitting does **not** cancel the
-  download, only stops the installer opening (`cancel`, in `useUpdateDownload`).
-- **The network is read before the check answers**, so the notice is born knowing.
+**Nothing downloads without a tap, not even on Wi-Fi** (the author's request, November 2026:
+"I'd rather be the one to click"). It used to start by itself on Wi-Fi and open the installer
+when done; now the start-up check only shows the notice, with the button waiting
+(`autoDownload={false}` on `UpdateSplash`; the prop stays in case it is ever wanted back).
+In a download the person started, "Not now" disappears — closing halfway left a half file and
+nobody knowing whether it updated.
 
 **The check runs at every start**, with a quarter-hour brake (`UPDATE_CHECK_INTERVAL_MS`).
 GitHub allows 60 unauthenticated requests per hour **per IP address**; the date of the last
