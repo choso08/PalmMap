@@ -249,6 +249,40 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
             ordem = 0
         passagens.setdefault(trip, []).append((ordem, stop, minuto))
 
+    # Trips given by frequency (`frequencies.txt`: "every 20 minutes from 06:00
+    # to 10:00") are templates: their stop times only give the shape of the
+    # trip. Each one is turned into the real trips it stands for, one per
+    # departure, so the rest of the conversion — and the app — never needs to
+    # know. Fertagus is written this way.
+    nomes = set(archive.namelist())
+    if "frequencies.txt" in nomes:
+        expandidas = 0
+        for linha in read_table(archive, "frequencies.txt"):
+            trip = linha.get("trip_id")
+            modelo = passagens.get(trip or "")
+            inicio = parse_minutes(linha.get("start_time") or "")
+            fim = parse_minutes(linha.get("end_time") or "")
+            try:
+                intervalo = int(linha.get("headway_secs") or 0) // 60
+            except ValueError:
+                intervalo = 0
+            if not modelo or inicio is None or fim is None or intervalo <= 0:
+                continue
+            modelo = sorted(modelo)
+            base = modelo[0][2]
+            k = 0
+            partida = inicio
+            while partida < fim:
+                novo = f"{trip}#{k}"
+                viagens[novo] = viagens[trip]
+                passagens[novo] = [(o, st, partida + (m - base)) for o, st, m in modelo]
+                partida += intervalo
+                k += 1
+                expandidas += 1
+            # The template itself is not a trip.
+            passagens.pop(trip, None)
+        log(f"  {expandidas} trip(s) expanded from frequencies")
+
     # Indices: each station, headsign and stop pattern appears once, and trips
     # refer to them by number. That is where most of the saving is — on a train
     # line, hundreds of trips share the same handful of patterns.

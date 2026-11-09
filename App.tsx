@@ -107,7 +107,11 @@ import {
   placeDetails,
   searchCategoryInBounds,
 } from './src/services/overpass';
-import { ensureFeedsFor, planScheduledTrips } from './src/services/schedules';
+import {
+  ensureFeedsFor,
+  planScheduledTransfers,
+  planScheduledTrips,
+} from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
@@ -898,6 +902,15 @@ function PalmMap() {
         let doHorario: TransitTrip[] = [];
         try {
           doHorario = planScheduledTrips(origem, destination.coordinates);
+          // With one change (Azul to Verde, metro to train): most journeys in
+          // Lisbon need one. Offered when there are few direct trips, or when
+          // changing gets there sooner than the best of them.
+          const directos = doHorario;
+          const melhor = directos[0]?.reachAt ?? Infinity;
+          const comMudanca = planScheduledTransfers(origem, destination.coordinates).filter(
+            (trip) => directos.length < 2 || trip.reachAt < melhor,
+          );
+          doHorario = [...directos, ...comMudanca].sort((a, b) => a.reachAt - b.reachAt);
         } catch {
           // A broken timetable must not stop the buses from showing.
         }
@@ -2053,9 +2066,9 @@ function PalmMap() {
     setDestination({
       id: -Date.now(),
       name: stop.name,
-      address: stop.locality ? `Paragem · ${stop.locality}` : 'Paragem',
+      address: stop.locality ? `${t().route.busStop} · ${stop.locality}` : t().route.busStop,
       coordinates: stop.coordinates,
-      category: 'Paragem',
+      category: t().route.busStop,
     });
   }, []);
 

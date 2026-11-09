@@ -671,6 +671,249 @@ export function planScheduledTrips(
   return [...byLine.values()].slice(0, limit);
 }
 
+/** Minimum time to change trains: off one, along the platform or corridor, onto the next. */
+const SCHEDULED_TRANSFER_MIN_S = 180;
+/**
+ * How far apart the two stations of a change may be. Interchanges are often
+ * two stations of different operators — the CP and metro stops at Cais do
+ * Sodré or Oriente are a couple of hundred metres apart in the data.
+ */
+const SCHEDULED_TRANSFER_WALK_M = 300;
+/** How far ahead a first leg may leave; beyond this it is not "the next trip". */
+const SCHEDULED_HORIZON_S = 2 * 3600;
+
+/** A station reached by a first leg, at the earliest time found. */
+interface Reached {
+  feed: IndexedFeed;
+  station: number;
+  arrives: number;
+  leg: TransitTrip;
+  /** The first leg's route, so the second is never the same line. */
+  route: string;
+}
+
+/**
+ * Train, metro or ferry trips with **one change** — Azul to Verde, metro to
+ * train, train to ferry.
+ *
+ * Without this the metro alone answered almost nothing: most journeys in
+ * Lisbon need a change of line, and the panel said "no connection".
+ *
+ * Everything is in the stored files, so no request is made:
+ *
+ * 1. From every station within walking distance of the origin, every trip
+ *    leaving in the next two hours is followed, and each later station keeps
+ *    the earliest arrival (`reached`).
+ * 2. Every trip that calls near the destination is marked, with where.
+ * 3. For each reached station, the stations within
+ *    `SCHEDULED_TRANSFER_WALK_M` — of any operator — are second boarding
+ *    points: the first marked trip leaving at least `SCHEDULED_TRANSFER_MIN_S`
+ *    plus the walk later, on another line, gives the arrival.
+ *
+ * It finds the earliest arrival through each change station, which is what
+ * someone would pick; it does not try every combination.
+ */
+export function planScheduledTransfers(
+  origin: Coordinates,
+  destination: Coordinates,
+  limit = 4,
+  now = new Date(),
+): TransitTrip[] {
+  const nowUnix = now.getTime() / 1000;
+  const days = candidateDays(now);
+  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  if (feeds.length === 0) {
+    return [];
+  }
+
+  const routeKey = (feed: IndexedFeed, trip: number) =>
+    `${feed.info.id}:${feed.data.trips[trip].r}`;
+  const lineOf = (feed: IndexedFeed, trip: number) =>
+    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || feed.info.nome);
+
+  // 1. Where the first legs can take us, and when.
+  const reached = new Map<string, Reached>();
+  for (const feed of feeds) {
+    const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
+    for (const [station, meters] of departures) {
+      const walk = walkSeconds(meters);
+      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+        const scheduled = feed.data.trips[trip];
+        const pattern = feed.data.patterns[scheduled.p] ?? [];
+        const times = feed.minutes[trip] ?? [];
+        if (pos >= pattern.length - 1) {
+          continue;
+        }
+        for (const day of days) {
+          if (!feed.days[scheduled.s]?.has(day)) {
+            continue;
+          }
+          const departs = unixAt(day, times[pos]);
+          const leaveAt = departs - walk;
+          if (leaveAt < nowUnix - 60 || departs - nowUnix > SCHEDULED_HORIZON_S) {
+            continue;
+          }
+          for (let next = pos + 1; next < pattern.length; next += 1) {
+            const arrives = unixAt(day, times[next]);
+            const key = `${feed.info.id}:${pattern[next]}`;
+            const known = reached.get(key);
+            if (known && known.arrives <= arrives) {
+              continue;
+            }
+            reached.set(key, {
+              feed,
+              station: pattern[next],
+              arrives,
+              route: routeKey(feed, trip),
+              leg: {
+                tripId: `${feed.info.id}:${trip}:${day}`,
+                kind: feed.info.kind,
+                line: lineOf(feed, trip),
+                headsign: feed.data.headsigns[scheduled.h] ?? '',
+                from: asStop(feed, station, meters),
+                to: asStop(feed, pattern[next], 0),
+                departsAt: departs,
+                arrivesAt: arrives,
+                leaveAt,
+                reachAt: arrives,
+                stops: next - pos,
+                live: false,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+  if (reached.size === 0) {
+    return [];
+  }
+
+  // 2. The trips that call near the destination, and where (position, walk).
+  const ending = new Map<IndexedFeed, Map<number, { pos: number; meters: number }[]>>();
+  for (const feed of feeds) {
+    const arrivals = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
+    if (arrivals.size === 0) {
+      continue;
+    }
+    const byTrip = new Map<number, { pos: number; meters: number }[]>();
+    for (const [station, meters] of arrivals) {
+      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+        const list = byTrip.get(trip);
+        if (list) {
+          list.push({ pos, meters });
+        } else {
+          byTrip.set(trip, [{ pos, meters }]);
+        }
+      }
+    }
+    ending.set(feed, byTrip);
+  }
+  if (ending.size === 0) {
+    return [];
+  }
+
+  // Every station of the feeds that end near the destination, for the
+  // proximity search of step 3. A few hundred at most: a plain list will do.
+  const boardable: { feed: IndexedFeed; station: number; y: number; x: number }[] = [];
+  for (const feed of ending.keys()) {
+    feed.data.stops.forEach((stop, station) => {
+      if (feed.byStation.has(station)) {
+        boardable.push({ feed, station, y: stop.y, x: stop.x });
+      }
+    });
+  }
+
+  // 3. Join a first leg to a second one at each reached station.
+  const results: TransitTrip[] = [];
+  for (const r of reached.values()) {
+    const at = r.feed.data.stops[r.station];
+    if (!at) {
+      continue;
+    }
+    // A change at a station already near the destination is no change at all:
+    // walking is better, and the direct planner covers riding on.
+    if (
+      distanceMeters(destination, { latitude: at.y, longitude: at.x }) <= TRANSIT_WALK_MAX_M
+    ) {
+      continue;
+    }
+
+    let best: TransitTrip | null = null;
+    for (const b of boardable) {
+      const walkMeters =
+        b.feed === r.feed && b.station === r.station
+          ? 0
+          : distanceMeters({ latitude: at.y, longitude: at.x }, { latitude: b.y, longitude: b.x });
+      if (walkMeters > SCHEDULED_TRANSFER_WALK_M) {
+        continue;
+      }
+      const earliest = r.arrives + SCHEDULED_TRANSFER_MIN_S + walkSeconds(walkMeters);
+      const byTrip = ending.get(b.feed)!;
+
+      for (const { trip, pos } of b.feed.byStation.get(b.station) ?? []) {
+        const ends = byTrip.get(trip);
+        if (!ends || routeKey(b.feed, trip) === r.route) {
+          continue;
+        }
+        const scheduled = b.feed.data.trips[trip];
+        const times = b.feed.minutes[trip] ?? [];
+        const pattern = b.feed.data.patterns[scheduled.p] ?? [];
+        for (const day of days) {
+          if (!b.feed.days[scheduled.s]?.has(day)) {
+            continue;
+          }
+          const departs = unixAt(day, times[pos]);
+          if (departs < earliest || departs - earliest > SCHEDULED_HORIZON_S) {
+            continue;
+          }
+          for (const end of ends) {
+            if (end.pos <= pos) {
+              continue;
+            }
+            const arrives = unixAt(day, times[end.pos]);
+            const reachAt = arrives + walkSeconds(end.meters);
+            if (best && reachAt >= best.reachAt) {
+              continue;
+            }
+            best = {
+              ...r.leg,
+              tripId: `${r.leg.tripId}>${b.feed.info.id}:${trip}:${day}`,
+              to: asStop(b.feed, pattern[end.pos], end.meters),
+              arrivesAt: arrives,
+              reachAt,
+              stops: r.leg.stops + (end.pos - pos),
+              change: {
+                at: asStop(r.feed, r.station, 0),
+                boardAt: asStop(b.feed, b.station, 0),
+                walkMeters,
+                arrivesAt: r.arrives,
+                kind: b.feed.info.kind,
+                line: lineOf(b.feed, trip),
+                headsign: b.feed.data.headsigns[scheduled.h] ?? '',
+                departsAt: departs,
+              },
+            };
+          }
+        }
+      }
+    }
+    if (best) {
+      results.push(best);
+    }
+  }
+
+  // Earliest first, and each pair of lines once.
+  const byPair = new Map<string, TransitTrip>();
+  for (const trip of results.sort((a, b) => a.reachAt - b.reachAt)) {
+    const key = `${trip.line}>${trip.change?.line}`;
+    if (!byPair.has(key)) {
+      byPair.set(key, trip);
+    }
+  }
+  return [...byPair.values()].slice(0, limit);
+}
+
 /** Whether some stored timetable covers this point. */
 export function hasCoverage(point: Coordinates): boolean {
   return loadedFeeds().some((feed) => {

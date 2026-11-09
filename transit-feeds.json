@@ -48,17 +48,23 @@
       "id": "fertagus",
       "nome": "Fertagus",
       "kind": "train",
-      "confirmado": false,
-      "urls": [],
-      "notas": "NÃO ENCONTRADO. Tentado: www.fertagus.pt/gtfs/gtfs.zip (404) e sete pesquisas ao dados.gov.pt, incluindo pelo nome. Só falta este e os barcos para a margem sul ficar coberta a sério."
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-lisboa-fertagus-gtfs-1034.zip?alt=media",
+        "http://www.transporlis.pt/Portals/0/OpenData/gtfs/zip/13/gtfs_13.zip"
+      ],
+      "notas": "Cópia guardada pela Mobility Database (fonte 1034, 'deprecated'): o original da Transporlis já não responde e o site da Fertagus dá 404. É um horário antigo (2020–2022), escrito com frequencies.txt, com calendário até 2030. Melhor do que nada; trocar se a Fertagus publicar o seu."
     },
     {
       "id": "ttsl",
       "nome": "Transtejo / Soflusa",
       "kind": "boat",
-      "confirmado": false,
-      "urls": [],
-      "notas": "NÃO ENCONTRADO. Tentado: ttsl.pt/gtfs/gtfs.zip (responde 200 mas é a página deles em HTML) e www.transtejo.pt (o certificado nem sequer é válido para esse nome)."
+      "confirmado": true,
+      "urls": [
+        "https://api.transtejo.pt/files/GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-lisbon-lisbon-transtejo-soflu-gtfs-2921.zip?alt=media"
+      ],
+      "notas": "NÃO ENCONTRADO. Tentado: ttsl.pt/gtfs/gtfs.zip (responde 200 mas é a página deles em HTML) e www.transtejo.pt (o certificado nem sequer é válido para esse nome). Nov 2026: a Mobility Database (fonte 2921) aponta para api.transtejo.pt/files/GTFS.zip, cujo certificado não é válido para esse nome; tenta-se a cópia guardada por eles."
     },
     {
       "id": "carris",
@@ -85,9 +91,11 @@
       "id": "carris-lisboa",
       "nome": "Carris (Lisboa)",
       "kind": "bus",
-      "confirmado": false,
-      "urls": [],
-      "notas": "Os autocarros e elétricos DENTRO da cidade de Lisboa. NÃO é a Carris Metropolitana, que serve os outros concelhos da AML — são operadores diferentes e este não está coberto de todo. NÃO ENCONTRADO: www.carris.pt/gtfs/gtfs.zip dá 404, e gtfs.carris.pt e api.carris.pt nem existem em DNS. A pesquisa por 'Carris' no dados.gov.pt só devolveu estudos da Câmara de Lisboa sobre velocidade dos autocarros, não horários."
+      "confirmado": true,
+      "urls": [
+        "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS"
+      ],
+      "notas": "Autocarros e elétricos DENTRO de Lisboa (não é a Carris Metropolitana). Encontrado em Nov 2026 pela Mobility Database (fonte 2929): gateway.carris.pt responde com o GTFS, 47 MB, 177 linhas."
     }
   ]
 }

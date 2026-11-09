@@ -292,6 +292,13 @@ export function RoutePanel({
                         size={16}
                         color={theme.textMuted}
                       />
+                      {t.change.kind && t.change.kind !== t.kind ? (
+                        <MaterialCommunityIcons
+                          name={(MEIOS[t.change.kind] ?? 'bus') as never}
+                          size={16}
+                          color={theme.textMuted}
+                        />
+                      ) : null}
                       <View style={styles.linhaBadge}>
                         <Text style={styles.linhaBadgeTexto}>{t.change.line}</Text>
                       </View>

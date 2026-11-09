@@ -418,6 +418,8 @@ export interface TransitTrip {
     boardAt: TransitStop;
     walkMeters: number;
     arrivesAt: number;
+    /** The second vehicle's mode, when it differs from the first (metro to train). */
+    kind?: string;
     line: string;
     headsign: string;
     departsAt: number;

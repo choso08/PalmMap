@@ -189,6 +189,7 @@ export const pt = {
     startsAway: (distance: string) => `O percurso começa a ${distance}, na estrada mais próxima.`,
     tollsNotAvoided: 'Não foi possível evitar as portagens.',
     noDirectTransit: 'Não há ligação, nem com um transbordo.',
+    busStop: 'Paragem',
     changeAt: (stop: string, wait: string) => `muda em ${stop} (espera ${wait})`,
     walkTo: (time: string, stop: string) => `${time} a pé até ${stop}`,
     walkFrom: (time: string, stop: string) => `${time} a pé de ${stop}`,
