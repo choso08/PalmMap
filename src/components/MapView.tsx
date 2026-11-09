@@ -19,18 +19,15 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type Ref,
 } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Network from 'expo-network';
-import { type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import { Animated, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
-import {
-  stationLabel,
-  type TransitStation,
-  type TransitStop,
-} from '../services/transit';
+import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
@@ -60,7 +57,6 @@ const PIN_GLYPH: Record<PoiFamily, string> = {
   leisure: 'camera',
   other: 'circle',
 };
-
 
 /** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
 const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
@@ -573,9 +569,7 @@ export function MapView({
     // then the failure would be recorded twice.
     const falhado = offlineRegion?.id;
     if (falhado) {
-      setFailedRegions((atuais) =>
-        atuais.includes(falhado) ? atuais : [...atuais, falhado],
-      );
+      setFailedRegions((atuais) => (atuais.includes(falhado) ? atuais : [...atuais, falhado]));
     }
     setOfflineRegion(null);
   }, [offlineRegion]);
@@ -740,9 +734,7 @@ export function MapView({
         }
         onTrackUserLocationChange={handleTrackChange}
         initialViewState={{
-          center: userLocation
-            ? [userLocation.longitude, userLocation.latitude]
-            : DEFAULT_CENTER,
+          center: userLocation ? [userLocation.longitude, userLocation.latitude] : DEFAULT_CENTER,
           zoom: userLocation ? 15 : DEFAULT_ZOOM,
         }}
       />
@@ -774,13 +766,21 @@ export function MapView({
             type="circle"
             id="user-dot-white"
             source="mlrn-user-location"
-            paint={{ 'circle-radius': 9, 'circle-color': '#FFFFFF', 'circle-pitch-alignment': 'map' }}
+            paint={{
+              'circle-radius': 9,
+              'circle-color': '#FFFFFF',
+              'circle-pitch-alignment': 'map',
+            }}
           />
           <Layer
             type="circle"
             id="user-dot-blue"
             source="mlrn-user-location"
-            paint={{ 'circle-radius': 6.5, 'circle-color': '#1A73E8', 'circle-pitch-alignment': 'map' }}
+            paint={{
+              'circle-radius': 6.5,
+              'circle-color': '#1A73E8',
+              'circle-pitch-alignment': 'map',
+            }}
           />
         </UserLocation>
       ) : null}
@@ -899,10 +899,7 @@ export function MapView({
               properties: { medida: formatDistance(distanceMeters(de, ate)) },
               geometry: {
                 type: 'Point',
-                coordinates: [
-                  (de.longitude + ate.longitude) / 2,
-                  (de.latitude + ate.latitude) / 2,
-                ],
+                coordinates: [(de.longitude + ate.longitude) / 2, (de.latitude + ate.latitude) / 2],
               },
             })),
           }}
@@ -1082,47 +1079,47 @@ export function MapView({
               level a dozen names on top of each other said nothing. */}
           {labelsReady ? (
             <>
-            <Layer
-              id="paragens-label"
-              type="symbol"
-              minzoom={17}
-              filter={['==', ['get', 'aberta'], 0]}
-              layout={{
-                'text-field': ['get', 'nome'],
-                'text-font': ['Noto Sans Medium'],
-                'text-size': 10,
-                'text-offset': [0, 1.1],
-                'text-anchor': 'top',
-                'text-max-width': 9,
-                'text-allow-overlap': false,
-                'text-optional': true,
-              }}
-              paint={{
-                'text-color': theme.text,
-                'text-halo-color': theme.surface,
-                'text-halo-width': 1.6,
-              }}
-            />
-            <Layer
-              id="paragens-label-aberta"
-              type="symbol"
-              filter={['==', ['get', 'aberta'], 1]}
-              layout={{
-                'text-field': ['get', 'nome'],
-                'text-font': ['Noto Sans Medium'],
-                'text-size': 10,
-                'text-offset': [0, 1.1],
-                'text-anchor': 'top',
-                'text-max-width': 9,
-                'text-allow-overlap': false,
-                'text-optional': true,
-              }}
-              paint={{
-                'text-color': theme.text,
-                'text-halo-color': theme.surface,
-                'text-halo-width': 1.6,
-              }}
-            />
+              <Layer
+                id="paragens-label"
+                type="symbol"
+                minzoom={17}
+                filter={['==', ['get', 'aberta'], 0]}
+                layout={{
+                  'text-field': ['get', 'nome'],
+                  'text-font': ['Noto Sans Medium'],
+                  'text-size': 10,
+                  'text-offset': [0, 1.1],
+                  'text-anchor': 'top',
+                  'text-max-width': 9,
+                  'text-allow-overlap': false,
+                  'text-optional': true,
+                }}
+                paint={{
+                  'text-color': theme.text,
+                  'text-halo-color': theme.surface,
+                  'text-halo-width': 1.6,
+                }}
+              />
+              <Layer
+                id="paragens-label-aberta"
+                type="symbol"
+                filter={['==', ['get', 'aberta'], 1]}
+                layout={{
+                  'text-field': ['get', 'nome'],
+                  'text-font': ['Noto Sans Medium'],
+                  'text-size': 10,
+                  'text-offset': [0, 1.1],
+                  'text-anchor': 'top',
+                  'text-max-width': 9,
+                  'text-allow-overlap': false,
+                  'text-optional': true,
+                }}
+                paint={{
+                  'text-color': theme.text,
+                  'text-halo-color': theme.surface,
+                  'text-halo-width': 1.6,
+                }}
+              />
             </>
           ) : null}
         </GeoJSONSource>
@@ -1253,15 +1250,12 @@ export function MapView({
             const feature = event.nativeEvent.features[0];
             const props = (feature?.properties ?? {}) as Record<string, unknown>;
             const geometry = feature?.geometry;
-            if (
-              typeof props.name !== 'string' ||
-              !geometry ||
-              geometry.type !== 'Point'
-            ) {
+            if (typeof props.name !== 'string' || !geometry || geometry.type !== 'Point') {
               return;
             }
             const [longitude, latitude] = geometry.coordinates as number[];
-            const kind = typeof props.subclass === 'string' ? props.subclass : String(props.class ?? '');
+            const kind =
+              typeof props.subclass === 'string' ? props.subclass : String(props.class ?? '');
             onTilePoiPress?.({
               // Tiles carry no OpenStreetMap id; a negative number from the
               // position keeps it apart from real ids and stable between taps.
@@ -1274,7 +1268,7 @@ export function MapView({
             });
           }}
         >
-{poiLayers('ofm-pois', {
+          {poiLayers('ofm-pois', {
             icon: TILE_POI_ICON,
             colour: TILE_POI_COLOUR,
             priority: TILE_POI_PRIORITY,
@@ -1322,7 +1316,7 @@ export function MapView({
             }
           }}
         >
-{poiLayers('places', {
+          {poiLayers('places', {
             icon: ['get', 'icon'],
             colour: ['get', 'cor'],
             priority: ['get', 'prio'],
@@ -1467,9 +1461,11 @@ export function MapView({
       */}
       {droppedPin ? (
         <Marker id="dropped-pin" lngLat={[droppedPin.longitude, droppedPin.latitude]}>
-          <View style={[styles.droppedPin, { borderColor: theme.accent }]}>
-            <View style={[styles.droppedPinCore, { backgroundColor: theme.accent }]} />
-          </View>
+          <PopIn key={`${droppedPin.latitude},${droppedPin.longitude}`}>
+            <View style={[styles.droppedPin, { borderColor: theme.accent }]}>
+              <View style={[styles.droppedPinCore, { backgroundColor: theme.accent }]} />
+            </View>
+          </PopIn>
         </Marker>
       ) : null}
 
@@ -1489,23 +1485,115 @@ export function MapView({
           }
           anchor="bottom"
         >
-          <View style={styles.pin}>
-            <View style={[styles.pinDrop, { backgroundColor: theme.pin, borderColor: theme.pinOutline }]} />
-            <View style={styles.pinGlyph}>
-              <MaterialCommunityIcons
-                name={
-                  (pinned
-                    ? PIN_GLYPH[poiLook(pinned.kindKey, pinned.kindValue).family]
-                    : 'circle') as never
-                }
-                size={pinned && poiLook(pinned.kindKey, pinned.kindValue).family !== 'other' ? 16 : 9}
-                color={theme.pinOutline}
+          <DroppingPin
+            key={
+              pinned
+                ? `${pinned.coordinates.latitude},${pinned.coordinates.longitude}`
+                : `${destination!.latitude},${destination!.longitude}`
+            }
+            shadowColor={theme.pinOutline}
+          >
+            <View style={styles.pin}>
+              <View
+                style={[
+                  styles.pinDrop,
+                  { backgroundColor: theme.pin, borderColor: theme.pinOutline },
+                ]}
               />
+              <View style={styles.pinGlyph}>
+                <MaterialCommunityIcons
+                  name={
+                    (pinned
+                      ? PIN_GLYPH[poiLook(pinned.kindKey, pinned.kindValue).family]
+                      : 'circle') as never
+                  }
+                  size={
+                    pinned && poiLook(pinned.kindKey, pinned.kindValue).family !== 'other' ? 16 : 9
+                  }
+                  color={theme.pinOutline}
+                />
+              </View>
             </View>
-          </View>
+          </DroppingPin>
         </Marker>
       ) : null}
     </Map>
+  );
+}
+
+/** How far above its spot the red pin starts falling from, in points. */
+const PIN_FALL = 26;
+
+/**
+ * The red pin falls into place with a little bounce, and its shadow on the
+ * ground grows as it lands — as in the maps everyone knows (author's request:
+ * "animations on the pin appearing, to look better"). It runs again whenever
+ * the pin moves to another place (the caller keys it by the coordinates).
+ *
+ * The box is taller than the pin by `PIN_FALL`, so the falling pin is never
+ * outside its own view (Android may clip a marker's children), and the tip
+ * still ends at the bottom, where `anchor="bottom"` puts the spot.
+ * Native driver: the map's JavaScript can be busy right then.
+ */
+function DroppingPin({ children, shadowColor }: { children: ReactNode; shadowColor: string }) {
+  const fall = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(fall, {
+      toValue: 1,
+      friction: 5,
+      tension: 90,
+      useNativeDriver: true,
+    }).start();
+  }, [fall]);
+  return (
+    <View style={styles.pinBox}>
+      <Animated.View
+        style={[
+          styles.pinShadow,
+          {
+            backgroundColor: shadowColor,
+            opacity: fall.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 0.25],
+              extrapolate: 'clamp',
+            }),
+            transform: [
+              { scaleX: fall.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={{
+          opacity: fall.interpolate({
+            inputRange: [0, 0.3],
+            outputRange: [0, 1],
+            extrapolate: 'clamp',
+          }),
+          transform: [
+            { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [-PIN_FALL, 0] }) },
+          ],
+        }}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
+/** A quick pop for the long-press pin: from small to its size, with a hint of overshoot. */
+function PopIn({ children }: { children: ReactNode }) {
+  const pop = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(pop, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.back(2)),
+      useNativeDriver: true,
+    }).start();
+  }, [pop]);
+  return (
+    <Animated.View style={{ opacity: pop, transform: [{ scale: pop }] }}>{children}</Animated.View>
   );
 }
 
@@ -1519,6 +1607,19 @@ const styles = StyleSheet.create({
     width: 34,
     height: 39,
     alignItems: 'center',
+  },
+  pinBox: {
+    width: 34,
+    height: 39 + PIN_FALL,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  pinShadow: {
+    position: 'absolute',
+    bottom: -2,
+    width: 14,
+    height: 5,
+    borderRadius: 7,
   },
   // A square with three rounded corners, rotated 45°: the classic drop.
   pinDrop: {

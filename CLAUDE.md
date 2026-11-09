@@ -650,6 +650,11 @@ inside.
   (`tourism=information` other than `information=office`) are dropped from all three sources;
   Mobi.E charging points named by their code show the brand (`displayName`) or, in the
   tiles, no label at all. See "Where this stands".
+- **The red pin falls into place** with a small bounce and a shadow growing on the ground
+  (`DroppingPin`, in `MapView.tsx`), again each time it moves to another place; the long-press
+  pin pops in (`PopIn`). Author's request ("animations on the pin appearing"). Native-driver
+  `Animated` inside the `Marker`'s view, whose box is taller by `PIN_FALL` so nothing falls
+  outside it.
 - Validated against the MapLibre spec with every image present; **the look on the phone has
   been seen** (November 2026, the author's screenshots).
 
