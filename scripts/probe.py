@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""
+Read-only probe of the services the app depends on, run from GitHub Actions
+(the development environment cannot reach them). Publishes nothing.
+
+Prints what is needed to fix things against real data instead of guesses:
+- Carris arrivals at one stop: the raw fields, the line prefix, duplicates.
+- Carris vehicles: timestamp units and age.
+- Metro Sul do Tejo stations, as the Carris API lists them.
+- Which satellite / orthophoto editions exist (EOX, DGT).
+"""
+import json
+import time
+import urllib.error
+import urllib.request
+
+UA = "PalmMap/1.0 (personal project; https://github.com/choso08/PalmMap)"
+CARRIS = "https://api.carrismetropolitana.pt/v2"
+
+
+def get(url, timeout=60):
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.headers.get("Content-Type", ""), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get("Content-Type", ""), e.read()
+    except Exception as e:  # noqa: BLE001
+        return None, "", str(e).encode()
+
+
+def section(title):
+    print("\n" + "=" * 70 + "\n" + title + "\n" + "=" * 70)
+
+
+def arrivals():
+    section("ARRIVALS")
+    _, _, body = get(f"{CARRIS}/stops")
+    stops = json.loads(body)
+    wanted = [s for s in stops if "LOROSAE" in (s.get("long_name") or "").upper()]
+    wanted += [s for s in stops if "CACILHAS" in (s.get("long_name") or "").upper()][:2]
+    for stop in wanted[:4]:
+        status, _, body = get(f"{CARRIS}/arrivals/by_stop/{stop['id']}")
+        print(f"\n--- stop {stop['id']} {stop.get('long_name')} -> {status}")
+        if status != 200:
+            continue
+        data = json.loads(body)
+        now = time.time()
+        upcoming = [
+            a for a in data
+            if (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now - 60
+        ]
+        upcoming.sort(key=lambda a: a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0)
+        print("keys:", sorted({k for a in data for k in a}))
+        print("line_id samples:", sorted({str(a.get("line_id")) for a in data})[:15])
+        print("route_id samples:", sorted({str(a.get("route_id")) for a in data})[:10])
+        for a in upcoming[:14]:
+            print(json.dumps({k: a.get(k) for k in (
+                "line_id", "route_id", "pattern_id", "trip_id", "vehicle_id", "headsign",
+                "stop_sequence", "scheduled_arrival_unix", "estimated_arrival_unix",
+                "observed_arrival_unix")}, ensure_ascii=False))
+
+
+def vehicles():
+    section("VEHICLES")
+    status, ctype, body = get(f"{CARRIS}/vehicles")
+    print("status", status, ctype, len(body), "bytes")
+    if status != 200:
+        print(body[:500])
+        return
+    data = json.loads(body)
+    print("count", len(data))
+    print("keys:", sorted({k for v in data for k in v}))
+    now = time.time()
+    ts = sorted(v.get("timestamp") for v in data if isinstance(v.get("timestamp"), (int, float)))
+    print("now(s)", int(now), "timestamp min/median/max", ts[:1], ts[len(ts) // 2:len(ts) // 2 + 1], ts[-1:])
+    fresh_s = [t for t in ts if 0 <= now - t <= 120]
+    fresh_ms = [t for t in ts if 0 <= now - t / 1000 <= 120]
+    print("fresh if seconds:", len(fresh_s), " fresh if milliseconds:", len(fresh_ms))
+    for v in sorted(data, key=lambda v: -(v.get("timestamp") or 0))[:3]:
+        print(json.dumps(v, ensure_ascii=False)[:600])
+
+
+def light_rail():
+    section("METRO SUL DO TEJO (light_rail_stations)")
+    status, _, body = get(f"{CARRIS}/facilities/light_rail_stations")
+    print("status", status)
+    if status == 200:
+        data = json.loads(body)
+        print("count", len(data), "keys", sorted({k for s in data for k in s}))
+        for s in data:
+            print(" -", s.get("id"), "|", s.get("name"), "|", s.get("lat"), s.get("lon"),
+                  "| lines:", s.get("lines") or s.get("line_ids"))
+
+
+def satellite():
+    section("SATELLITE")
+    status, _, body = get("https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml", 90)
+    print("EOX capabilities", status)
+    if status == 200:
+        text = body.decode("utf-8", "replace")
+        import re
+        names = sorted(set(re.findall(r"<ows:Identifier>(s2cloudless[^<]*)</ows:Identifier>", text)))
+        print("s2cloudless layers:", names)
+    for y in (2024, 2025, 2026):
+        s, c, _ = get(f"https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-{y}_3857/default/g/10/388/488.jpg")
+        print(f"EOX tile s2cloudless-{y}:", s, c)
+    for name in ("ortosat2023", "ortosat2024", "ortosat2025", "ortosat2026",
+                 "ortos2021", "ortos2023", "ortos2024", "ortos2025"):
+        s, _, body = get(f"https://ortos.dgterritorio.gov.pt/wms/{name}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities", 60)
+        layers = []
+        if s == 200:
+            import re
+            layers = re.findall(r"<Name>([^<]+)</Name>", body.decode("utf-8", "replace"))[:8]
+        print(f"DGT {name}:", s, layers)
+    s, _, body = get("https://ortos.dgterritorio.gov.pt/", 60)
+    print("DGT index", s)
+    if s == 200:
+        import re
+        print(sorted(set(re.findall(r"wms/([a-zA-Z0-9_]+)", body.decode("utf-8", "replace")))))
+
+
+if __name__ == "__main__":
+    for step in (arrivals, vehicles, light_rail, satellite):
+        try:
+            step()
+        except Exception as e:  # noqa: BLE001
+            print("FAILED", step.__name__, e)
