@@ -33,16 +33,44 @@ export interface OsrmManeuver {
   exit?: number;
 }
 
+/** One lane at an intersection, as OSRM describes it (from OSM `turn:lanes`). */
+export interface OsrmLane {
+  indications: string[];
+  valid: boolean;
+}
+
+/** An intersection along a step. The first one is where the manoeuvre happens. */
+export interface OsrmIntersection {
+  lanes?: OsrmLane[];
+}
+
 export interface OsrmStep {
   maneuver: OsrmManeuver;
+  /** Only with `steps=true`. The lanes of the manoeuvre are on the first one. */
+  intersections?: OsrmIntersection[];
   /** Name of the street followed after the manoeuvre. May be empty. */
   name: string;
   distance: number;
   duration: number;
 }
 
+/**
+ * The speed limit of one segment, with `annotations=maxspeed`: a number with
+ * its unit, or `unknown` (not marked in OSM), or `none` (no limit at all).
+ */
+export interface OsrmMaxspeed {
+  speed?: number;
+  unit?: string;
+  unknown?: boolean;
+  none?: boolean;
+}
+
 export interface OsrmLeg {
   steps: OsrmStep[];
+  /** Per-segment data, only when `annotations` is requested. */
+  annotation?: {
+    maxspeed?: OsrmMaxspeed[];
+  };
   /**
    * The names of the main roads of the leg ("A2, IC20"), chosen by OSRM. Only
    * filled in when `steps=true` is requested, and may be empty.

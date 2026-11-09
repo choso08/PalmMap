@@ -86,6 +86,8 @@ export interface Settings {
   satelliteDetail: SatelliteDetail;
   /** Avisar de radares e controlos de velocidade durante a navegação. */
   speedCameraAlerts: boolean;
+  /** Warn, as Waze does, when going over the road's speed limit (OSM maxspeed). */
+  speedLimitAlerts: boolean;
   /** Pedir ao OSRM um percurso que evite estradas com portagem. */
   avoidTolls: boolean;
   /** Ler o GPS menos vezes quando a manobra seguinte ainda vai longe. */
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mapType: 'map',
   satelliteDetail: 'normal',
   speedCameraAlerts: true,
+  speedLimitAlerts: true,
   avoidTolls: false,
   batterySaver: true,
   showSpeed: true,

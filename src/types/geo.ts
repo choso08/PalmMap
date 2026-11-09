@@ -64,6 +64,18 @@ export interface RouteStep {
    * motorway. They all stay in the written list — they just aren't announced.
    */
   announce: boolean;
+  /**
+   * The lanes on the approach to this manoeuvre, left to right, when OSM has
+   * them (`turn:lanes`). `valid` marks the lanes that lead where the route goes.
+   */
+  lanes?: Lane[];
+}
+
+/** One lane: the arrows painted on it, and whether it suits the route. */
+export interface Lane {
+  /** OSRM's words: 'left', 'slight right', 'straight', 'uturn', 'none'… */
+  indications: string[];
+  valid: boolean;
 }
 
 /** A route already processed, ready to draw on the map. */
@@ -99,4 +111,10 @@ export interface Route {
    * done.
    */
   avoidedTolls: boolean;
+  /**
+   * The speed limit of each segment of `coordinates` (segment i joins point i
+   * and i+1), in km/h, from OSM's `maxspeed`. `null` where it is not marked, or
+   * where there is no limit. Absent when the server could not give them.
+   */
+  maxspeeds?: (number | null)[];
 }

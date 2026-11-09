@@ -377,6 +377,17 @@ export function SettingsSheet({
 
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>{s.speedLimit}</Text>
+            </View>
+            <Switch
+              value={settings.speedLimitAlerts}
+              onValueChange={(next) => update('speedLimitAlerts', next)}
+              trackColor={{ true: theme.accent, false: theme.border }}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
               <Text style={styles.switchLabel}>{s.cameras}</Text>
               <Text style={styles.switchHint}>{s.camerasHint}</Text>
             </View>

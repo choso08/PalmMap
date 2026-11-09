@@ -59,6 +59,8 @@ import {
   CATEGORY_MIN_ZOOM,
   DOUBLE_TAP_MS,
   KEEP_AWAKE_TAG,
+  LIMIT_WARNING_EVERY_MS,
+  SPEED_OVER_LIMIT_KMH,
   THEN_MAX_METERS,
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
@@ -367,6 +369,10 @@ function PalmMap() {
    * subscrição nenhuma a mais — ver `watchPosition`.
    */
   const [speedKmh, setSpeedKmh] = useState<number | null>(null);
+  /** The speed limit of the road being driven, in km/h, during navigation. */
+  const [roadLimit, setRoadLimit] = useState<number | null>(null);
+  /** When the over-the-limit warning was last spoken, so it does not nag. */
+  const lastLimitWarning = useRef(0);
   /**
    * Vai-se a andar depressa o suficiente para isto ser um carro.
    *
@@ -1460,6 +1466,13 @@ function PalmMap() {
           const then = ahead >= 0 ? route.steps[ahead + 1] : undefined;
           setThenStep(then && step && step.distanceMeters <= THEN_MAX_METERS ? then : null);
           setDistanceToStep(toStep);
+          // The limit of the road under the car: the segment that starts at the
+          // nearest point of the line (OSM maxspeed, through OSRM).
+          const limites = route.maxspeeds;
+          const limite = limites && limites.length > 0
+            ? (limites[Math.min(index, limites.length - 1)] ?? null)
+            : null;
+          setRoadLimit((atual) => (atual === limite ? atual : limite));
           setRemaining({
             meters: remainingMeters,
             seconds:
@@ -1687,10 +1700,34 @@ function PalmMap() {
     setNavigating(true);
   }, [route]);
 
+  /**
+   * Over the road's limit: said once, as Waze does with its chime, and then not
+   * again for a minute. The sign turning red does the rest — a voice repeating
+   * the limit every second would be switched off on the first trip.
+   */
+  useEffect(() => {
+    if (!navigating || !settings.speedLimitAlerts || !settings.voiceGuidance) {
+      return;
+    }
+    if (roadLimit === null || speedKmh === null) {
+      return;
+    }
+    if (speedKmh <= roadLimit + SPEED_OVER_LIMIT_KMH) {
+      return;
+    }
+    const agora = Date.now();
+    if (agora - lastLimitWarning.current < LIMIT_WARNING_EVERY_MS) {
+      return;
+    }
+    lastLimitWarning.current = agora;
+    speak(t().navigation.overLimitVoice(roadLimit));
+  }, [navigating, settings.speedLimitAlerts, settings.voiceGuidance, roadLimit, speedKmh]);
+
   const handleStopNavigation = useCallback(() => {
     setNavigating(false);
     setNextStep(null);
     setThenStep(null);
+    setRoadLimit(null);
     setNavCameraFree(false);
     setRecalculating(false);
     stopSpeaking();
@@ -2267,6 +2304,7 @@ function PalmMap() {
         <NavigationPanel
           step={nextStep}
           thenStep={thenStep}
+          roadLimit={settings.speedLimitAlerts ? roadLimit : null}
           cameraFree={navCameraFree}
           onRecenter={handleLocatePress}
           onOverview={() => {

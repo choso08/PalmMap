@@ -288,6 +288,31 @@ def openfreemap():
         print("attribution:", tj.get("attribution"))
 
 
+def osrm():
+    """Whether the FOSSGIS car server gives speed limits and lanes."""
+    section("OSRM maxspeed + lanes")
+    base = "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+    # Almada (Lazarim) -> Lisboa (Marquês), over the 25 de Abril bridge and the A2.
+    path = "-9.2017,38.6480;-9.1500,38.7253"
+    for extra in ("annotations=maxspeed", ""):
+        url = f"{base}{path}?overview=full&geometries=geojson&steps=true&alternatives=3&{extra}"
+        status, _, body = get(url)
+        data = json.loads(body)
+        print("params:", extra or "(none)", "status", status, "code", data.get("code"), data.get("message"))
+        for r in data.get("routes", [])[:1]:
+            n = len(r["geometry"]["coordinates"])
+            ms = [x for leg in r["legs"] for x in (leg.get("annotation") or {}).get("maxspeed", [])]
+            print("  points", n, "segments", n - 1, "maxspeed entries", len(ms))
+            known = [m for m in ms if "speed" in m]
+            print("  known", len(known), "sample", json.dumps(ms[:3]), json.dumps(known[:5]))
+            steps = [st for leg in r["legs"] for st in leg["steps"]]
+            withlanes = [st for st in steps if (st.get("intersections") or [{}])[0].get("lanes")]
+            print("  steps", len(steps), "steps with lanes at manoeuvre", len(withlanes))
+            for st in withlanes[:4]:
+                print("   ", st["maneuver"].get("type"), st["maneuver"].get("modifier"), st.get("name"),
+                      json.dumps(st["intersections"][0]["lanes"]))
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")

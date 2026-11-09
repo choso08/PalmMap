@@ -482,6 +482,9 @@ export const DOUBLE_TAP_MS = 300;
  */
 export const SPEED_OVER_LIMIT_KMH = 5;
 
+/** The spoken over-the-limit warning is said at most once in this long. */
+export const LIMIT_WARNING_EVERY_MS = 60000;
+
 /**
  * Cycling speed, in metres per second. It is 12.5 km/h.
  *

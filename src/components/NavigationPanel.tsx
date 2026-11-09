@@ -10,7 +10,7 @@ import { SPEED_OVER_LIMIT_KMH } from "../services/config";
 import { SpeedBadge } from "./SpeedBadge";
 import { useEta, useTheme, useT } from "../settings";
 import type { Theme } from "../theme";
-import type { RouteStep } from "../types/geo";
+import type { Lane, RouteStep } from "../types/geo";
 import { formatDistance, formatDuration } from "../utils/format";
 
 interface NavigationPanelProps {
@@ -18,6 +18,8 @@ interface NavigationPanelProps {
   step: RouteStep | null;
   /** The one after it, when the two come close together. */
   thenStep: RouteStep | null;
+  /** The limit of the road being driven (OSM), or `null` when not known. */
+  roadLimit: number | null;
   /** The camera has let go of the car: show "Re-centre". */
   cameraFree: boolean;
   onRecenter: () => void;
@@ -59,9 +61,40 @@ interface NavigationPanelProps {
  * A barra de cima é o que se lê a conduzir, por isso é o maior elemento da
  * aplicação toda. A de baixo tem o que falta e o botão de terminar.
  */
+/** How far before a manoeuvre its lanes are shown. */
+const LANES_SHOW_METERS = 1500;
+
+/**
+ * The arrow for a lane. A lane may have several arrows painted ("left;straight");
+ * the one shown is the one the route uses when it is valid, otherwise the first.
+ */
+function laneIcon(lane: Lane): string {
+  const words = lane.indications.length > 0 ? lane.indications : ["straight"];
+  const word = words[0];
+  switch (word) {
+    case "left":
+      return "arrow-left-top-bold";
+    case "right":
+      return "arrow-right-top-bold";
+    case "slight left":
+      return "arrow-top-left-thick";
+    case "slight right":
+      return "arrow-top-right-thick";
+    case "sharp left":
+      return "arrow-bottom-left";
+    case "sharp right":
+      return "arrow-bottom-right";
+    case "uturn":
+      return "arrow-u-left-top-bold";
+    default:
+      return "arrow-up-bold";
+  }
+}
+
 export function NavigationPanel({
   step,
   thenStep,
+  roadLimit,
   cameraFree,
   onRecenter,
   onOverview,
@@ -83,16 +116,16 @@ export function NavigationPanel({
   /**
    * Vai-se depressa de mais?
    *
-   * **Só se sabe responder junto a um radar.** O limite que aparece no aviso é o
-   * que está marcado nesse ponto do OpenStreetMap; a aplicação não sabe o limite
-   * da estrada onde vai em cada momento, e fingir que sabe era pintar o número de
-   * vermelho por um limite adivinhado. Fora do alcance de um radar, o velocímetro
-   * é só um número.
+   * The limit is the camera's when one is close (it is the one being
+   * enforced), otherwise the road's own from OSM's `maxspeed`. Where neither is
+   * known the speedometer is just a number — painting it red against a guessed
+   * limit would be promising what is not there.
    */
+  const limit = camera?.maxspeed ?? roadLimit;
   const overLimit =
     speedKmh !== null &&
-    camera?.maxspeed != null &&
-    speedKmh > camera.maxspeed + SPEED_OVER_LIMIT_KMH;
+    limit != null &&
+    speedKmh > limit + SPEED_OVER_LIMIT_KMH;
 
   const seconds = eta(remainingMeters, remainingSeconds, pace);
   const chegada = new Date(Date.now() + seconds * 1000);
@@ -130,7 +163,30 @@ export function NavigationPanel({
                 </Text>
               </View>
             </View>
-          ) : (
+          ) : null}
+          {/*
+            The lanes, as in the Maps and Waze: the arrows of each lane, with
+            the ones that lead where the route goes lit. Only close to the
+            manoeuvre — two kilometres out, which lane does not matter yet.
+          */}
+          {!recalculating && step?.lanes && step.lanes.length > 1 &&
+          distanceToStep <= LANES_SHOW_METERS ? (
+            <View style={styles.lanes}>
+              {step.lanes.map((lane, i) => (
+                <View
+                  key={i}
+                  style={[styles.lane, !lane.valid && styles.laneOff]}
+                >
+                  <MaterialCommunityIcons
+                    name={laneIcon(lane) as never}
+                    size={24}
+                    color={theme.onAccent}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {recalculating || step ? null : (
             <Text style={styles.instruction}>
               {strings.navigation.following}
             </Text>
@@ -190,6 +246,16 @@ export function NavigationPanel({
         overLimit={overLimit}
         bottom={insets.bottom + 130}
       />
+
+      {/*
+        The road's limit, as a road sign beside the speedometer — Waze's most
+        useful habit. Only when OSM has it for this road.
+      */}
+      {limit != null ? (
+        <View style={styles.limitSign}>
+          <Text style={styles.limiteText}>{limit}</Text>
+        </View>
+      ) : null}
 
       {cameraFree ? (
         <Pressable
@@ -322,6 +388,40 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.onOverlay,
       fontSize: 14,
       fontWeight: "600",
+    },
+    lanes: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 4,
+      marginTop: 12,
+      paddingTop: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.onAccent,
+    },
+    lane: {
+      width: 36,
+      height: 34,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    laneOff: {
+      opacity: 0.35,
+    },
+    limitSign: {
+      position: "absolute",
+      // Beside the speedometer (64 wide at left 16), level with it.
+      left: 16 + 64 + 8,
+      bottom: insets.bottom + 138,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.signFace,
+      borderWidth: 4,
+      borderColor: theme.signEdge,
+      elevation: 6,
     },
     limite: {
       minWidth: 34,

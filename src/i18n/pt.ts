@@ -202,6 +202,8 @@ export const pt = {
     following: 'A seguir o percurso…',
     toDestination: 'até ao destino',
     finish: 'Terminar',
+    /** Spoken once when going over the road's limit. */
+    overLimitVoice: (limit: number) => `Limite de velocidade: ${limit}.`,
     then: 'Depois',
     recenter: 'Recentrar',
     overview: 'Ver o percurso',
@@ -397,6 +399,7 @@ export const pt = {
     voice: 'Ler as instruções em voz alta',
     voiceRegionHint: 'Sem voz de português de Portugal instalada: instale-a no Android, em Texto para voz.',
     cameras: 'Avisar de radares',
+    speedLimit: 'Avisar quando passo o limite',
     aboutText: 'Só serviços abertos e gratuitos. Mapa do OpenStreetMap.',
     camerasHint: 'Só os marcados no OpenStreetMap; os móveis não aparecem.',
     tolls: 'Evitar portagens',
