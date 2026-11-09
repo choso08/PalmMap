@@ -3,6 +3,7 @@ import {
   type CameraRef,
   GeoJSONSource,
   Layer,
+  VectorSource,
   Map,
   Marker,
   type PressEvent,
@@ -34,7 +35,32 @@ import { mapStyleFor } from '../services/tiles';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 import { formatDistance } from '../utils/format';
+import { categoryLabel } from '../utils/categories';
+import { MAP_PINS_MIN_ZOOM } from '../services/config';
+import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { boundsOf, distanceMeters } from '../utils/geometry';
+
+
+/** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
+const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
+const OPENFREEMAP_ATTRIBUTION = 'OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors';
+
+/**
+ * Named places, minus transport stops and entrances — those are not
+ * businesses, and the transport map has its own stops.
+ */
+const TILE_POI_FILTER = [
+  'all',
+  ['has', 'name'],
+  [
+    '!',
+    [
+      'in',
+      ['get', 'class'],
+      ['literal', ['bus', 'railway', 'aerialway', 'ferry_terminal', 'entrance', 'tram']],
+    ],
+  ],
+] as unknown as FilterSpecification;
 
 interface MapViewProps {
   userLocation: Coordinates | null;
@@ -46,6 +72,14 @@ interface MapViewProps {
   onViewportChange: (bounds: Bounds, zoom: number) => void;
   /** Chamado ao tocar num pino de negócio. */
   onPlacePress: (placeId: number) => void;
+  /**
+   * Draw the businesses that come inside OpenFreeMap's vector tiles. They
+   * arrive with the map — no request of our own, no wait — so they replace the
+   * Overpass pins wherever no downloaded country has a business file.
+   */
+  tilePois?: boolean;
+  /** A tap on one of those pins, with what the tile knows about it. */
+  onTilePoiPress?: (place: Place) => void;
   /** Pino largado com um toque longo, à espera de virar destino. */
   droppedPin: Coordinates | null;
   /** Chamado num toque longo em qualquer ponto do mapa. */
@@ -166,6 +200,8 @@ export function MapView({
   places,
   onViewportChange,
   onPlacePress,
+  tilePois = false,
+  onTilePoiPress,
   droppedPin,
   onDropPin,
   onTapEmpty,
@@ -983,6 +1019,75 @@ export function MapView({
             />
           ) : null}
         </GeoJSONSource>
+      ) : null}
+
+      {tilePois ? (
+        <VectorSource
+          id="ofm-pois"
+          url={OPENFREEMAP_TILEJSON}
+          attribution={OPENFREEMAP_ATTRIBUTION}
+          onPress={(event) => {
+            event.stopPropagation?.();
+            const feature = event.nativeEvent.features[0];
+            const props = (feature?.properties ?? {}) as Record<string, unknown>;
+            const geometry = feature?.geometry;
+            if (
+              typeof props.name !== 'string' ||
+              !geometry ||
+              geometry.type !== 'Point'
+            ) {
+              return;
+            }
+            const [longitude, latitude] = geometry.coordinates as number[];
+            const kind = typeof props.subclass === 'string' ? props.subclass : String(props.class ?? '');
+            onTilePoiPress?.({
+              // Tiles carry no OpenStreetMap id; a negative number from the
+              // position keeps it apart from real ids and stable between taps.
+              id: -Math.abs(Math.round(latitude * 1e5) * 100000 + Math.round(longitude * 1e5)),
+              name: props.name,
+              address: '',
+              coordinates: { latitude, longitude },
+              category: categoryLabel({ amenity: kind }),
+            });
+          }}
+        >
+          <Layer
+            id="ofm-pois-circle"
+            type="circle"
+            source-layer="poi"
+            minzoom={MAP_PINS_MIN_ZOOM}
+            filter={TILE_POI_FILTER}
+            paint={{
+              'circle-radius': 6,
+              'circle-color': theme.poi,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': theme.poiOutline,
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              id="ofm-pois-label"
+              type="symbol"
+              source-layer="poi"
+              minzoom={16}
+              filter={TILE_POI_FILTER}
+              layout={{
+                'text-field': ['get', 'name'],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': 11,
+                'text-anchor': 'top',
+                'text-offset': [0, 0.8],
+                'text-max-width': 9,
+                'text-optional': true,
+              }}
+              paint={{
+                'text-color': theme.text,
+                'text-halo-color': theme.surface,
+                'text-halo-width': 1.6,
+              }}
+            />
+          ) : null}
+        </VectorSource>
       ) : null}
 
       {places.length > 0 ? (

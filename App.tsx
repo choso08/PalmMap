@@ -89,11 +89,12 @@ import { reverseGeocode } from './src/services/nominatim';
 import { RouteError, getRoutes } from './src/services/osrm';
 import {
   cachedInBounds,
+  placeDetails,
   searchCategoryInBounds,
   searchInBounds,
 } from './src/services/overpass';
 import { ensureFeedsFor, planScheduledTrips } from './src/services/schedules';
-import { ALL_BUSINESSES, localPlacesInBounds } from './src/services/localPois';
+import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
 import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
 import {
@@ -546,6 +547,8 @@ function PalmMap() {
   /** Área visível do mapa, atualizada quando o mapa para de se mexer. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
   const stopsRequest = useRef(0);
+  /** Whether a downloaded country's business file covers the view. */
+  const [localPoisHere, setLocalPoisHere] = useState(false);
   const pinsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
   const latestPlaces = useRef(0);
@@ -998,6 +1001,14 @@ function PalmMap() {
         return;
       }
 
+      // Where the map's own pins are drawn (OpenFreeMap), Overpass is not
+      // asked at all — they come with the tiles.
+      if (settings.mapType !== 'transit') {
+        setPlaces([]);
+        setPlacesError(null);
+        return;
+      }
+
       try {
         const found = await searchInBounds(bounds, stillWanted);
         if (requestId === latestPlaces.current) {
@@ -1019,7 +1030,7 @@ function PalmMap() {
         }
       }
     },
-    [settings.showPlacesOnMap],
+    [settings.showPlacesOnMap, settings.mapType],
   );
 
   // Ao escolher uma categoria, procura já na zona que está à vista.
@@ -1058,6 +1069,9 @@ function PalmMap() {
       ).toFixed(3)}`;
       setMapCentre((atual) => (atual === centro ? atual : centro));
 
+      const temLocal = poisRegionFor(bounds) !== null;
+      setLocalPoisHere((atual) => (atual === temLocal ? atual : temLocal));
+
       // The stops in view, only on the transport map and close enough in for
       // them to be told apart. From memory: no request once `/stops` is loaded.
       if (settings.mapType === 'transit' && zoom >= STOPS_MAP_MIN_ZOOM) {
@@ -1095,6 +1109,13 @@ function PalmMap() {
           setPlacesError(null);
           return;
         }
+      }
+
+      if (!category && settings.mapType !== 'transit') {
+        // The pins come inside the map's tiles here: nothing to fetch.
+        latestPlaces.current += 1;
+        setPlaces((atual) => (atual.length === 0 ? atual : []));
+        return;
       }
 
       if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
@@ -1696,6 +1717,24 @@ function PalmMap() {
     return index;
   }, [places]);
 
+  /**
+   * A tap on one of the map's own pins: open it at once with what the tile
+   * knows, then fill in hours, phone and website with one small Overpass query.
+   */
+  const handleTilePoiPress = useCallback((place: Place) => {
+    setSelectedPlace(place);
+    void placeDetails(place).then((full) => {
+      if (!full) {
+        return;
+      }
+      setSelectedPlace((current) =>
+        current && current.id === place.id
+          ? { ...current, ...full, id: place.id, coordinates: place.coordinates }
+          : current,
+      );
+    });
+  }, []);
+
   const handlePlacePress = useCallback(
     (placeId: number) => {
       const place = placesById.get(placeId);
@@ -1884,6 +1923,13 @@ function PalmMap() {
         places={places}
         onViewportChange={handleViewportChange}
         onPlacePress={handlePlacePress}
+        tilePois={
+          settings.showPlacesOnMap &&
+          !category &&
+          !localPoisHere &&
+          settings.mapType !== 'transit'
+        }
+        onTilePoiPress={handleTilePoiPress}
         droppedPin={droppedPin}
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}

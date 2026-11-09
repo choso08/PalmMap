@@ -438,3 +438,26 @@ export async function searchCategoryInBounds(
     isWanted,
   );
 }
+
+/**
+ * The full details of a business tapped on the map's own pins (the
+ * OpenFreeMap layer), whose tiles carry only the name and kind.
+ *
+ * One tiny query — the place with that name within thirty metres — instead of
+ * a whole area: it is what lets the pins come with the map, at once, and still
+ * show hours, phone and website when opened. Returns `null` when Overpass does
+ * not answer or does not find it; the sheet then shows what the tile had.
+ */
+export async function placeDetails(place: Place): Promise<Place | null> {
+  const { latitude: lat, longitude: lon } = place.coordinates;
+  const name = place.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const query = `[out:json][timeout:15];nwr(around:30,${lat},${lon})["name"="${name}"];out tags center 1;`;
+  try {
+    const data = await schedule(() => askOverpass(query));
+    const element = data.elements?.[0];
+    const found = element ? toPlace(element) : null;
+    return found ? { ...found, coordinates: place.coordinates } : null;
+  } catch {
+    return null;
+  }
+}
