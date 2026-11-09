@@ -17,6 +17,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
 import { clearMapCache } from '../services/tiles';
+import { Collapsible } from './Collapsible';
 import { OfflineMaps } from './OfflineMaps';
 import { Schedules } from './Schedules';
 import { Updates } from './Updates';
@@ -363,14 +364,14 @@ export function SettingsSheet({
             <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
           </Pressable>
 
-          <Text style={styles.sectionTitle}>{s.offlineMaps}</Text>
-          <Text style={styles.sectionHint}>{s.offlineMapsHint}</Text>
-          <OfflineMaps />
-          <Text style={styles.note}>{s.offlineMapsNote}</Text>
+          <Collapsible title={s.offlineMaps} hint={s.offlineMapsHint}>
+            <OfflineMaps />
+            <Text style={styles.note}>{s.offlineMapsNote}</Text>
+          </Collapsible>
 
-          <Text style={styles.sectionTitle}>{s.schedules}</Text>
-          <Text style={styles.sectionHint}>{s.schedulesHint}</Text>
-          <Schedules />
+          <Collapsible title={s.schedules} hint={s.schedulesHint}>
+            <Schedules />
+          </Collapsible>
 
           <Text style={styles.sectionTitle}>{s.navigation}</Text>
           <View style={styles.switchRow}>

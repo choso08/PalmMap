@@ -238,32 +238,81 @@ export function regionForView(
   return best;
 }
 
-/** Fetches the list of maps available for download. */
-export async function listRegions(): Promise<OfflineRegion[]> {
-  try {
-    const response = await axios.get<Manifest>(`${BASE_URL}/mapas.json`, {
-      timeout: REQUEST_TIMEOUT_MS,
-      headers: { 'User-Agent': USER_AGENT },
-      // **The manifest's address never changes, but its content does.** Each
-      // workflow run replaces the file in the same Release, at the same
-      // address; and GitHub serves these files through a content delivery
-      // network that caches them. Without this, a freshly generated country
-      // could fail to appear for hours — with no error, just an old list
-      // looking right.
-      params: { t: Date.now() },
-    });
-    return response.data.regioes ?? [];
-  } catch {
-    // Without network, at least what is already stored is shown. An empty menu
-    // would suggest the downloaded maps were lost, and they were not.
-    const stored = installedRegions();
-    if (stored.length > 0) {
-      return stored;
-    }
-    throw new OfflineMapError(
-      t().errors.mapListFailed,
-    );
+/**
+ * The last manifest that came back whole, kept on the phone.
+ *
+ * Outside the `mapas` folder on purpose: every `.json` in there is read as an
+ * installed region.
+ */
+const MANIFEST_COPY = new File(Paths.document, 'mapas-manifesto.json');
+
+/** How long one attempt at the manifest may take. */
+const MANIFEST_TIMEOUT_MS = 30000;
+
+async function fetchManifest(): Promise<OfflineRegion[]> {
+  const response = await axios.get<Manifest>(`${BASE_URL}/mapas.json`, {
+    timeout: MANIFEST_TIMEOUT_MS,
+    headers: { 'User-Agent': USER_AGENT },
+    // **The manifest's address never changes, but its content does.** Each
+    // workflow run replaces the file in the same Release, at the same
+    // address; and GitHub serves these files through a content delivery
+    // network that caches them. Without this, a freshly generated country
+    // could fail to appear for hours — with no error, just an old list
+    // looking right.
+    params: { t: Date.now() },
+  });
+  const regions = response.data?.regioes;
+  if (!Array.isArray(regions) || regions.length === 0) {
+    throw new Error('empty manifest');
   }
+  return regions;
+}
+
+/**
+ * Fetches the list of maps available for download.
+ *
+ * **The list sometimes came back with only some countries**, and this is
+ * where: one failed request — GitHub's download redirect is slow on mobile
+ * data, and fifteen seconds was not always enough — fell back to the maps
+ * already on the phone, silently. The published manifest was complete; the
+ * app just showed the short list as if it were the whole one. Now it tries
+ * twice with a longer wait, and if both fail it shows the last full list it
+ * received, plus whatever is installed.
+ */
+export async function listRegions(): Promise<OfflineRegion[]> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const regions = await fetchManifest();
+      try {
+        MANIFEST_COPY.write(JSON.stringify(regions));
+      } catch {
+        // Not being able to keep a copy is no reason to hide the list.
+      }
+      return regions;
+    } catch {
+      // One more go before falling back.
+    }
+  }
+
+  // Without network: the last full list, with what is installed on top (an
+  // installed map may be newer than the copy).
+  const byId = new Map<string, OfflineRegion>();
+  try {
+    if (MANIFEST_COPY.exists) {
+      for (const r of JSON.parse(MANIFEST_COPY.textSync()) as OfflineRegion[]) {
+        byId.set(r.id, r);
+      }
+    }
+  } catch {
+    // A damaged copy is the same as none.
+  }
+  for (const r of installedRegions()) {
+    byId.set(r.id, r);
+  }
+  if (byId.size > 0) {
+    return [...byId.values()];
+  }
+  throw new OfflineMapError(t().errors.mapListFailed);
 }
 
 /**
