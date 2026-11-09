@@ -784,7 +784,7 @@ function matchLegs(
 }
 
 /** At most how many places are tried to change buses. */
-const TRANSFER_STOPS = 5;
+const TRANSFER_STOPS = 6;
 
 /** Minimum time to change buses, on top of any walk between stops, in seconds. */
 const TRANSFER_MIN_S = 120;
@@ -898,7 +898,34 @@ async function transferPlan(
     candidates.push({ off, on: bestOn, meters: bestMeters, detour });
   }
   candidates.sort((x, y) => x.detour - y.detour);
-  const chosen = candidates.slice(0, TRANSFER_STOPS);
+  // **Different meeting points, not the same one five times.** Consecutive
+  // stops along one corridor are served by the same pair of lines, and the five
+  // least-detour places used to be one crossing repeated — when those lines
+  // went the wrong way, nothing was left to try. A place only counts if it adds
+  // a pair of patterns not yet covered.
+  const covered = new Set<string>();
+  const chosen: ChangePlace[] = [];
+  for (const c of candidates) {
+    const pairs: string[] = [];
+    for (const a of c.off.patterns) {
+      if (!fromStart.has(a)) {
+        continue;
+      }
+      for (const b of c.on.patterns) {
+        if (fromEnd.has(b) && !fromStart.has(b) && !covered.has(`${a}>${b}`)) {
+          pairs.push(`${a}>${b}`);
+        }
+      }
+    }
+    if (pairs.length === 0) {
+      continue;
+    }
+    pairs.forEach((p) => covered.add(p));
+    chosen.push(c);
+    if (chosen.length >= TRANSFER_STOPS) {
+      break;
+    }
+  }
   if (chosen.length === 0) {
     return null;
   }
