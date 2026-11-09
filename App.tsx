@@ -798,12 +798,16 @@ function PalmMap() {
     if (!destination) {
       setRoute(null);
       setRouteError(null);
+      // A transit trip left behind kept the transport map showing only its two
+      // stops, long after the route was closed.
+      setTransitTrips(null);
       return;
     }
 
     const origem = routeOrigin?.coordinates ?? userLocationRef.current;
     if (!origem) {
       setRoute(null);
+      setTransitTrips(null);
       setRouteError(t().errors.noLocationForRoute);
       return;
     }
