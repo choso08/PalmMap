@@ -33,41 +33,41 @@ import { formatDistance } from '../utils/format';
 
 interface TransitSheetProps {
   /**
-   * Os gestos da barrinha do topo, para o painel poder ser encolhido.
+   * The gestures of the handle at the top, so the panel can be shrunk.
    *
-   * Vêm do `DraggableSheet` — ver lá porque é que ficam só na barra e não no
-   * painel inteiro.
+   * They come from `DraggableSheet` — see there why they live on the handle
+   * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
-  /** Paragens perto, já encontradas pelo `App`. */
+  /** Stops nearby, already found by `App`. */
   stops: TransitStop[];
-  /** Estações de comboio, metro, metro de superfície e barco perto. */
+  /** Train, metro, light-rail and boat stations nearby. */
   stations: TransitStation[];
   loading: boolean;
   error: string | null;
-  /** Está fora da área servida: não é erro, é falta de dados abertos. */
+  /** Outside the area served: not an error, a lack of open data. */
   outside: boolean;
-  /** Falta a permissão do GPS, ou ainda não há posição. */
+  /** No GPS permission, or no position yet. */
   semPosicao: boolean;
   onClose: () => void;
-  /** Traçar o percurso a pé até à paragem. */
+  /** Draw the walking route to the stop. */
   onGoToStop: (stop: TransitStop) => void;
   onSelectedStopChange: (stopId: string | null) => void;
-  /** A paragem escolhida no mapa, para a lista abrir a mesma. */
+  /** The stop chosen on the map, so the list opens the same one. */
   selectedStopId: string | null;
 }
 
-/** "agora" quando está a chegar, senão "4 min". */
+/** "now" when it is arriving, otherwise "4 min". */
 function formatWait(minutes: number): string {
   return minutes <= 0 ? t().transit.now : t().transit.inMinutes(minutes);
 }
 
 /**
- * Paragens perto de si, com a hora a que passa o próximo de cada linha.
+ * Stops nearby, with when the next of each line comes.
  *
- * A fonte é a Carris Metropolitana, que cobre a Área Metropolitana de Lisboa.
- * Fora dessa área não há horários abertos em Portugal — o painel diz isso em vez
- * de mostrar uma lista vazia.
+ * The source is Carris Metropolitana, which covers the Lisbon Metropolitan
+ * Area. Outside it there are no open timetables in Portugal — the panel says so
+ * instead of showing an empty list.
  */
 export function TransitSheet({
   stops,
@@ -88,11 +88,11 @@ export function TransitSheet({
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
   /**
-   * A paragem aberta vive no `App`, e não aqui, porque também se abre tocando no
-   * pino do mapa. Ter duas cópias do mesmo estado dava-as a divergir.
+   * The open stop lives in `App`, not here, because it also opens by tapping
+   * its pin on the map. Two copies of the same state would drift apart.
    *
-   * A lista das paragens também é de lá, pela mesma razão e por outra: os pinos
-   * têm de aparecer no mapa **sem** este painel estar aberto.
+   * The stop list lives there too, for the same reason and another: the pins
+   * have to show on the map **without** this panel open.
    */
   const openStop = selectedStopId;
   const setOpenStop = onSelectedStopChange;
@@ -101,12 +101,12 @@ export function TransitSheet({
   const [refreshing, setRefreshing] = useState(false);
 
   /**
-   * As passagens da paragem aberta.
+   * The open stop's arrivals.
    *
-   * `silencioso` serve para as atualizações automáticas não porem o indicador a
-   * rodar de trinta em trinta segundos — o painel ficaria sempre a piscar.
+   * `silencioso` keeps the automatic refreshes from spinning the indicator
+   * every thirty seconds — the panel would never stop flickering.
    */
-  /** Identifica o pedido mais recente, para ignorar respostas atrasadas. */
+  /** Marks the latest request, to ignore late answers. */
   const ultimoPedido = useRef(0);
 
   const carregarPassagens = useCallback(async (stopId: string, silencioso = false) => {
@@ -120,8 +120,8 @@ export function TransitSheet({
     setRefreshing(true);
     try {
       const horas = await arrivalsAt(stopId);
-      // Trocar de paragem enquanto a anterior estava na fila fazia as horas de
-      // uma aparecer por baixo do nome da outra.
+      // Switching stops while the previous one was queued put one stop's times
+      // under the other's name.
       if (ultimoPedido.current !== pedido) {
         return;
       }
@@ -139,12 +139,12 @@ export function TransitSheet({
   }, []);
 
   /**
-   * A estação aberta, e as horas dela.
+   * The open station, and its times.
    *
-   * Ao contrário das paragens de autocarro, isto não pede nada à Internet: lê o
-   * horário que está guardado no telemóvel, e por isso responde de imediato e
-   * funciona sem rede. O `temHorario` distingue as duas razões para não haver
-   * horas — não haver ficheiro, ou não passar lá nada nas próximas duas horas.
+   * Unlike bus stops, this asks the Internet for nothing: it reads the
+   * timetable kept on the phone, so it answers at once and works offline.
+   * `temHorario` tells apart the two reasons for having no times — no file, or
+   * nothing passing in the next two hours.
    */
   const [openStation, setOpenStation] = useState<string | null>(null);
   const [departures, setDepartures] = useState<ScheduleDeparture[]>([]);
@@ -162,8 +162,8 @@ export function TransitSheet({
     setDepartures(departuresNear(estacao.coordinates));
   }, []);
 
-  // Os minutos que faltam contam-se a partir do relógio, por isso têm de ser
-  // recontados de vez em quando — senão ficava a dizer "8 min" para sempre.
+  // The minutes left are counted from the clock, so they need recounting now
+  // and then — otherwise it would say "8 min" forever.
   useEffect(() => {
     if (!openStation) {
       return;
@@ -178,8 +178,8 @@ export function TransitSheet({
     return () => clearInterval(timer);
   }, [openStation]);
 
-  // Enquanto uma paragem está aberta, os minutos vão-se atualizando sozinhos.
-  // Sem isto, ficava a dizer "4 min" durante um quarto de hora.
+  // While a stop is open, the minutes keep themselves up to date. Without
+  // this it said "4 min" for a quarter of an hour.
   useEffect(() => {
     if (!openStop) {
       return;
@@ -249,8 +249,9 @@ export function TransitSheet({
                   </Text>
                   <Text style={styles.detalhe} numberOfLines={1}>
                     {/*
-                      A paragem diz-nos com que meios liga. É o que permite
-                      escrever "muda aqui para o comboio" sem cruzar coordenadas.
+                      The stop says which modes it connects with. That is what
+                      allows "change here for the train" without matching
+                      coordinates.
                     */}
                     {stop.connections
                       .map((c) => strings.transit.kinds[c as keyof typeof strings.transit.kinds])
@@ -298,9 +299,9 @@ export function TransitSheet({
                       <View style={styles.espera}>
                         <Text style={styles.esperaTexto}>{formatWait(a.minutes)}</Text>
                         {/*
-                          O ponto verde separa o tempo real do horário. Sem ele,
-                          "4 min" tanto podia ser o autocarro a chegar como uma
-                          previsão de papel — e a diferença é toda.
+                          The green dot tells real time from timetable. Without
+                          it, "4 min" could be the bus arriving or a paper
+                          forecast — and that is the whole difference.
                         */}
                         <Text style={styles.esperaHora}>
                           {a.live ? '● ' : ''}
@@ -339,12 +340,12 @@ export function TransitSheet({
           );
         })}
         {/*
-          As estações de comboio, metro, metro de superfície e barco.
+          Train, metro, light-rail and boat stations.
 
-          As localizações vêm sempre da API da Carris. **As horas só aparecem se
-          o horário desse operador estiver descarregado** — vêm do GTFS estático
-          convertido, guardado no telemóvel. Sem ele, mostra-se a estação e
-          diz-se porque é que não há horas, em vez de uma lista vazia.
+          The locations always come from the Carris API. **Times only show if
+          that operator's timetable is downloaded** — they come from the
+          converted static GTFS kept on the phone. Without it, the station shows
+          with the reason there are no times, instead of an empty list.
         */}
         {stations.length > 0 ? (
           <>
@@ -405,9 +406,9 @@ export function TransitSheet({
                       ))}
 
                       {/*
-                        Dizer sempre que isto é o horário e não o comboio. Os
-                        autocarros aqui em cima levam ponto verde porque são
-                        tempo real; estes não, e a diferença é toda.
+                        Always say this is the timetable and not the train. The
+                        buses above get a green dot because they are real time;
+                        these do not, and that is the whole difference.
                       */}
                       {departures.length > 0 ? (
                         <Text style={styles.aviso}>
@@ -437,9 +438,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       paddingHorizontal: 20,
       paddingTop: 10,
       paddingBottom: insets.bottom + 20,
-      // Em pontos e não em percentagem: o painel está posicionado em absoluto,
-      // e nesse caso o pai não tem altura definida contra a qual uma
-      // percentagem se possa medir.
+      // In points, not a percentage: the panel is absolutely positioned, and
+      // then the parent has no defined height to measure a percentage against.
       maxHeight: Dimensions.get('window').height * 0.72,
       elevation: 12,
       shadowColor: '#000000',
@@ -448,8 +448,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       shadowOffset: { width: 0, height: -3 },
     },
     handleZone: {
-      // Área de toque generosa à volta da barrinha: o alvo visível tem 4 pontos
-      // de altura e ninguém acerta nisso com o polegar.
+      // A generous touch area around the handle: the visible target is 4 points
+      // tall and nobody hits that with a thumb.
       alignItems: 'center',
       paddingTop: 10,
       marginTop: -10,
