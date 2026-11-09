@@ -21,6 +21,8 @@ export interface OverpassElement {
   lon?: number;
   center?: { lat: number; lon: number };
   tags?: Record<string, string>;
+  /** The line of a way, only with `out geom`. */
+  geometry?: { lat: number; lon: number }[];
 }
 
 export interface OverpassResponse {

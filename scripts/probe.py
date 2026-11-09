@@ -313,6 +313,69 @@ def osrm():
                       json.dumps(st["intersections"][0]["lanes"]))
 
 
+def limits():
+    """The app's speed-limit query (speedLimits.ts) against real Overpass."""
+    import math
+    import urllib.parse
+    section("SPEED LIMITS via Overpass")
+    url = ("https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+           "-9.2017,38.6480;-9.1500,38.7253?overview=full&geometries=geojson")
+    _, _, body = get(url)
+    pts = [(lat, lon) for lon, lat in json.loads(body)["routes"][0]["geometry"]["coordinates"]]
+
+    def dist(a, b):
+        k = math.cos(math.radians(a[0]))
+        return math.hypot((a[0] - b[0]) * 111320, (a[1] - b[1]) * 111320 * k)
+
+    thin, since = [pts[0]], 0
+    for i in range(1, len(pts)):
+        since += dist(pts[i - 1], pts[i])
+        if since >= 100:
+            thin.append(pts[i]); since = 0
+    thin.append(pts[-1])
+    line = ",".join(f"{a:.5f},{b:.5f}" for a, b in thin)
+    q = f'[out:json][timeout:25];\nway(around:25,{line})["highway"]["maxspeed"];\nout tags geom;'
+    print("route points", len(pts), "thinned", len(thin), "query bytes", len(q))
+    for server in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+        data = urllib.parse.urlencode({"data": q}).encode()
+        req = urllib.request.Request(server, data=data, headers={"User-Agent": UA})
+        t0 = time.time()
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                res = json.loads(r.read())
+        except Exception as e:  # noqa: BLE001
+            print(server, "FAILED", e); continue
+        ways = res.get("elements", [])
+        print(server, "ways", len(ways), "remark", res.get("remark"), f"{time.time() - t0:.1f}s")
+        segs = []
+        for w in ways:
+            g = w.get("geometry") or []
+            for i in range(1, len(g)):
+                segs.append(((g[i-1]["lat"], g[i-1]["lon"]), (g[i]["lat"], g[i]["lon"]), w["tags"].get("maxspeed"), w["tags"].get("name") or w["tags"].get("ref")))
+        def seg_d(p, a, b):
+            k = math.cos(math.radians(p[0]))
+            ax, ay = (a[1]-p[1])*k, a[0]-p[0]; bx, by = (b[1]-p[1])*k, b[0]-p[0]
+            dx, dy = bx-ax, by-ay; L = dx*dx+dy*dy
+            t = max(0, min(1, -(ax*dx+ay*dy)/L)) if L else 0
+            return math.hypot(ax+t*dx, ay+t*dy)*111320
+        matched, last = 0, None
+        for i, p in enumerate(pts):
+            best, lim = 25, None
+            for a, b, m, n in segs:
+                if abs(a[0]-p[0]) > 0.002 and abs(b[0]-p[0]) > 0.002:
+                    continue
+                d = seg_d(p, a, b)
+                if d < best:
+                    best, lim = d, (m, n)
+            if lim:
+                matched += 1
+                if lim != last:
+                    print(f"   from point {i}: {lim[0]} on {lim[1]}")
+                    last = lim
+        print("  matched", matched, "of", len(pts))
+        break
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")

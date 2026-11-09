@@ -10,7 +10,7 @@ import {
 } from './config';
 import { createRateLimiter } from './rateLimit';
 import type { Coordinates, Route, RouteStep } from '../types/geo';
-import type { OsrmMaxspeed, OsrmRouteResponse, OsrmStep } from '../types/osrm';
+import type { OsrmRouteResponse, OsrmStep } from '../types/osrm';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
 
 const client = axios.create({
@@ -55,19 +55,19 @@ function toRouteStep(step: OsrmStep): RouteStep {
     distanceMeters: step.distance,
     location: { latitude, longitude },
     announce: worthAnnouncing(step),
-    lanes: step.intersections?.[0]?.lanes?.map((lane) => ({
-      indications: Array.isArray(lane.indications) ? lane.indications : [],
-      valid: Boolean(lane.valid),
-    })),
+    // Confirmed against the real server: the A2 exit to Lisbon comes with four
+    // lanes, the two on the right valid.
+    lanes: step.intersections?.[0]?.lanes?.map((lane) => {
+      const indications = Array.isArray(lane.indications) ? lane.indications : [];
+      // A lane painted "straight;right" shows the arrow the route uses.
+      const modifier = step.maneuver.modifier;
+      const shown =
+        lane.valid && modifier && indications.includes(modifier)
+          ? modifier
+          : (indications[0] ?? 'straight');
+      return { indications, valid: Boolean(lane.valid), shown };
+    }),
   };
-}
-
-/** OSRM's per-segment limit to km/h, or `null` when there is none to show. */
-function limitKmh(value: OsrmMaxspeed | undefined): number | null {
-  if (!value || typeof value.speed !== 'number' || value.speed <= 0) {
-    return null;
-  }
-  return value.unit === 'mph' ? Math.round(value.speed * 1.609) : Math.round(value.speed);
 }
 
 /** Durations already asked for, by mode and end points: the chips ask often. */
@@ -141,7 +141,6 @@ export async function getRoutes(
   to: Coordinates,
   profile: 'driving' | 'walking' | 'cycling' = 'driving',
   avoidTolls = false,
-  withLimits = true,
 ): Promise<Route[]> {
   // OSRM expects the coordinates in this order: longitude,latitude.
   const points = [from, ...via, to];
@@ -167,13 +166,6 @@ export async function getRoutes(
     params.exclude = 'toll';
   }
 
-  if (withLimits && profile === 'driving') {
-    // The speed limit of each segment, for the sign next to the speedometer.
-    // **Not every server can give it** — an unknown annotation is an error, and
-    // then the request is repeated without it: the route matters more.
-    params.annotations = 'maxspeed';
-  }
-
   let response;
   try {
     const base = OSRM_ENDPOINTS[profile];
@@ -194,17 +186,11 @@ export async function getRoutes(
     throw new RouteError(t().errors.routeFailed);
   }
 
-  if (params.annotations && response.data.code !== 'Ok') {
-    // Perhaps this server has no speed limits. Ask again without them first,
-    // keeping everything else as it was.
-    return getRoutes(from, via, to, profile, avoidTolls, false);
-  }
-
   if (params.exclude && response.data.code !== 'Ok') {
     // This server cannot exclude tolls. Ask again without it: a route with
     // tolls beats no route at all, and the caller finds out through
     // `avoidedTolls`.
-    return getRoutes(from, via, to, profile, false, withLimits);
+    return getRoutes(from, via, to, profile, false);
   }
 
   const { code, routes, message, waypoints } = response.data;
@@ -236,11 +222,5 @@ export async function getRoutes(
     // True only when the server really accepted avoiding tolls. It lets the
     // panel tell the truth instead of promising what it did not do.
     avoidedTolls: Boolean(params.exclude),
-    // The legs' segments put end to end are the route's segments: each leg
-    // ends on the point where the next begins, and OSRM's full overview joins
-    // them the same way.
-    maxspeeds: route.legs.every((leg) => Array.isArray(leg.annotation?.maxspeed))
-      ? route.legs.flatMap((leg) => leg.annotation!.maxspeed!.map(limitKmh))
-      : undefined,
   }));
 }

@@ -485,6 +485,18 @@ export const SPEED_OVER_LIMIT_KMH = 5;
 /** The spoken over-the-limit warning is said at most once in this long. */
 export const LIMIT_WARNING_EVERY_MS = 60000;
 
+/** How much of the route each speed-limit request to Overpass covers. */
+export const LIMITS_WINDOW_M = 80000;
+
+/** How far from the route a way may be and still be the road being driven. */
+export const LIMITS_MATCH_M = 25;
+
+/** The next window of limits is asked for when this little is left of the current one. */
+export const LIMITS_REFETCH_M = 10000;
+
+/** After a failed limits request, wait this long before asking again. */
+export const LIMITS_RETRY_MS = 120000;
+
 /**
  * Cycling speed, in metres per second. It is 12.5 km/h.
  *

@@ -54,23 +54,8 @@ export interface OsrmStep {
   duration: number;
 }
 
-/**
- * The speed limit of one segment, with `annotations=maxspeed`: a number with
- * its unit, or `unknown` (not marked in OSM), or `none` (no limit at all).
- */
-export interface OsrmMaxspeed {
-  speed?: number;
-  unit?: string;
-  unknown?: boolean;
-  none?: boolean;
-}
-
 export interface OsrmLeg {
   steps: OsrmStep[];
-  /** Per-segment data, only when `annotations` is requested. */
-  annotation?: {
-    maxspeed?: OsrmMaxspeed[];
-  };
   /**
    * The names of the main roads of the leg ("A2, IC20"), chosen by OSRM. Only
    * filled in when `steps=true` is requested, and may be empty.

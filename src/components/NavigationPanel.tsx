@@ -65,13 +65,11 @@ interface NavigationPanelProps {
 const LANES_SHOW_METERS = 1500;
 
 /**
- * The arrow for a lane. A lane may have several arrows painted ("left;straight");
- * the one shown is the one the route uses when it is valid, otherwise the first.
+ * The arrow for a lane — `shown`, picked in `osrm.ts`: of the arrows painted
+ * on it, the one the route uses.
  */
 function laneIcon(lane: Lane): string {
-  const words = lane.indications.length > 0 ? lane.indications : ["straight"];
-  const word = words[0];
-  switch (word) {
+  switch (lane.shown) {
     case "left":
       return "arrow-left-top-bold";
     case "right":

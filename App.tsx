@@ -59,6 +59,8 @@ import {
   CATEGORY_MIN_ZOOM,
   DOUBLE_TAP_MS,
   KEEP_AWAKE_TAG,
+  LIMITS_REFETCH_M,
+  LIMITS_RETRY_MS,
   LIMIT_WARNING_EVERY_MS,
   SPEED_OVER_LIMIT_KMH,
   THEN_MAX_METERS,
@@ -136,6 +138,7 @@ import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { speak, stopSpeaking } from './src/utils/voice';
+import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 
 // **Antes de tudo o resto.** Um erro que aconteça a carregar os módulos abaixo
 // já tem quem o escreva — e é precisamente aí que um erro não tem mais nenhuma
@@ -373,6 +376,10 @@ function PalmMap() {
   const [roadLimit, setRoadLimit] = useState<number | null>(null);
   /** When the over-the-limit warning was last spoken, so it does not nag. */
   const lastLimitWarning = useRef(0);
+  /** The speed-limit window for the route being driven — see `speedLimitsAhead`. */
+  const limitsRef = useRef<{ route: Route; win: LimitsWindow } | null>(null);
+  const limitsBusy = useRef(false);
+  const limitsFailedAt = useRef(0);
   /**
    * Vai-se a andar depressa o suficiente para isto ser um carro.
    *
@@ -1466,13 +1473,35 @@ function PalmMap() {
           const then = ahead >= 0 ? route.steps[ahead + 1] : undefined;
           setThenStep(then && step && step.distanceMeters <= THEN_MAX_METERS ? then : null);
           setDistanceToStep(toStep);
-          // The limit of the road under the car: the segment that starts at the
-          // nearest point of the line (OSM maxspeed, through OSRM).
-          const limites = route.maxspeeds;
-          const limite = limites && limites.length > 0
-            ? (limites[Math.min(index, limites.length - 1)] ?? null)
-            : null;
+          // The limit of the road under the car (OSM maxspeed, from Overpass —
+          // see `speedLimitsAhead`). Asked a window at a time: the first when
+          // the trip starts, the next when the car is near the end of it.
+          const janela = limitsRef.current?.route === route ? limitsRef.current.win : null;
+          const limite = janela?.byIndex.get(index) ?? null;
           setRoadLimit((atual) => (atual === limite ? atual : limite));
+          const precisa =
+            settings.speedLimitAlerts &&
+            settings.travelMode === 'driving' &&
+            !limitsBusy.current &&
+            Date.now() - limitsFailedAt.current > LIMITS_RETRY_MS &&
+            (!janela ||
+              (janela.untilIndex < route.coordinates.length - 1 &&
+                distanceAlong(route.coordinates, index, janela.untilIndex) < LIMITS_REFETCH_M));
+          if (precisa) {
+            limitsBusy.current = true;
+            const pedido = route;
+            void speedLimitsAhead(route.coordinates, index)
+              .then((win) => {
+                limitsRef.current = { route: pedido, win };
+              })
+              .catch(() => {
+                // Without limits navigation goes on as before; try again later.
+                limitsFailedAt.current = Date.now();
+              })
+              .finally(() => {
+                limitsBusy.current = false;
+              });
+          }
           setRemaining({
             meters: remainingMeters,
             seconds:

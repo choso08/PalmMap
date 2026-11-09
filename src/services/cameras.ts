@@ -77,7 +77,7 @@ function kindOf(tags: Record<string, string>): CameraKind {
 }
 
 /** The limit in km/h, when it is tagged and really is a number. */
-function maxspeedOf(tags: Record<string, string>): number | null {
+export function maxspeedOf(tags: Record<string, string>): number | null {
   const raw = tags.maxspeed ?? tags['maxspeed:forward'] ?? tags['maxspeed:backward'];
   if (!raw) {
     return null;

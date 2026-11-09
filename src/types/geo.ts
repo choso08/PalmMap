@@ -76,6 +76,8 @@ export interface Lane {
   /** OSRM's words: 'left', 'slight right', 'straight', 'uturn', 'none'… */
   indications: string[];
   valid: boolean;
+  /** The arrow to draw: the one the route takes when the lane suits it. */
+  shown: string;
 }
 
 /** A route already processed, ready to draw on the map. */
@@ -111,10 +113,4 @@ export interface Route {
    * done.
    */
   avoidedTolls: boolean;
-  /**
-   * The speed limit of each segment of `coordinates` (segment i joins point i
-   * and i+1), in km/h, from OSM's `maxspeed`. `null` where it is not marked, or
-   * where there is no limit. Absent when the server could not give them.
-   */
-  maxspeeds?: (number | null)[];
 }
