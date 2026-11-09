@@ -32,6 +32,7 @@ Usage: build-pois.py <export.geojsonseq> <bbox w,s,e,n> <out.pois>
 import datetime
 import json
 import math
+import re
 import sys
 
 GRID = 0.02
@@ -100,7 +101,14 @@ def main():
                 continue
             tags = feature.get("properties") or {}
             name = tags.get("name")
+            # Mobi.E charging points are named by their code ("ALM-90010");
+            # the brand is what people recognise.
+            if name and (name == tags.get("ref") or re.match(r"^[A-Z]{2,5}[-.]\d+$", name)):
+                name = tags.get("brand") or tags.get("operator") or name
             if not name:
+                continue
+            # Trail signposts and boards ("TB.442") are not places to look for.
+            if tags.get("tourism") == "information" and tags.get("information") != "office":
                 continue
             main_kv = next(((k, tags[k]) for k in MAIN_KEYS if k in tags), None)
             if not main_kv or main_kv in SKIP or closed(tags):

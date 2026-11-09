@@ -89,7 +89,6 @@ export const en: typeof pt = {
     mapPoint: 'Point on the map',
     voice: 'Search by voice',
     voicePrompt: 'Say where you want to go',
-    voiceUnavailable: 'This phone has no speech recognition.',
   },
 
   categories: {

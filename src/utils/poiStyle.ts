@@ -78,7 +78,7 @@ const BY_VALUE: Record<string, [string, PoiFamily]> = {
   camp_site: ['bed', 'lodging'],
 
   fuel: ['gas-station', 'service'],
-  charging_station: ['gas-station', 'service'],
+  charging_station: ['ev-station', 'service'],
   bank: ['cash', 'service'],
   atm: ['cash', 'service'],
   bureau_de_change: ['cash', 'service'],
@@ -98,10 +98,10 @@ const BY_VALUE: Record<string, [string, PoiFamily]> = {
   park: ['tree', 'leisure'],
   fitness_centre: ['tree', 'leisure'],
   sports_centre: ['tree', 'leisure'],
-  school: ['camera', 'leisure'],
-  college: ['camera', 'leisure'],
-  university: ['camera', 'leisure'],
-  library: ['camera', 'leisure'],
+  school: ['school', 'leisure'],
+  college: ['school', 'leisure'],
+  university: ['school', 'leisure'],
+  library: ['school', 'leisure'],
 };
 
 /** When the value is not known, the key (or tile class) still says the family. */

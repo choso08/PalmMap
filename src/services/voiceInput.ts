@@ -1,6 +1,26 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 import { activeLanguage, speechTag, t } from '../i18n';
+
+/** Set once the phone showed it has no speech recogniser. */
+const NO_VOICE_KEY = 'palmmap.semReconhecimentoVoz';
+
+/**
+ * Whether to offer the microphone at all.
+ *
+ * Android gives JavaScript no way to ask "is there a recogniser?" without a
+ * new native library, so the answer is learnt: the first time the screen fails
+ * to open, it is written down and the microphone never shows again on that
+ * phone. Practically every Android phone has one (the Google app's).
+ */
+export async function voiceAvailable(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(NO_VOICE_KEY)) !== '1';
+  } catch {
+    return true;
+  }
+}
 
 /** Thrown when the phone has no speech recogniser at all. */
 export class VoiceUnavailableError extends Error {}
@@ -31,7 +51,8 @@ export async function listenOnce(): Promise<string | null> {
     });
   } catch {
     // ActivityNotFoundException: no recogniser installed.
-    throw new VoiceUnavailableError(t().search.voiceUnavailable);
+    await AsyncStorage.setItem(NO_VOICE_KEY, '1').catch(() => undefined);
+    throw new VoiceUnavailableError('no speech recogniser');
   }
   if (result.resultCode !== IntentLauncher.ResultCode.Success) {
     return null;

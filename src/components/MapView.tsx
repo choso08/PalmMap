@@ -81,6 +81,9 @@ const TILE_POI_FILTER = [
       ['literal', ['bus', 'railway', 'aerialway', 'ferry_terminal', 'entrance', 'tram']],
     ],
   ],
+  // Trail signposts and boards ("TB.442") — spam on the map, as the author saw.
+  ['!=', ['coalesce', ['get', 'subclass'], ''], 'information'],
+  ['!=', ['coalesce', ['get', 'class'], ''], 'information'],
 ] as unknown as FilterSpecification;
 
 interface MapViewProps {
@@ -663,7 +666,15 @@ export function MapView({
           'symbol-sort-key': o.priority as never,
           ...(labelsReady
             ? {
-                'text-field': ['step', ['zoom'], '', o.labelMinZoom, ['get', 'name']] as never,
+                // Charging points in the tiles are named by their Mobi.E code
+                // ("ALM-00112"); the icon says enough, and the card shows the brand.
+                'text-field': [
+                  'step',
+                  ['zoom'],
+                  '',
+                  o.labelMinZoom,
+                  ['case', ['==', ['get', 'subclass'], 'charging_station'], '', ['get', 'name']],
+                ] as never,
                 'text-font': ['Noto Sans Medium'],
                 'text-size': 11.5,
                 'text-anchor': 'top',

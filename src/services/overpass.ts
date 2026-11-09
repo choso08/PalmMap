@@ -155,12 +155,31 @@ function tagFilter(key: string, values: string[] | null): string {
   return `[${key}~"^(${values.join('|')})$"]`;
 }
 
+/**
+ * The name to show. Mobi.E charging points carry their code as the name
+ * ("ALM-90010", the same as `ref`); the brand ("Galp electric") is what people
+ * recognise, as Google shows it.
+ */
+export function displayName(tags: Record<string, string>): string | undefined {
+  const name = tags.name;
+  const isCode = !!name && (name === tags.ref || /^[A-Z]{2,5}[-.]\d+$/.test(name));
+  if (!name || isCode) {
+    return tags.brand ?? tags.operator ?? name;
+  }
+  return name;
+}
+
 /** Converts an Overpass element into the format the app uses. */
 function toPlace(element: OverpassElement): Place | null {
   const tags = element.tags ?? {};
 
+  // Signposts and boards along trails ("TB.442") are not places anyone looks for.
+  if (tags.tourism === 'information' && tags.information !== 'office') {
+    return null;
+  }
+
   // Without a name it is not worth showing: it would be an anonymous pin on the map.
-  const name = tags.name;
+  const name = displayName(tags);
   if (!name) {
     return null;
   }

@@ -686,6 +686,12 @@ com o ícone da família lá dentro.
   ícone, sem sobreposições. Quando dois ícones colidem, o mapa fica com o mais importante
   (`symbol-sort-key`: comida e saúde primeiro) e o outro fica ponto. Aproximar abre espaço e os
   pontos passam a ícones sozinhos. O nome é opcional — o ícone fica mesmo sem espaço para ele.
+- **Lixo que se tira** (fotografia do autor, novembro de 2026): os postes de trilho (`tourism=information`
+  que não seja `information=office` — "TB.442", "TB.444"… em Monsanto/Restelo, sondado) saem das três
+  fontes. Os carregadores da Mobi.E têm o código no `name` ("ALM-90010", igual ao `ref`): na ficha e
+  no ficheiro do país mostra-se a **marca** (`displayName`, em `overpass.ts`); nos tiles, que não
+  trazem a marca, o carregador fica só com o ícone (raio, `ev-station`). Escolas e universidades
+  passaram a ter um capelo em vez da máquina fotográfica.
 - Validado contra a especificação do MapLibre e com todas as imagens presentes; **o aspeto no
   telemóvel ainda não foi visto**.
 

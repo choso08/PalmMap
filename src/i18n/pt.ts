@@ -107,7 +107,6 @@ export const pt = {
     mapPoint: 'Ponto no mapa',
     voice: 'Pesquisar por voz',
     voicePrompt: 'Diga para onde quer ir',
-    voiceUnavailable: 'Este telemóvel não tem reconhecimento de voz.',
   },
 
   /** The category buttons, and the name of what is found at each pin. */

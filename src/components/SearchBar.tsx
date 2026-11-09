@@ -15,7 +15,7 @@ import {
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { isSamePlace } from '../services/favourites';
 import { searchPlaces } from '../services/nominatim';
-import { listenOnce } from '../services/voiceInput';
+import { listenOnce, voiceAvailable } from '../services/voiceInput';
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Bounds, Place } from '../types/geo';
@@ -86,6 +86,11 @@ export function SearchBar({
   const [results, setResults] = useState<Place[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Hidden until known, and for good on a phone without speech recognition. */
+  const [hasVoice, setHasVoice] = useState(false);
+  useEffect(() => {
+    void voiceAvailable().then(setHasVoice);
+  }, []);
 
   /** Identifica a pesquisa mais recente, para ignorar respostas atrasadas. */
   const latestSearch = useRef(0);
@@ -163,9 +168,9 @@ export function SearchBar({
         setQuery(heard);
         void runSearch(heard);
       }
-    } catch (err) {
-      setFocused(true);
-      setError(err instanceof Error ? err.message : t().search.voiceUnavailable);
+    } catch {
+      // No recogniser on this phone: the microphone goes, and stays gone.
+      setHasVoice(false);
     }
   };
 
@@ -261,7 +266,7 @@ export function SearchBar({
         ) : null}
 
         {/* Search by voice, when the box is empty. */}
-        {query.length === 0 && !loading ? (
+        {hasVoice && query.length === 0 && !loading ? (
           <Pressable
             onPress={() => void handleVoice()}
             hitSlop={10}
