@@ -74,8 +74,9 @@ telemóvel ainda:
 - **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
   outros. Partes antigas deste ficheiro ainda dizem o contrário.
 
-**A tradução para inglês está a meio** (serviços, tipos, utilitários e alguns componentes já em
-inglês; o `App.tsx`, o `MapView.tsx`, o resto dos componentes, os scripts e este ficheiro ainda não).
+**A tradução para inglês está a meio** (serviços, tipos, utilitários, `settings.tsx` e todos os
+componentes menos o `MapView.tsx` já em inglês; o `App.tsx`, o `MapView.tsx`, os scripts, o
+README e este ficheiro ainda não).
 
 ## Objetivo do projeto
 
