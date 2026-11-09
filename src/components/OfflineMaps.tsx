@@ -139,9 +139,13 @@ export function OfflineMaps() {
       .toLowerCase();
 
   const procurado = simplificar(filtro.trim());
-  const visiveis = procurado
-    ? regions.filter((r) => simplificar(r.nome).includes(procurado))
-    : regions;
+  // Alphabetical: with dozens of countries, the manifest's order (the order
+  // they happened to be generated in) made a country hard to find.
+  const visiveis = (
+    procurado ? regions.filter((r) => simplificar(r.nome).includes(procurado)) : regions
+  )
+    .slice()
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
 
   return (
     <View>
