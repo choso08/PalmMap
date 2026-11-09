@@ -492,6 +492,21 @@ def gtfs_feeds():
             print("routes:", len(r) - 1, r[:6])
 
 
+def bike_way():
+    """OSM tags of Rua 28 de Setembro (Trafaria), which the bike route took."""
+    import urllib.parse
+    q = """[out:json][timeout:60];
+    way["name"~"28 de Setembro"](38.655,-9.27,38.69,-9.20);
+    out tags center;"""
+    for base in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+        status, _, body = get(base + "?data=" + urllib.parse.quote(q), timeout=90)
+        print(base, status)
+        if status == 200:
+            for el in json.loads(body).get("elements", []):
+                print(el["id"], el.get("center"), json.dumps(el.get("tags"), ensure_ascii=False))
+            break
+
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
