@@ -227,6 +227,12 @@ export const VEHICLES_MIN_ZOOM = 12;
 export const STOPS_MAP_MIN_ZOOM = 15;
 
 /**
+ * The navigation banner shows the manoeuvre after the next one ("Then") only
+ * when the two are at most this far apart — a roundabout straight after a turn.
+ */
+export const THEN_MAX_METERS = 400;
+
+/**
  * Minimum interval between requests to Overpass.
  * It is a shared service and heavy to run — it pays to be generous here.
  */

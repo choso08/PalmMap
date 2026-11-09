@@ -202,6 +202,9 @@ export const pt = {
     following: 'A seguir o percurso…',
     toDestination: 'até ao destino',
     finish: 'Terminar',
+    then: 'Depois',
+    recenter: 'Recentrar',
+    overview: 'Ver o percurso',
     arrived: 'Chegou ao destino.',
     /**
      * What the voice says, which **is not** what is written on screen.

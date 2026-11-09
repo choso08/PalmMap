@@ -70,8 +70,7 @@ telemóvel ainda:
   categoria (`LayersSheet`: tipo de mapa com miniaturas, negócios no mapa, autocarros ao vivo e a
   fita métrica — a régua saiu do mapa); ecrã de Guardados (`SavedSheet`); e a pesquisa ocupa o
   ecrã inteiro enquanto está em uso. As alturas dos botões flutuantes continuam todas no
-  `App.tsx` (`compassBottom`, `TAB_BAR_HEIGHT`). Fases seguintes por fazer: ficha do sítio
-  ("Aberto · Fecha às…", fila de botões), Direções com o tempo de cada meio, navegação.
+  `App.tsx` (`compassBottom`, `TAB_BAR_HEIGHT`). As quatro fases estão feitas (ficha do sítio, Direções e navegação: ver 6-0-A, 6-0-B e 6-0-C).
 - **O São Tomé já não vem dentro da aplicação** (o `assets/mapas/` não existe); descarrega-se como os
   outros. Partes antigas deste ficheiro ainda dizem o contrário.
 
@@ -716,6 +715,24 @@ O painel do percurso (`RoutePanel.tsx`):
   ("por A2, IC20", do `summary` das pernas do OSRM). O mais rápido leva "Mais rápido", seja qual
   for a ordem do OSRM.
 - **Iniciar e Passos lado a lado**, como dois botões, em vez de um por baixo do outro.
+
+**Ainda não visto no telemóvel.**
+
+### 6-0-C. Navegação (fase 4 da imitação do Google Maps)
+
+`NavigationPanel.tsx`, com a barra da manobra em cima e um rodapé novo:
+
+- **"Depois"**: uma aba pendurada por baixo da barra com o ícone da manobra a seguir à próxima, só
+  quando as duas estão a menos de `THEN_MAX_METERS` (400 m) — uma rotunda logo a seguir a uma
+  viragem. A barra, o "Depois" e o aviso do radar estão numa coluna só, para se empilharem
+  sozinhos qualquer que seja a altura do texto.
+- **Rodapé à maneira do Maps**: terminar (X vermelho) à esquerda; ao meio o tempo que falta em
+  grande e a verde (`theme.open`), com a distância e a **hora de chegada** por baixo; à direita
+  **ver o percurso inteiro** (`overview()` no `MapView`, que larga o seguimento e enquadra o que
+  falta).
+- **"Recentrar"** aparece quando a câmara largou o carro — arrastar o mapa ou ver o percurso — no
+  sítio onde estava o botão do GPS, que a navegar já não aparece (`navCameraFree`, no `App.tsx`;
+  quem avisa da queda é o `onTrackUserLocationChange`, como fora da navegação).
 
 **Ainda não visto no telemóvel.**
 

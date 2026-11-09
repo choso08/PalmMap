@@ -200,6 +200,8 @@ export interface MapViewRef {
   recenter: (coordinates: Coordinates) => void;
   /** Volta a prender a câmara ao carro, durante a navegação. */
   followAgain: () => void;
+  /** During navigation: let go of the car and frame what is left of the route. */
+  overview: () => void;
 }
 
 /** Ponto de partida da câmara quando ainda não se sabe onde a pessoa está. */
@@ -275,6 +277,13 @@ export function MapView({
    * não mudou. Recriar a câmara volta a prendê-la à posição.
    */
   const [followNonce, setFollowNonce] = useState(0);
+  /** Navigation overview: the camera stops following so the route can be framed. */
+  const [overviewing, setOverviewing] = useState(false);
+  useEffect(() => {
+    if (!following) {
+      setOverviewing(false);
+    }
+  }, [following]);
 
   /**
    * Se há mesmo Internet a chegar ao telemóvel.
@@ -361,7 +370,21 @@ export function MapView({
         duration: 700,
       });
     },
-    followAgain: () => setFollowNonce((n) => n + 1),
+    followAgain: () => {
+      setOverviewing(false);
+      setFollowNonce((n) => n + 1);
+    },
+    overview: () => {
+      if (!route || route.coordinates.length < 2) {
+        return;
+      }
+      setOverviewing(true);
+      const area = boundsOf(route.coordinates.slice(Math.max(0, progressIndex ?? 0)));
+      cameraRef.current?.fitBounds([area.west, area.south, area.east, area.north], {
+        padding: { top: 200, right: 50, bottom: 200, left: 50 },
+        duration: 600,
+      });
+    },
   }));
 
   /**
@@ -698,7 +721,9 @@ export function MapView({
         // do Maps. O 'default' acompanha a pessoa sem lhe virar o mapa — é o que
         // se liga com dois toques no botão do GPS. Sem nenhum dos dois, a câmara
         // fica livre.
-        trackUserLocation={following ? 'course' : followUser ? 'default' : undefined}
+        trackUserLocation={
+          following && !overviewing ? 'course' : followUser && !following ? 'default' : undefined
+        }
         onTrackUserLocationChange={handleTrackChange}
         initialViewState={{
           center: userLocation

@@ -44,6 +44,8 @@ export interface Theme {
   placeholder: string;
   /** Accent colour: buttons, route, links. */
   accent: string;
+  /** A darker accent, for the navigation "Then" tab under the banner. */
+  accentDeep: string;
   /** Text on top of the accent colour. */
   onAccent: string;
   /** Separator lines. */
@@ -96,6 +98,7 @@ export const light: Theme = {
   textMuted: '#5F7079',
   placeholder: '#97A6AD',
   accent: '#D9634A',
+  accentDeep: '#A8442F',
   onAccent: '#FFFFFF',
   border: '#E3D8C8',
   danger: '#A8341F',
@@ -126,6 +129,7 @@ export const dark: Theme = {
   placeholder: '#6C7D87',
   // Lighter coral: the daytime one got lost against the deep water.
   accent: '#F2846B',
+  accentDeep: '#B8553F',
   onAccent: '#0B1319',
   border: '#25384A',
   danger: '#F08A72',

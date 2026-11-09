@@ -59,6 +59,7 @@ import {
   CATEGORY_MIN_ZOOM,
   DOUBLE_TAP_MS,
   KEEP_AWAKE_TAG,
+  THEN_MAX_METERS,
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
   STOPS_MAP_MIN_ZOOM,
@@ -353,6 +354,10 @@ function PalmMap() {
   const [navigating, setNavigating] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [nextStep, setNextStep] = useState<RouteStep | null>(null);
+  /** The manoeuvre after the next one, shown as "Then" when the two are close. */
+  const [thenStep, setThenStep] = useState<RouteStep | null>(null);
+  /** The camera has let go of the car during navigation (dragged, or overview). */
+  const [navCameraFree, setNavCameraFree] = useState(false);
   const [distanceToStep, setDistanceToStep] = useState(0);
   const [remaining, setRemaining] = useState({ meters: 0, seconds: 0 });
   /**
@@ -1450,6 +1455,10 @@ function PalmMap() {
           }
 
           setNextStep(step ?? null);
+          // "Then" only when the next two manoeuvres come close together, as in
+          // the Maps: otherwise it is a second instruction to read for nothing.
+          const then = ahead >= 0 ? route.steps[ahead + 1] : undefined;
+          setThenStep(then && step && step.distanceMeters <= THEN_MAX_METERS ? then : null);
           setDistanceToStep(toStep);
           setRemaining({
             meters: remainingMeters,
@@ -1674,12 +1683,15 @@ function PalmMap() {
       });
     }
 
+    setNavCameraFree(false);
     setNavigating(true);
   }, [route]);
 
   const handleStopNavigation = useCallback(() => {
     setNavigating(false);
     setNextStep(null);
+    setThenStep(null);
+    setNavCameraFree(false);
     setRecalculating(false);
     stopSpeaking();
   }, []);
@@ -1704,6 +1716,7 @@ function PalmMap() {
     // depois de se ter arrastado o mapa para espreitar o que vem a seguir.
     if (navigating) {
       mapRef.current?.followAgain();
+      setNavCameraFree(false);
       return;
     }
 
@@ -1985,7 +1998,12 @@ function PalmMap() {
         onTapEmpty={handleTapEmpty}
         following={navigating}
         followUser={followUser}
-        onFollowUserChange={setFollowUser}
+        onFollowUserChange={(seguir) => {
+          setFollowUser(seguir);
+          if (!seguir && navigating) {
+            setNavCameraFree(true);
+          }
+        }}
         progressIndex={progressIndex}
         cameras={cameras}
         measurePoints={measuring ? measurePoints : []}
@@ -2208,7 +2226,7 @@ function PalmMap() {
         manda o GPS procurar. Só desaparece se a permissão tiver sido recusada,
         porque aí não há nada que ele possa fazer.
       */}
-      {!locationDenied ? (
+      {!locationDenied && !navigating ? (
         <Pressable
           style={({ pressed }) => [
             styles.locateButton,
@@ -2248,6 +2266,13 @@ function PalmMap() {
       {navigating ? (
         <NavigationPanel
           step={nextStep}
+          thenStep={thenStep}
+          cameraFree={navCameraFree}
+          onRecenter={handleLocatePress}
+          onOverview={() => {
+            mapRef.current?.overview();
+            setNavCameraFree(true);
+          }}
           distanceToStep={distanceToStep}
           remainingMeters={remaining.meters}
           remainingSeconds={remaining.seconds}
