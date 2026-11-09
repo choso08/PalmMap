@@ -447,7 +447,7 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 ### 3. O logo
 
 - O logo é **uma palmeira — tronco castanho, folhas verdes — numa ilhota de areia com duas
-  ondas por baixo, sobre fundo branco** (`island_layer`), com uma faixa de **areia molhada**, mais escura, onde a ilha toca na água — pedida pelo autor como sinal de atenção ao pormenor. **Não é um pin de mapa, de
+  ondas por baixo, sobre fundo branco** (`island_layer`), com uma faixa de **areia molhada**, mais escura, onde a ilha toca na água, e as **ondas a bater** — uma fiada de espuma clara logo abaixo da areia molhada e gotas a saltar nas pontas da ilha. As duas coisas foram pedidas pelo autor como sinal de atenção ao pormenor; não as tirar por parecerem enfeite. A espuma não vai na versão de uma cor (a preto confundia-se com a areia). **Não é um pin de mapa, de
   propósito**: foi um pin com a palmeira lá dentro até novembro de 2026, e o autor achou-o
   parecido com o do Google Maps. O fundo do ícone adaptativo e do ecrã de arranque é branco no
   `app.json`.

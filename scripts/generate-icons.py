@@ -167,6 +167,7 @@ def pin_layer(size: int, color=PIN, leaf=LEAF, trunk=TRUNK) -> Image.Image:
 SAND = (226, 186, 120, 255)
 WET_SAND = (176, 136, 82, 255)
 SEA = (22, 132, 142, 255)
+FOAM = (178, 228, 230, 255)
 
 
 def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None) -> Image.Image:
@@ -184,7 +185,7 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
 
     # As ondas: dois arcos de cada vez, lado a lado, por baixo da ilha.
     stroke = max(2, int(size * 0.035))
-    for row, (y, half) in enumerate(((0.82, 0.30), (0.905, 0.20))):
+    for row, (y, half) in enumerate(((0.875, 0.30), (0.95, 0.20))):
         yy = size * y
         n = 3 if row == 0 else 2
         width = size * half * 2 / n
@@ -221,6 +222,27 @@ def island_layer(size: int, leaf=LEAF, trunk=TRUNK, sand=SAND, sea=SEA, wet=None
     )
     # A faixa molhada fica sempre com a mesma espessura em baixo.
     draw.rectangle([cx - dry_w / 2, mound_y - lift, cx + dry_w / 2, mound_y], fill=wet)
+
+    # As ondas a bater na areia: espuma clara em festões ao longo da base, e
+    # umas gotas a saltar nas pontas. Na versão de uma cor não vai — a espuma
+    # é feita de contraste, e a preto confundia-se com a areia.
+    if sea[:3] != (0, 0, 0):
+        # Uma fiada de pequenas ondas de espuma logo abaixo da areia molhada.
+        foam_stroke = max(2, int(size * 0.013))
+        n = 7
+        span = mound_w * 0.96
+        w = span / n
+        left0 = cx - span / 2
+        for i in range(n):
+            left = left0 + i * w
+            top = mound_y + size * 0.004
+            draw.arc([left, top, left + w, top + w * 0.55], 200, 340, fill=FOAM, width=foam_stroke)
+        # Gotas de espuma a saltar nas duas pontas da ilha.
+        r = size * 0.009
+        for dx, dy in ((-0.52, -0.05), (-0.47, -0.11), (0.50, -0.07), (0.45, -0.12)):
+            x = cx + mound_w * dx
+            y = mound_y + mound_h * dy * 2
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=FOAM)
 
     # A palmeira, com o tronco a assentar na areia.
     p = size * 0.45
