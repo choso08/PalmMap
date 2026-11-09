@@ -430,6 +430,30 @@ def ortos():
     text = b.decode("utf-8", "replace") if isinstance(b, bytes) else str(b)
     print("index", st, sorted(set(_re.findall(r"/wms/([a-zA-Z0-9_-]+)", text)))[:40])
 
+
+def ortos2():
+    """DGT aerial orthophotos (sharper than the 2023 satellite), on other hosts."""
+    import re as _re
+    section("DGT AERIAL ORTHOPHOTOS")
+    hosts = ["https://cartografia.dgterritorio.gov.pt", "https://geo2.dgterritorio.gov.pt",
+             "https://ortos.dgterritorio.gov.pt", "https://si.dgterritorio.gov.pt"]
+    paths = ["/wms/ortos2018", "/wms/ortos2021", "/wms/ortos", "/ortos2018/service",
+             "/ortos2021/service", "/wms-inspire/ortos2018", "/wmts/ortos2018",
+             "/geoserver/ows", "/ortos/wms"]
+    for h in hosts:
+        for pth in paths:
+            url = f"{h}{pth}?SERVICE=WMS&REQUEST=GetCapabilities"
+            st, ct, b = get(url, timeout=25)
+            text = b.decode("utf-8", "replace") if isinstance(b, bytes) else str(b)
+            names = _re.findall(r"<Name>([^<]+)</Name>", text)
+            if st == 200 and names:
+                print("FOUND", url, names[:25])
+                ab = _re.findall(r"<Abstract>([^<]{0,200})</Abstract>", text)
+                if ab:
+                    print("   ", ab[:3])
+            else:
+                print(st, url)
+
 def stops():
     """Stops the transport map shows (from OSM) but the app does not draw."""
     section("STOPS")
