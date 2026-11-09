@@ -66,8 +66,46 @@ export interface UpdateInfo {
   /** Where the APK is downloaded from. */
   url: string;
   bytes: number;
-  /** The Release's text, which says what changed. */
-  notes: string;
+  /** What changed, one entry per change, already clean of Markdown. */
+  notes: string[];
+}
+
+/**
+ * The Release's text turned into a plain list of changes.
+ *
+ * The body is Markdown written for the GitHub page: a "What changed" heading,
+ * one `- ` line per commit, then an install section with the size and the
+ * SHA-256. A `Text` shows Markdown as it is typed, so the update popup printed
+ * a literal "## O que mudou" and a dash. Here only the changes are kept: the
+ * section under the first heading that talks about changes (or every bullet,
+ * when there is no heading), without markers, bold or code ticks.
+ */
+export function releaseNotes(body: string): string[] {
+  const lines = body.split(/\r?\n/);
+  const isHeading = (l: string) => /^\s*#{1,6}\s/.test(l);
+  const start = lines.findIndex(
+    (l) => isHeading(l) && /mudou|changed|new|novidades/i.test(l),
+  );
+  let section = lines;
+  if (start >= 0) {
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex(isHeading);
+    section = end >= 0 ? rest.slice(0, end) : rest;
+  } else {
+    const end = lines.findIndex((l, i) => i > 0 && isHeading(l));
+    section = end >= 0 ? lines.slice(0, end) : lines;
+  }
+
+  const clean = (l: string) =>
+    l
+      .replace(/^\s*[-*+]\s+/, '')
+      .replace(/\*\*|__|`/g, '')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .trim();
+
+  const bullets = section.filter((l) => /^\s*[-*+]\s+\S/.test(l)).map(clean);
+  const items = bullets.length > 0 ? bullets : section.filter((l) => !isHeading(l)).map(clean);
+  return items.filter((l) => l.length > 0);
 }
 
 export class UpdateError extends Error {}
@@ -153,7 +191,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
       version: (entry.name ?? '').replace(/^PalmMap\s+/, '') || `7.0.${build}`,
       url: apk.browser_download_url,
       bytes: apk.size ?? 0,
-      notes: (entry.body ?? '').trim(),
+      notes: releaseNotes(entry.body ?? ''),
     };
   }
 

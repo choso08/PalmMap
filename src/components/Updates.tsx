@@ -107,12 +107,15 @@ export function Updates({ found, onFound }: UpdatesProps) {
             O texto da Release diz o que mudou. Vem escrito por quem compilou e
             não é traduzido: é a lista dos commits desta versão.
           */}
-          {found.notes && !aDescarregar ? (
+          {found.notes.length > 0 && !aDescarregar ? (
             <>
               <Text style={styles.notesTitle}>{strings.settings.whatsNew}</Text>
-              <Text style={styles.notes} numberOfLines={8}>
-                {found.notes}
-              </Text>
+              {found.notes.slice(0, 10).map((note, i) => (
+                <View key={i} style={styles.noteRow}>
+                  <Text style={styles.noteDot}>•</Text>
+                  <Text style={styles.notes}>{note}</Text>
+                </View>
+              ))}
             </>
           ) : null}
 
@@ -216,7 +219,17 @@ function makeStyles(theme: Theme) {
       textTransform: 'uppercase',
       letterSpacing: 0.4,
     },
+    noteRow: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    noteDot: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.accent,
+    },
     notes: {
+      flex: 1,
       fontSize: 12,
       lineHeight: 18,
       color: theme.textMuted,

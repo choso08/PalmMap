@@ -9,6 +9,9 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { useUpdateDownload } from '../useUpdateDownload';
 
+/** How many changes fit on the popup; the rest are in Settings → Updates. */
+const SPLASH_NOTES = 3;
+
 function formatBytes(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   return `${mb.toFixed(mb < 10 ? 1 : 0).replace('.', t().units.decimal)} MB`;
@@ -119,10 +122,22 @@ export function UpdateSplash({ info, autoDownload, onDismiss }: UpdateSplashProp
             O que mudou, curto. O texto da Release é escrito por quem compilou e
             não é traduzido: é a lista dos commits desta versão.
           */}
-          {info.notes && !descarga.downloading ? (
-            <Text style={styles.notes} numberOfLines={4}>
-              {info.notes}
-            </Text>
+          {info.notes.length > 0 && !descarga.downloading ? (
+            <View style={styles.notesBox}>
+              {info.notes.slice(0, SPLASH_NOTES).map((note, i) => (
+                <View key={i} style={styles.noteRow}>
+                  <Text style={styles.noteDot}>•</Text>
+                  <Text style={styles.notes} numberOfLines={2}>
+                    {note}
+                  </Text>
+                </View>
+              ))}
+              {info.notes.length > SPLASH_NOTES ? (
+                <Text style={styles.notesMore}>
+                  {strings.settings.moreChanges(info.notes.length - SPLASH_NOTES)}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
 
           {descarga.downloading ? (
@@ -222,11 +237,29 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       textAlign: 'center',
       marginTop: -6,
     },
+    notesBox: {
+      alignSelf: 'stretch',
+      gap: 4,
+    },
+    noteRow: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    noteDot: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.accent,
+    },
     notes: {
-      fontSize: 12,
+      flex: 1,
+      fontSize: 13,
       lineHeight: 18,
       color: theme.textMuted,
-      textAlign: 'center',
+    },
+    notesMore: {
+      fontSize: 12,
+      color: theme.textMuted,
+      marginLeft: 13,
     },
     track: {
       alignSelf: 'stretch',
