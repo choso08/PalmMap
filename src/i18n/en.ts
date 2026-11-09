@@ -44,6 +44,19 @@ export const en: typeof pt = {
     listFailed: "Couldn't get the list.",
   },
 
+  directions: {
+    title: 'Directions',
+    open: 'Directions',
+    from: 'From',
+    to: 'To',
+    myLocation: 'My location',
+    fromPlaceholder: 'Where from?',
+    toPlaceholder: 'Where to?',
+    swap: 'Swap start and destination',
+    show: 'Show route',
+    needDestination: 'Choose a destination.',
+    fromLabel: (name: string) => `From: ${name}`,
+  },
   search: {
     placeholder: 'Search here',
     failed: "Couldn't search. Check your Internet connection.",

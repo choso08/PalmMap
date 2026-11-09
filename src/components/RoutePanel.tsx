@@ -43,6 +43,10 @@ interface RoutePanelProps {
   /** O meio de transporte em uso, e como o trocar. */
   travelMode: TravelMode;
   onChangeTravelMode: (mode: TravelMode) => void;
+  /** Where the route starts, as text ("My location" or a place's name). */
+  fromLabel?: string;
+  /** Opens the Directions screen to change the start or the destination. */
+  onOpenDirections?: () => void;
   /** Paragens pelo caminho, pela ordem por que se passa por elas. */
   waypoints: Place[];
   onRemoveWaypoint: (index: number) => void;
@@ -91,6 +95,8 @@ export function RoutePanel({
   avoidTollsWanted,
   travelMode,
   onChangeTravelMode,
+  fromLabel,
+  onOpenDirections,
   waypoints,
   onRemoveWaypoint,
   options,
@@ -141,6 +147,16 @@ export function RoutePanel({
         pessoa escolhe o destino e só então pensa se vai a pé ou de carro.
         Carregar recalcula na hora — e a escolha fica guardada para a próxima.
       */}
+      {fromLabel ? (
+        <Pressable style={styles.fromRow} onPress={onOpenDirections} hitSlop={6}>
+          <MaterialCommunityIcons name="circle-outline" size={14} color={theme.textMuted} />
+          <Text style={styles.fromText} numberOfLines={1}>
+            {strings.directions.fromLabel(fromLabel)}
+          </Text>
+          <MaterialCommunityIcons name="pencil-outline" size={14} color={theme.textMuted} />
+        </Pressable>
+      ) : null}
+
       <View style={styles.modos}>
         {TRAVEL_MODES.map((modo) => {
           const ativo = modo.id === travelMode;
@@ -678,6 +694,17 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.accent,
       fontSize: 12,
       fontWeight: '700',
+    },
+    fromRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 8,
+    },
+    fromText: {
+      flexShrink: 1,
+      fontSize: 13,
+      color: theme.textMuted,
     },
   });
 }

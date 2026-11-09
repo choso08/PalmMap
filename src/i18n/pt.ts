@@ -62,6 +62,19 @@ export const pt = {
     listFailed: 'Não foi possível obter a lista.',
   },
 
+  directions: {
+    title: 'Direções',
+    open: 'Direções',
+    from: 'Origem',
+    to: 'Destino',
+    myLocation: 'A minha localização',
+    fromPlaceholder: 'De onde parte?',
+    toPlaceholder: 'Para onde vai?',
+    swap: 'Trocar origem e destino',
+    show: 'Ver percurso',
+    needDestination: 'Escolha um destino.',
+    fromLabel: (name: string) => `De: ${name}`,
+  },
   search: {
     placeholder: 'Pesquisar aqui',
     failed: 'Não foi possível pesquisar. Verifique a ligação à Internet.',

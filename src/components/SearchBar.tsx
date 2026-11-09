@@ -29,6 +29,8 @@ interface SearchBarProps {
    */
   getBounds: () => Bounds | null;
   onOpenSettings: () => void;
+  /** Opens the Directions screen (start and destination). */
+  onOpenDirections?: () => void;
   /**
    * Há versão nova à espera.
    *
@@ -53,6 +55,7 @@ interface SearchBarProps {
 export function SearchBar({
   onSelect,
   onOpenSettings,
+  onOpenDirections,
   favourites,
   recents,
   getBounds,
@@ -214,6 +217,16 @@ export function SearchBar({
           </Pressable>
         ) : null}
 
+        {onOpenDirections ? (
+          <Pressable
+            onPress={onOpenDirections}
+            hitSlop={10}
+            style={styles.settingsButton}
+            accessibilityLabel={strings.directions.open}
+          >
+            <MaterialCommunityIcons name="directions" size={22} color={theme.accent} />
+          </Pressable>
+        ) : null}
         <Pressable onPress={onOpenSettings} hitSlop={10} style={styles.settingsButton}>
           <MaterialCommunityIcons name="tune-variant" size={20} color={theme.textMuted} />
           {updateAvailable ? <View style={styles.updateDot} /> : null}

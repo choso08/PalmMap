@@ -38,6 +38,7 @@ import { SettingsSheet } from './src/components/SettingsSheet';
 import { DraggableSheet } from './src/components/DraggableSheet';
 import { Reveal } from './src/components/Reveal';
 import { MeasureSheet, type MeasureMode } from './src/components/MeasureSheet';
+import { DirectionsSheet } from './src/components/DirectionsSheet';
 import { StepsList } from './src/components/StepsList';
 import { TransitSheet } from './src/components/TransitSheet';
 import {
@@ -256,6 +257,12 @@ function PalmMap() {
   const [hasLocation, setHasLocation] = useState(false);
 
   const [destination, setDestination] = useState<Place | null>(null);
+  /**
+   * Where the route starts, when it is not the GPS — chosen on the Directions
+   * screen. `null` is "my location", which is what it always was before.
+   */
+  const [routeOrigin, setRouteOrigin] = useState<Place | null>(null);
+  const [directionsVisible, setDirectionsVisible] = useState(false);
   /**
    * Paragens pelo caminho, pela ordem por que se passa por elas.
    *
@@ -804,7 +811,7 @@ function PalmMap() {
       return;
     }
 
-    const origem = userLocationRef.current;
+    const origem = routeOrigin?.coordinates ?? userLocationRef.current;
     if (!origem) {
       setRoute(null);
       setRouteError(t().errors.noLocationForRoute);
@@ -929,7 +936,7 @@ function PalmMap() {
     // traça-se quando se escolhe o destino (ou quando chega a primeira posição),
     // e não outra vez a cada passo que se dá. Seguir a pessoa é o trabalho da
     // navegação, que tem o seu próprio recálculo.
-  }, [destination, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, navigating]);
 
   /**
    * Procura negócios para mostrar no mapa.
@@ -1602,6 +1609,9 @@ function PalmMap() {
   }, []);
 
   const handleStartNavigation = useCallback(() => {
+    // Navigation always follows the GPS. A route planned from somewhere else
+    // is redrawn from where the person really is at the first reading.
+    setRouteOrigin(null);
     announced.current.clear();
     offRouteStrikes.current = 0;
     setSelectedPlace(null);
@@ -1903,6 +1913,7 @@ function PalmMap() {
 
   const handleClearRoute = useCallback(() => {
     setDestination(null);
+    setRouteOrigin(null);
     setWaypoints([]);
     setRoute(null);
     setRouteError(null);
@@ -1959,8 +1970,14 @@ function PalmMap() {
       {!navigating ? (
       <View style={styles.top} pointerEvents="box-none">
         <SearchBar
-          onSelect={handleSearchSelect}
+          onSelect={(place) => {
+            // A destination picked from the main search starts from the GPS,
+            // as it always did; only the Directions screen changes the start.
+            setRouteOrigin(null);
+            handleSearchSelect(place);
+          }}
           onOpenSettings={() => setSettingsVisible(true)}
+          onOpenDirections={() => setDirectionsVisible(true)}
           updateAvailable={updateInfo !== null}
           favourites={favourites}
           recents={recents}
@@ -2028,6 +2045,8 @@ function PalmMap() {
             {(drag) => (
               <RoutePanel
                 dragHandlers={drag}
+                fromLabel={routeOrigin ? routeOrigin.name : t().directions.myLocation}
+                onOpenDirections={() => setDirectionsVisible(true)}
                 destination={lastDestination}
                 route={route}
                 loading={routeLoading}
@@ -2310,6 +2329,25 @@ function PalmMap() {
           </DraggableSheet>
         </Reveal>
       ) : null}
+
+      <DirectionsSheet
+        visible={directionsVisible}
+        origin={routeOrigin}
+        destination={destination}
+        travelMode={settings.travelMode}
+        favourites={favourites}
+        recents={recents}
+        getBounds={getMapBounds}
+        onClose={() => setDirectionsVisible(false)}
+        onConfirm={(from, to, mode) => {
+          setDirectionsVisible(false);
+          setRouteOrigin(from);
+          if (mode !== settings.travelMode) {
+            update('travelMode', mode);
+          }
+          handleSearchSelect(to);
+        }}
+      />
 
       <StepsList
         visible={stepsVisible}
