@@ -280,6 +280,8 @@ function PalmMap() {
    * screen. `null` is "my location", which is what it always was before.
    */
   const [routeOrigin, setRouteOrigin] = useState<Place | null>(null);
+  // The street one is on, for "From: My location (Rua X)" in the route panel.
+  const [hereName, setHereName] = useState<string | null>(null);
   const [directionsVisible, setDirectionsVisible] = useState(false);
   const [layersVisible, setLayersVisible] = useState(false);
   const [savedVisible, setSavedVisible] = useState(false);
@@ -2055,6 +2057,35 @@ function PalmMap() {
     setTransitVisible(true);
   }, []);
 
+  // Where "my location" is, in words: one Nominatim request per destination
+  // (rounded to about ten metres, so the service's cache answers repeats).
+  useEffect(() => {
+    if (!destination || routeOrigin) {
+      return;
+    }
+    const aqui = userLocationRef.current;
+    if (!aqui) {
+      return;
+    }
+    let cancelled = false;
+    void reverseGeocode({
+      latitude: Math.round(aqui.latitude * 10000) / 10000,
+      longitude: Math.round(aqui.longitude * 10000) / 10000,
+    }).then((place) => {
+      if (!cancelled) {
+        // The first part of the address that is not a house number: the street.
+        const rua = place?.address
+          ?.split(',')
+          .map((part) => part.trim())
+          .find((part) => part && !/^\d+[A-Za-z]?$/.test(part));
+        setHereName(rua || place?.name || null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, routeOrigin, hasLocation]);
+
   const handleGoToStop = useCallback((stop: TransitStop) => {
     setTransitVisible(false);
     setSelectedStopId(null);
@@ -2255,7 +2286,13 @@ function PalmMap() {
             {(drag) => (
               <RoutePanel
                 dragHandlers={drag}
-                fromLabel={routeOrigin ? routeOrigin.name : t().directions.myLocation}
+                fromLabel={
+                  routeOrigin
+                    ? routeOrigin.name
+                    : hereName
+                      ? `${t().directions.myLocation} (${hereName})`
+                      : t().directions.myLocation
+                }
                 onOpenDirections={() => setDirectionsVisible(true)}
                 destination={lastDestination}
                 route={route}

@@ -81,6 +81,10 @@ environment cannot reach.
   measuring tape); a Saved screen (`SavedSheet`); and the search takes the whole screen while
   in use. The floating buttons' heights all live in `App.tsx` (`compassBottom`,
   `TAB_BAR_HEIGHT`). Phases 2–4: see 6-0-A, 6-0-B and 6-0-C.
+- **Metro, train and ferry trips with one change**, and **Fertagus and the ferries'
+  timetables** — see 6-B-3 and 6-B-4.
+- **Recent destinations no longer repeat** (`recents.ts`): the same name within 300 m is the
+  same place; the stored list is cleaned on reading and writes are one at a time.
 - **Compass cone** in front of the blue dot, as in Google Maps: which way the phone points,
   standing still too (`watchCompass`, in `location.ts`; image `heading-cone`, drawn by
   `generate-poi-icons.py`). Only outside navigation and with the app on screen. The blue dot
@@ -814,11 +818,17 @@ Investigated properly so nobody searches again. **State in August 2026**, update
 | Metro de Lisboa | ✅ `/facilities/subway_stations` | ✅ GTFS on dados.gov.pt | ❌ |
 | TUB — Braga (buses) | ❌ outside Carris's area | ✅ GTFS on their site | ❌ |
 | Train (CP) | ✅ `/facilities/train_stations` | ✅ `publico.cp.pt/gtfs/gtfs.zip` | ❌ |
-| Fertagus | ✅ | ❌ **not found** | ❌ |
-| Ferry (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ❌ **not found** | ❌ |
+| Fertagus | ✅ | ✅ **Mobility Database's stored copy** (old, 2020–22, `frequencies.txt`) | ❌ |
+| Ferry (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ✅ Mobility Database's copy (`api.transtejo.pt` has a wrong certificate) | ❌ |
 | **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ✅ **the operator's own site service** (`build_mts`) | ❌ |
-| Carris de Lisboa (city buses, trams) | — | ❌ **not found** | ❌ |
+| Carris de Lisboa (city buses, trams) | — | ✅ `gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS` (47 MB, 177 lines; not generated yet — size to measure first) | GTFS-RT Protobuf only |
 | Service alerts (several) | — | — | ✅ **TML, JSON, no key** |
+
+**The Mobility Database catalogue is where to look first** (`MobilityData/mobility-database-catalogs`
+on GitHub, readable from the development environment): each source has a `direct_download` and,
+for dead ones, a `latest` copy kept on `storage.googleapis.com/…/mdb-latest/…`. That is how
+Fertagus, the ferries and Carris de Lisboa were found in November 2026, after dados.gov.pt
+searches had given nothing.
 
 **Locations all come from the API already used** — the four `/facilities/*` endpoints. Each
 station carries `stop_ids` with the bus stops serving it.
@@ -887,6 +897,18 @@ Three traps already solved, not to be undone:
   normalises itself and is right on clock-change days; adding `1505 × 60` seconds is an hour
   off twice a year.
 - **The last station of a trip is not a departure.**
+
+**Trips with one change** (`planScheduledTransfers`, November 2026): without it the metro
+answered almost nothing — most Lisbon journeys need a change of line. From the stored files
+only, no request: every trip leaving within `SCHEDULED_HORIZON_S` (2 h) from near the origin
+marks the earliest arrival at each later station; every trip calling near the destination is
+indexed; at each reached station, stations of any operator within `SCHEDULED_TRANSFER_WALK_M`
+(300 m — CP and metro at Oriente or Sete Rios are separate stations) are boarding points for a
+second trip on another line, at least `SCHEDULED_TRANSFER_MIN_S` (3 min) plus the walk later.
+Offered when there are fewer than two direct trips or when changing arrives earlier. **Proved
+against the real files** (metro, CP, Fertagus): Alvalade → Baixa-Chiado Amarela → Azul;
+Aeroporto → Sintra Vermelha → CP at Oriente; Corroios → Saldanha Fertagus → Azul at Sete Rios;
+tens of milliseconds each. Two changes (Odivelas → Cascais) and bus ↔ rail changes are not done.
 
 **Stations and timetables come from different sources and are linked by proximity, not by
 name.** "Lisboa Oriente" and "Oriente" are the same station; coordinates always agree.
