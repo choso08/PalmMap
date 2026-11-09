@@ -669,7 +669,7 @@ com o ícone da família lá dentro.
   do MaterialCommunityIcons, em 1x, 2x e 3x, para `assets/poi/` (com um `index.ts` gerado que
   os `require`). As cores vêm lidas do `poiStyle.ts`, por isso não divergem. **Não se editam à
   mão**: muda-se a tabela e corre-se o script (precisa do Pillow). A cor vai dentro de cada
-  PNG, por isso o mesmo símbolo em duas famílias são duas imagens.
+  PNG, por isso o mesmo símbolo em duas famílias são duas imagens. **São poucos de propósito** (14): o autor pediu menos símbolos — um ou dois por família chegam para se reconhecer o tipo de sítio.
 - **Duas camadas**: por baixo, um ponto pequeno da cor da família para cada sítio; por cima, o
   ícone, sem sobreposições. Quando dois ícones colidem, o mapa fica com o mais importante
   (`symbol-sort-key`: comida e saúde primeiro) e o outro fica ponto. Aproximar abre espaço e os

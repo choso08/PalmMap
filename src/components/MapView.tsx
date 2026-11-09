@@ -56,7 +56,7 @@ const PIN_GLYPH: Record<PoiFamily, string> = {
   shop: 'shopping',
   health: 'plus-thick',
   lodging: 'bed',
-  service: 'map-marker',
+  service: 'office-building',
   leisure: 'camera',
   other: 'circle',
 };
