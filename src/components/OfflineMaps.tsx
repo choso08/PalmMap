@@ -24,11 +24,10 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Lista de países com mapa disponível para guardar no telemóvel, com o tamanho
- * de cada um à frente.
+ * The countries with a map available to keep on the phone, each with its size.
  *
- * Ao contrário da cache, isto é mesmo offline: uma vez descarregado, o país
- * inteiro funciona sem rede, a qualquer zoom e sem ter sido visto antes.
+ * Unlike the cache, this really is offline: once downloaded, the whole country
+ * works without a network, at any zoom, without having been seen before.
  */
 export function OfflineMaps() {
   const theme = useTheme();
@@ -39,28 +38,27 @@ export function OfflineMaps() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /**
-   * As descargas a decorrer: id da região → quanto já vai, de 0 a 1.
+   * The downloads in progress: region id → how far along, from 0 to 1.
    *
-   * São várias ao mesmo tempo de propósito. Antes só cabia uma, e quem quisesse
-   * três países tinha de ficar a olhar para o primeiro até ao fim — sendo que o
-   * que demora é a rede, não a aplicação, e a rede aguenta bem as três.
+   * Several at once on purpose. It used to be one, and whoever wanted three
+   * countries had to watch the first to the end — when what takes the time is
+   * the network, not the app, and the network copes fine with three.
    */
   const [downloads, setDownloads] = useState<Record<string, number>>({});
-  /** Os que já têm versão mais recente publicada do que a que está guardada. */
+  /** Those with a newer version published than the one kept. */
   const [desatualizados, setDesatualizados] = useState<Set<string>>(new Set());
   const desatualizadosRef = useRef<Set<string>>(new Set());
   /**
-   * As mesmas, numa `ref`.
+   * The same, in a `ref`.
    *
-   * Serve só para saber se já se está a descarregar aquela região sem pôr o
-   * `downloads` nas dependências: com ele lá, a função mudava de identidade a
-   * cada avanço da barra e as linhas todas voltavam a desenhar-se.
+   * Only to know whether a region is already downloading without putting
+   * `downloads` in the dependencies: with it there, the function changed
+   * identity on every step of the bar and every row redrew.
    */
   const emCurso = useRef<Set<string>>(new Set());
-  /** Muda sempre que se descarrega ou apaga, para a lista se redesenhar. */
+  /** Changes on every download or delete, so the list redraws. */
   const [revision, setRevision] = useState(0);
-  /** Texto para filtrar a lista. Com dezenas de países, procurar é mais rápido
-   * do que percorrer. */
+  /** Text to filter the list. With dozens of countries, searching beats scrolling. */
   const [filtro, setFiltro] = useState('');
 
   useEffect(() => {
@@ -81,13 +79,13 @@ export function OfflineMaps() {
   }, []);
 
   const handleToggle = useCallback(async (region: OfflineRegion) => {
-    // Já está a descarregar: um segundo toque não recomeça do princípio.
+    // Already downloading: a second tap does not start over.
     if (emCurso.current.has(region.id)) {
       return;
     }
 
-    // Num mapa desatualizado, o toque **renova em vez de apagar**. Apagar era o
-    // contrário do que quem lá toca quer, e era irreversível sem rede.
+    // On an outdated map a tap **renews instead of deleting**. Deleting was the
+    // opposite of what the person wants, and irreversible without a network.
     if (isDownloaded(region) && !desatualizadosRef.current.has(region.id)) {
       removeRegion(region);
       setRevision((n) => n + 1);
@@ -110,8 +108,8 @@ export function OfflineMaps() {
       });
       setRevision((n) => n + 1);
     } catch (err) {
-      // A mensagem já diz de que país se trata — com várias a descarregar ao
-      // mesmo tempo, um "não foi possível" sem nome não servia de nada.
+      // The message already names the country — with several downloading at
+      // once, a nameless "could not" was useless.
       setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
       emCurso.current.delete(region.id);
@@ -131,7 +129,7 @@ export function OfflineMaps() {
     );
   }
 
-  // Sem acentos e sem maiúsculas: procurar "acores" tem de encontrar "Açores".
+  // No accents, no capitals: searching "acores" has to find "Açores".
   const simplificar = (texto: string) =>
     texto
       .normalize('NFD')
@@ -157,8 +155,8 @@ export function OfflineMaps() {
         </Text>
       ) : null}
 
-      {/* A caixa de procura só aparece quando a lista é grande ao ponto de
-          fazer falta. Com meia dúzia de países, seria só mais uma coisa no ecrã. */}
+      {/* The search box only shows when the list is long enough to need it.
+          With half a dozen countries it would just be one more thing on screen. */}
       {regions.length > 8 ? (
         <View style={styles.search}>
           <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
@@ -183,13 +181,13 @@ export function OfflineMaps() {
       ) : null}
 
       {visiveis.map((region) => {
-        // `revision` entra aqui para o estado ser relido depois de mexer nos ficheiros.
+        // `revision` is here so the state is read again after the files change.
         const guardado = revision >= 0 && isDownloaded(region);
         const progresso = downloads[region.id];
         const aDescarregar = progresso !== undefined;
-        // Já há versão mais recente publicada do que a que está no telemóvel.
-        // Por Wi-Fi isto renova-se sozinho; aqui é para quem está nos dados
-        // móveis o poder fazer à mão, sabendo o que vai gastar.
+        // A newer version is published than the one on the phone. On Wi-Fi
+        // it renews by itself; this lets someone on mobile data do it by hand,
+        // knowing what it will cost.
         const velho = guardado && desatualizados.has(region.id);
 
         return (
@@ -219,9 +217,9 @@ export function OfflineMaps() {
               </Text>
 
               {/*
-                A barra só aparece durante o descarregamento. Num ficheiro de
-                centenas de megabytes é o que distingue "está a andar" de
-                "bloqueou" — sem ela só se via um indicador a rodar.
+                The bar only shows while downloading. On a file of hundreds of
+                megabytes it is what tells "moving" from "stuck" — without it
+                there was only a spinner.
               */}
               {aDescarregar ? (
                 <View style={styles.track}>

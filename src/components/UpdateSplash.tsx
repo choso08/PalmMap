@@ -18,17 +18,17 @@ function formatBytes(bytes: number): string {
 }
 
 interface UpdateSplashProps {
-  /** A versão nova, ou `null` quando não há nada a anunciar. */
+  /** The new version, or `null` when there is nothing to announce. */
   info: UpdateInfo | null;
   /**
-   * Se se pode descarregar sozinha, sem ninguém carregar em nada.
+   * Whether it may download by itself, without anyone tapping anything.
    *
-   * É verdade em Wi-Fi e falso nos dados móveis — ver `onWifi`. São dezenas de
-   * megabytes, e gastá-los no plafond de alguém sem perguntar é exatamente o
-   * que já se decidiu não fazer com os mapas dos países.
+   * True on Wi-Fi and false on mobile data — see `onWifi`. It is tens of
+   * megabytes, and spending someone's data allowance without asking is exactly
+   * what was already ruled out for the country maps.
    */
   autoDownload: boolean;
-  /** Adiar: fecha e não volta a aparecer para esta versão. */
+  /** Postpone: closes and does not show again for this version. */
   onDismiss: () => void;
   /**
    * The installer was opened for this version and it is still not the one
@@ -39,16 +39,16 @@ interface UpdateSplashProps {
 }
 
 /**
- * O aviso que aparece ao abrir a aplicação quando saiu versão nova.
+ * The notice shown when the app opens and a new version is out.
  *
- * **Aparece uma vez por versão.** Quem carregar em "agora não" não volta a vê-lo
- * para aquela versão — fica só o ponto no botão das definições. Um aviso que
- * reaparece a cada arranque deixa de ser lido ao fim de dois dias, que é a mesma
- * lição dos avisos de radar.
+ * **Once per version.** Whoever taps "not now" does not see it again for that
+ * version — only the dot on the Settings button stays. A notice that comes back
+ * at every start stops being read after two days, the same lesson as the
+ * camera warnings.
  *
- * Tudo acontece aqui dentro: carregar em atualizar descarrega e abre o
- * instalador, sem sair da aplicação e sem ir ao GitHub. O que o Android não
- * deixa é instalar em silêncio — o último toque é sempre da pessoa.
+ * It all happens in here: tapping update downloads and opens the installer,
+ * without leaving the app or going to GitHub. What Android does not allow is a
+ * silent install — the last tap is always the person's.
  */
 export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false }: UpdateSplashProps) {
   const theme = useTheme();
@@ -58,10 +58,10 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
   const descarga = useUpdateDownload();
 
   /**
-   * A descarga automática arranca sozinha, uma vez.
+   * The automatic download starts by itself, once.
    *
-   * A `ref` é o que a impede de voltar a arrancar: este componente redesenha-se
-   * a cada avanço da barra, e sem ela cada avanço mandava começar outra vez.
+   * The `ref` stops it starting again: this component redraws on every step of
+   * the bar, and without it each step would start it over.
    */
   const jaComecou = useRef(false);
 
@@ -71,8 +71,8 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
     }
     jaComecou.current = true;
     void descarga.start(info);
-    // Só o `start`, que é estável: o objeto do gancho é novo a cada desenho, e
-    // com ele nas dependências isto corria a cada avanço da barra.
+    // Only `start`, which is stable: the hook's object is new on every render,
+    // and with it in the dependencies this ran on every step of the bar.
   }, [info, autoDownload, descarga.start]);
 
   if (!info) {
@@ -80,13 +80,14 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
   }
 
   /**
-   * Quem não pediu nada tem de poder sair.
+   * Whoever asked for nothing must be able to leave.
    *
-   * Numa descarga que a pessoa mandou fazer, o "agora não" desaparece: fechar a
-   * meio deixava um ficheiro incompleto e ninguém a saber se tinha atualizado.
-   * **Numa descarga automática é ao contrário** — ela começou sem lhe
-   * perguntarem, e sem saída ficava presa ao aviso até o instalador lhe saltar à
-   * frente. Desistir não cancela a descarga: só impede o instalador de abrir.
+   * On a download the person started, "not now" goes away: closing halfway
+   * left a partial file and nobody knowing whether it had updated. **On an
+   * automatic download it is the other way round** — it started without asking,
+   * and with no way out they were stuck on the notice until the installer
+   * jumped in front. Giving up does not cancel the download: it only stops the
+   * installer from opening.
    */
   const podeAdiar = !descarga.downloading || autoDownload;
 
@@ -95,11 +96,11 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
       visible
       animationType="fade"
       transparent
-      // Sem isto a margem dependia de o ecrã desenhar ou não por baixo das
-      // barras do sistema, que varia de telemóvel para telemóvel.
+      // Without this the margin depended on whether the screen draws under the
+      // system bars, which varies from phone to phone.
       statusBarTranslucent
       navigationBarTranslucent
-      // Adiar com o botão de voltar do Android é o que se espera de um aviso.
+      // Postponing with Android's back button is what one expects of a notice.
       onRequestClose={
         podeAdiar
           ? () => {
@@ -127,8 +128,8 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
           </Text>
 
           {/*
-            O que mudou, curto. O texto da Release é escrito por quem compilou e
-            não é traduzido: é a lista dos commits desta versão.
+            What changed, briefly. The Release text is written by whoever built
+            it and is not translated: it is this version's list of commits.
           */}
           {info.notes.length > 0 && !descarga.downloading ? (
             <View style={styles.notesBox}>
