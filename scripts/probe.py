@@ -180,6 +180,55 @@ def mts_js():
     print("\nAROUND searchForm:", js[max(0, i - 2000): i + 6000] if i >= 0 else "not found")
 
 
+def mts_api():
+    section("MTS timetable API")
+    import re
+    import urllib.parse
+    _, _, body = get("https://www.mts.pt/wp-content/themes/mts/js/main.js?ver=20261025", 40)
+    js = body.decode("utf-8", "replace")
+    _, _, page = get("https://www.mts.pt/horarios/", 40)
+    html = page.decode("utf-8", "replace")
+    for name in ("function call", "function onLineChange", "function onSearchResult", "apiURL"):
+        i = js.find(name)
+        print(f"\n[{name}]", re.sub(r"\s+", " ", js[i:i + 1800]) if i >= 0 else "not in js")
+    m = re.search(r"apiURL\s*=\s*['\"]([^'\"]+)", js) or re.search(r"apiURL['\"]?\s*[:=]\s*['\"]([^'\"]+)", html)
+    api = m.group(1) if m else None
+    print("\napiURL:", api)
+    if not api:
+        for mm in re.finditer(r"apiURL", html):
+            print("html apiURL ctx:", html[mm.start() - 200: mm.start() + 200])
+        return
+    api = api.replace("\\/", "/")
+    status, ctype, b = get(api + "lines")
+    print("\nlines", status, ctype, b[:1500])
+    try:
+        lines = json.loads(b)["data"]
+    except Exception:  # noqa: BLE001
+        return
+    for ln in lines:
+        for path in (f"stations?line={ln['id']}", f"stations/{ln['id']}", f"lines/{ln['id']}/stations"):
+            st, ct, bb = get(api + path)
+            print(f"\n{path}", st, bb[:1200])
+            if st == 200:
+                break
+    first = lines[0]["id"]
+    st, ct, bb = get(api + f"stations?line={first}")
+    try:
+        station = json.loads(bb)["data"][0]["id"]
+    except Exception:  # noqa: BLE001
+        station = 1
+    q = {"line": first, "stations": station, "day_type": 1, "season": 2}
+    st, ct, bb = get(api + "search?" + urllib.parse.urlencode(q))
+    print("\nsearch GET", st, ct, bb[:4000])
+    req = urllib.request.Request(api + "search", data=urllib.parse.urlencode(q).encode(),
+                                 headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=40) as r:
+            print("\nsearch POST", r.status, r.read()[:4000])
+    except Exception as e:  # noqa: BLE001
+        print("search POST failed", e)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
