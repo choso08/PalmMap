@@ -359,6 +359,10 @@ export const en: typeof pt = {
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',
+    feedback: 'Rate the app',
+    feedbackTitle: 'Rating',
+    feedbackPlaceholder: 'What do you think? What is missing?',
+    feedbackSend: 'Send via GitHub',
     requestMap: 'Missing a country? Ask on GitHub',
     offlineMapsNote: 'The largest are hundreds of MB: use Wi-Fi.',
 

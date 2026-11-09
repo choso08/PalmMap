@@ -395,6 +395,10 @@ export const pt = {
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',
+    feedback: 'Avaliar a aplicação',
+    feedbackTitle: 'Avaliação',
+    feedbackPlaceholder: 'O que acha? O que falta?',
+    feedbackSend: 'Enviar pelo GitHub',
     requestMap: 'Falta um país? Peça-o no GitHub',
     offlineMapsNote: 'Os maiores têm centenas de MB: use Wi-Fi.',
 

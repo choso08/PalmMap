@@ -498,6 +498,11 @@ Assim, as regras de boa utilização das APIs (mais abaixo) ficam todas concentr
 - **O ecrã de definições tem uma caixa de pesquisa** no cimo (`show`, no `SettingsSheet`): esconde o
   que não bate com o texto (nome, linha de ajuda ou secção, sem contar acentos) e abre sozinhas as
   secções que têm resultados (`forceOpen` no `Collapsible`). Uma opção nova tem de entrar no `show`.
+- **"Avaliar a aplicação"** (`FeedbackForm`): estrelas e comentário, enviados como um pedido no
+  GitHub já preenchido (com a versão) — não há servidor nosso, e nada sai do telemóvel até a pessoa
+  confirmar lá. Precisa de conta no GitHub. **"Falta um país?"**, no fim da lista dos mapas, faz o
+  mesmo para pedir um mapa (`MAP_REQUEST_URL`). Se um dia se quiser receber sem conta GitHub, o
+  caminho é um endereço de e-mail do autor (`mailto:`) — só com ele a dizer qual.
 - **As atualizações não são uma definição**, são um ecrã dentro das definições — ver "6-I".
 - **A última falha também não é uma definição**, é um cartão no cimo do ecrã que só existe
   quando a aplicação se fechou sozinha — ver "6-K".

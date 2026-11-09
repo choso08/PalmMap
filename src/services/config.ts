@@ -15,6 +15,9 @@
 export const MAP_REQUEST_URL =
   'https://github.com/choso08/PalmMap/issues/new?title=Map%20request%3A%20';
 
+/** The feedback form's destination: a new GitHub issue, filled in by the app. */
+export const FEEDBACK_URL = 'https://github.com/choso08/PalmMap/issues/new';
+
 export const USER_AGENT = 'PalmMap/1.0 (personal project; https://github.com/choso08/PalmMap)';
 
 /** Address search. */

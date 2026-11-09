@@ -20,6 +20,7 @@ import { clearRecents } from '../services/recents';
 import { MAP_REQUEST_URL } from '../services/config';
 import { clearMapCache } from '../services/tiles';
 import { Collapsible } from './Collapsible';
+import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
 import { Schedules } from './Schedules';
 import { Updates } from './Updates';
@@ -153,6 +154,7 @@ export function SettingsSheet({
       tolls: has(nav, s.tolls, s.tollsHint),
       speed: has(nav, s.speed, s.speedNote),
       battery: has(nav, s.batterySaver, s.batterySaverHint),
+      feedback: has(s.feedback, s.feedbackPlaceholder),
       recents: has(s.recents, s.forgetRecents),
       updates: has(s.updates),
       about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'CARTO', 'Overpass'),
@@ -562,6 +564,12 @@ export function SettingsSheet({
                   </View>
                 </>
               ) : null}
+            </Collapsible>
+          ) : null}
+
+          {show.feedback ? (
+            <Collapsible title={s.feedback} forceOpen={show.searching}>
+              <FeedbackForm />
             </Collapsible>
           ) : null}
 
