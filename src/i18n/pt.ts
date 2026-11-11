@@ -158,6 +158,8 @@ export const pt = {
 
   place: {
     route: 'Direções',
+    photosCredit: (sources: string) => `Fotos: ${sources}`,
+    streetView: (sources: string) => `Vista da rua · ${sources}`,
     addWaypoint: 'Paragem',
     save: 'Guardar',
     unsave: 'Guardado',

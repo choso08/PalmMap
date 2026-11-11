@@ -137,6 +137,8 @@ export const en: typeof pt = {
   },
 
   place: {
+    photosCredit: (sources: string) => `Photos: ${sources}`,
+    streetView: (sources: string) => `Street view · ${sources}`,
     route: 'Directions',
     addWaypoint: 'Add stop',
     save: 'Save',

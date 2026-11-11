@@ -211,6 +211,12 @@ function toPlace(element: OverpassElement): Place | null {
       phone: tags.phone ?? tags['contact:phone'],
       website: tags.website ?? tags['contact:website'],
       openingHours: tags.opening_hours,
+      photoTags: {
+        image: tags.image,
+        commons: tags.wikimedia_commons,
+        wikidata: tags.wikidata,
+        panoramax: tags.panoramax,
+      },
     },
   };
 }

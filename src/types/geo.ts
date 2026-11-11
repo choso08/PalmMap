@@ -22,6 +22,12 @@ export interface PlaceDetails {
   website?: string;
   /** Opening hours as written in OpenStreetMap, e.g. "Mo-Fr 09:00-19:00". */
   openingHours?: string;
+  /**
+   * The OpenStreetMap tags that point at photos of the place, as written:
+   * `image` (an address), `wikimedia_commons` (`File:…`), `wikidata` (`Q…`)
+   * and `panoramax` (a picture id). See `services/photos.ts`.
+   */
+  photoTags?: { image?: string; commons?: string; wikidata?: string; panoramax?: string };
 }
 
 /** A place already processed, ready to show on screen. */

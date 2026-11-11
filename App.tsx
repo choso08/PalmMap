@@ -1962,6 +1962,22 @@ function PalmMap() {
       const place = placesById.get(placeId);
       if (place) {
         setSelectedPlace(place);
+        // A pin from the country's file carries hours, phone and website but
+        // not the photo tags: those come from the same small Overpass query the
+        // tile pins use, only for the photos (`placePhotos`).
+        if (!place.details?.photoTags) {
+          void placeDetails(place).then((full) => {
+            const photoTags = full?.details?.photoTags;
+            if (!photoTags) {
+              return;
+            }
+            setSelectedPlace((current) =>
+              current && current.id === place.id
+                ? { ...current, details: { ...current.details, photoTags } }
+                : current,
+            );
+          });
+        }
       }
     },
     [placesById],

@@ -1,10 +1,11 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
+import { PHOTO_HEADERS, placePhotos, type PlacePhoto } from '../services/photos';
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates, Place } from '../types/geo';
@@ -77,6 +78,32 @@ export function PlaceSheet({
     return () => clearInterval(timer);
   }, []);
   useEffect(() => setWeekOpen(false), [place.id]);
+
+  /*
+    Photos, as in Google's card (author's request) — only from what is open:
+    what OpenStreetMap links to, or the street right there (`placePhotos`).
+    Asked again when the details arrive, since that is when the photo tags do.
+  */
+  const [photos, setPhotos] = useState<PlacePhoto[]>([]);
+  const photoTags = place.details?.photoTags;
+  useEffect(() => {
+    let cancelled = false;
+    setPhotos([]);
+    void placePhotos(place.details, place.coordinates).then((found) => {
+      if (!cancelled) {
+        setPhotos(found);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // The tags, not the whole place: the card re-renders with the same place.
+  }, [place.id, photoTags?.image, photoTags?.commons, photoTags?.wikidata, photoTags?.panoramax]);
+  const photoSources = [
+    ...new Set(photos.map((p) => (p.source === 'commons' ? 'Wikimedia Commons' : p.source === 'panoramax' ? 'Panoramax' : ''))),
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const status = week ? openStatus(week, now) : null;
   const statusLine = (() => {
@@ -199,6 +226,30 @@ export function PlaceSheet({
           </Pressable>
         ))}
       </ScrollView>
+
+      {photos.length > 0 ? (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.photos}
+          >
+            {photos.map((p) => (
+              <Pressable key={p.uri} onPress={() => void Linking.openURL(p.uri)}>
+                <Image
+                  source={{ uri: p.uri, headers: PHOTO_HEADERS }}
+                  style={styles.photo}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            ))}
+          </ScrollView>
+          {/* The credit the licences ask for — and, for street pictures, that they are not of the place itself. */}
+          <Text style={styles.photoCredit} numberOfLines={1}>
+            {photos[0].street ? s.streetView(photoSources) : s.photosCredit(photoSources || 'web')}
+          </Text>
+        </>
+      ) : null}
 
       <View style={styles.details}>
         {place.address ? (
@@ -396,6 +447,23 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     details: {
       marginTop: 12,
       paddingHorizontal: 20,
+    },
+    photos: {
+      gap: 8,
+      paddingHorizontal: 20,
+      paddingTop: 14,
+    },
+    photo: {
+      width: 150,
+      height: 110,
+      borderRadius: 12,
+      backgroundColor: theme.surfaceMuted,
+    },
+    photoCredit: {
+      fontSize: 11,
+      color: theme.textMuted,
+      paddingHorizontal: 20,
+      paddingTop: 4,
     },
     detailRow: {
       flexDirection: 'row',

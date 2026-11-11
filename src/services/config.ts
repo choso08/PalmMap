@@ -681,3 +681,13 @@ export const RELEASES_API_URL =
  * — whoever presses it wants to know now.
  */
 export const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+
+/**
+ * Place photos (`services/photos.ts`). Panoramax is the open street-level
+ * photo service (OSM France and IGN), no key; Commons thumbnails are asked at
+ * this width — plenty for a card, a fraction of the original's weight.
+ */
+export const PANORAMAX_URL = 'https://api.panoramax.xyz/api';
+export const PHOTO_WIDTH = 640;
+/** How near a street-level picture must be to stand in for a place's own photo. */
+export const PHOTO_NEARBY_M = 25;
