@@ -434,6 +434,9 @@ function loadPattern(rawId: string): Promise<CarrisPattern | null> {
   return pending;
 }
 
+/** How far from the bus's timetable time another trip still lends its minutes. */
+const JOURNEY_TRIP_SLACK_S = 30 * 60;
+
 /** `HH:MM:SS` (possibly past 24) → seconds after midnight. */
 function secondsOf(text: string | undefined): number | null {
   const m = /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(text ?? '');
@@ -481,16 +484,30 @@ export async function lineJourney(
   }
   const boardSequence = path[start].stop_sequence;
 
-  // The trip this bus is, by its timetable time here.
-  const boardTime = secondsOf(arrival.scheduledText ?? undefined);
-  const trip =
-    boardTime === null
-      ? undefined
-      : (pattern?.trips ?? []).find((tr) =>
-          (tr.schedule ?? []).some(
-            (s) => s.stop_sequence === boardSequence && secondsOf(s.arrival_time) === boardTime,
-          ),
-        );
+  // The trip this bus is, by its timetable time here. The exact time first;
+  // failing that the trip passing here nearest that time, within
+  // `JOURNEY_TRIP_SLACK_S` — the pattern's list does not always carry every
+  // trip of the day (a probe found a 17:34 with none at 17:34), and the minutes
+  // between stops hardly change from one trip to the next.
+  const arrivalTime = secondsOf(arrival.scheduledText ?? undefined);
+  let trip: NonNullable<CarrisPattern['trips']>[number] | undefined;
+  let tripBoardTime: number | null = null;
+  if (arrivalTime !== null) {
+    let bestGap = JOURNEY_TRIP_SLACK_S + 1;
+    for (const tr of pattern?.trips ?? []) {
+      const here = (tr.schedule ?? []).find((s) => s.stop_sequence === boardSequence);
+      const sec = secondsOf(here?.arrival_time);
+      if (sec === null) {
+        continue;
+      }
+      const gap = Math.abs(sec - arrivalTime);
+      if (gap < bestGap) {
+        bestGap = gap;
+        trip = tr;
+        tripBoardTime = sec;
+      }
+    }
+  }
   const timeAt = new Map<number, number>();
   for (const s of trip?.schedule ?? []) {
     const sec = secondsOf(s.arrival_time);
@@ -512,18 +529,21 @@ export async function lineJourney(
       name: stop.name,
       coordinates: stop.coordinates,
       time:
-        boardTime !== null && at !== undefined
-          ? clockOf(arrival.unix + (at - boardTime))
+        tripBoardTime !== null && at !== undefined
+          ? clockOf(arrival.unix + (at - tripBoardTime))
           : journey.length === 0
             ? arrival.time
             : null,
     });
   }
 
-  // Where to get off: the line's stop nearest the destination, past the first.
+  // Where to get off: the line's stop nearest the destination, past the first
+  // — but only when this line really takes one there: within walking distance
+  // of it (`TRANSIT_WALK_MAX_M`) and nearer than where one boards. Otherwise a
+  // circular line in Oeiras said "get off here" one stop on, for Cascais.
   let alightIndex: number | null = null;
   if (destination && journey.length > 1) {
-    let best = Infinity;
+    let best = Math.min(TRANSIT_WALK_MAX_M, distanceMeters(journey[0].coordinates, destination));
     journey.forEach((s, i) => {
       if (i === 0) {
         return;
