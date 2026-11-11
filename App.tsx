@@ -66,6 +66,7 @@ import {
   CAMERA_WARN_METERS,
   CATEGORY_MIN_ZOOM,
   DOUBLE_TAP_MS,
+  PIN_DOUBLE_TAP_MS,
   KEEP_AWAKE_TAG,
   LIMITS_REFETCH_M,
   LIMITS_RETRY_MS,
@@ -2092,7 +2093,34 @@ function PalmMap() {
    * A tap on one of the map's own pins: open it at once with what the tile
    * knows, then fill in hours, phone and website with one small Overpass query.
    */
+  /**
+   * **A double tap on a pin goes straight to directions** (author's request,
+   * November 2026): the first tap opens the card, the second — on the same
+   * place, within `PIN_DOUBLE_TAP_MS` — makes it the destination, as the
+   * card's Directions button would. Wider than the locate button's window:
+   * a finger on a small pin is slower than on a big button.
+   */
+  const lastPinTap = useRef<{ key: string; at: number } | null>(null);
+  const pinDoubleTap = useCallback((place: Place): boolean => {
+    const key = `${place.coordinates.latitude.toFixed(5)},${place.coordinates.longitude.toFixed(5)}`;
+    const now = Date.now();
+    const before = lastPinTap.current;
+    if (before && before.key === key && now - before.at < PIN_DOUBLE_TAP_MS) {
+      lastPinTap.current = null;
+      setWaypoints([]);
+      setDestination(place);
+      setSelectedPlace(null);
+      setDroppedPin(null);
+      return true;
+    }
+    lastPinTap.current = { key, at: now };
+    return false;
+  }, []);
+
   const handleTilePoiPress = useCallback((place: Place) => {
+    if (pinDoubleTap(place)) {
+      return;
+    }
     setSelectedPlace(place);
     void placeDetails(place).then((full) => {
       if (!full) {
@@ -2104,11 +2132,14 @@ function PalmMap() {
           : current,
       );
     });
-  }, []);
+  }, [pinDoubleTap]);
 
   const handlePlacePress = useCallback(
     (placeId: number) => {
       const place = placesById.get(placeId);
+      if (place && pinDoubleTap(place)) {
+        return;
+      }
       if (place) {
         setSelectedPlace(place);
         // A pin from the country's file carries hours, phone and website but
@@ -2129,7 +2160,7 @@ function PalmMap() {
         }
       }
     },
-    [placesById],
+    [placesById, pinDoubleTap],
   );
 
   /**

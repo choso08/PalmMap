@@ -469,6 +469,9 @@ export const DRIVING_GPS_INTERVAL_MS = 2000;
  */
 export const DOUBLE_TAP_MS = 300;
 
+/** Two taps on the same map pin within this go straight to directions. */
+export const PIN_DOUBLE_TAP_MS = 450;
+
 /**
  * A note about the speed, so nobody touches it again without thinking.
  *

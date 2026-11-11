@@ -35,6 +35,34 @@ environment cannot reach.
 
 **Recent work (November 2026), none of it seen on a phone yet unless said:**
 
+- **After 7.0.37, not built yet** (build only when the author asks):
+  - **Start a transport trip, as in Maps** (`transitGuide.ts`, `TransitGuidePanel.tsx`):
+    the route panel's Start for the chosen bus/train/metro/ferry option. Steps: walk to the
+    stop (OSRM walking, a straight line if it fails), take the line, the stops to ride,
+    (change), walk on. Each option carries a `RideRef` — a Carris pattern between two
+    sequence numbers, or a stored trip between two positions — and only the trip started
+    loads its stops (`carrisRide`, times spread by the pattern's distance between the two
+    real ends; `scheduledRide`). The GPS (every 2 s, through the navigation foreground
+    service) moves the steps **only forward** (`guideProgress`); a tapped step is the way
+    back. The voice says the line to take, "get off at the next stop" one stop before, and
+    the arrival. The map draws rides solid and walks dotted (`guidePaths`).
+  - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
+    the first tap opens the card, the second makes it the destination.
+  - **Live buses are a bus's body with the line number on it**, and a nose turned by the
+    service's `bearing` (`vehicle-live`, `vehicle-heading`, drawn by
+    `generate-poi-icons.py`; no nose when there is no bearing).
+  - **A tapped stop or station opens alone** — its panel shows only its passages; the clock
+    button that opened the "stops nearby" list is gone.
+  - **Station pins** for train, metro, light rail and boat (`station-<kind>` images), tappable.
+  - **Business photos** in the card (`photos.ts`): OSM's `image`, `wikimedia_commons`,
+    `wikidata` (P18) and `panoramax` tags, else a Panoramax street photo within 25 m. No keys.
+  - **Carris de Lisboa timetables** generated and published (`horarios`); its timetable-only
+    bus stops show on the transport map (`scheduledBusStops`, kind `'bus'`, ids
+    `sched:<feed>:<index>`) and open with `departuresAtStop`. Carris Metropolitana stays out
+    of the timetables on purpose: it has real time.
+  - **A recent search is forgotten** by swiping it sideways or its ✕ (`SwipeToRemove`,
+    `forgetRecent`).
+
 - **A line's journey, as in Maps** (author's request): tapping a line in a stop's arrivals
   shows its stops from there (`lineJourney`, in `transit.ts`; `LineJourney.tsx`), folded into
   "12 paragens · 25 min" when there are many, with the time at each — the pattern's timetable
@@ -363,6 +391,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── SpeedBadge.tsx    # The speedometer, while navigating and on the map
 │   │   ├── TransitSheet.tsx  # Stops nearby and their arrival times
 │   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
+│   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
+│   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
 │   │   ├── OfflineMaps.tsx   # Countries to download, with sizes
 │   │   ├── Schedules.tsx     # Timetables to download
@@ -390,6 +420,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── tiles.ts          # Map styles (light/dark/satellite/transport) and cache
 │   │   ├── transit.ts        # Stops and arrival times (Carris Metropolitana)
 │   │   ├── vehicles.ts       # Where the buses are right now
+│   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
+│   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later
@@ -1031,9 +1063,10 @@ ask for less: no filter by area or line (`by_line` gives 404).
 `trip_id`, `speed` (**metres per second**), `timestamp` and `current_status` (`STOPPED_AT`,
 `IN_TRANSIT_TO`, `INCOMING_AT`).
 
-Each bus is a circle with the line number inside; those stopped at a stop are fainter. **They
-go over the stops**, on purpose. No direction arrow despite `bearing`: it would need an image
-or a character the bundled glyphs lack.
+Each bus is a small bus's body with the line number written on it, and a nose turned to the
+service's `bearing` (images `vehicle-live` and `vehicle-heading`, from `generate-poi-icons.py`;
+the nose only when a bearing comes). Those stopped at a stop are fainter. **They go over the
+stops**, on purpose.
 
 
 ### 6-C. Speed cameras
