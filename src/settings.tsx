@@ -121,6 +121,12 @@ export interface Settings {
    * is the app's heaviest request — see `VEHICLES_MIN_ZOOM`.
    */
   showVehicles: boolean;
+  /**
+   * Learn the person's pace from trips and count on it in the arrival time
+   * (see `utils/eta.ts`). Off, only the manual correction applies — and
+   * nothing is measured or stored (author's request, November 2026).
+   */
+  paceLearning: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -140,6 +146,7 @@ export const DEFAULT_SETTINGS: Settings = {
   batterySaver: true,
   showSpeed: true,
   showVehicles: true,
+  paceLearning: true,
 };
 
 /**
@@ -223,7 +230,29 @@ const SATELLITE_HIGH_KEY = 'palmmap.satelliteAltaPorDefeito';
  * it, the app learns it. It lives here rather than in a service of its own
  * because it has exactly the same lifecycle as the rest of what this file keeps.
  */
-export type LearnedPace = Partial<Record<TravelMode, number>>;
+/**
+ * Where a pace is kept: per travel mode, and **per bicycle type** — a slow BTT
+ * ride must not slow down the road bike's estimates (author's request,
+ * November 2026). The plain `cycling` key is what phones learnt before that,
+ * one value for every bike; it is still read, only as a fallback until each
+ * type has its own, and never written again.
+ */
+export type PaceKey = TravelMode | `cycling-${BikeType}`;
+
+export type LearnedPace = Partial<Record<PaceKey, number>>;
+
+export function paceKeyFor(mode: TravelMode, bikeType: BikeType): PaceKey {
+  return mode === 'cycling' ? `cycling-${bikeType}` : mode;
+}
+
+/** The learnt pace for a mode (and bike type), with the old shared bike value as fallback. */
+export function learnedPaceFor(
+  pace: LearnedPace,
+  mode: TravelMode,
+  bikeType: BikeType,
+): number | undefined {
+  return pace[paceKeyFor(mode, bikeType)] ?? (mode === 'cycling' ? pace.cycling : undefined);
+}
 
 const PACE_KEY = 'palmmap.pace';
 
@@ -232,7 +261,7 @@ interface SettingsContextValue {
   /** The learnt pace, per travel mode. Empty until something is measured. */
   pace: LearnedPace;
   /** Blends one trip's pace into what was already kept. */
-  learnPace: (mode: TravelMode, measured: number) => void;
+  learnPace: (key: PaceKey, measured: number) => void;
   /** Forgets everything learnt. */
   forgetPace: () => void;
   theme: Theme;
@@ -316,9 +345,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
    * Saving is secondary, as with the settings: if it fails, the value still
    * holds this session.
    */
-  const learnPace = useCallback((mode: TravelMode, measured: number) => {
+  const learnPace = useCallback((key: PaceKey, measured: number) => {
     setPace((current) => {
-      const next = { ...current, [mode]: blendPace(current[mode], measured) };
+      // A bike type with nothing of its own yet starts from the old shared value.
+      const before =
+        current[key] ?? (key.startsWith('cycling-') ? current.cycling : undefined);
+      const next = { ...current, [key]: blendPace(before, measured) };
       void AsyncStorage.setItem(PACE_KEY, JSON.stringify(next)).catch(() => undefined);
       return next;
     });
@@ -397,15 +429,22 @@ export function useEta(): (
 ) => number {
   const { settings, pace } = useSettingsContext();
   const mode = settings.travelMode;
+  const learning = settings.paceLearning;
+  const bikeType = settings.bikeType;
   const manual =
     TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1;
 
   return useCallback(
     (distanceMeters, osrmSeconds, livePace, forMode) => {
       const m = forMode ?? mode;
-      return modelSeconds(distanceMeters, osrmSeconds, m) * (livePace ?? pace[m] ?? manual);
+      // With learning off, only the manual correction: neither this trip's
+      // measured pace nor what was learnt before.
+      const factor = learning
+        ? (livePace ?? learnedPaceFor(pace, m, bikeType) ?? manual)
+        : manual;
+      return modelSeconds(distanceMeters, osrmSeconds, m) * factor;
     },
-    [mode, pace, manual],
+    [mode, pace, manual, learning, bikeType],
   );
 }
 

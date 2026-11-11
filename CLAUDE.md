@@ -505,6 +505,7 @@ in one place instead of spread through the code.
   | `batterySaver` | Read the GPS less often far from manoeuvres |
   | `showSpeed` | Show the GPS speed |
   | `showVehicles` | Show moving buses on the transport map |
+  | `paceLearning` | Learn the person's pace (5-A); off, only `timeAdjustment` applies and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
   show it in `SettingsSheet` **and add it to `show`** (the settings search; see below).
@@ -616,8 +617,11 @@ Three layers, in `src/utils/eta.ts` and `useEta()`:
    slower, it knows something about the road an average does not, and its value stays.
 2. **The measured pace.** While navigating, the time the stretch covered really took is
    compared with what the route predicted. The result multiplies what is left, and is
-   **stored per travel mode** (`LearnedPace`, in `settings.tsx`) so the next estimate is born
-   right — the one that matters is the one read **before** leaving.
+   **stored per travel mode, and per bicycle type** (`LearnedPace`, `paceKeyFor`, in
+   `settings.tsx`: `cycling-road`, `cycling-normal`, `cycling-mtb` — a slow BTT ride must not
+   slow the road bike; the old shared `cycling` value is only a fallback) so the next estimate
+   is born right — the one that matters is the one read **before** leaving. A setting turns
+   all of this off (`paceLearning`, author's request).
 3. **The manual correction**, which only applies while there is no measured pace.
 
 **Measured beats guessed, and they do not multiply.** Both measure the same thing;

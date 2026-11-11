@@ -45,6 +45,9 @@ import { hasRegionVoice } from '../utils/voice';
 /** How long "recent destinations forgotten" stays on screen. */
 const RECENTS_CLEARED_MS = 4000;
 
+/** The bike types, in the order the route panel shows them. */
+const BIKE_TYPE_IDS = ['road', 'normal', 'mtb'] as const;
+
 interface SettingsSheetProps {
   /**
    * Says the recent destinations were forgotten.
@@ -162,7 +165,7 @@ export function SettingsSheet({
         : !q || terms.some((term) => normalise(term).includes(q));
     const result = {
       language: has(s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
-      time: has(nav, s.timeAdjustment, s.forgetPace),
+      time: has(nav, s.timeAdjustment, s.forgetPace, s.paceLearning),
       appearance: has(s.appearance, ...Object.values(s.appearanceModes)),
       satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
@@ -230,13 +233,29 @@ export function SettingsSheet({
    * The order is `TRAVEL_MODES`'s, not the order the values arrived in: a list
    * that reorders itself reads as if its content had changed.
    */
-  const ritmo = useMemo(
-    () =>
-      TRAVEL_MODES.filter((mode) => pace[mode.id] != null)
-        .map((mode) => `${s.travelModes[mode.id]} ${formatFactor(pace[mode.id] as number)}`)
-        .join(' · '),
-    [pace, s],
-  );
+  const ritmo = useMemo(() => {
+    // Bikes by type ("Bicicleta BTT 1.4×"); the old shared value only while
+    // it is still the one in use for some type.
+    const entries: [string, number | undefined][] = TRAVEL_MODES.flatMap((mode) =>
+      mode.id === 'cycling'
+        ? [
+            ...BIKE_TYPE_IDS.map(
+              (b): [string, number | undefined] => [
+                `${s.travelModes.cycling} ${strings.route.bikeTypes[b]}`,
+                pace[`cycling-${b}`],
+              ],
+            ),
+            ...(pace.cycling != null && BIKE_TYPE_IDS.some((b) => pace[`cycling-${b}`] == null)
+              ? [[s.travelModes.cycling, pace.cycling] as [string, number]]
+              : []),
+          ]
+        : [[s.travelModes[mode.id], pace[mode.id]] as [string, number | undefined]],
+    );
+    return entries
+      .filter((e): e is [string, number] => e[1] != null)
+      .map(([name, factor]) => `${name} ${formatFactor(factor)}`)
+      .join(' · ');
+  }, [pace, s, strings]);
 
   const handleClearCache = async () => {
     setClearing(true);
@@ -476,7 +495,17 @@ export function SettingsSheet({
             manual correction above would stop working without anyone knowing
             why.
           */}
-                  {ritmo ? (
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.paceLearning}</Text>
+                    </View>
+                    <Switch
+                      value={settings.paceLearning}
+                      onValueChange={(next) => update('paceLearning', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
+                  {ritmo && settings.paceLearning ? (
                     <>
                       <Text style={styles.note}>{s.paceNote(ritmo)}</Text>
                       <Pressable style={styles.forgetRow} onPress={forgetPace}>

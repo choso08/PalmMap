@@ -370,6 +370,7 @@ export const pt = {
     timeAdjustment: 'Tempo estimado',
     paceNote: (list: string) => `Ritmo aprendido: ${list}.`,
     forgetPace: 'Esquecer o ritmo aprendido',
+    paceLearning: 'Aprender o meu ritmo',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',

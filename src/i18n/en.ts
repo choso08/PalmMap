@@ -333,6 +333,7 @@ export const en: typeof pt = {
     timeAdjustment: 'Estimated time',
     paceNote: (list: string) => `Learned pace: ${list}.`,
     forgetPace: 'Forget the learned pace',
+    paceLearning: 'Learn my pace',
     timeAdjustments: {
       none: 'Normal',
       slow: '+25%',

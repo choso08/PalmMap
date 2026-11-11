@@ -137,6 +137,8 @@ import {
   SettingsProvider,
   cacheMegabytesFor,
   isTransitMap,
+  paceKeyFor,
+  type PaceKey,
   osrmProfile,
   useLearnedPace,
   useSettings,
@@ -444,7 +446,7 @@ function PalmMap() {
    * effect that sees navigation end, and that one cannot depend on the settings
    * without running again on every change to them.
    */
-  const paceToLearn = useRef<{ mode: TravelMode; factor: number } | null>(null);
+  const paceToLearn = useRef<{ key: PaceKey; factor: number } | null>(null);
   /** How far along the route the person is. The map fades what is behind. */
   const [progressIndex, setProgressIndex] = useState(0);
   /** How many readings in a row have been off the route. */
@@ -1489,7 +1491,10 @@ function PalmMap() {
               ? assumedTotal * (coveredMeters / route.distanceMeters)
               : 0;
 
-          if (!paceStart.current) {
+          // With learning off (Settings), nothing is measured nor kept.
+          if (!settings.paceLearning) {
+            // Nothing.
+          } else if (!paceStart.current) {
             paceStart.current = {
               atMs: Date.now(),
               coveredMeters,
@@ -1505,7 +1510,10 @@ function PalmMap() {
             if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
               const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
               setLivePace(medido);
-              paceToLearn.current = { mode: settings.travelMode, factor: medido };
+              paceToLearn.current = {
+                key: paceKeyFor(settings.travelMode, settings.bikeType),
+                factor: medido,
+              };
             }
           }
 
@@ -1612,6 +1620,8 @@ function PalmMap() {
     settings.avoidTolls,
     settings.speedCameraAlerts,
     settings.batterySaver,
+    settings.paceLearning,
+    settings.bikeType,
   ]);
 
   /**
@@ -1643,7 +1653,7 @@ function PalmMap() {
     setLivePace(null);
 
     if (medido) {
-      learnPace(medido.mode, medido.factor);
+      learnPace(medido.key, medido.factor);
     }
   }, [navigating, learnPace]);
 
