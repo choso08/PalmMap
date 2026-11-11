@@ -63,6 +63,18 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
           : '';
         console.log(`    ${t.line} ${t.headsign}: ${t.from.name} ${hora(t.departsAt)}${via} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} stops${t.live ? ', live' : ''})`);
       }
+      // The stops a started trip rides through (`carrisRide`, for the guide).
+      const comRef = (trajetos || []).find((t) => t.ride && t.ride.source === 'carris');
+      if (comRef) {
+        try {
+          const ate = comRef.change ? comRef.change.arrivesAt : comRef.arrivesAt;
+          const r = await transit.carrisRide(comRef.ride, comRef.departsAt, ate);
+          console.log(`  ride of ${comRef.line} (${r.length} stops):`,
+            r.map((s) => `${s.name}@${s.unix ? hora(s.unix) : '?'}`).join(' > '));
+        } catch (erro) {
+          console.log('  ride ERRO:', erro && erro.message);
+        }
+      }
     } catch (erro) {
       console.log('  ERRO:', erro && erro.message, erro && erro.status);
     }
