@@ -534,7 +534,13 @@ export function MapView({
         // A bus standing at a stop is drawn fainter: the difference between
         // "moving" and "standing there" is what makes this useful to someone
         // waiting.
-        properties: { linha: v.line, parado: v.atStop ? 1 : 0 },
+        // `rumo` is -1 when the bus sends no bearing: then no nose is drawn,
+        // rather than one pointing north by default.
+        properties: {
+          linha: v.line,
+          parado: v.atStop ? 1 : 0,
+          rumo: v.bearing ?? -1,
+        },
       })),
     [vehicles],
   );
@@ -1336,16 +1342,15 @@ export function MapView({
       ) : null}
 
       {/*
-        The moving buses, with the line number inside.
+        The moving buses: a bus on a disc (`vehicle-live`), a nose turned to
+        where it is heading (`vehicle-heading`, by the service's `bearing`), and
+        the line number underneath. Author's request, November 2026, instead of
+        a green ball with the number inside. Both images are drawn by
+        `generate-poi-icons.py`.
 
         **They go over the stops, on purpose:** the stop is always in the same
         place and the bus is the news. Covering a bus with a stop would cover
         what one came to see.
-
-        They have no arrow for the direction, even though the service sends the
-        `bearing`. An arrow would need an image or a character the bundled glyphs
-        lack — two Noto Sans blocks, enough for Portuguese and with no symbols.
-        Noted for when it is needed.
       */}
       {vehicles.length > 0 ? (
         <GeoJSONSource
@@ -1353,16 +1358,33 @@ export function MapView({
           data={vehiclesJson}
         >
           <Layer
-            key="autocarros-circle"
-            id="autocarros-circle"
-            type="circle"
-            paint={{
-              'circle-radius': 10,
-              'circle-color': theme.vehicle,
-              'circle-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': theme.poiOutline,
+            key="autocarros-rumo"
+            id="autocarros-rumo"
+            type="symbol"
+            filter={['>=', ['get', 'rumo'], 0]}
+            layout={{
+              'icon-image': 'vehicle-heading',
+              'icon-rotate': ['get', 'rumo'],
+              // Turned with the map, so the nose keeps pointing down the
+              // street when the map itself is rotated.
+              'icon-rotation-alignment': 'map',
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
             }}
+            paint={{ 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1] }}
+          />
+          <Layer
+            key="autocarros-icon"
+            id="autocarros-icon"
+            type="symbol"
+            layout={{
+              'icon-image': 'vehicle-live',
+              'icon-pitch-alignment': 'viewport',
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+            // A bus standing at a stop is fainter.
+            paint={{ 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1] }}
           />
           {labelsReady ? (
             <Layer
@@ -1372,13 +1394,19 @@ export function MapView({
               layout={{
                 'text-field': ['get', 'linha'],
                 'text-font': ['Noto Sans Medium'],
-                'text-size': 10,
-                // Overlapping on purpose: the number has to stay inside the
-                // circle even when buses are right next to each other.
+                'text-size': 11,
+                'text-offset': [0, 1.45],
+                'text-anchor': 'top',
+                // Overlapping on purpose: a bus without its number is a bus
+                // nobody can tell apart.
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
               }}
-              paint={{ 'text-color': theme.onOverlay }}
+              paint={{
+                'text-color': theme.onOverlay,
+                'text-halo-color': theme.vehicle,
+                'text-halo-width': 2.5,
+              }}
             />
           ) : null}
         </GeoJSONSource>

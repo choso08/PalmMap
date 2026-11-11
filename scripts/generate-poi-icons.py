@@ -45,7 +45,32 @@ STOPS = [
     # A stop of a bus operator with a timetable only (Carris de Lisboa, Braga):
     # amber, so it is not taken for a live Carris Metropolitana stop (blue).
     ("station-bus", "bus", "#E8A200", 18, 14, 9),
+    # A live bus (author's request, November 2026, instead of a plain green
+    # ball): a bus on a disc in the vehicle colour (`theme.vehicle`, light).
+    ("vehicle-live", "bus", "#2F7D32", 26, 22, 13),
 ]
+
+# The nose that points where a live bus is heading: drawn on the same canvas
+# as `vehicle-live`, under it, and turned on the map by the bus's `bearing`.
+HEADING_SIZE, HEADING_BASE, HEADING_TIP, HEADING_HALF = 40, 10, 19, 7
+
+
+def draw_heading(scale: int) -> Image.Image:
+    size = HEADING_SIZE * scale
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    c = size / 2
+    tip = (c, c - HEADING_TIP * scale)
+    left = (c - HEADING_HALF * scale, c - HEADING_BASE * scale)
+    right = (c + HEADING_HALF * scale, c - HEADING_BASE * scale)
+    # White edge first, then the colour, so the nose reads on any map.
+    d.polygon([tip, left, right], fill="#FFFFFF")
+    inset = 1.4 * scale
+    d.polygon(
+        [(tip[0], tip[1] + inset * 1.6), (left[0] + inset, left[1]), (right[0] - inset, right[1])],
+        fill="#2F7D32",
+    )
+    return img
 
 
 def draw(icon: str, family: str, scale: int, colour: str | None = None,
@@ -119,6 +144,11 @@ def main() -> None:
             suffix = "" if scale == 1 else f"@{scale}x"
             draw(icon, "other", scale, colour, (size, disc, glyph)).save(
                 OUT / f"{name}{suffix}.png", optimize=True)
+
+    names.append("vehicle-heading")
+    for scale in (1, 2, 3):
+        suffix = "" if scale == 1 else f"@{scale}x"
+        draw_heading(scale).save(OUT / f"vehicle-heading{suffix}.png", optimize=True)
 
     names.append("heading-cone")
     for scale in (1, 2, 3):
