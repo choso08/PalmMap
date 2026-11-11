@@ -35,6 +35,23 @@ environment cannot reach.
 
 **Recent work (November 2026), none of it seen on a phone yet unless said:**
 
+- **A line's journey, as in Maps** (author's request): tapping a line in a stop's arrivals
+  shows its stops from there (`lineJourney`, in `transit.ts`; `LineJourney.tsx`), folded into
+  "12 paragens · 25 min" when there are many, with the time at each — the pattern's timetable
+  shifted by the bus's real delay at this stop — and, with a destination chosen, ending at
+  the line's stop nearest it ("Sair aqui"). The map draws the way and those stops. The source
+  is `/v2/patterns/<id>`, **without** the `[YA15B]` prefix the arrivals carry (with it: 404);
+  about 400 KB per pattern, kept for the session. Probed with `sondar: pattern`, checked with
+  the app's own code in `trajetos`.
+- **"Satélite + bus" map type** (`satelliteTransit`, `isTransitMap`): the satellite underneath,
+  with the live buses, Carris stops and arrivals button of the transport map on top.
+- **The compass cone keeps one size**: it was `icon-pitch-alignment: 'map'`, which drew it at
+  its tile's size and made it grow and shrink against the dot with the zoom (author's report);
+  now `'viewport'`.
+- **The voice speaks on Start**: the first instruction is said at once (before, nothing until
+  400 m from the first manoeuvre — on a long road the voice seemed off), and the speech engine
+  is woken when a destination is chosen (`warmUpVoice`, through `isSpeakingAsync`, which never
+  touches the voice list).
 - **Efficiency round** (author's request), none of it seen on a phone yet:
   the map's sources get their GeoJSON **as memoized text** (`GeoJSONSource` stringifies an
   object `data` on every render — the whole route once a second while navigating); the lists
@@ -345,6 +362,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── NavigationPanel.tsx # Navigation screen: manoeuvre, lanes, limit, footer
 │   │   ├── SpeedBadge.tsx    # The speedometer, while navigating and on the map
 │   │   ├── TransitSheet.tsx  # Stops nearby and their arrival times
+│   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
 │   │   ├── OfflineMaps.tsx   # Countries to download, with sizes
 │   │   ├── Schedules.tsx     # Timetables to download
@@ -479,7 +497,7 @@ in one place instead of spread through the code.
   | `cacheSize` | Map cache: off, 100 MB, 250 MB, 500 MB or 1 GB |
   | `showPlacesOnMap` | Show businesses on the map by themselves |
   | `voiceGuidance` | Read instructions aloud while navigating |
-  | `mapType` | Drawn map, satellite or transport — **remembered between sessions** |
+  | `mapType` | Drawn map, satellite, transport or satellite + bus — **remembered between sessions** |
   | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal) — **high by default** since November 2026 (author's request; switched once on existing phones, `palmmap.satelliteAltaPorDefeito`) |
   | `speedCameraAlerts` | Warn about cameras on the route |
   | `speedLimitAlerts` | Warn when over the road's limit — **off by default** (author's request) |
