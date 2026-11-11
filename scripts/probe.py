@@ -699,12 +699,12 @@ def fresh_install():
         return lon * 20037508.34 / 180, math.log(math.tan((90 + lat) * math.pi / 360)) * 20037508.34 / math.pi
     x0, y0 = merc(38.70, -9.15); x1, y1 = merc(38.71, -9.14)
     checks = [
-        ("OSM tile (map, dark)", "https://tile.openstreetmap.org/14/7773/6178.png", "image"),
-        ("EOX Sentinel-2 2025", "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/12/1554/1943.jpg", "image"),
+        ("OSM tile (map, dark)", "https://tile.openstreetmap.org/14/7776/6278.png", "image"),
+        ("EOX Sentinel-2 2025", "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/12/1569/1944.jpg", "image"),
         ("DGT orthophotos", "https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
             f"&LAYERS=ortoSat2023-CorVerdadeira&STYLES=&CRS=EPSG:3857&BBOX={x0},{y0},{x1},{y1}"
             "&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false", "image"),
-        ("OePNVKarte transport", "https://tileserver.memomaps.de/tilegen/14/7773/6178.png", "image"),
+        ("OePNVKarte transport", "https://tileserver.memomaps.de/tilegen/14/7776/6278.png", "image"),
         ("OpenFreeMap TileJSON", "https://tiles.openfreemap.org/planet", "json"),
         ("Nominatim search", "https://nominatim.openstreetmap.org/search?q=Rossio%20Lisboa&format=jsonv2&limit=1", "json"),
         ("Nominatim reverse", f"https://nominatim.openstreetmap.org/reverse?lat={lisbon[0]}&lon={lisbon[1]}&format=jsonv2", "json"),

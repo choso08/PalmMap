@@ -493,7 +493,6 @@ in one place instead of spread through the code.
   | `appearance` | Automatic, light or dark |
   | `travelMode` | Car, walk, bike or bus (chosen in Directions and the route panel) |
   | `bikeType` | Road, normal or BTT — chosen in the route panel when cycling (see the Valhalla rules) |
-  | `cacheSize` | Map cache: off, 100 MB, 250 MB, 500 MB or 1 GB |
   | `showPlacesOnMap` | Show businesses on the map by themselves |
   | `voiceGuidance` | Read instructions aloud while navigating |
   | `mapType` | Drawn map, satellite, transport or satellite + bus — **remembered between sessions** |
@@ -1268,8 +1267,10 @@ What is done, legitimately:
 
 - **A zoom ceiling on tiles** (`MAX_TILE_ZOOM`, 18); above it MapLibre enlarges what it has.
   It also takes about sixteen times the load off OpenStreetMap's servers.
-- **A cache of what was seen.** Size is a setting (off, 100 MB to 1 GB), applied by
-  `setMapCacheSize()`, with a clear button. **No expiry can be set** — MapLibre's API takes a
+- **A cache of what was seen**, fixed at `MAP_CACHE_MB` (250 MB), applied by
+  `setMapCacheSize()`. It was a setting with a clear button until November 2026; the author
+  removed it (the country maps are the offline answer). **It must not go to zero**: OSM's tile
+  policy asks clients to cache instead of asking again. **No expiry can be set** — MapLibre's API takes a
   size, not a time; when full it forgets what was least recently seen.
 - **Country maps in PMTiles** — the legitimate way to have a whole country offline (next
   section).
