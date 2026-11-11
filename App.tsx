@@ -130,6 +130,7 @@ import {
   planBusTrips,
   type TransitTrip,
   type TransitStation,
+  type LineJourney,
   type TransitStop,
 } from './src/services/transit';
 import {
@@ -2129,13 +2130,41 @@ function PalmMap() {
     [navigating, routeOptions, routeIndex],
   );
   const mapWaypoints = useMemo(() => waypoints.map((w) => w.coordinates), [waypoints]);
+  /** A line tapped in the stop panel: the map shows its stops and its way. */
+  const [lineJourneyShown, setLineJourneyShown] = useState<LineJourney | null>(null);
+  const journeyStops = useMemo<TransitStop[] | null>(
+    () =>
+      lineJourneyShown
+        ? lineJourneyShown.stops.map((s) => ({
+            id: s.id,
+            name: s.name,
+            locality: '',
+            coordinates: s.coordinates,
+            lines: [],
+            connections: [],
+            patterns: [],
+            meters: 0,
+          }))
+        : null,
+    [lineJourneyShown],
+  );
+  const journeyLine = useMemo(
+    () =>
+      lineJourneyShown && lineJourneyShown.stops.length >= 2
+        ? {
+            coordinates: lineJourneyShown.stops.map((s) => s.coordinates),
+            colour: lineJourneyShown.colour,
+          }
+        : null,
+    [lineJourneyShown],
+  );
   const mapTransitStops = useMemo(() => {
     const trip = transitTrips?.[transitTripIndex];
     if (!trip) {
-      return mapStopsShown;
+      return journeyStops ?? mapStopsShown;
     }
     return [trip.from, ...(trip.change ? [trip.change.at, trip.change.boardAt] : []), trip.to];
-  }, [transitTrips, transitTripIndex, mapStopsShown]);
+  }, [transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
 
   /**
    * The panel's list, with the stop tapped on the map at the top when it is
@@ -2263,6 +2292,7 @@ function PalmMap() {
         alternativeRoutes={mapAlternatives}
         waypoints={mapWaypoints}
         transitStops={mapTransitStops}
+        journeyLine={journeyLine}
         selectedStopId={selectedStopId}
         onStopPress={handleStopPress}
         transitStations={transitStations}
@@ -2620,10 +2650,13 @@ function PalmMap() {
                 onClose={() => {
                   setTransitVisible(false);
                   setSelectedStopId(null);
+                  setLineJourneyShown(null);
                 }}
                 onGoToStop={handleGoToStop}
                 onSelectedStopChange={setSelectedStopId}
                 selectedStopId={selectedStopId}
+                destination={destination?.coordinates ?? null}
+                onJourneyChange={setLineJourneyShown}
               />
             )}
           </DraggableSheet>

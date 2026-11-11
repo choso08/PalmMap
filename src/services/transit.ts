@@ -13,7 +13,7 @@ import {
 import { createRateLimiter } from './rateLimit';
 import { t } from '../i18n';
 import type { Bounds, Coordinates } from '../types/geo';
-import type { CarrisArrival, CarrisFacility, CarrisStop } from '../types/transit';
+import type { CarrisArrival, CarrisFacility, CarrisPattern, CarrisStop } from '../types/transit';
 import { distanceMeters } from '../utils/geometry';
 
 /**
@@ -136,6 +136,13 @@ export interface TransitArrival {
   time: string;
   /** True when it is real time; false when it is only the timetable. */
   live: boolean;
+  /** When it passes, in seconds since 1970 — the estimate when there is one. */
+  unix: number;
+  /** The pattern, for the line's journey (`lineJourney`). */
+  patternId: string | null;
+  /** This stop's place in the trip, and its timetable time (`HH:MM:SS`). */
+  stopSequence: number | null;
+  scheduledText: string | null;
 }
 
 /**
@@ -366,10 +373,176 @@ export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArri
       minutes: Math.max(0, minutesLeft),
       time: clockOf(when),
       live,
+      unix: when,
+      patternId: arrival.pattern_id ?? null,
+      stopSequence: typeof arrival.stop_sequence === 'number' ? arrival.stop_sequence : null,
+      scheduledText: arrival.scheduled_arrival ?? null,
     });
   }
 
   return upcoming.sort((a, b) => a.minutes - b.minutes).slice(0, limit);
+}
+
+/** One stop of a line's journey, from where one boards onwards. */
+export interface JourneyStop {
+  id: string;
+  name: string;
+  coordinates: Coordinates;
+  /** When the bus passes here (`HH:MM`); null when the timetable did not match. */
+  time: string | null;
+}
+
+/** Where a bus goes from the stop it was tapped at, as Maps shows a line. */
+export interface LineJourney {
+  line: string;
+  headsign: string;
+  /** The line's own colour, when the service gives one. */
+  colour: string | null;
+  /** From the boarding stop to the end of the line — or to `alightIndex`. */
+  stops: JourneyStop[];
+  /**
+   * Where to get off for the destination chosen, as an index into `stops`:
+   * the stop of the line nearest to it. Null with no destination.
+   */
+  alightIndex: number | null;
+}
+
+/**
+ * Patterns already asked for. Each answer is a few hundred kilobytes (every
+ * trip of the line with its times) and does not change during a session.
+ */
+const patternCache = new Map<string, Promise<CarrisPattern | null>>();
+
+function loadPattern(rawId: string): Promise<CarrisPattern | null> {
+  // The arrivals carry `[YA15B]3013_0_2`; the service only knows `3013_0_2`.
+  const id = rawId.replace(/^(\[[^\]]*\])+/, '');
+  const cached = patternCache.get(id);
+  if (cached) {
+    return cached;
+  }
+  const pending = carrisGet<CarrisPattern[] | CarrisPattern>(
+    `/patterns/${encodeURIComponent(id)}`,
+    CARRIS_STOPS_TIMEOUT_MS,
+  )
+    .then((data) => (Array.isArray(data) ? data[0] ?? null : data))
+    .catch((error: unknown) => {
+      // A failure is not kept: the next tap tries again.
+      patternCache.delete(id);
+      throw error;
+    });
+  patternCache.set(id, pending);
+  return pending;
+}
+
+/** `HH:MM:SS` (possibly past 24) → seconds after midnight. */
+function secondsOf(text: string | undefined): number | null {
+  const m = /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(text ?? '');
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3] ?? 0) : null;
+}
+
+/**
+ * The stops a bus calls at after this one, with the time at each — what Maps
+ * shows when a line is tapped.
+ *
+ * The times come from the pattern's timetable: the trip whose time at this
+ * stop is the arrival's own timetable time is that bus, and each later stop is
+ * the same number of minutes after it **counted from when the bus really
+ * passes here** — so a bus four minutes late is four minutes late all the way.
+ * When no trip matches, the stops show without times rather than with made-up
+ * ones.
+ *
+ * With a destination, the stop of the line nearest to it is where to get off,
+ * and the list ends there.
+ */
+export async function lineJourney(
+  arrival: TransitArrival,
+  boardStopId: string,
+  destination: Coordinates | null,
+): Promise<LineJourney> {
+  if (!arrival.patternId) {
+    throw new TransitError(t().transit.journeyUnavailable);
+  }
+  const [pattern, stops] = await Promise.all([loadPattern(arrival.patternId), loadStops()]);
+  const path = (pattern?.path ?? [])
+    .filter((p) => p.stop_id && typeof p.stop_sequence === 'number')
+    .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+  if (path.length === 0) {
+    throw new TransitError(t().transit.journeyUnavailable);
+  }
+
+  // Where one boards. The sequence beats the id: a circular line passes the
+  // same stop twice.
+  let start = path.findIndex((p) => p.stop_sequence === arrival.stopSequence);
+  if (start < 0) {
+    start = path.findIndex((p) => p.stop_id === boardStopId);
+  }
+  if (start < 0) {
+    start = 0;
+  }
+  const boardSequence = path[start].stop_sequence;
+
+  // The trip this bus is, by its timetable time here.
+  const boardTime = secondsOf(arrival.scheduledText ?? undefined);
+  const trip =
+    boardTime === null
+      ? undefined
+      : (pattern?.trips ?? []).find((tr) =>
+          (tr.schedule ?? []).some(
+            (s) => s.stop_sequence === boardSequence && secondsOf(s.arrival_time) === boardTime,
+          ),
+        );
+  const timeAt = new Map<number, number>();
+  for (const s of trip?.schedule ?? []) {
+    const sec = secondsOf(s.arrival_time);
+    if (typeof s.stop_sequence === 'number' && sec !== null) {
+      timeAt.set(s.stop_sequence, sec);
+    }
+  }
+
+  const byId = new Map(stops.map((s) => [s.id, s]));
+  const journey: JourneyStop[] = [];
+  for (const p of path.slice(start)) {
+    const stop = byId.get(p.stop_id ?? '');
+    if (!stop) {
+      continue;
+    }
+    const at = timeAt.get(p.stop_sequence ?? -1);
+    journey.push({
+      id: stop.id,
+      name: stop.name,
+      coordinates: stop.coordinates,
+      time:
+        boardTime !== null && at !== undefined
+          ? clockOf(arrival.unix + (at - boardTime))
+          : journey.length === 0
+            ? arrival.time
+            : null,
+    });
+  }
+
+  // Where to get off: the line's stop nearest the destination, past the first.
+  let alightIndex: number | null = null;
+  if (destination && journey.length > 1) {
+    let best = Infinity;
+    journey.forEach((s, i) => {
+      if (i === 0) {
+        return;
+      }
+      const d = distanceMeters(s.coordinates, destination);
+      if (d < best) {
+        best = d;
+        alightIndex = i;
+      }
+    });
+  }
+
+  return {
+    line: arrival.line,
+    headsign: arrival.destination || pattern?.headsign || '',
+    colour: pattern?.color && /^#[0-9a-f]{6}$/i.test(pattern.color) ? pattern.color : null,
+    stops: alightIndex !== null ? journey.slice(0, alightIndex + 1) : journey,
+    alightIndex,
+  };
 }
 
 /**

@@ -160,6 +160,11 @@ interface MapViewProps {
   transitStops?: TransitStop[];
   /** The stop open in the panel, drawn highlighted. */
   selectedStopId?: string | null;
+  /**
+   * A line tapped in the stop panel: its way from the boarding stop, through
+   * its stops, in the line's colour (the theme's accent without one).
+   */
+  journeyLine?: { coordinates: Coordinates[]; colour: string | null } | null;
   /** Called on a tap on a stop pin. */
   onStopPress?: (stopId: string) => void;
   /**
@@ -325,6 +330,7 @@ export function MapView({
   waypoints = NONE,
   transitStops = NONE,
   selectedStopId = null,
+  journeyLine = null,
   transitStations = NONE,
   vehicles = NONE,
   onStopPress,
@@ -488,6 +494,11 @@ export function MapView({
       })),
     // The kind's name depends on the language.
     [transitStations, settings.language],
+  );
+
+  const journeyJson = useMemo(
+    () => (journeyLine ? lineJson(journeyLine.coordinates.map(lonLat)) : null),
+    [journeyLine],
   );
 
   const stopsJson = useMemo(
@@ -1143,6 +1154,26 @@ export function MapView({
               }}
             />
           ) : null}
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        A tapped line's way, under its stops. Straight from stop to stop: the
+        stops are a few hundred metres apart, close enough to read as the road.
+      */}
+      {journeyJson ? (
+        <GeoJSONSource id="percurso-linha" data={journeyJson}>
+          <Layer
+            key="percurso-linha-line"
+            id="percurso-linha-line"
+            type="line"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': journeyLine?.colour ?? theme.accent,
+              'line-width': 5,
+              'line-opacity': 0.85,
+            }}
+          />
         </GeoJSONSource>
       ) : null}
 

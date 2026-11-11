@@ -255,6 +255,12 @@ export const pt = {
     scheduleOnly: 'Horário previsto, sem tempo real.',
     now: 'agora',
     inMinutes: (n: number) => `${n} min`,
+    /** A line's journey from the stop, tapped in the arrivals list. */
+    loadingJourney: 'A ver o percurso…',
+    journeyUnavailable: 'Não foi possível ver o percurso desta carreira.',
+    getOffHere: 'Sair aqui',
+    moreStops: (n: number, minutes: number | null) =>
+      `${n === 1 ? '1 paragem' : `${n} paragens`}${minutes !== null ? ` · ${minutes} min` : ''}`,
     /** The modes a stop connects with on another network. */
     kinds: {
       bus: 'Autocarro',

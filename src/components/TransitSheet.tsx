@@ -23,6 +23,9 @@ import {
   STATION_ICONS,
   stationLabel,
   arrivalsAt,
+  lineJourney,
+  TransitError,
+  type LineJourney as Journey,
   type TransitArrival,
   type TransitStation,
   type TransitStop,
@@ -31,6 +34,8 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDistance } from '../utils/format';
 import { useAppActive } from '../useAppActive';
+import type { Coordinates } from '../types/geo';
+import { LineJourney } from './LineJourney';
 
 interface TransitSheetProps {
   /**
@@ -56,6 +61,10 @@ interface TransitSheetProps {
   onSelectedStopChange: (stopId: string | null) => void;
   /** The stop chosen on the map, so the list opens the same one. */
   selectedStopId: string | null;
+  /** Where the person is going, if anywhere: a line's journey ends there. */
+  destination: Coordinates | null;
+  /** The line journey open in the list, for the map to draw; null when closed. */
+  onJourneyChange: (journey: Journey | null) => void;
 }
 
 /** "now" when it is arriving, otherwise "4 min". */
@@ -81,6 +90,8 @@ export function TransitSheet({
   onGoToStop,
   onSelectedStopChange,
   selectedStopId,
+  destination,
+  onJourneyChange,
   dragHandlers,
 }: TransitSheetProps) {
   const theme = useTheme();
@@ -100,6 +111,67 @@ export function TransitSheet({
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  /**
+   * The line tapped in the arrivals list: its stops from here, as Maps shows
+   * them (`lineJourney`). Keyed by pattern and timetable time, which survive
+   * the thirty-second refresh — the list's order and minutes do not.
+   */
+  const [journeyKey, setJourneyKey] = useState<string | null>(null);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyError, setJourneyError] = useState<string | null>(null);
+  const journeyRequest = useRef(0);
+
+  const closeJourney = useCallback(() => {
+    journeyRequest.current += 1;
+    setJourneyKey(null);
+    setJourney(null);
+    setJourneyLoading(false);
+    setJourneyError(null);
+    onJourneyChange(null);
+  }, [onJourneyChange]);
+
+  const toggleJourney = useCallback(
+    async (arrival: TransitArrival, stopId: string) => {
+      const key = `${arrival.patternId}|${arrival.scheduledText}`;
+      if (key === journeyKey) {
+        closeJourney();
+        return;
+      }
+      const request = journeyRequest.current + 1;
+      journeyRequest.current = request;
+      setJourneyKey(key);
+      setJourney(null);
+      setJourneyError(null);
+      setJourneyLoading(true);
+      onJourneyChange(null);
+      try {
+        const found = await lineJourney(arrival, stopId, destination);
+        if (journeyRequest.current !== request) {
+          return;
+        }
+        setJourney(found);
+        onJourneyChange(found);
+      } catch (error) {
+        if (journeyRequest.current === request) {
+          setJourneyError(
+            error instanceof TransitError ? error.message : t().transit.journeyUnavailable,
+          );
+        }
+      } finally {
+        if (journeyRequest.current === request) {
+          setJourneyLoading(false);
+        }
+      }
+    },
+    [journeyKey, closeJourney, onJourneyChange, destination],
+  );
+
+  // Another stop, or none: the journey belonged to the one before.
+  useEffect(() => {
+    closeJourney();
+  }, [openStop]);
 
   /**
    * The open stop's arrivals.
@@ -292,8 +364,16 @@ export function TransitSheet({
                     </Text>
                   ) : null}
 
-                  {(arrivals ?? []).map((a, i) => (
-                    <View key={`${a.line}-${a.time}-${i}`} style={styles.passagem}>
+                  {(arrivals ?? []).map((a, i) => {
+                    const key = `${a.patternId}|${a.scheduledText}`;
+                    const open = key === journeyKey;
+                    return (
+                    <View key={`${a.line}-${a.time}-${i}`}>
+                    <Pressable
+                      style={styles.passagem}
+                      onPress={() => void toggleJourney(a, stop.id)}
+                      disabled={!a.patternId}
+                    >
                       <View style={styles.linhaBadge}>
                         <Text style={styles.linhaBadgeTexto}>{a.line}</Text>
                       </View>
@@ -312,8 +392,17 @@ export function TransitSheet({
                           {a.time}
                         </Text>
                       </View>
+                    </Pressable>
+                    {open ? (
+                      <LineJourney
+                        journey={journey}
+                        loading={journeyLoading}
+                        error={journeyError}
+                      />
+                    ) : null}
                     </View>
-                  ))}
+                    );
+                  })}
 
                   <View style={styles.acoes}>
                     <Pressable

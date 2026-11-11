@@ -43,6 +43,16 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
       if (perto && perto[0]) {
         const horas = await transit.arrivalsAt(perto[0].id);
         console.log(`  next at ${perto[0].id}:`, horas.map((h) => `${h.line}@${h.time}${h.live ? '*' : ''}`).join(' '));
+        // The line journey a tap shows (`lineJourney`): stops ahead, times, where to get off.
+        if (horas[0]) {
+          try {
+            const j = await transit.lineJourney(horas[0], perto[0].id, destino);
+            console.log(`  journey of ${j.line} → ${j.headsign} (colour ${j.colour}, alight ${j.alightIndex}):`,
+              j.stops.map((s) => `${s.time ?? '--:--'} ${s.name}`).join(' | '));
+          } catch (erro) {
+            console.log('  journey ERRO:', erro && erro.message);
+          }
+        }
       }
       const t0 = Date.now();
       const trajetos = await transit.planBusTrips(origem, destino);

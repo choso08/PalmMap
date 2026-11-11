@@ -115,6 +115,37 @@ export interface CarrisArrival {
 }
 
 /**
+ * A pattern — one line in one direction, its stops in order — as
+ * `/v2/patterns/:id` returns it. Read from a real response (probe `pattern`,
+ * 11 November 2026). The id goes **without** the `[YA15B]` prefix the arrivals
+ * carry: with it the service answers 404. It comes as a list of one.
+ */
+export interface CarrisPattern {
+  id?: string;
+  line_id?: string;
+  short_name?: string;
+  headsign?: string;
+  /** The line's colour, `#C61D23`. */
+  color?: string;
+  text_color?: string;
+  path?: {
+    stop_id?: string;
+    stop_sequence?: number;
+    /** From the first stop, in kilometres. */
+    distance?: number;
+  }[];
+  /** Every trip of the pattern, each with its time at each stop. */
+  trips?: {
+    schedule?: {
+      stop_id?: string;
+      stop_sequence?: number;
+      /** `HH:MM:SS`, past 24 after midnight, as in GTFS. */
+      arrival_time?: string;
+    }[];
+  }[];
+}
+
+/**
  * A vehicle, as Carris Metropolitana's `/vehicles` returns it.
  *
  * **The names were read from a real response**, not guessed. The response

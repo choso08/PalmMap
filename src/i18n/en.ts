@@ -221,6 +221,11 @@ export const en: typeof pt = {
     scheduleOnly: 'Scheduled times, not live.',
     now: 'now',
     inMinutes: (n: number) => `${n} min`,
+    loadingJourney: 'Loading the stops…',
+    journeyUnavailable: "Couldn't load this line's stops.",
+    getOffHere: 'Get off here',
+    moreStops: (n: number, minutes: number | null) =>
+      `${n === 1 ? '1 stop' : `${n} stops`}${minutes !== null ? ` · ${minutes} min` : ''}`,
     kinds: {
       bus: 'Bus',
       train: 'Train',
