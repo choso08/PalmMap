@@ -1735,6 +1735,12 @@ The heaviest of the services: each query makes the server walk OpenStreetMap's d
   504, network, or 200 with `remark` — never both at once (`askOverpass`). The speed-limit
   query passes a longer timeout.
 - `MAP_PINS_LIMIT` is 40 per group.
+- **A fresh-install probe** (`sondar: fresh_install`, November 2026) asks every outside
+  service as a phone with nothing cached would — the CARTO "API KEY REQUIRED" stamp only showed
+  on such phones. Everything answered with real content except Overpass: on 11 November, from
+  GitHub Actions, **every** public server (`overpass-api.de`, `private.coffee`, `kumi.systems`,
+  `mail.ru`, `osm.jp`; `sondar: overpass_mirrors`) timed out or refused. Not the app; no
+  mirror was added. Rerun both probes after touching any service address.
 
 ### OSRM — routing
 
