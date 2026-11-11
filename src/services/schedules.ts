@@ -9,7 +9,7 @@ import {
   WALK_DETOUR,
   WALK_SPEED_MS,
 } from './config';
-import type { TransitStop, TransitTrip } from './transit';
+import type { TransitStation, TransitStop, TransitTrip } from './transit';
 import type { Coordinates } from '../types/geo';
 import type { ScheduleFeed, ScheduleFeedInfo } from '../types/schedule';
 
@@ -464,7 +464,9 @@ export function departuresNear(
   const departures: ScheduleDeparture[] = [];
 
   for (const feed of loadedFeeds()) {
-    if (isExpired(feed.info, now)) {
+    // Bus timetables answer at their own stops (`departuresAtStop`): their
+    // nearest stop to a metro station would put buses in the station's list.
+    if (isExpired(feed.info, now) || feed.info.kind === 'bus') {
       continue;
     }
 
@@ -473,48 +475,112 @@ export function departuresNear(
       continue;
     }
 
-    {
-      const station = nearest.index;
-      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
-        const scheduled = feed.data.trips[trip];
-        const minute = feed.minutes[trip]?.[pos];
-        if (minute === undefined) {
-          continue;
-        }
-
-        // A trip's last station is not a departure — it is the end of the line.
-        // Announcing it put trains on the panel that cannot be boarded.
-        if (pos >= (feed.data.patterns[scheduled.p]?.length ?? 0) - 1) {
-          continue;
-        }
-
-        for (const day of days) {
-          if (!feed.days[scheduled.s]?.has(day)) {
-            continue;
-          }
-
-          const when = unixAt(day, minute);
-          const minutesLeft = Math.round((when - nowUnix) / 60);
-          if (minutesLeft < 0 || minutesLeft > 120) {
-            continue;
-          }
-
-          departures.push({
-            key: `${feed.info.id}-${trip}-${day}`,
-            operator: feed.info.nome,
-            kind: feed.info.kind,
-            station: feed.data.stops[station]?.n ?? '',
-            line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
-            destination: feed.data.headsigns[scheduled.h] ?? '',
-            minutes: minutesLeft,
-            time: clockOf(when),
-          });
-        }
-      }
-    }
+    departures.push(...departuresFrom(feed, nearest.index, days, nowUnix));
   }
 
   return departures.sort((a, b) => a.minutes - b.minutes).slice(0, limit);
+}
+
+/**
+ * The stops of the timetable-only bus operators inside a map area — Carris de
+ * Lisboa, Braga's TUB — as stations, so the transport map can draw them and a
+ * tap can open their times (author's request, November 2026: "for the
+ * companies without live data, just put the timetables"). Their id says which
+ * file and which stop (`sched:<feed>:<index>`), read back by
+ * `departuresAtStop`. Carris Metropolitana is left out: it has real time.
+ */
+export function scheduledBusStops(
+  bounds: { west: number; south: number; east: number; north: number },
+  limit = 300,
+): TransitStation[] {
+  const found: TransitStation[] = [];
+  for (const feed of loadedFeeds()) {
+    if (feed.info.kind !== 'bus' || isExpired(feed.info)) {
+      continue;
+    }
+    feed.data.stops.forEach((stop, i) => {
+      if (
+        found.length < limit &&
+        stop.x >= bounds.west &&
+        stop.x <= bounds.east &&
+        stop.y >= bounds.south &&
+        stop.y <= bounds.north
+      ) {
+        found.push({
+          id: `sched:${feed.info.id}:${i}`,
+          kind: 'bus',
+          name: stop.n,
+          locality: feed.info.nome,
+          coordinates: { latitude: stop.y, longitude: stop.x },
+          stopIds: [],
+          meters: 0,
+        });
+      }
+    });
+  }
+  return found;
+}
+
+/** The next departures at one stop of a stored timetable, by its `sched:` id. */
+export function departuresAtStop(
+  stationId: string,
+  limit = 8,
+  now = new Date(),
+): ScheduleDeparture[] {
+  const m = /^sched:(.+):(\d+)$/.exec(stationId);
+  if (!m) {
+    return [];
+  }
+  const info = installedFeeds().find((f) => f.id === m[1]);
+  const feed = info ? loadFeed(info) : null;
+  if (!feed || isExpired(feed.info, now)) {
+    return [];
+  }
+  return departuresFrom(feed, Number(m[2]), candidateDays(now), now.getTime() / 1000)
+    .sort((a, b) => a.minutes - b.minutes)
+    .slice(0, limit);
+}
+
+/** A stop's departures in the next two hours, over the given service days. */
+function departuresFrom(
+  feed: IndexedFeed,
+  station: number,
+  days: string[],
+  nowUnix: number,
+): ScheduleDeparture[] {
+  const departures: ScheduleDeparture[] = [];
+  for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+    const scheduled = feed.data.trips[trip];
+    const minute = feed.minutes[trip]?.[pos];
+    if (minute === undefined) {
+      continue;
+    }
+    // A trip's last station is not a departure — it is the end of the line.
+    if (pos >= (feed.data.patterns[scheduled.p]?.length ?? 0) - 1) {
+      continue;
+    }
+    for (const day of days) {
+      if (!feed.days[scheduled.s]?.has(day)) {
+        continue;
+      }
+      const when = unixAt(day, minute);
+      const minutesLeft = Math.round((when - nowUnix) / 60);
+      if (minutesLeft < 0 || minutesLeft > 120) {
+        continue;
+      }
+      departures.push({
+        key: `${feed.info.id}-${trip}-${day}`,
+        operator: feed.info.nome,
+        kind: feed.info.kind,
+        station: feed.data.stops[station]?.n ?? '',
+        line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+        destination: feed.data.headsigns[scheduled.h] ?? '',
+        minutes: minutesLeft,
+        time: clockOf(when),
+      });
+    }
+  }
+  return departures;
 }
 
 /** How many seconds it takes to walk this distance, counting the way round the blocks. */

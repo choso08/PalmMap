@@ -119,6 +119,7 @@ import {
   ensureFeedsFor,
   planScheduledTransfers,
   planScheduledTrips,
+  scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
@@ -261,6 +262,13 @@ function PalmMap() {
    * is half the question — and the first step towards one day having its times.
    */
   const [transitStations, setTransitStations] = useState<TransitStation[]>([]);
+  /** Stops of the timetable-only bus operators in view (`scheduledBusStops`). */
+  const [scheduledStops, setScheduledStops] = useState<TransitStation[]>([]);
+  /** The stations and those stops together, as the map and the panel see them. */
+  const shownStations = useMemo(
+    () => (scheduledStops.length > 0 ? [...transitStations, ...scheduledStops] : transitStations),
+    [transitStations, scheduledStops],
+  );
 
   /**
    * The moving buses, and whether the zoom is close enough to show them.
@@ -1160,6 +1168,8 @@ function PalmMap() {
       // The stops in view, only on the transport map and close enough in for
       // them to be told apart. From memory: no request once `/stops` is loaded.
       if (isTransitMap(settings.mapType) && zoom >= STOPS_MAP_MIN_ZOOM) {
+        // From the stored timetables, on the phone: no request.
+        setScheduledStops(scheduledBusStops(bounds));
         const pedido = (stopsRequest.current += 1);
         void stopsInBounds(bounds)
           .then((found) => {
@@ -1171,6 +1181,7 @@ function PalmMap() {
       } else {
         stopsRequest.current += 1;
         setMapStops((atual) => (atual.length === 0 ? atual : []));
+        setScheduledStops((atual) => (atual.length === 0 ? atual : []));
       }
 
       if (pinsTimer.current) {
@@ -2339,7 +2350,7 @@ function PalmMap() {
         onStopPress={handleStopPress}
         onStationPress={handleStationPress}
         selectedStationId={selectedStationId}
-        transitStations={transitStations}
+        transitStations={shownStations}
         vehicles={vehicles}
         compassBottom={compassBottom}
         offlineRegions={offlineRegions}
@@ -2671,7 +2682,7 @@ function PalmMap() {
               <TransitSheet
                 dragHandlers={drag}
                 stops={sheetStops}
-                stations={transitStations}
+                stations={shownStations}
                 selectedStationId={selectedStationId}
                 loading={transitLoading}
                 error={transitError}

@@ -21,5 +21,6 @@ export const POI_IMAGE_SOURCES = {
   'station-subway': require('./station-subway.png'),
   'station-light_rail': require('./station-light_rail.png'),
   'station-boat': require('./station-boat.png'),
+  'station-bus': require('./station-bus.png'),
   'heading-cone': require('./heading-cone.png'),
 };

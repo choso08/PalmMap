@@ -1319,7 +1319,13 @@ export async function planBusTrips(
  *
  * `light_rail` is light rail — on the south bank, Metro Sul do Tejo.
  */
-export type StationKind = 'train' | 'subway' | 'light_rail' | 'boat';
+/**
+ * `bus` is a stop of a timetable-only bus operator (Carris de Lisboa, Braga's
+ * TUB): drawn and opened like a station, its times from the stored timetable
+ * (`scheduledBusStops`, in `schedules.ts`). Carris Metropolitana's stops are
+ * not stations — they have real time.
+ */
+export type StationKind = 'train' | 'subway' | 'light_rail' | 'boat' | 'bus';
 
 /** A station ready to show on the map. */
 export interface TransitStation {
@@ -1335,7 +1341,7 @@ export interface TransitStation {
 }
 
 /** The address for each kind, in the same API as the buses. */
-const STATION_ENDPOINTS: Record<StationKind, string> = {
+const STATION_ENDPOINTS: Record<Exclude<StationKind, 'bus'>, string> = {
   train: '/facilities/train_stations',
   subway: '/facilities/subway_stations',
   light_rail: '/facilities/light_rail_stations',
@@ -1360,6 +1366,7 @@ export const STATION_ICONS: Record<StationKind, string> = {
   subway: 'subway-variant',
   light_rail: 'tram',
   boat: 'ferry',
+  bus: 'bus-clock',
 };
 
 /**
@@ -1385,7 +1392,7 @@ async function loadStations(): Promise<TransitStation[]> {
 
   loadingStations = (async () => {
     const lists = await Promise.all(
-      (Object.keys(STATION_ENDPOINTS) as StationKind[]).map(async (kind) => {
+      (Object.keys(STATION_ENDPOINTS) as Exclude<StationKind, 'bus'>[]).map(async (kind) => {
         try {
           const data = await carrisGet<CarrisFacility[]>(
             STATION_ENDPOINTS[kind],

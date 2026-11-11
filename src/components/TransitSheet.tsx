@@ -15,6 +15,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { t } from '../i18n';
 import { ARRIVALS_REFRESH_MS } from '../services/config';
 import {
+  departuresAtStop,
   departuresNear,
   hasCoverage,
   type ScheduleDeparture,
@@ -67,6 +68,11 @@ interface TransitSheetProps {
   destination: Coordinates | null;
   /** The line journey open in the list, for the map to draw; null when closed. */
   onJourneyChange: (journey: Journey | null) => void;
+}
+
+/** A station's departures: a timetable-only bus stop by its own id, the rest by place. */
+function departuresOf(estacao: TransitStation): ScheduleDeparture[] {
+  return estacao.kind === 'bus' ? departuresAtStop(estacao.id) : departuresNear(estacao.coordinates);
 }
 
 /** "now" when it is arriving, otherwise "4 min". */
@@ -236,7 +242,7 @@ export function TransitSheet({
       return;
     }
     setTemHorario(hasCoverage(estacao.coordinates));
-    setDepartures(departuresNear(estacao.coordinates));
+    setDepartures(departuresOf(estacao));
   }, []);
 
   // The station tapped on the map opens straight away.
@@ -255,7 +261,7 @@ export function TransitSheet({
     const timer = setInterval(() => {
       const estacao = estacaoAberta.current;
       if (estacao) {
-        setDepartures(departuresNear(estacao.coordinates));
+        setDepartures(departuresOf(estacao));
       }
     }, ARRIVALS_REFRESH_MS);
 

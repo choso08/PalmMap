@@ -42,6 +42,9 @@ STOPS = [
     ("station-subway", "subway-variant", "#D32F2F", 22, 18, 12),
     ("station-light_rail", "tram", "#00897B", 22, 18, 12),
     ("station-boat", "ferry", "#1565C0", 22, 18, 12),
+    # A stop of a bus operator with a timetable only (Carris de Lisboa, Braga):
+    # amber, so it is not taken for a live Carris Metropolitana stop (blue).
+    ("station-bus", "bus", "#E8A200", 18, 14, 9),
 ]
 
 
