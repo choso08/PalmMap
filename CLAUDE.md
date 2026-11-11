@@ -493,7 +493,6 @@ in one place instead of spread through the code.
   | `appearance` | Automatic, light or dark |
   | `travelMode` | Car, walk, bike or bus (chosen in Directions and the route panel) |
   | `bikeType` | Road, normal or BTT — chosen in the route panel when cycling (see the Valhalla rules) |
-  | `timeAdjustment` | Arrival time correction: 1×, 1.25×, 1.5× or 2× |
   | `cacheSize` | Map cache: off, 100 MB, 250 MB, 500 MB or 1 GB |
   | `showPlacesOnMap` | Show businesses on the map by themselves |
   | `voiceGuidance` | Read instructions aloud while navigating |
@@ -505,7 +504,7 @@ in one place instead of spread through the code.
   | `batterySaver` | Read the GPS less often far from manoeuvres |
   | `showSpeed` | Show the GPS speed |
   | `showVehicles` | Show moving buses on the transport map |
-  | `paceLearning` | Learn the person's pace (5-A); off, only `timeAdjustment` applies and nothing is measured or stored |
+  | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
   show it in `SettingsSheet` **and add it to `show`** (the settings search; see below).
@@ -598,10 +597,11 @@ enough**.
 
 Two fixes, not exclusive:
 
-1. **The manual correction in Settings** (`timeAdjustment`), multiplying the time by 1, 1.25,
-   1.5 or 2. Crude — the same for every route — but the only one that solves São Tomé.
-2. **Filling the tag in OpenStreetMap** where missing. Helps elsewhere, for everyone, but does
-   not replace the correction on very bad roads.
+1. **The learnt pace** (5-A): after one trip on those roads the arrival time counts on the
+   speed really driven. There was also a manual ×1.25–×2 in Settings (`timeAdjustment`);
+   **removed at the author's request, November 2026** — OSRM already slows down on `surface`,
+   and the learnt pace does the rest, measured instead of guessed.
+2. **Filling the tag in OpenStreetMap** where missing. Helps elsewhere, for everyone.
 
 The factor is applied **where the time is shown** (`useEta()`), not in the service: the
 `Route` keeps what OSRM answered, untouched.
@@ -609,7 +609,7 @@ The factor is applied **where the time is shown** (`useEta()`), not in the servi
 ### 5-A. The arrival time adapts to whoever is driving
 
 The author asked that **the arrival time count on the speed the person really goes at.**
-Three layers, in `src/utils/eta.ts` and `useEta()`:
+Two layers, in `src/utils/eta.ts` and `useEta()`:
 
 1. **The travel mode's model.** Car and walking: what OSRM answered. Bike: OSRM's profile
    assumes **15 km/h** (`default_speed` in their `bicycle.lua`, read in their code); we count
@@ -622,11 +622,8 @@ Three layers, in `src/utils/eta.ts` and `useEta()`:
    slow the road bike; the old shared `cycling` value is only a fallback) so the next estimate
    is born right — the one that matters is the one read **before** leaving. A setting turns
    all of this off (`paceLearning`, author's request).
-3. **The manual correction**, which only applies while there is no measured pace.
 
-**Measured beats guessed, and they do not multiply.** Both measure the same thing;
-multiplying them counted it twice (1.5× by hand and 1.6 measured gave 2.4×). So Settings
-**shows the learned pace and has a button to forget it** — a value learned in silence that
+Settings **shows the learned pace and has a button to forget it** — a value learned in silence that
 nobody sees or clears is, the day it goes wrong, a fault with no explanation.
 
 **When driving, the pace never shrinks the time, and that is a decision.** The floor is 1

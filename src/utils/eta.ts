@@ -1,20 +1,18 @@
 /**
  * The estimated time: how to get from what OSRM answered to what is shown.
  *
- * There are three layers, and their order matters:
+ * There are two layers:
  *
  * 1. **The travel mode's model** (`modelSeconds`) — what the app assumes for
  *    someone going by car, on foot or by bike.
  * 2. **The measured pace** — how fast the person really goes, learnt from
- *    previous trips and refined during the current one.
- * 3. **The manual correction in the settings**, which only applies while
- *    there is no measured pace at all.
+ *    previous trips and refined during the current one (`paceLearning`).
  *
- * **Measured beats guessed, and they are not multiplied.** The manual
- * correction and the measured pace measure exactly the same thing — how short
- * the service's estimate falls around here. Multiplying them counted it twice:
- * someone who had chosen 1.5× on a dirt road and whose measured pace came out
- * at 1.6 would see the arrival time inflated by 2.4×.
+ * There used to be a third, a manual ×1.25–×2 in Settings for bad roads. It
+ * was removed at the author's request (November 2026): OSRM already slows
+ * down on OSM's `surface`, and where that is not enough (São Tomé's dirt
+ * roads) the measured pace corrects it after one trip — measured, not
+ * guessed. The two were never multiplied: they measured the same thing.
  */
 
 import {

@@ -30,7 +30,6 @@ import {
   CACHE_SIZES,
   LANGUAGES,
   SATELLITE_DETAILS,
-  TIME_ADJUSTMENTS,
   TRAVEL_MODES,
   useLanguage,
   useLearnedPace,
@@ -475,25 +474,14 @@ export function SettingsSheet({
           {/* Every navigation option in one group, closed by default (author's request). */}
           {show.navigation ? (
             <Collapsible title={s.navigation} forceOpen={show.searching}>
-              {/* The time correction for bad roads and terrain belongs with the trip (author's request). */}
+              {/* The arrival time's pace belongs with the trip (author's request). */}
               {show.time ? (
                 <>
                   <Text style={styles.sectionTitle}>{s.timeAdjustment}</Text>
-                  <ChoiceRow
-                    options={TIME_ADJUSTMENTS}
-                    label={(id) => s.timeAdjustments[id]}
-                    value={settings.timeAdjustment}
-                    onChange={(id) => update('timeAdjustment', id)}
-                    styles={styles}
-                    theme={theme}
-                  />
-
                   {/*
             What the app learnt stays visible and can be forgotten. A value
             learnt in silence that nobody can see or clear is the kind of thing
-            that, the day it goes wrong, has no explanation at all — and the
-            manual correction above would stop working without anyone knowing
-            why.
+            that, the day it goes wrong, has no explanation at all.
           */}
                   <View style={styles.switchRow}>
                     <View style={styles.switchText}>

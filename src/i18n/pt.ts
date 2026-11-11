@@ -371,12 +371,6 @@ export const pt = {
     paceNote: (list: string) => `Ritmo aprendido: ${list}.`,
     forgetPace: 'Esquecer o ritmo aprendido',
     paceLearning: 'Aprender o meu ritmo',
-    timeAdjustments: {
-      none: 'Normal',
-      slow: '+25%',
-      slower: '+50%',
-      slowest: '+100%',
-    },
 
     satelliteDetail: 'Detalhe do satélite',
     satelliteDetails: {

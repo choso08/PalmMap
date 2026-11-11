@@ -334,12 +334,6 @@ export const en: typeof pt = {
     paceNote: (list: string) => `Learned pace: ${list}.`,
     forgetPace: 'Forget the learned pace',
     paceLearning: 'Learn my pace',
-    timeAdjustments: {
-      none: 'Normal',
-      slow: '+25%',
-      slower: '+50%',
-      slowest: '+100%',
-    },
 
     satelliteDetail: 'Satellite detail',
     satelliteDetails: {

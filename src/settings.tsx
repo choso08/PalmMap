@@ -44,15 +44,6 @@ export function osrmProfile(mode: TravelMode): 'driving' | 'walking' | 'cycling'
   return mode === 'transit' ? null : mode;
 }
 
-/**
- * A correction to the estimated time.
- *
- * OSRM works the time out from the road type and OpenStreetMap's `surface`
- * tag. Where that tag is missing — and it is in many places — it assumes a good
- * surface and is too optimistic. This allows correcting it by hand.
- */
-export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
-
 /** How much of the map already seen is kept on the phone. `off` turns the cache off. */
 export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 
@@ -91,8 +82,6 @@ export interface Settings {
   showPlacesOnMap: boolean;
   /** Read the instructions aloud while navigating. */
   voiceGuidance: boolean;
-  /** The correction applied to the estimated time. */
-  timeAdjustment: TimeAdjustment;
   /** How much of the map already seen is kept. */
   cacheSize: CacheSize;
   /** Drawn map, satellite imagery or transport. */
@@ -123,8 +112,8 @@ export interface Settings {
   showVehicles: boolean;
   /**
    * Learn the person's pace from trips and count on it in the arrival time
-   * (see `utils/eta.ts`). Off, only the manual correction applies — and
-   * nothing is measured or stored (author's request, November 2026).
+   * (see `utils/eta.ts`). Off, the routing service's time as it comes —
+   * and nothing is measured or stored (author's request, November 2026).
    */
   paceLearning: boolean;
 }
@@ -136,7 +125,6 @@ export const DEFAULT_SETTINGS: Settings = {
   bikeType: 'normal',
   showPlacesOnMap: true,
   voiceGuidance: true,
-  timeAdjustment: 'none',
   cacheSize: 'medium',
   mapType: 'map',
   satelliteDetail: 'alta',
@@ -183,17 +171,6 @@ export const CACHE_SIZES: {
   { id: 'medium', icon: 'database-outline', megabytes: 250 },
   { id: 'large', icon: 'database', megabytes: 500 },
   { id: 'huge', icon: 'harddisk', megabytes: 1024 },
-];
-
-export const TIME_ADJUSTMENTS: {
-  id: TimeAdjustment;
-  icon: string;
-  factor: number;
-}[] = [
-  { id: 'none', icon: 'speedometer', factor: 1 },
-  { id: 'slow', icon: 'speedometer-medium', factor: 1.25 },
-  { id: 'slower', icon: 'speedometer-slow', factor: 1.5 },
-  { id: 'slowest', icon: 'road-variant', factor: 2 },
 ];
 
 export const TRAVEL_MODES: { id: TravelMode; icon: string }[] = [
@@ -417,8 +394,7 @@ export function cacheMegabytesFor(size: CacheSize): number {
  * get what was learnt from earlier trips.
  *
  * The order is always the same: **this trip's beats the learnt one, and the
- * learnt one beats the manual correction.** Measured beats guessed, and they
- * are never multiplied — see the note at the top of `utils/eta.ts`.
+ * learnt one beats the service's time as it came** — see `utils/eta.ts`.
  */
 export function useEta(): (
   distanceMeters: number,
@@ -431,20 +407,17 @@ export function useEta(): (
   const mode = settings.travelMode;
   const learning = settings.paceLearning;
   const bikeType = settings.bikeType;
-  const manual =
-    TIME_ADJUSTMENTS.find((option) => option.id === settings.timeAdjustment)?.factor ?? 1;
 
   return useCallback(
     (distanceMeters, osrmSeconds, livePace, forMode) => {
       const m = forMode ?? mode;
-      // With learning off, only the manual correction: neither this trip's
-      // measured pace nor what was learnt before.
-      const factor = learning
-        ? (livePace ?? learnedPaceFor(pace, m, bikeType) ?? manual)
-        : manual;
+      // With learning off, the routing service's time as it came (the manual
+      // ×1.25–×2 correction was removed at the author's request, November
+      // 2026: the learnt pace does the same job, measured instead of guessed).
+      const factor = learning ? (livePace ?? learnedPaceFor(pace, m, bikeType) ?? 1) : 1;
       return modelSeconds(distanceMeters, osrmSeconds, m) * factor;
     },
-    [mode, pace, manual, learning, bikeType],
+    [mode, pace, learning, bikeType],
   );
 }
 
