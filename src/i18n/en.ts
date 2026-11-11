@@ -87,6 +87,7 @@ export const en: typeof pt = {
     saved: 'Saved',
     recents: 'Recent destinations',
     mapPoint: 'Point on the map',
+    linkNotFound: (text: string) => `Couldn't find "${text}".`,
     voice: 'Search by voice',
     voicePrompt: 'Say where you want to go',
   },

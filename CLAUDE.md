@@ -73,6 +73,14 @@ environment cannot reach.
 - **Dark map without CARTO**: their tiles now say "API KEY REQUIRED"; dark is OSM's tiles
   inverted on the phone (`DARK_PAINT`). **Travel-mode buttons** use `formatDurationShort`
   (whole hours from 10 h) and shrink the text, so a long walk fits.
+- **PalmMap opens location links** (`geo:` and `google.navigation:`, `intentFilters` in
+  `app.json`; `parseGeoLink` in `src/utils/geoLink.ts`; the effect after `handleSearchSelect`
+  in `App.tsx`): "Open in maps" in WhatsApp, Contacts, Calendar or a page can pick PalmMap,
+  and the place becomes the destination. A point without a name waits up to 4 s for its
+  address before becoming the destination (changing it later would ask OSRM twice).
+  **Gemini cannot be made to use PalmMap**: it only talks to Google's apps and approved
+  partners, and calls Google Maps by name. `maps.google.com` links cannot be claimed either
+  (Android gives them to Google). Asked by the author, November 2026; not seen on a phone.
 - **Directions screen** (button next to the search): any origin and destination, swap, travel
   mode. Navigation always starts from the GPS.
 - **Satellite:** Sentinel-2 moved to 2025. The DGT orthophotos stay at 2023 — nothing newer is

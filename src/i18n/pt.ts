@@ -105,6 +105,7 @@ export const pt = {
     saved: 'Guardados',
     recents: 'Últimos destinos',
     mapPoint: 'Ponto no mapa',
+    linkNotFound: (text: string) => `Não encontrei "${text}".`,
     voice: 'Pesquisar por voz',
     voicePrompt: 'Diga para onde quer ir',
   },

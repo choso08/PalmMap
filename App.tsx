@@ -4,8 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Alert,
   AppState,
   type LayoutChangeEvent,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -107,7 +109,8 @@ import {
   installedRegions,
   type OfflineRegion,
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
-import { reverseGeocode } from './src/services/nominatim';
+import { reverseGeocode, searchPlaces } from './src/services/nominatim';
+import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes } from './src/services/osrm';
 import {
   placeDetails,
@@ -2000,6 +2003,63 @@ function PalmMap() {
     setWaypoints([]);
     setDestination(place);
   }, []);
+
+  /**
+   * A location sent by another app: "Open in maps" in WhatsApp, Contacts,
+   * Calendar, a web page (`geo:` links), or a navigation request
+   * (`google.navigation:`). Registered in `app.json` (`intentFilters`).
+   *
+   * It becomes the destination, as if picked in the search: the route panel
+   * opens ready for "Start". A point without a name gets its address from
+   * Nominatim afterwards, like a dropped pin; a text is searched once.
+   *
+   * Both ways in are needed: `getInitialURL` when the link started the app,
+   * the `url` event when it was already open (Expo's activity is singleTask).
+   */
+  useEffect(() => {
+    const open = (url: string | null) => {
+      const link = url ? parseGeoLink(url) : null;
+      if (!link) {
+        return;
+      }
+      if (link.coordinates) {
+        const coordinates = link.coordinates;
+        const place: Place = {
+          id: -Date.now(),
+          name: link.label || t().search.mapPoint,
+          address: `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`,
+          coordinates,
+        };
+        if (link.label) {
+          handleSearchSelect(place);
+          return;
+        }
+        // The address is asked first and the destination set once: changing
+        // it afterwards would ask OSRM for the same route a second time. Four
+        // seconds at most, then the coordinates do as the name.
+        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+        void Promise.race([reverseGeocode(coordinates).catch(() => null), timeout]).then(
+          (found) => handleSearchSelect(found ? { ...found, id: place.id, coordinates } : place),
+        );
+        return;
+      }
+      if (link.query) {
+        const query = link.query;
+        void searchPlaces(query, 1)
+          .then((found) => {
+            if (found[0]) {
+              handleSearchSelect(found[0]);
+            } else {
+              Alert.alert(t().search.linkNotFound(query));
+            }
+          })
+          .catch(() => Alert.alert(t().search.linkNotFound(query)));
+      }
+    };
+    void Linking.getInitialURL().then(open).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', (event) => open(event.url));
+    return () => subscription.remove();
+  }, [handleSearchSelect]);
 
   /**
    * Adds a stop to the existing route.
