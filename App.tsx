@@ -94,7 +94,7 @@ import {
   type SpeedCamera,
 } from './src/services/cameras';
 import { isSamePlace, loadFavourites, saveFavourites } from './src/services/favourites';
-import { loadRecents, rememberRecent } from './src/services/recents';
+import { forgetRecent, loadRecents, rememberRecent } from './src/services/recents';
 import {
   getBestPosition,
   getCurrentPosition,
@@ -2362,6 +2362,7 @@ function PalmMap() {
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}
+          onRemoveRecent={(place) => void forgetRecent(place).then(setRecents)}
         />
 
         {searchFocused ? null : (

@@ -77,6 +77,7 @@ export const en: typeof pt = {
     fromLabel: (name: string) => `From: ${name}`,
   },
   search: {
+    removeRecent: 'Forget this recent',
     placeholder: 'Search here',
     failed: 'Search failed.',
     failedStatus: (status: number) =>

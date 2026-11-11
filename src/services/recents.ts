@@ -105,6 +105,25 @@ export function rememberRecent(place: Place): Promise<Place[]> {
   return run;
 }
 
+/**
+ * Forgets one destination — swiped away, or its ✕, in the search list
+ * (author's request, November 2026). Through the same one-at-a-time queue as
+ * `rememberRecent`, so the two never overwrite each other.
+ */
+export function forgetRecent(place: Place): Promise<Place[]> {
+  const run = writing.then(async () => {
+    const next = (await loadRecents()).filter((p) => !sameDestination(p, place));
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // As above: the list still holds for this session.
+    }
+    return next;
+  });
+  writing = run.catch(() => undefined);
+  return run;
+}
+
 /** Forgets everything. Lives in the settings, for anyone who does not want this history. */
 export async function clearRecents(): Promise<void> {
   try {

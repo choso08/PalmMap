@@ -14,6 +14,7 @@ import {
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { isSamePlace } from '../services/favourites';
+import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
 import { listenOnce, voiceAvailable } from '../services/voiceInput';
 import { useTheme, useT } from '../settings';
@@ -46,6 +47,8 @@ interface SearchBarProps {
    * maps app, instead of a short list over the map.
    */
   onFocusChange?: (focused: boolean) => void;
+  /** Forget one recent destination: swiped sideways, or its ✕. */
+  onRemoveRecent?: (place: Place) => void;
   /** Saved places, shown while nothing is typed. */
   favourites: Place[];
   /** Recent destinations, shown after the saved ones. */
@@ -68,6 +71,7 @@ export function SearchBar({
   getBounds,
   updateAvailable = false,
   onFocusChange,
+  onRemoveRecent,
 }: SearchBarProps) {
   const theme = useTheme();
   const strings = useT();
@@ -302,7 +306,8 @@ export function SearchBar({
           data={list}
           keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item: { place, guardado, local } }) => (
+          renderItem={({ item: { place, guardado, local } }) => {
+            const row = (
             <Pressable style={styles.result} onPress={() => handleSelect(place)}>
               <View style={styles.resultHeader}>
                 {local ? (
@@ -323,8 +328,25 @@ export function SearchBar({
               <Text style={styles.resultAddress} numberOfLines={1}>
                 {place.address}
               </Text>
+              {local && !guardado && onRemoveRecent ? (
+                <Pressable
+                  style={styles.removeRecent}
+                  onPress={() => onRemoveRecent(place)}
+                  hitSlop={10}
+                  accessibilityLabel={strings.search.removeRecent}
+                >
+                  <MaterialCommunityIcons name="close" size={16} color={theme.textMuted} />
+                </Pressable>
+              ) : null}
             </Pressable>
-          )}
+            );
+            // Recent destinations go away with a sideways swipe, as in Maps.
+            return local && !guardado && onRemoveRecent ? (
+              <SwipeToRemove onRemove={() => onRemoveRecent(place)}>{row}</SwipeToRemove>
+            ) : (
+              row
+            );
+          }}
         />
       ) : null}
     </View>
@@ -416,7 +438,15 @@ function makeStyles(theme: Theme) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
     },
+    removeRecent: {
+      position: 'absolute',
+      right: 12,
+      top: 0,
+      bottom: 0,
+      justifyContent: 'center',
+    },
     result: {
+      paddingRight: 40,
       paddingHorizontal: 14,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,

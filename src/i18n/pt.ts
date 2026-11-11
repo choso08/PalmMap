@@ -95,6 +95,7 @@ export const pt = {
     fromLabel: (name: string) => `De: ${name}`,
   },
   search: {
+    removeRecent: 'Esquecer este recente',
     placeholder: 'Pesquisar aqui',
     failed: 'Não foi possível pesquisar.',
     failedStatus: (status: number) =>
