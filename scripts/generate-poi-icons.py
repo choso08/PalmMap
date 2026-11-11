@@ -47,55 +47,63 @@ STOPS = [
     ("station-bus", "bus", "#E8A200", 18, 14, 9),
 ]
 
-# The nose that points where a live bus is heading: drawn on the same canvas
-# as `vehicle-live`, under it, and turned on the map by the bus's `bearing`.
-HEADING_SIZE, HEADING_BASE, HEADING_TIP, HEADING_HALF = 58, 16, 28, 7
+# A live bus (author's request, November 2026, chosen from three drawings): a
+# drop in the vehicle colour (`theme.vehicle`, light) whose point is turned on
+# the map to where the bus is heading (`vehicle-heading`), a plain disc when
+# the service sends no bearing (`vehicle-disc`), a white bus on top that never
+# turns (`vehicle-live`), and the line number in a pill under it
+# (`vehicle-pill`, sized for four digits — Carris lines are 4).
+VEHICLE_SIZE, VEHICLE_R, VEHICLE_TIP, VEHICLE_EDGE = 60, 16, 25, 2.2
+VEHICLE_GLYPH = 17
+PILL_W, PILL_H = 40, 16
+VEHICLE_COLOUR = "#2F7D32"
 
-# A live bus (author's request, November 2026, instead of a plain green ball):
-# a bus's body in the vehicle colour (`theme.vehicle`, light) with two wheels,
-# and room on it for the line number, which the map writes on top.
-VEHICLE_W, VEHICLE_H, VEHICLE_BODY_H = 38, 28, 22
+
+def _drop(d: ImageDraw.ImageDraw, c: float, r: float, tip: float | None, fill: str) -> None:
+    import math
+    if tip is None:
+        d.ellipse((c - r, c - r, c + r, c + r), fill=fill)
+        return
+    a = math.asin(r / tip)
+    start = -math.pi / 2 + (math.pi / 2 - a)
+    sweep = 2 * math.pi - 2 * (math.pi / 2 - a)
+    pts = [(c, c - tip)]
+    for k in range(97):
+        ang = start + k * sweep / 96
+        pts.append((c + r * math.cos(ang), c + r * math.sin(ang)))
+    d.polygon(pts, fill=fill)
 
 
-def draw_vehicle(scale: int) -> Image.Image:
-    w, h = VEHICLE_W * scale, VEHICLE_H * scale
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+def draw_vehicle_base(scale: int, pointed: bool) -> Image.Image:
+    size = VEHICLE_SIZE * scale
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    body = VEHICLE_BODY_H * scale
-    wheel = 3.2 * scale
-    for cx in (w * 0.27, w * 0.73):
-        d.ellipse([cx - wheel, body - wheel * 1.1, cx + wheel, body + wheel * 0.9 + scale], fill="#FFFFFF")
-        d.ellipse(
-            [cx - wheel + scale, body - wheel * 1.1 + scale, cx + wheel - scale, body + wheel * 0.9],
-            fill="#263238",
-        )
-    d.rounded_rectangle([0, 0, w - 1, body], radius=6 * scale, fill="#FFFFFF")
-    edge = 1.6 * scale
-    d.rounded_rectangle(
-        [edge, edge, w - 1 - edge, body - edge], radius=5 * scale, fill="#2F7D32"
-    )
-    # The windscreen line along the top, so the shape reads as a bus.
-    d.rounded_rectangle(
-        [4 * scale, 3.2 * scale, w - 4 * scale, 5 * scale], radius=scale, fill="#A5D6A7"
-    )
+    c, r, e = size / 2, VEHICLE_R * scale, VEHICLE_EDGE * scale
+    _drop(d, c, r, VEHICLE_TIP * scale if pointed else None, "#FFFFFF")
+    _drop(d, c, r - e, (VEHICLE_TIP * scale - e * 1.8) if pointed else None, VEHICLE_COLOUR)
     return img
 
 
-def draw_heading(scale: int) -> Image.Image:
-    size = HEADING_SIZE * scale
+def draw_vehicle_glyph(scale: int) -> Image.Image:
+    size = VEHICLE_SIZE * scale
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    font = ImageFont.truetype(str(FONT), int(VEHICLE_GLYPH * scale))
+    ch = chr(GLYPHS["bus"])
+    box = d.textbbox((0, 0), ch, font=font)
     c = size / 2
-    tip = (c, c - HEADING_TIP * scale)
-    left = (c - HEADING_HALF * scale, c - HEADING_BASE * scale)
-    right = (c + HEADING_HALF * scale, c - HEADING_BASE * scale)
-    # White edge first, then the colour, so the nose reads on any map.
-    d.polygon([tip, left, right], fill="#FFFFFF")
-    inset = 1.4 * scale
-    d.polygon(
-        [(tip[0], tip[1] + inset * 1.6), (left[0] + inset, left[1]), (right[0] - inset, right[1])],
-        fill="#2F7D32",
-    )
+    d.text((c - (box[2] - box[0]) / 2 - box[0], c - (box[3] - box[1]) / 2 - box[1]), ch,
+           font=font, fill="#FFFFFF")
+    return img
+
+
+def draw_vehicle_pill(scale: int) -> Image.Image:
+    w, h = PILL_W * scale, PILL_H * scale
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle((0, 0, w - 1, h - 1), radius=h / 2, fill="#FFFFFF")
+    e = 1.5 * scale
+    d.rounded_rectangle((e, e, w - 1 - e, h - 1 - e), radius=h / 2 - e, fill=VEHICLE_COLOUR)
     return img
 
 
@@ -171,15 +179,16 @@ def main() -> None:
             draw(icon, "other", scale, colour, (size, disc, glyph)).save(
                 OUT / f"{name}{suffix}.png", optimize=True)
 
-    names.append("vehicle-live")
-    for scale in (1, 2, 3):
-        suffix = "" if scale == 1 else f"@{scale}x"
-        draw_vehicle(scale).save(OUT / f"vehicle-live{suffix}.png", optimize=True)
-
-    names.append("vehicle-heading")
-    for scale in (1, 2, 3):
-        suffix = "" if scale == 1 else f"@{scale}x"
-        draw_heading(scale).save(OUT / f"vehicle-heading{suffix}.png", optimize=True)
+    for name, painter in (
+        ("vehicle-heading", lambda sc: draw_vehicle_base(sc, True)),
+        ("vehicle-disc", lambda sc: draw_vehicle_base(sc, False)),
+        ("vehicle-live", draw_vehicle_glyph),
+        ("vehicle-pill", draw_vehicle_pill),
+    ):
+        names.append(name)
+        for scale in (1, 2, 3):
+            suffix = "" if scale == 1 else f"@{scale}x"
+            painter(scale).save(OUT / f"{name}{suffix}.png", optimize=True)
 
     names.append("heading-cone")
     for scale in (1, 2, 3):

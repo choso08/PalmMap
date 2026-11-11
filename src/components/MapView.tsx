@@ -1395,11 +1395,12 @@ export function MapView({
       ) : null}
 
       {/*
-        The moving buses: a bus's body (`vehicle-live`) with the line number
-        written on it (author's request), and a nose turned to where it is
-        heading (`vehicle-heading`, by the service's `bearing`). Author's request, November 2026, instead of
-        a green ball with the number inside. Both images are drawn by
-        `generate-poi-icons.py`.
+        The moving buses (author's choice among three drawings, November 2026):
+        a drop in the vehicle colour whose point turns to where the bus is
+        heading (`vehicle-heading`, by the service's `bearing`; a plain disc,
+        `vehicle-disc`, when none comes), a white bus on it that never turns
+        (`vehicle-live`), and the line number in a pill underneath
+        (`vehicle-pill`). All drawn by `generate-poi-icons.py`.
 
         **They go over the stops, on purpose:** the stop is always in the same
         place and the bus is the news. Covering a bus with a stop would cover
@@ -1411,19 +1412,24 @@ export function MapView({
           data={vehiclesJson}
         >
           <Layer
-            key="autocarros-rumo"
-            id="autocarros-rumo"
+            key="autocarros-base"
+            id="autocarros-base"
             type="symbol"
-            filter={['>=', ['get', 'rumo'], 0]}
             layout={{
-              'icon-image': 'vehicle-heading',
-              'icon-rotate': ['get', 'rumo'],
-              // Turned with the map, so the nose keeps pointing down the
+              'icon-image': [
+                'case',
+                ['>=', ['get', 'rumo'], 0],
+                'vehicle-heading',
+                'vehicle-disc',
+              ],
+              'icon-rotate': ['max', ['get', 'rumo'], 0],
+              // Turned with the map, so the point keeps pointing down the
               // street when the map itself is rotated.
               'icon-rotation-alignment': 'map',
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
             }}
+            // A bus standing at a stop is fainter.
             paint={{ 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1] }}
           />
           <Layer
@@ -1432,12 +1438,9 @@ export function MapView({
             type="symbol"
             layout={{
               'icon-image': 'vehicle-live',
-              'icon-pitch-alignment': 'viewport',
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
             }}
-            // A bus standing at a stop is fainter.
-            paint={{ 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1] }}
           />
           {labelsReady ? (
             <Layer
@@ -1445,18 +1448,24 @@ export function MapView({
               id="autocarros-label"
               type="symbol"
               layout={{
+                'icon-image': 'vehicle-pill',
+                // Under the drop: 16 of its radius, 5 of gap, half the pill.
+                'icon-offset': [0, 29],
                 'text-field': ['get', 'linha'],
                 'text-font': ['Noto Sans Medium'],
-                'text-size': 11,
-                // On the bus's body, which sits a little above the image's
-                // middle (the wheels hang below it).
-                'text-offset': [0, -0.3],
+                'text-size': 10,
+                'text-offset': [0, 2.9],
                 // Overlapping on purpose: a bus without its number is a bus
                 // nobody can tell apart.
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
               }}
-              paint={{ 'text-color': '#FFFFFF' }}
+              paint={{
+                'text-color': '#FFFFFF',
+                'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1],
+              }}
             />
           ) : null}
         </GeoJSONSource>
