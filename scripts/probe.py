@@ -633,6 +633,48 @@ def stops():
                   "lines", s.get("line_ids"), "status", s.get("operational_status"))
 
 
+
+def pattern():
+    """A line's pattern as the app would ask for it after a tap: its stops in order, shape, trips."""
+    section("PATTERN")
+    _, _, body = get(f"{CARRIS}/stops")
+    stops = {s["id"]: s for s in json.loads(body)}
+    stop = next(s for s in stops.values() if "CACILHAS" in (s.get("long_name") or "").upper())
+    status, _, body = get(f"{CARRIS}/arrivals/by_stop/{stop['id']}")
+    data = json.loads(body)
+    now = time.time()
+    upcoming = sorted(
+        (a for a in data if (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now),
+        key=lambda a: a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0)
+    first = upcoming[0]
+    print("stop", stop["id"], stop.get("long_name"), "arrival", json.dumps(first, ensure_ascii=False)[:600])
+    pid = first["pattern_id"]
+    for url in (f"{CARRIS}/patterns/{pid}", f"https://api.carrismetropolitana.pt/patterns/{pid}"):
+        status, ctype, body = get(url)
+        print(f"\n--- {url} -> {status} {ctype} {len(body)} bytes")
+        if status != 200:
+            print(body[:300])
+            continue
+        p = json.loads(body)
+        if isinstance(p, list):
+            print("list of", len(p)); p = p[0]
+        print("keys:", sorted(p))
+        for k, v in p.items():
+            if isinstance(v, list):
+                print(f"{k}: list[{len(v)}]", json.dumps(v[:3], ensure_ascii=False)[:900])
+            elif isinstance(v, dict):
+                print(f"{k}: dict", json.dumps(v, ensure_ascii=False)[:400])
+            else:
+                print(f"{k}:", json.dumps(v, ensure_ascii=False)[:200])
+        shape = p.get("shape_id")
+        if shape:
+            for su in (f"{CARRIS}/shapes/{shape}", f"https://api.carrismetropolitana.pt/shapes/{shape}"):
+                st, ct, sb = get(su)
+                print(f"--- {su} -> {st} {ct} {len(sb)} bytes", sb[:300])
+    # Does the same trip carry per-stop times? Arrivals at a later stop of the pattern.
+    for later in (first.get("stop_sequence", 0) + 3, first.get("stop_sequence", 0) + 8):
+        print("later stop_sequence", later)
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
