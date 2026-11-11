@@ -45,14 +45,40 @@ STOPS = [
     # A stop of a bus operator with a timetable only (Carris de Lisboa, Braga):
     # amber, so it is not taken for a live Carris Metropolitana stop (blue).
     ("station-bus", "bus", "#E8A200", 18, 14, 9),
-    # A live bus (author's request, November 2026, instead of a plain green
-    # ball): a bus on a disc in the vehicle colour (`theme.vehicle`, light).
-    ("vehicle-live", "bus", "#2F7D32", 26, 22, 13),
 ]
 
 # The nose that points where a live bus is heading: drawn on the same canvas
 # as `vehicle-live`, under it, and turned on the map by the bus's `bearing`.
-HEADING_SIZE, HEADING_BASE, HEADING_TIP, HEADING_HALF = 40, 10, 19, 7
+HEADING_SIZE, HEADING_BASE, HEADING_TIP, HEADING_HALF = 58, 16, 28, 7
+
+# A live bus (author's request, November 2026, instead of a plain green ball):
+# a bus's body in the vehicle colour (`theme.vehicle`, light) with two wheels,
+# and room on it for the line number, which the map writes on top.
+VEHICLE_W, VEHICLE_H, VEHICLE_BODY_H = 38, 28, 22
+
+
+def draw_vehicle(scale: int) -> Image.Image:
+    w, h = VEHICLE_W * scale, VEHICLE_H * scale
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    body = VEHICLE_BODY_H * scale
+    wheel = 3.2 * scale
+    for cx in (w * 0.27, w * 0.73):
+        d.ellipse([cx - wheel, body - wheel * 1.1, cx + wheel, body + wheel * 0.9 + scale], fill="#FFFFFF")
+        d.ellipse(
+            [cx - wheel + scale, body - wheel * 1.1 + scale, cx + wheel - scale, body + wheel * 0.9],
+            fill="#263238",
+        )
+    d.rounded_rectangle([0, 0, w - 1, body], radius=6 * scale, fill="#FFFFFF")
+    edge = 1.6 * scale
+    d.rounded_rectangle(
+        [edge, edge, w - 1 - edge, body - edge], radius=5 * scale, fill="#2F7D32"
+    )
+    # The windscreen line along the top, so the shape reads as a bus.
+    d.rounded_rectangle(
+        [4 * scale, 3.2 * scale, w - 4 * scale, 5 * scale], radius=scale, fill="#A5D6A7"
+    )
+    return img
 
 
 def draw_heading(scale: int) -> Image.Image:
@@ -144,6 +170,11 @@ def main() -> None:
             suffix = "" if scale == 1 else f"@{scale}x"
             draw(icon, "other", scale, colour, (size, disc, glyph)).save(
                 OUT / f"{name}{suffix}.png", optimize=True)
+
+    names.append("vehicle-live")
+    for scale in (1, 2, 3):
+        suffix = "" if scale == 1 else f"@{scale}x"
+        draw_vehicle(scale).save(OUT / f"vehicle-live{suffix}.png", optimize=True)
 
     names.append("vehicle-heading")
     for scale in (1, 2, 3):

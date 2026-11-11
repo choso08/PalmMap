@@ -1342,9 +1342,9 @@ export function MapView({
       ) : null}
 
       {/*
-        The moving buses: a bus on a disc (`vehicle-live`), a nose turned to
-        where it is heading (`vehicle-heading`, by the service's `bearing`), and
-        the line number underneath. Author's request, November 2026, instead of
+        The moving buses: a bus's body (`vehicle-live`) with the line number
+        written on it (author's request), and a nose turned to where it is
+        heading (`vehicle-heading`, by the service's `bearing`). Author's request, November 2026, instead of
         a green ball with the number inside. Both images are drawn by
         `generate-poi-icons.py`.
 
@@ -1395,18 +1395,15 @@ export function MapView({
                 'text-field': ['get', 'linha'],
                 'text-font': ['Noto Sans Medium'],
                 'text-size': 11,
-                'text-offset': [0, 1.45],
-                'text-anchor': 'top',
+                // On the bus's body, which sits a little above the image's
+                // middle (the wheels hang below it).
+                'text-offset': [0, -0.3],
                 // Overlapping on purpose: a bus without its number is a bus
                 // nobody can tell apart.
                 'text-allow-overlap': true,
                 'text-ignore-placement': true,
               }}
-              paint={{
-                'text-color': theme.onOverlay,
-                'text-halo-color': theme.vehicle,
-                'text-halo-width': 2.5,
-              }}
+              paint={{ 'text-color': '#FFFFFF' }}
             />
           ) : null}
         </GeoJSONSource>
