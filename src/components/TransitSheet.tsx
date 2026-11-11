@@ -30,6 +30,7 @@ import {
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDistance } from '../utils/format';
+import { useAppActive } from '../useAppActive';
 
 interface TransitSheetProps {
   /**
@@ -164,8 +165,10 @@ export function TransitSheet({
 
   // The minutes left are counted from the clock, so they need recounting now
   // and then — otherwise it would say "8 min" forever.
+  // Not in the background: nobody reads the minutes there (`useAppActive`).
+  const appActive = useAppActive();
   useEffect(() => {
-    if (!openStation) {
+    if (!openStation || !appActive) {
       return;
     }
     const timer = setInterval(() => {
@@ -176,14 +179,15 @@ export function TransitSheet({
     }, ARRIVALS_REFRESH_MS);
 
     return () => clearInterval(timer);
-  }, [openStation]);
+  }, [openStation, appActive]);
 
   // While a stop is open, the minutes keep themselves up to date. Without
   // this it said "4 min" for a quarter of an hour.
   useEffect(() => {
-    if (!openStop) {
+    if (!openStop || !appActive) {
       return;
     }
+    // Also on coming back to the screen: the minutes shown are old by then.
     void carregarPassagens(openStop);
 
     const timer = setInterval(
@@ -192,7 +196,7 @@ export function TransitSheet({
     );
 
     return () => clearInterval(timer);
-  }, [openStop, carregarPassagens]);
+  }, [openStop, carregarPassagens, appActive]);
 
   return (
     <View style={styles.container}>

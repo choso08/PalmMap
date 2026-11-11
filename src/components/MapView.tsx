@@ -24,13 +24,14 @@ import {
 } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Network from 'expo-network';
-import { Animated, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import { Animated, AppState, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { type SpeedCamera } from '../services/cameras';
 import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
+import { watchCompass } from '../services/location';
 import { useSettings, useTheme } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 import { formatDistance } from '../utils/format';
@@ -84,8 +85,6 @@ const TILE_POI_FILTER = [
 
 interface MapViewProps {
   userLocation: Coordinates | null;
-  /** Which way the phone points (compass degrees), for the cone; `null` hides it. */
-  heading?: number | null;
   destination: Coordinates | null;
   /**
    * The place that gets the big red pin: the one whose card is open, or the
@@ -206,6 +205,81 @@ export interface MapViewRef {
   overview: () => void;
 }
 
+/**
+ * The compass cone in front of the blue dot (as in Google Maps): which way the
+ * phone points, standing still too.
+ *
+ * Its own component on purpose. The compass reads many times a second while
+ * the phone moves in the hand; held in `App`, each reading redrew the whole
+ * app — panels, map and every source. Here it redraws one layer.
+ *
+ * Mounted only outside navigation (there the map itself turns with the
+ * heading), and the sensor is only read while the app is on screen: nobody
+ * looks at the cone in a pocket.
+ */
+function HeadingCone() {
+  const [heading, setHeading] = useState<number | null>(null);
+
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    // Each start gets a number; a subscription that arrives after a newer start
+    // or a stop is dropped at once, so none is left running.
+    let generation = 0;
+    const start = () => {
+      const mine = ++generation;
+      void watchCompass(setHeading).then((unsubscribe) => {
+        if (mine === generation) {
+          stop = unsubscribe;
+        } else {
+          unsubscribe();
+        }
+      });
+    };
+    const halt = () => {
+      generation += 1;
+      stop?.();
+      stop = null;
+    };
+    start();
+    const subscription = AppState.addEventListener('change', (estado) => {
+      halt();
+      if (estado === 'active') {
+        start();
+      }
+    });
+    return () => {
+      halt();
+      subscription.remove();
+    };
+  }, []);
+
+  if (heading === null) {
+    return null;
+  }
+  return (
+    <Layer
+      type="symbol"
+      id="user-heading-cone"
+      source="mlrn-user-location"
+      layout={{
+        'icon-image': 'heading-cone',
+        'icon-rotate': heading,
+        'icon-rotation-alignment': 'map',
+        'icon-pitch-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      }}
+    />
+  );
+}
+
+/*
+  One shared empty list for every list prop left out. A `= []` default is a
+  new array on each render, which would rebuild the memoized sources every
+  time.
+*/
+const NONE: never[] = [];
+
 /** Where the camera starts while the person's position is not yet known. */
 const DEFAULT_CENTER: [number, number] = [-9.1393, 38.7223]; // Lisboa
 const DEFAULT_ZOOM = 11;
@@ -225,7 +299,6 @@ const OFFLINE_SWITCH_MIN_ZOOM = 5;
  */
 export function MapView({
   userLocation,
-  heading = null,
   destination,
   pinned = null,
   route,
@@ -241,15 +314,15 @@ export function MapView({
   followUser,
   onFollowUserChange,
   progressIndex = 0,
-  cameras = [],
-  measurePoints = [],
+  cameras = NONE,
+  measurePoints = NONE,
   measureClosed = false,
-  alternativeRoutes = [],
-  waypoints = [],
-  transitStops = [],
+  alternativeRoutes = NONE,
+  waypoints = NONE,
+  transitStops = NONE,
   selectedStopId = null,
-  transitStations = [],
-  vehicles = [],
+  transitStations = NONE,
+  vehicles = NONE,
   onStopPress,
   compassBottom,
   offlineRegions,
@@ -356,14 +429,96 @@ export function MapView({
    * The two halves of the route, as [longitude, latitude] — the order GeoJSON
    * wants. They overlap by one point, otherwise there was a gap between them.
    */
-  const { andadoLine, faltaLine } = useMemo(() => {
-    const pontos = route?.coordinates ?? [];
-    const par = (p: Coordinates): [number, number] => [p.longitude, p.latitude];
-    return {
-      andadoLine: pontos.slice(0, Math.max(0, andado)).map(par),
-      faltaLine: pontos.slice(Math.max(0, andado - 1)).map(par),
-    };
-  }, [route, andado]);
+  // Converted once per route; each step forward only cuts the list.
+  const routePairs = useMemo(() => (route?.coordinates ?? []).map(lonLat), [route]);
+  const { andadoLine, faltaLine } = useMemo(
+    () => ({
+      andadoLine: routePairs.slice(0, Math.max(0, andado)),
+      faltaLine: routePairs.slice(Math.max(0, andado - 1)),
+    }),
+    [routePairs, andado],
+  );
+
+  /*
+    The sources' data, already as text.
+
+    `GeoJSONSource` runs `JSON.stringify` on an object `data` on **every
+    render** — and this component renders on every GPS reading, every pin
+    batch and every camera change. Handing it a string skips that: the text is
+    only rebuilt when what it describes changes. On a long route it was tens of
+    thousands of points turned into text once a second while navigating. The
+    small sources (measuring tape, route gap, waypoints) stay inline.
+  */
+  const doneJson = useMemo(() => lineJson(andadoLine), [andadoLine]);
+  const leftJson = useMemo(() => lineJson(faltaLine), [faltaLine]);
+
+  const alternativesJson = useMemo(
+    () => alternativeRoutes.map((alt) => lineJson(alt.coordinates.map(lonLat))),
+    [alternativeRoutes],
+  );
+
+  const placesJson = useMemo(
+    () =>
+      pointsJson(places, (place) => {
+        const look = poiLook(place.kindKey, place.kindValue);
+        return {
+          id: place.id,
+          at: place.coordinates,
+          properties: {
+            placeId: place.id,
+            name: place.name,
+            icon: look.icon,
+            cor: look.colour,
+            prio: look.priority,
+          },
+        };
+      }),
+    [places],
+  );
+
+  const stationsJson = useMemo(
+    () =>
+      pointsJson(transitStations, (estacao) => ({
+        at: estacao.coordinates,
+        properties: { nome: estacao.name, genero: stationLabel(estacao.kind) },
+      })),
+    // The kind's name depends on the language.
+    [transitStations, settings.language],
+  );
+
+  const stopsJson = useMemo(
+    () =>
+      pointsJson(transitStops, (stop) => ({
+        at: stop.coordinates,
+        properties: {
+          id: stop.id,
+          nome: stop.name,
+          aberta: stop.id === selectedStopId ? 1 : 0,
+        },
+      })),
+    [transitStops, selectedStopId],
+  );
+
+  const vehiclesJson = useMemo(
+    () =>
+      pointsJson(vehicles, (v) => ({
+        at: v.coordinates,
+        // A bus standing at a stop is drawn fainter: the difference between
+        // "moving" and "standing there" is what makes this useful to someone
+        // waiting.
+        properties: { linha: v.line, parado: v.atStop ? 1 : 0 },
+      })),
+    [vehicles],
+  );
+
+  const camerasJson = useMemo(
+    () =>
+      pointsJson(cameras, (camera) => ({
+        at: camera.coordinates,
+        properties: { limite: camera.maxspeed ? String(camera.maxspeed) : '' },
+      })),
+    [cameras],
+  );
 
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
@@ -747,22 +902,7 @@ export function MapView({
       */}
       {userLocation ? (
         <UserLocation>
-          {heading !== null && !following ? (
-            <Layer
-              type="symbol"
-              key="user-heading-cone"
-              id="user-heading-cone"
-              source="mlrn-user-location"
-              layout={{
-                'icon-image': 'heading-cone',
-                'icon-rotate': heading,
-                'icon-rotation-alignment': 'map',
-                'icon-pitch-alignment': 'map',
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-              }}
-            />
-          ) : null}
+          {!following ? <HeadingCone key="user-heading-cone" /> : null}
           <Layer
             type="circle"
             key="user-dot-white"
@@ -964,20 +1104,7 @@ export function MapView({
       {transitStations.length > 0 ? (
         <GeoJSONSource
           id="estacoes"
-          data={{
-            type: 'FeatureCollection',
-            features: transitStations.map((estacao) => ({
-              type: 'Feature',
-              properties: {
-                nome: estacao.name,
-                genero: stationLabel(estacao.kind),
-              },
-              geometry: {
-                type: 'Point',
-                coordinates: [estacao.coordinates.longitude, estacao.coordinates.latitude],
-              },
-            })),
-          }}
+          data={stationsJson}
         >
           <Layer
             key="estacoes-circle"
@@ -1034,21 +1161,7 @@ export function MapView({
               onStopPress?.(id);
             }
           }}
-          data={{
-            type: 'FeatureCollection',
-            features: transitStops.map((stop) => ({
-              type: 'Feature',
-              properties: {
-                id: stop.id,
-                nome: stop.name,
-                aberta: stop.id === selectedStopId ? 1 : 0,
-              },
-              geometry: {
-                type: 'Point',
-                coordinates: [stop.coordinates.longitude, stop.coordinates.latitude],
-              },
-            })),
-          }}
+          data={stopsJson}
         >
           {/*
             Small bus symbols, as in the Maps — the big circles covered the
@@ -1154,23 +1267,7 @@ export function MapView({
       {vehicles.length > 0 ? (
         <GeoJSONSource
           id="autocarros"
-          data={{
-            type: 'FeatureCollection',
-            features: vehicles.map((v) => ({
-              type: 'Feature',
-              properties: {
-                linha: v.line,
-                // A bus standing at a stop is drawn fainter: the difference
-                // between "moving" and "standing there" is what makes this
-                // useful to someone waiting.
-                parado: v.atStop ? 1 : 0,
-              },
-              geometry: {
-                type: 'Point',
-                coordinates: [v.coordinates.longitude, v.coordinates.latitude],
-              },
-            })),
-          }}
+          data={vehiclesJson}
         >
           <Layer
             key="autocarros-circle"
@@ -1211,17 +1308,7 @@ export function MapView({
       {cameras.length > 0 ? (
         <GeoJSONSource
           id="cameras"
-          data={{
-            type: 'FeatureCollection',
-            features: cameras.map((camera) => ({
-              type: 'Feature',
-              properties: { limite: camera.maxspeed ? String(camera.maxspeed) : '' },
-              geometry: {
-                type: 'Point',
-                coordinates: [camera.coordinates.longitude, camera.coordinates.latitude],
-              },
-            })),
-          }}
+          data={camerasJson}
         >
           <Layer
             key="cameras-circle"
@@ -1301,27 +1388,7 @@ export function MapView({
       {places.length > 0 ? (
         <GeoJSONSource
           id="places"
-          data={{
-            type: 'FeatureCollection',
-            features: places.map((place) => ({
-              type: 'Feature',
-              id: place.id,
-              properties: (() => {
-                const look = poiLook(place.kindKey, place.kindValue);
-                return {
-                  placeId: place.id,
-                  name: place.name,
-                  icon: look.icon,
-                  cor: look.colour,
-                  prio: look.priority,
-                };
-              })(),
-              geometry: {
-                type: 'Point',
-                coordinates: [place.coordinates.longitude, place.coordinates.latitude],
-              },
-            })),
-          }}
+          data={placesJson}
           onPress={(event) => {
             // Without this the tap also reaches the map: with the measuring tape
             // on, tapping a business opened its card **and** left a measuring
@@ -1355,14 +1422,7 @@ export function MapView({
           <GeoJSONSource
             key={`alt-${i}`}
             id={`rota-alternativa-${i}`}
-            data={{
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: alt.coordinates.map((p) => [p.longitude, p.latitude]),
-              },
-            }}
+            data={alternativesJson[i]}
           >
             <Layer
               key={`rota-alternativa-${i}-line`}
@@ -1393,11 +1453,7 @@ export function MapView({
       {andadoLine.length >= 2 ? (
         <GeoJSONSource
           id="route-done"
-          data={{
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: andadoLine },
-          }}
+          data={doneJson}
         >
           <Layer
             key="route-done-line"
@@ -1417,11 +1473,7 @@ export function MapView({
       {faltaLine.length >= 2 ? (
         <GeoJSONSource
           id="route"
-          data={{
-            type: 'Feature',
-            properties: {},
-            geometry: { type: 'LineString', coordinates: faltaLine },
-          }}
+          data={leftJson}
         >
           <Layer
             key="route-line"
@@ -1545,6 +1597,43 @@ export function MapView({
 }
 
 /** How far above its spot the red pin starts falling from, in points. */
+/** A point as GeoJSON wants it: longitude first. */
+function lonLat(p: Coordinates): [number, number] {
+  return [p.longitude, p.latitude];
+}
+
+/** A line as GeoJSON text, for a `GeoJSONSource` (see the sources' note). */
+function lineJson(coordinates: [number, number][]): string {
+  return JSON.stringify({
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates },
+  });
+}
+
+/** A list of points as GeoJSON text, each with its properties. */
+function pointsJson<T>(
+  items: readonly T[],
+  describe: (item: T) => {
+    at: Coordinates;
+    properties: Record<string, string | number>;
+    id?: string | number;
+  },
+): string {
+  return JSON.stringify({
+    type: 'FeatureCollection',
+    features: items.map((item) => {
+      const { at, properties, id } = describe(item);
+      return {
+        type: 'Feature',
+        ...(id !== undefined ? { id } : {}),
+        properties,
+        geometry: { type: 'Point', coordinates: lonLat(at) },
+      };
+    }),
+  });
+}
+
 const PIN_FALL = 26;
 
 /**

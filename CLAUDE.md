@@ -35,6 +35,17 @@ environment cannot reach.
 
 **Recent work (November 2026), none of it seen on a phone yet unless said:**
 
+- **Efficiency round** (author's request), none of it seen on a phone yet:
+  the map's sources get their GeoJSON **as memoized text** (`GeoJSONSource` stringifies an
+  object `data` on every render — the whole route once a second while navigating); the lists
+  App hands the map are memoized and missing ones default to a shared `NONE`, not `= []`;
+  the compass lives in its own `HeadingCone` component inside `MapView` (in `App` each
+  reading redrew the whole app); `distanceAlong` uses cumulative distances kept per route
+  (one subtraction) and `locateOnRoute` searches around the last index (`near`), falling
+  back to the whole route only beyond `LOCATE_TRUST_M` — measured on a 400 km route,
+  0.01 ms a reading instead of ~2 ms, and a there-and-back route no longer jumps to the
+  return pass; live buses and a stop's arrivals stop asking while the app is in the
+  background (`useAppActive`).
 - **Buses:** the `[YA15B]` prefix left the line number (`lineLabel`, in `transit.ts`); moving
   buses came back — TML sends `timestamp` in **milliseconds** and every bus was being thrown
   away as "from the future" (`vehicles.ts`). Proved with the timetables workflow's `sondar`
@@ -386,6 +397,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   └── index.ts          # Picking the language; useT() and t()
 │   ├── theme.ts              # Light and dark colours
 │   ├── settings.tsx          # Stored settings and the useTheme() hook
+│   ├── useAppActive.ts       # Whether the app is on screen, for repeating requests
 │   └── useUpdateDownload.ts  # Download and install, shared by two screens
 ├── App.tsx                   # Entry point: puts everything together and holds the state
 ├── README.md                 # The project's front page on GitHub
@@ -1900,6 +1912,11 @@ Mistakes already made in this project, so they are not repeated.
 - **A library that hands a whole Android result to JavaScript can crash on extras it cannot
   convert** — natively, past every `try`. When another app's result is involved (Google's
   speech recogniser), read only the field needed, natively (`modules/palmmap-voice`).
+- **`GeoJSONSource` turns an object `data` into text on every render.** Hand it a string
+  built in a `useMemo`, and keep the lists it is built from stable — a `= []` default or a
+  `.filter()` in the parent's JSX is a new array each time and undoes the memo.
+- **Fast-changing state belongs in the smallest component that shows it.** The compass in
+  `App` redrew every panel several times a second.
 - **An identifier can arrive in a different unit after the provider changes.** TML sends
   `timestamp` in milliseconds where Carris sent seconds; every bus was "from the future".
 

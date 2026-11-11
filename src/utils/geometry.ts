@@ -36,23 +36,98 @@ export interface RoutePosition {
   offRouteMeters: number;
 }
 
-/** Works out where along the route the person is. */
-export function locateOnRoute(
+/**
+ * How far along the route each of its points is, in metres from the start.
+ *
+ * Worked out once per route and kept: navigation asks "how far to the end", "to
+ * the next manoeuvre", "to the next camera" every second, and each used to walk
+ * the route point by point — on a long trip, tens of thousands of distances a
+ * second. With this, each answer is one subtraction. Keyed by the array itself
+ * (a `WeakMap`), so a new route gets its own and the old one goes with it.
+ */
+const cumulativeCache = new WeakMap<Coordinates[], Float64Array>();
+
+function cumulative(routeCoordinates: Coordinates[]): Float64Array {
+  let along = cumulativeCache.get(routeCoordinates);
+  if (!along || along.length !== routeCoordinates.length) {
+    along = new Float64Array(routeCoordinates.length);
+    for (let i = 1; i < routeCoordinates.length; i += 1) {
+      along[i] = along[i - 1] + distanceMeters(routeCoordinates[i - 1], routeCoordinates[i]);
+    }
+    cumulativeCache.set(routeCoordinates, along);
+  }
+  return along;
+}
+
+/** First index whose distance from the start is at least `meters`. */
+function indexAtMeters(along: Float64Array, meters: number): number {
+  let lo = 0;
+  let hi = along.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (along[mid] < meters) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+/** How far behind the last known point the search looks. */
+const LOCATE_BEHIND_M = 300;
+/** How far ahead of it — a car at 130 km/h covers 36 m a second. */
+const LOCATE_AHEAD_M = 3000;
+/** Nearer than this to a point in the window and the window is trusted. */
+const LOCATE_TRUST_M = 60;
+
+function nearestBetween(
   routeCoordinates: Coordinates[],
   position: Coordinates,
+  from: number,
+  to: number,
 ): RoutePosition {
-  let index = 0;
+  let index = from;
   let best = Infinity;
-
-  for (let i = 0; i < routeCoordinates.length; i += 1) {
+  for (let i = from; i <= to; i += 1) {
     const d = distanceMeters(routeCoordinates[i], position);
     if (d < best) {
       best = d;
       index = i;
     }
   }
-
   return { index, offRouteMeters: best };
+}
+
+/**
+ * Where on the route a position is: the nearest point, and how far from it.
+ *
+ * With `near` — the index found on the last reading — only the stretch around
+ * it is searched (`LOCATE_BEHIND_M` back, `LOCATE_AHEAD_M` ahead), and the
+ * whole route only when nothing there is within `LOCATE_TRUST_M`. Two gains:
+ * a second's work no longer grows with the trip's length, and on a route that
+ * comes back along the same road (there and back, a loop) the position stays
+ * on the pass being driven instead of jumping to the return.
+ */
+export function locateOnRoute(
+  routeCoordinates: Coordinates[],
+  position: Coordinates,
+  near?: number | null,
+): RoutePosition {
+  const last = routeCoordinates.length - 1;
+  if (last < 0) {
+    return { index: 0, offRouteMeters: Infinity };
+  }
+  if (near !== undefined && near !== null && near >= 0 && near <= last) {
+    const along = cumulative(routeCoordinates);
+    const from = indexAtMeters(along, along[near] - LOCATE_BEHIND_M);
+    const to = Math.min(last, indexAtMeters(along, along[near] + LOCATE_AHEAD_M));
+    const found = nearestBetween(routeCoordinates, position, from, to);
+    if (found.offRouteMeters <= LOCATE_TRUST_M) {
+      return found;
+    }
+  }
+  return nearestBetween(routeCoordinates, position, 0, last);
 }
 
 /** Length of the route between two of its points, in metres. */
@@ -61,11 +136,14 @@ export function distanceAlong(
   fromIndex: number,
   toIndex: number,
 ): number {
-  let total = 0;
-  for (let i = fromIndex; i < toIndex && i + 1 < routeCoordinates.length; i += 1) {
-    total += distanceMeters(routeCoordinates[i], routeCoordinates[i + 1]);
+  const last = routeCoordinates.length - 1;
+  const from = Math.max(0, fromIndex);
+  const to = Math.min(toIndex, last);
+  if (to <= from) {
+    return 0;
   }
-  return total;
+  const along = cumulative(routeCoordinates);
+  return along[to] - along[from];
 }
 
 /** Index of the route point nearest to a given spot. */

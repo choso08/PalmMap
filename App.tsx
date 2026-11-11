@@ -100,7 +100,6 @@ import {
   getCurrentPosition,
   getFreshPosition,
   requestPermission,
-  watchCompass,
   watchPosition,
   watchPositionIdle,
 } from './src/services/location';
@@ -153,6 +152,7 @@ import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { namesArePortuguese, speak, stopSpeaking } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
+import { useAppActive } from './src/useAppActive';
 
 // **Before everything else.** An error while loading the modules below already
 // has someone to write it down — and that is exactly where an error has no other
@@ -545,9 +545,15 @@ function PalmMap() {
    * A failure here is not worth a message: the buses from last time stay and the
    * next update tries again. This is extra information on the map, not the map.
    */
+  const appActive = useAppActive();
   useEffect(() => {
     if (settings.mapType !== 'transit' || !settings.showVehicles || !vehicleZoomOk) {
       setVehicles([]);
+      return;
+    }
+    // In the background the buses stay as they were and nothing is asked; back
+    // on screen this runs again and asks at once.
+    if (!appActive) {
       return;
     }
 
@@ -571,7 +577,7 @@ function PalmMap() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [settings.mapType, settings.showVehicles, vehicleZoomOk]);
+  }, [settings.mapType, settings.showVehicles, vehicleZoomOk, appActive]);
 
   /** Visible area of the map, updated when the map stops moving. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -748,50 +754,6 @@ function PalmMap() {
 
     return () => subscription.remove();
   }, [navigating]);
-
-  /**
-   * Which way the phone points, for the cone in front of the blue dot (as in
-   * Google Maps). Only outside navigation — there the map itself turns with
-   * the heading — and only while the app is on screen: the compass is a sensor
-   * reading many times a second, and nobody looks at the cone in a pocket.
-   */
-  const [compass, setCompass] = useState<number | null>(null);
-  useEffect(() => {
-    if (navigating || !hasLocation) {
-      setCompass(null);
-      return;
-    }
-    let stop: (() => void) | null = null;
-    // Each start gets a number; a subscription that arrives after a newer start
-    // or a stop is dropped at once, so none is left running.
-    let generation = 0;
-    const start = () => {
-      const mine = ++generation;
-      void watchCompass(setCompass).then((unsubscribe) => {
-        if (mine === generation) {
-          stop = unsubscribe;
-        } else {
-          unsubscribe();
-        }
-      });
-    };
-    const halt = () => {
-      generation += 1;
-      stop?.();
-      stop = null;
-    };
-    start();
-    const subscription = AppState.addEventListener('change', (estado) => {
-      halt();
-      if (estado === 'active') {
-        start();
-      }
-    });
-    return () => {
-      halt();
-      subscription.remove();
-    };
-  }, [navigating, hasLocation]);
 
   /**
    * Outside navigation, keep following the position slowly, so the blue dot
@@ -1348,6 +1310,9 @@ function PalmMap() {
 
     let stopWatching: (() => void) | undefined;
     let cancelled = false;
+    // Where on the route the last reading was: the next one is searched around
+    // it, not along the whole route (see `locateOnRoute`).
+    let lastIndex: number | null = null;
 
     void (async () => {
       // **Wrapped.** The native side calls this every second for a whole trip:
@@ -1362,7 +1327,12 @@ function PalmMap() {
           // exactly as the GPS gave it — see the note on slow tracking.
           setSpeedKmh(speedMs === null ? null : Math.round(speedMs * 3.6));
 
-          const { index, offRouteMeters } = locateOnRoute(route.coordinates, position);
+          const { index, offRouteMeters } = locateOnRoute(
+            route.coordinates,
+            position,
+            lastIndex,
+          );
+          lastIndex = index;
           setProgressIndex(index);
           const remainingMeters = distanceAlong(
             route.coordinates,
@@ -2127,6 +2097,25 @@ function PalmMap() {
     return [...byId.values()];
   }, [transitStops, mapStops]);
 
+  /*
+    The lists handed to the map are kept the same array while nothing in them
+    changes. The map turns each into GeoJSON text only when its list changes;
+    a list rebuilt on every render here — every GPS reading — redid that work
+    for nothing.
+  */
+  const mapAlternatives = useMemo(
+    () => (navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)),
+    [navigating, routeOptions, routeIndex],
+  );
+  const mapWaypoints = useMemo(() => waypoints.map((w) => w.coordinates), [waypoints]);
+  const mapTransitStops = useMemo(() => {
+    const trip = transitTrips?.[transitTripIndex];
+    if (!trip) {
+      return mapStopsShown;
+    }
+    return [trip.from, ...(trip.change ? [trip.change.at, trip.change.boardAt] : []), trip.to];
+  }, [transitTrips, transitTripIndex, mapStopsShown]);
+
   /**
    * The panel's list, with the stop tapped on the map at the top when it is
    * not already among the nearest — otherwise tapping a stop a few streets
@@ -2222,7 +2211,6 @@ function PalmMap() {
       <MapView
         ref={mapRef}
         userLocation={userLocation}
-        heading={compass}
         destination={destination?.coordinates ?? null}
         pinned={selectedPlace ?? destination}
         route={route}
@@ -2249,24 +2237,11 @@ function PalmMap() {
         }}
         progressIndex={progressIndex}
         cameras={cameras}
-        measurePoints={measuring ? measurePoints : []}
+        measurePoints={measuring ? measurePoints : undefined}
         measureClosed={measureMode === 'area'}
-        alternativeRoutes={navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)}
-        waypoints={waypoints.map((w) => w.coordinates)}
-        transitStops={
-          transitTrips?.[transitTripIndex]
-            ? [
-                transitTrips[transitTripIndex].from,
-                ...(transitTrips[transitTripIndex].change
-                  ? [
-                      transitTrips[transitTripIndex].change!.at,
-                      transitTrips[transitTripIndex].change!.boardAt,
-                    ]
-                  : []),
-                transitTrips[transitTripIndex].to,
-              ]
-            : mapStopsShown
-        }
+        alternativeRoutes={mapAlternatives}
+        waypoints={mapWaypoints}
+        transitStops={mapTransitStops}
         selectedStopId={selectedStopId}
         onStopPress={handleStopPress}
         transitStations={transitStations}
