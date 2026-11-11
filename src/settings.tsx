@@ -44,9 +44,6 @@ export function osrmProfile(mode: TravelMode): 'driving' | 'walking' | 'cycling'
   return mode === 'transit' ? null : mode;
 }
 
-/** How much of the map already seen is kept on the phone. `off` turns the cache off. */
-export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
-
 /**
  * Drawn map, satellite imagery, the public transport network, or satellite
  * with the live buses and stops on top (`satelliteTransit`, the author's
@@ -82,8 +79,6 @@ export interface Settings {
   showPlacesOnMap: boolean;
   /** Read the instructions aloud while navigating. */
   voiceGuidance: boolean;
-  /** How much of the map already seen is kept. */
-  cacheSize: CacheSize;
   /** Drawn map, satellite imagery or transport. */
   mapType: MapType;
   /** How much detail is asked of the satellite imagery. */
@@ -125,7 +120,6 @@ export const DEFAULT_SETTINGS: Settings = {
   bikeType: 'normal',
   showPlacesOnMap: true,
   voiceGuidance: true,
-  cacheSize: 'medium',
   mapType: 'map',
   satelliteDetail: 'alta',
   speedCameraAlerts: true,
@@ -159,18 +153,6 @@ export function nextMapType(current: MapType): MapType {
 export const SATELLITE_DETAILS: { id: SatelliteDetail; icon: string }[] = [
   { id: 'normal', icon: 'earth' },
   { id: 'alta', icon: 'magnify-plus-outline' },
-];
-
-export const CACHE_SIZES: {
-  id: CacheSize;
-  icon: string;
-  megabytes: number;
-}[] = [
-  { id: 'off', icon: 'close-circle-outline', megabytes: 0 },
-  { id: 'small', icon: 'sd', megabytes: 100 },
-  { id: 'medium', icon: 'database-outline', megabytes: 250 },
-  { id: 'large', icon: 'database', megabytes: 500 },
-  { id: 'huge', icon: 'harddisk', megabytes: 1024 },
 ];
 
 export const TRAVEL_MODES: { id: TravelMode; icon: string }[] = [
@@ -378,11 +360,6 @@ function useSettingsContext(): SettingsContextValue {
 export function useSettings() {
   const { settings, update } = useSettingsContext();
   return { settings, update };
-}
-
-/** How many megabytes to keep, for the chosen setting. */
-export function cacheMegabytesFor(size: CacheSize): number {
-  return CACHE_SIZES.find((option) => option.id === size)?.megabytes ?? 250;
 }
 
 /**

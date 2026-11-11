@@ -384,20 +384,6 @@ export const pt = {
     showVehicles: 'Autocarros a andar',
     showVehiclesCost: 'Gasta cerca de 1,1 MB a cada 20 s.',
 
-    cache: 'Mapa guardado',
-    cacheOffHint: 'Sem rede, o mapa não aparece.',
-    cacheSizes: {
-      off: 'Nada',
-      small: '100 MB',
-      medium: '250 MB',
-      large: '500 MB',
-      huge: '1 GB',
-    },
-    clearCache: 'Apagar o mapa guardado',
-    clearingCache: 'A apagar…',
-    clearCacheFailed: 'Não foi possível apagar',
-    cacheClearedTitle: 'Mapa guardado apagado',
-    cacheClearedBody: 'Volta a ser obtido com rede.',
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',

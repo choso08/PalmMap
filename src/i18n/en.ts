@@ -347,20 +347,6 @@ export const en: typeof pt = {
     showVehicles: 'Buses on the move',
     showVehiclesCost: 'Uses about 1.1 MB every 20 s.',
 
-    cache: 'Saved map',
-    cacheOffHint: 'Without network, the map will not show.',
-    cacheSizes: {
-      off: 'None',
-      small: '100 MB',
-      medium: '250 MB',
-      large: '500 MB',
-      huge: '1 GB',
-    },
-    clearCache: 'Delete the saved map',
-    clearingCache: 'Deleting…',
-    clearCacheFailed: "Couldn't delete",
-    cacheClearedTitle: 'Saved map deleted',
-    cacheClearedBody: 'It is fetched again when online.',
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',

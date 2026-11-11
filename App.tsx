@@ -122,7 +122,7 @@ import {
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
-import { configureTileRequests, setMapCacheSize } from './src/services/tiles';
+import { configureTileRequests, MAP_CACHE_MB, setMapCacheSize } from './src/services/tiles';
 import {
   nearbyStations,
   nearbyStops,
@@ -135,7 +135,6 @@ import {
 } from './src/services/transit';
 import {
   SettingsProvider,
-  cacheMegabytesFor,
   isTransitMap,
   paceKeyFor,
   type PaceKey,
@@ -596,10 +595,13 @@ function PalmMap() {
   /** Becomes true once the map's fonts are in place. */
   const [labelsReady, setLabelsReady] = useState(false);
 
-  // The map cache size, whenever the setting changes.
+  // The map cache: fixed, no longer a setting (author's request, November
+  // 2026 — the country maps are the offline answer). It stays on because
+  // OpenStreetMap's tile policy asks clients to keep what they fetched rather
+  // than ask for it again; see `MAP_CACHE_MB`.
   useEffect(() => {
-    setMapCacheSize(cacheMegabytesFor(settings.cacheSize));
-  }, [settings.cacheSize]);
+    setMapCacheSize(MAP_CACHE_MB);
+  }, []);
 
   // Saved places, read once at start-up.
   useEffect(() => {

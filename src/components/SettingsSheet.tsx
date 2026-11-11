@@ -2,7 +2,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo } from 'react';
 import { useState } from 'react';
 import {
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -18,7 +17,6 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
 import { MAP_REQUEST_URL } from '../services/config';
-import { clearMapCache } from '../services/tiles';
 import { Collapsible } from './Collapsible';
 import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
@@ -27,7 +25,6 @@ import { Updates } from './Updates';
 import type { UpdateInfo } from '../services/update';
 import {
   APPEARANCE_MODES,
-  CACHE_SIZES,
   LANGUAGES,
   SATELLITE_DETAILS,
   TRAVEL_MODES,
@@ -138,7 +135,6 @@ export function SettingsSheet({
   const s = strings.settings;
   const { pace, forgetPace } = useLearnedPace();
   const language = useLanguage();
-  const [clearing, setClearing] = useState(false);
   /** The recents were just forgotten: the button gives way to a line saying so
    * for a few seconds — otherwise the tap looked like it did nothing. */
   const [recentsCleared, setRecentsCleared] = useState(false);
@@ -169,7 +165,6 @@ export function SettingsSheet({
       satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
       vehicles: has(s.map, s.showVehicles, s.showVehiclesCost),
-      cache: has(s.cache, s.clearCache),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.schedules),
       voice: has(nav, s.voice),
@@ -255,18 +250,6 @@ export function SettingsSheet({
       .map(([name, factor]) => `${name} ${formatFactor(factor)}`)
       .join(' · ');
   }, [pace, s, strings]);
-
-  const handleClearCache = async () => {
-    setClearing(true);
-    try {
-      await clearMapCache();
-      Alert.alert(s.cacheClearedTitle, s.cacheClearedBody);
-    } catch {
-      Alert.alert(s.clearCacheFailed, s.tryAgain);
-    } finally {
-      setClearing(false);
-    }
-  };
 
   return (
     <Modal
@@ -421,32 +404,6 @@ export function SettingsSheet({
                   trackColor={{ true: theme.accent, false: theme.border }}
                 />
               </View>
-            </>
-          ) : null}
-
-          {show.cache ? (
-            <>
-              <Text style={styles.sectionTitle}>{s.cache}</Text>
-              <ChoiceRow
-                options={CACHE_SIZES}
-                label={(id) => s.cacheSizes[id]}
-                value={settings.cacheSize}
-                onChange={(id) => update('cacheSize', id)}
-                styles={styles}
-                theme={theme}
-              />
-              {settings.cacheSize === 'off' ? (
-                <Text style={styles.note}>{s.cacheOffHint}</Text>
-              ) : null}
-
-              <Pressable
-                style={styles.clearButton}
-                onPress={() => void handleClearCache()}
-                disabled={clearing}
-              >
-                <MaterialCommunityIcons name="delete-outline" size={18} color={theme.danger} />
-                <Text style={styles.clearText}>{clearing ? s.clearingCache : s.clearCache}</Text>
-              </Pressable>
             </>
           ) : null}
 

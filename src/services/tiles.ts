@@ -36,6 +36,15 @@ export function configureTileRequests(): void {
  * unseen the longest. The bigger it is, the longer the areas one has passed
  * through stay available.
  */
+/**
+ * How much of the map already seen is kept, in megabytes. It used to be a
+ * setting (off to 1 GB); the author removed it — the country maps are what
+ * works offline. It is not zero on purpose: OpenStreetMap's tile usage policy
+ * asks apps to cache, and without it every pan would ask their volunteers'
+ * servers again for what was on screen a minute ago.
+ */
+export const MAP_CACHE_MB = 250;
+
 export function setMapCacheSize(megabytes: number): void {
   void OfflineManager.setMaximumAmbientCacheSize(megabytes * 1024 * 1024).catch(
     () => undefined,
@@ -46,11 +55,6 @@ export function setMapCacheSize(megabytes: number): void {
   if (megabytes === 0) {
     void OfflineManager.clearAmbientCache().catch(() => undefined);
   }
-}
-
-/** Forgets the cached map. Use when space needs freeing. */
-export async function clearMapCache(): Promise<void> {
-  await OfflineManager.clearAmbientCache();
 }
 
 /**

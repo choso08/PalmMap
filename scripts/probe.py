@@ -683,6 +683,76 @@ def pattern():
     for later in (first.get("stop_sequence", 0) + 3, first.get("stop_sequence", 0) + 8):
         print("later stop_sequence", later)
 
+
+def fresh_install():
+    """Every outside service the app uses, asked as a phone with nothing cached would.
+
+    Reports status, type and size of each; flags what needs a key, answers HTML
+    where data is expected, or an image suspiciously small (CARTO's "API KEY
+    REQUIRED" stamp only showed on phones without the tiles in cache).
+    """
+    section("FRESH INSTALL")
+    lisbon = (38.7223, -9.1393)
+    z, x, y = 14, 7773, 6178  # Lisbon, Baixa
+    import math
+    def merc(lat, lon):
+        return lon * 20037508.34 / 180, math.log(math.tan((90 + lat) * math.pi / 360)) * 20037508.34 / math.pi
+    x0, y0 = merc(38.70, -9.15); x1, y1 = merc(38.71, -9.14)
+    checks = [
+        ("OSM tile (map, dark)", "https://tile.openstreetmap.org/14/7773/6178.png", "image"),
+        ("EOX Sentinel-2 2025", "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/12/1554/1943.jpg", "image"),
+        ("DGT orthophotos", "https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+            f"&LAYERS=ortoSat2023-CorVerdadeira&STYLES=&CRS=EPSG:3857&BBOX={x0},{y0},{x1},{y1}"
+            "&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false", "image"),
+        ("OePNVKarte transport", "https://tileserver.memomaps.de/tilegen/14/7773/6178.png", "image"),
+        ("OpenFreeMap TileJSON", "https://tiles.openfreemap.org/planet", "json"),
+        ("Nominatim search", "https://nominatim.openstreetmap.org/search?q=Rossio%20Lisboa&format=jsonv2&limit=1", "json"),
+        ("Nominatim reverse", f"https://nominatim.openstreetmap.org/reverse?lat={lisbon[0]}&lon={lisbon[1]}&format=jsonv2", "json"),
+        ("Photon", "https://photon.komoot.io/api/?q=Rossio&limit=1", "json"),
+        ("OSRM car", "https://routing.openstreetmap.de/routed-car/route/v1/driving/-9.1393,38.7223;-9.1500,38.7100?overview=false", "json"),
+        ("OSRM foot", "https://routing.openstreetmap.de/routed-foot/route/v1/foot/-9.1393,38.7223;-9.1500,38.7100?overview=false", "json"),
+        ("OSRM bike", "https://routing.openstreetmap.de/routed-bike/route/v1/bike/-9.1393,38.7223;-9.1500,38.7100?overview=false", "json"),
+        ("Valhalla bike", "https://valhalla1.openstreetmap.de/route?json=" + urllib.parse.quote(json.dumps({
+            "locations": [{"lat": 38.7223, "lon": -9.1393}, {"lat": 38.71, "lon": -9.15}],
+            "costing": "bicycle", "directions_type": "none"})), "json"),
+        ("Overpass", "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(
+            '[out:json][timeout:25];node(around:200,38.7223,-9.1393)[amenity=pharmacy];out 1;'), "json"),
+        ("Overpass fallback", "https://overpass.private.coffee/api/interpreter?data=" + urllib.parse.quote(
+            '[out:json][timeout:25];node(around:200,38.7223,-9.1393)[amenity=pharmacy];out 1;'), "json"),
+        ("Carris vehicles", f"{CARRIS}/vehicles", "json"),
+        ("Carris pattern", f"{CARRIS}/patterns/3013_0_2", "json"),
+        ("Carris stations", f"{CARRIS}/facilities/subway_stations", "json"),
+        ("GitHub releases", "https://api.github.com/repos/choso08/PalmMap/releases?per_page=5", "json"),
+        ("Maps manifest", "https://github.com/choso08/PalmMap/releases/download/mapas/mapas.json", "json"),
+        ("Timetables manifest", "https://github.com/choso08/PalmMap/releases/download/horarios/horarios.json", "json"),
+    ]
+    for name, url, kind in checks:
+        t0 = time.time()
+        status, ctype, body = get(url, timeout=60)
+        ms = int((time.time() - t0) * 1000)
+        flag = ""
+        if status != 200:
+            flag = "FAIL"
+        elif kind == "image" and not ctype.startswith("image"):
+            flag = "NOT AN IMAGE"
+        elif kind == "image" and len(body) < 1500:
+            flag = "SUSPICIOUSLY SMALL"
+        elif kind == "json":
+            try:
+                json.loads(body)
+            except Exception:  # noqa: BLE001
+                flag = "NOT JSON"
+        low = body[:4000].lower()
+        if b"api key" in low or b"apikey" in low or b"token" in low and status in (401, 403):
+            flag += " MENTIONS A KEY"
+        print(f"{'OK ' if not flag else '!! '}{name:24} {status} {ctype[:28]:28} {len(body):>9} B {ms:>6} ms {flag}")
+        if flag:
+            print("     ", body[:200])
+    # The Carris stop list is the big one: time it on its own.
+    t0 = time.time()
+    status, _, body = get(f"{CARRIS}/stops", timeout=90)
+    print(f"Carris stops: {status} {len(body)} B in {int((time.time() - t0) * 1000)} ms")
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
