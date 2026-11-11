@@ -783,6 +783,36 @@ def overpass_mirrors():
             print(f"{url:58} try {attempt}: {status} {int((time.time()-t0)*1000):>6} ms elements={n}", body[:80] if n is None else "")
             time.sleep(3)
 
+
+def photos():
+    """Open photo sources a place card could use: Commons by file, Wikidata P18, Panoramax."""
+    section("PHOTOS")
+    st, ct, body = get("https://www.wikidata.org/wiki/Special:EntityData/Q597.json")
+    print("wikidata", st, ct, len(body))
+    files = []
+    try:
+        ent = json.loads(body)["entities"]["Q597"]
+        files = [c["mainsnak"]["datavalue"]["value"] for c in ent["claims"].get("P18", [])]
+    except Exception as e:  # noqa: BLE001
+        print("  parse failed", e)
+    print("  P18:", files)
+    for f in files[:1]:
+        url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(f.replace(" ", "_")) + "?width=640"
+        st, ct, body = get(url)
+        print("commons FilePath", st, ct, len(body), url)
+    st, ct, body = get("https://api.panoramax.xyz/api/search?bbox=-9.142,38.708,-9.136,38.714&limit=2")
+    print("panoramax search", st, ct, len(body))
+    try:
+        feats = json.loads(body).get("features", [])
+        for f in feats[:1]:
+            print("  id", f.get("id"), "assets", json.dumps(f.get("assets"), ensure_ascii=False)[:600])
+            for u in (f"https://api.panoramax.xyz/api/pictures/{f.get('id')}/sd.jpg",
+                      f"https://api.panoramax.xyz/api/pictures/{f.get('id')}/thumb.jpg"):
+                st, ct, b = get(u)
+                print("  ", u, st, ct, len(b))
+    except Exception as e:  # noqa: BLE001
+        print("  parse failed", e, body[:300])
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
