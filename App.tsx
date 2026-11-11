@@ -135,6 +135,14 @@ import {
   type TransitStop,
 } from './src/services/transit';
 import {
+  buildGuide,
+  guideArrived,
+  guideProgress,
+  type GuideProgress,
+  type TransitGuide,
+} from './src/services/transitGuide';
+import { TransitGuidePanel } from './src/components/TransitGuidePanel';
+import {
   SettingsProvider,
   isTransitMap,
   paceKeyFor,
@@ -196,9 +204,9 @@ function PalmMap() {
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   // The bottom panels' measured heights — see `raisedBottom`.
-  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0 });
+  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0, guide: 0 });
   const measurePanel = useCallback(
-    (which: 'place' | 'route' | 'measure') => (event: LayoutChangeEvent) => {
+    (which: 'place' | 'route' | 'measure' | 'guide') => (event: LayoutChangeEvent) => {
       const height = Math.round(event.nativeEvent.layout.height);
       setPanelHeights((old) => (old[which] === height ? old : { ...old, [which]: height }));
     },
@@ -349,6 +357,19 @@ function PalmMap() {
    */
   const [transitTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
   const [transitTripIndex, setTransitTripIndex] = useState(0);
+
+  /**
+   * A public transport trip being followed step by step, as Maps does after
+   * "Start" (author's request, November 2026). `guiding` is on from the tap;
+   * `guide` arrives once the walks and the rides' stops are known.
+   */
+  const [guiding, setGuiding] = useState(false);
+  const [guide, setGuide] = useState<TransitGuide | null>(null);
+  const [guideStep, setGuideStep] = useState<GuideProgress>({ leg: 0, stop: 0 });
+  const guideRef = useRef<TransitGuide | null>(null);
+  guideRef.current = guide;
+  /** What the voice already said on this trip, so nothing is said twice. */
+  const guideSaid = useRef(new Set<string>());
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [stepsVisible, setStepsVisible] = useState(false);
@@ -786,7 +807,7 @@ function PalmMap() {
    * standing still.
    */
   useEffect(() => {
-    if (navigating) {
+    if (navigating || guiding) {
       return;
     }
 
@@ -840,7 +861,115 @@ function PalmMap() {
       cancelled = true;
       stop?.();
     };
-  }, [navigating, drivingGps]);
+  }, [navigating, guiding, drivingGps]);
+
+  /**
+   * Following a transport trip: the GPS every two seconds (through the same
+   * foreground service as navigation, so the "get off at the next stop"
+   * warning still comes with the phone in a pocket), moving the steps on.
+   */
+  useEffect(() => {
+    if (!guiding) {
+      return;
+    }
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    void watchPosition(
+      guarded((position: Coordinates) => {
+        userLocationRef.current = position;
+        setUserLocation(position);
+        setHasLocation(true);
+        const current = guideRef.current;
+        if (current) {
+          setGuideStep((before) => {
+            const next = guideProgress(current, before, position);
+            return next.leg === before.leg && next.stop === before.stop ? before : next;
+          });
+        }
+      }),
+      2000,
+    ).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        stop = fn;
+      }
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [guiding]);
+
+  const guideDone = useMemo(
+    () => (guide ? guideArrived(guide, guideStep, userLocation) : false),
+    [guide, guideStep, userLocation],
+  );
+
+  /**
+   * What the voice says along a transport trip, once each: the walk on
+   * starting it, the line to take, "get off at the next stop" one stop before,
+   * and the arrival.
+   */
+  useEffect(() => {
+    if (!guide || !settings.voiceGuidance) {
+      return;
+    }
+    const say = (key: string, text: string) => {
+      if (!guideSaid.current.has(key)) {
+        guideSaid.current.add(key);
+        speak(text);
+      }
+    };
+    const g = t().guide;
+    if (guideDone) {
+      say('chegada', t().navigation.arrived);
+      return;
+    }
+    const step = guide.legs[guideStep.leg];
+    if (!step) {
+      return;
+    }
+    if (step.type === 'walk') {
+      say(
+        `ape-${guideStep.leg}`,
+        step.toName ? g.walkVoice(step.toName) : g.walkDestinationVoice,
+      );
+      return;
+    }
+    const d = new Date(step.departsAt * 1000);
+    const hora = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    say(`apanhar-${guideStep.leg}`, g.boardVoice(step.line, step.headsign, hora));
+    const last = step.stops.length - 1;
+    if (guideStep.stop > 0 && last - guideStep.stop === 1) {
+      say(`sair-${guideStep.leg}`, g.getOffNextVoice(step.stops[last].name));
+    }
+  }, [guide, guideStep, guideDone, settings.voiceGuidance]);
+
+  const handleStartTransit = useCallback(() => {
+    const trip = transitTrips?.[transitTripIndex];
+    const origem = userLocationRef.current ?? routeOrigin?.coordinates;
+    if (!trip || !destination || !origem) {
+      return;
+    }
+    warmUpVoice();
+    guideSaid.current.clear();
+    setGuide(null);
+    setGuideStep({ leg: 0, stop: 0 });
+    setGuiding(true);
+    setSelectedPlace(null);
+    setFollowUser(true);
+    void buildGuide(trip, origem, destination.coordinates).then((built) => {
+      // Ended while the steps were being prepared: nothing to show.
+      setGuide((before) => (before === null ? built : before));
+    });
+  }, [transitTrips, transitTripIndex, routeOrigin, destination]);
+
+  const handleEndTransit = useCallback(() => {
+    setGuiding(false);
+    setGuide(null);
+    stopSpeaking();
+  }, []);
 
   // Calculates the route when there is an origin and a destination.
   useEffect(() => {
@@ -1691,7 +1820,15 @@ function PalmMap() {
    * The fixed value stays as the floor, for the instant before the first
    * measurement.
    */
-  const shownPanel = selectedPlace ? 'place' : destination ? 'route' : measuring ? 'measure' : null;
+  const shownPanel = guiding
+    ? 'guide'
+    : selectedPlace
+      ? 'place'
+      : destination
+        ? 'route'
+        : measuring
+          ? 'measure'
+          : null;
   const raisedBottom = Math.max(
     insets.bottom + 260,
     (shownPanel ? panelHeights[shownPanel] : 0) + 12,
@@ -1729,6 +1866,7 @@ function PalmMap() {
    */
   const tabsVisible =
     !navigating &&
+    !guiding &&
     !selectedPlace &&
     !destination &&
     !measuring &&
@@ -2199,13 +2337,41 @@ function PalmMap() {
         : null,
     [lineJourneyShown],
   );
+  const guidePaths = useMemo(
+    () =>
+      guide
+        ? guide.legs.map((leg) =>
+            leg.type === 'walk'
+              ? { coordinates: leg.path, walk: true }
+              : { coordinates: leg.stops.map((s) => s.coordinates), walk: false },
+          )
+        : null,
+    [guide],
+  );
   const mapTransitStops = useMemo(() => {
+    if (guide) {
+      // Every stop the trip rides through, as Maps marks them.
+      return guide.legs.flatMap((leg) =>
+        leg.type === 'ride'
+          ? leg.stops.map((s) => ({
+              id: s.id,
+              name: s.name,
+              locality: '',
+              coordinates: s.coordinates,
+              lines: [],
+              connections: [],
+              patterns: [],
+              meters: 0,
+            }))
+          : [],
+      );
+    }
     const trip = transitTrips?.[transitTripIndex];
     if (!trip) {
       return journeyStops ?? mapStopsShown;
     }
     return [trip.from, ...(trip.change ? [trip.change.at, trip.change.boardAt] : []), trip.to];
-  }, [transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
+  }, [guide, transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
 
   /**
    * The panel's list, with the stop tapped on the map at the top when it is
@@ -2346,6 +2512,7 @@ function PalmMap() {
         waypoints={mapWaypoints}
         transitStops={mapTransitStops}
         journeyLine={journeyLine}
+        guidePaths={guidePaths}
         selectedStopId={selectedStopId}
         onStopPress={handleStopPress}
         onStationPress={handleStationPress}
@@ -2357,7 +2524,7 @@ function PalmMap() {
         labelsReady={labelsReady}
       />
 
-      {!navigating ? (
+      {!navigating && !guiding ? (
       <View
         style={[styles.top, searchFocused && styles.searchBackdrop]}
         pointerEvents="box-none"
@@ -2429,7 +2596,7 @@ function PalmMap() {
       {lastPlace ? (
         <Reveal
           style={styles.bottom}
-          visible={!navigating && !!selectedPlace}
+          visible={!navigating && !guiding && !!selectedPlace}
           onLayout={measurePanel('place')}
         >
           <DraggableSheet>
@@ -2455,7 +2622,7 @@ function PalmMap() {
       {lastDestination ? (
         <Reveal
           style={styles.bottom}
-          visible={!navigating && !selectedPlace && !!destination}
+          visible={!navigating && !guiding && !selectedPlace && !!destination}
           onLayout={measurePanel('route')}
         >
           <DraggableSheet>
@@ -2499,6 +2666,7 @@ function PalmMap() {
                 transitTrips={transitTrips}
                 transitTripIndex={transitTripIndex}
                 onChooseTransitTrip={setTransitTripIndex}
+                onStartTransit={handleStartTransit}
               />
             )}
           </DraggableSheet>
@@ -2594,6 +2762,23 @@ function PalmMap() {
       */}
       {!navigating && drivingGps && settings.showSpeed ? (
         <SpeedBadge kmh={speedKmh} bottom={compassBottom + 52} />
+      ) : null}
+
+      {guiding ? (
+        <View style={styles.bottom} onLayout={measurePanel('guide')}>
+          <DraggableSheet>
+            {(drag) => (
+              <TransitGuidePanel
+                dragHandlers={drag}
+                guide={guide}
+                progress={guideStep}
+                arrived={guideDone}
+                onChooseStep={(leg) => setGuideStep({ leg, stop: 0 })}
+                onEnd={handleEndTransit}
+              />
+            )}
+          </DraggableSheet>
+        </View>
       ) : null}
 
       {navigating ? (

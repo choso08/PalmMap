@@ -201,6 +201,30 @@ export const pt = {
     stopCount: (n: number) => (n === 1 ? '1 paragem' : `${n} paragens`),
   },
 
+  guide: {
+    preparing: 'A preparar a viagem…',
+    walkTo: (stop: string) => `Caminhe até ${stop}`,
+    walkToDestination: 'Caminhe até ao destino',
+    board: (line: string, headsign: string) =>
+      headsign ? `Apanhe o ${line} → ${headsign}` : `Apanhe o ${line}`,
+    leavesAt: (time: string, wait: string) => `Parte às ${time} · daqui a ${wait}`,
+    leavingNow: (time: string) => `Parte às ${time} · agora`,
+    getOffAt: (stop: string) => `Saia em ${stop}`,
+    getOffNext: (stop: string) => `Saia na próxima paragem: ${stop}`,
+    stopsLeft: (n: number, time: string) =>
+      `${n === 1 ? 'falta 1 paragem' : `faltam ${n} paragens`} · ${time}`,
+    arriveAt: (time: string) => `Chegada às ${time}`,
+    arrived: 'Chegou ao destino.',
+    timetable: 'horário, sem atrasos',
+    end: 'Terminar',
+    // What the voice says.
+    boardVoice: (line: string, headsign: string, time: string) =>
+      `Apanhe o ${line}${headsign ? `, sentido ${headsign}` : ''}, às ${time}.`,
+    getOffNextVoice: (stop: string) => `Saia na próxima paragem, ${stop}.`,
+    walkVoice: (stop: string) => `Caminhe até ${stop}.`,
+    walkDestinationVoice: 'Caminhe até ao destino.',
+  },
+
   steps: {
     title: 'Instruções',
     empty: 'Ainda não há instruções para mostrar.',

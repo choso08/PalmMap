@@ -76,6 +76,8 @@ interface RoutePanelProps {
   transitTrips: TransitTrip[] | null;
   transitTripIndex: number;
   onChooseTransitTrip: (index: number) => void;
+  /** Starts the chosen transport trip step by step, as Maps does. */
+  onStartTransit?: () => void;
   /** Alternative routes, and which one is chosen. */
   options: Route[];
   optionIndex: number;
@@ -127,6 +129,7 @@ export function RoutePanel({
   transitTrips,
   transitTripIndex,
   onChooseTransitTrip,
+  onStartTransit,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
@@ -387,6 +390,19 @@ export function RoutePanel({
               </Pressable>
             );
           })}
+
+          {transitTrips.length > 0 && onStartTransit ? (
+            <View style={styles.botoes}>
+              <Pressable style={[styles.button, styles.buttonMain]} onPress={onStartTransit}>
+                <MaterialCommunityIcons
+                  name="navigation-variant"
+                  size={19}
+                  color={theme.onAccent}
+                />
+                <Text style={styles.buttonText}>{strings.route.start}</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       ) : null}
 

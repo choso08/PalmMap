@@ -604,7 +604,11 @@ export interface TransitTrip {
    * there, and the second bus. `line`/`headsign` above are the first bus's;
    * `to` and `arrivesAt` are the end of the whole trip.
    */
+  /** Which stops one rides through — see `RideRef`. Absent when unknown. */
+  ride?: RideRef;
   change?: {
+    /** The second vehicle's stops. */
+    ride?: RideRef;
     /** Where to get off the first bus. */
     at: TransitStop;
     /** Where to get on the second: the same stop, or one a short walk away. */
@@ -617,6 +621,82 @@ export interface TransitTrip {
     headsign: string;
     departsAt: number;
   };
+}
+
+/**
+ * Where to find the stops a ride passes, without carrying them in every
+ * option: only the trip one starts needs them (`rideStops`, in
+ * `transitGuide.ts`). A Carris bus is its pattern between two sequence
+ * numbers; a stored timetable is its trip between two positions.
+ */
+export type RideRef =
+  | { source: 'carris'; patternId: string; fromSeq: number; toSeq: number }
+  | { source: 'schedule'; feedId: string; trip: number; fromPos: number; toPos: number };
+
+function legRide(leg: Leg): RideRef | undefined {
+  return leg.patternId
+    ? { source: 'carris', patternId: leg.patternId, fromSeq: leg.fromSeq, toSeq: leg.toSeq }
+    : undefined;
+}
+
+/** A stop of a ride, with when the vehicle passes it (seconds since 1970). */
+export interface RideStop {
+  id: string;
+  name: string;
+  coordinates: Coordinates;
+  unix: number | null;
+}
+
+/**
+ * A Carris ride's stops, boarding and alighting included, from the line's
+ * pattern (`/patterns`, kept for the session). The two ends carry the trip's
+ * real times; the stops between are spread by the pattern's distance, which
+ * is near enough for "three stops to go" and says nothing it does not know at
+ * the ends.
+ */
+export async function carrisRide(
+  ref: Extract<RideRef, { source: 'carris' }>,
+  departsAt: number,
+  arrivesAt: number,
+): Promise<RideStop[]> {
+  const [pattern, stops] = await Promise.all([loadPattern(ref.patternId), loadStops()]);
+  const byId = new Map(stops.map((s) => [s.id, s]));
+  const path = (pattern?.path ?? [])
+    .filter(
+      (p) =>
+        typeof p.stop_sequence === 'number' &&
+        p.stop_sequence >= ref.fromSeq &&
+        p.stop_sequence <= ref.toSeq,
+    )
+    .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+  if (path.length < 2) {
+    return [];
+  }
+  const d0 = path[0].distance;
+  const d1 = path[path.length - 1].distance;
+  const span = typeof d0 === 'number' && typeof d1 === 'number' && d1 > d0 ? d1 - d0 : null;
+  const out: RideStop[] = [];
+  path.forEach((p, i) => {
+    const stop = byId.get(p.stop_id ?? '');
+    if (!stop) {
+      return;
+    }
+    const share =
+      i === 0
+        ? 0
+        : i === path.length - 1
+          ? 1
+          : span !== null && typeof p.distance === 'number'
+            ? (p.distance - (d0 as number)) / span
+            : i / (path.length - 1);
+    out.push({
+      id: stop.id,
+      name: stop.name,
+      coordinates: stop.coordinates,
+      unix: Math.round(departsAt + (arrivesAt - departsAt) * share),
+    });
+  });
+  return out;
 }
 
 /** All the stops within `maxMeters`, from nearest to farthest. */
@@ -824,6 +904,10 @@ type StopPasses = { stop: TransitStop; passes: CarrisArrival[] };
 /** One bus ride: boarding at `from`, getting off at `to`. */
 interface Leg {
   key: string;
+  /** The pattern and the sequence numbers boarded and left at — see `RideRef`. */
+  patternId: string;
+  fromSeq: number;
+  toSeq: number;
   line: string;
   headsign: string;
   from: TransitStop;
@@ -964,6 +1048,9 @@ function matchLegs(
 
       legs.push({
         key,
+        patternId: String(arrival.pattern_id ?? ''),
+        fromSeq: seq,
+        toSeq: best.seq,
         line: lineLabel(arrival.line_id ?? arrival.route_id),
         headsign: arrival.headsign ?? '',
         from: stop,
@@ -1220,6 +1307,7 @@ export async function planBusTrips(
         reachAt: leg.arrivesAt + walkSeconds(leg.to.meters),
         stops: leg.stops,
         live: leg.live,
+        ride: legRide(leg),
       });
     }
   }
@@ -1287,6 +1375,7 @@ export async function planBusTrips(
             reachAt: best.arrivesAt + walkSeconds(best.to.meters),
             stops: first.stops + best.stops,
             live: first.live,
+            ride: legRide(first),
             change: {
               at: first.to,
               boardAt: best.from,
@@ -1295,6 +1384,7 @@ export async function planBusTrips(
               line: best.line,
               headsign: best.headsign,
               departsAt: best.departsAt,
+              ride: legRide(best),
             },
           });
         }

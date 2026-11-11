@@ -9,7 +9,7 @@ import {
   WALK_DETOUR,
   WALK_SPEED_MS,
 } from './config';
-import type { TransitStation, TransitStop, TransitTrip } from './transit';
+import type { RideRef, RideStop, TransitStation, TransitStop, TransitTrip } from './transit';
 import type { Coordinates } from '../types/geo';
 import type { ScheduleFeed, ScheduleFeedInfo } from '../types/schedule';
 
@@ -714,6 +714,13 @@ export function planScheduledTrips(
               stops: pos - boardPos,
               // Never. This is the timetable, not the train moving.
               live: false,
+              ride: {
+                source: 'schedule',
+                feedId: feed.info.id,
+                trip,
+                fromPos: boardPos,
+                toPos: pos,
+              },
             };
           }
         }
@@ -844,6 +851,13 @@ export function planScheduledTransfers(
                 reachAt: arrives,
                 stops: next - pos,
                 live: false,
+                ride: {
+                  source: 'schedule',
+                  feedId: feed.info.id,
+                  trip,
+                  fromPos: pos,
+                  toPos: next,
+                },
               },
             });
           }
@@ -958,6 +972,13 @@ export function planScheduledTransfers(
                 line: lineOf(b.feed, trip),
                 headsign: b.feed.data.headsigns[scheduled.h] ?? '',
                 departsAt: departs,
+                ride: {
+                  source: 'schedule',
+                  feedId: b.feed.info.id,
+                  trip,
+                  fromPos: pos,
+                  toPos: end.pos,
+                },
               },
             };
           }
@@ -978,6 +999,36 @@ export function planScheduledTransfers(
     }
   }
   return [...byPair.values()].slice(0, limit);
+}
+
+/**
+ * A stored-timetable ride's stations, boarding and alighting included, with
+ * the timetable's time at each — counted from the ride's own departure, so
+ * the minutes between stations are the timetable's. Empty when the feed is no
+ * longer on the phone.
+ */
+export function scheduledRide(
+  ref: Extract<RideRef, { source: 'schedule' }>,
+  departsAt: number,
+): RideStop[] {
+  const feed = loadedFeeds().find((f) => f.info.id === ref.feedId);
+  const scheduled = feed?.data.trips[ref.trip];
+  if (!feed || !scheduled) {
+    return [];
+  }
+  const pattern = feed.data.patterns[scheduled.p] ?? [];
+  const times = feed.minutes[ref.trip] ?? [];
+  const out: RideStop[] = [];
+  for (let pos = ref.fromPos; pos <= ref.toPos && pos < pattern.length; pos += 1) {
+    const stop = asStop(feed, pattern[pos], 0);
+    out.push({
+      id: stop.id,
+      name: stop.name,
+      coordinates: stop.coordinates,
+      unix: departsAt + (times[pos] - times[ref.fromPos]) * 60,
+    });
+  }
+  return out;
 }
 
 /** Whether some stored timetable covers this point. */

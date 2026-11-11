@@ -165,6 +165,11 @@ interface MapViewProps {
    * its stops, in the line's colour (the theme's accent without one).
    */
   journeyLine?: { coordinates: Coordinates[]; colour: string | null } | null;
+  /**
+   * A public transport trip under way: its walks (dotted) and rides (solid,
+   * stop to stop). Null when no trip is being followed.
+   */
+  guidePaths?: readonly { coordinates: Coordinates[]; walk: boolean }[] | null;
   /** Called on a tap on a stop pin. */
   onStopPress?: (stopId: string) => void;
   /** Tapping a train, metro, light-rail or boat station opens its departures. */
@@ -335,6 +340,7 @@ export function MapView({
   transitStops = NONE,
   selectedStopId = null,
   journeyLine = null,
+  guidePaths = null,
   transitStations = NONE,
   vehicles = NONE,
   onStopPress,
@@ -512,6 +518,23 @@ export function MapView({
   const journeyJson = useMemo(
     () => (journeyLine ? lineJson(journeyLine.coordinates.map(lonLat)) : null),
     [journeyLine],
+  );
+
+  const guideJson = useMemo(
+    () =>
+      guidePaths && guidePaths.length > 0
+        ? JSON.stringify({
+            type: 'FeatureCollection',
+            features: guidePaths
+              .filter((p) => p.coordinates.length >= 2)
+              .map((p) => ({
+                type: 'Feature',
+                properties: { ape: p.walk ? 1 : 0 },
+                geometry: { type: 'LineString', coordinates: p.coordinates.map(lonLat) },
+              })),
+          })
+        : null,
+    [guidePaths],
   );
 
   const stopsJson = useMemo(
@@ -1226,6 +1249,36 @@ export function MapView({
               'line-color': journeyLine?.colour ?? theme.accent,
               'line-width': 5,
               'line-opacity': 0.85,
+            }}
+          />
+        </GeoJSONSource>
+      ) : null}
+
+      {/*
+        A transport trip under way: rides solid in the vehicle colour, walks
+        dotted, as Maps draws them. Each line only from two points — see
+        `lineJson`.
+      */}
+      {guideJson ? (
+        <GeoJSONSource id="guia-transportes" data={guideJson}>
+          <Layer
+            key="guia-viagem"
+            id="guia-viagem"
+            type="line"
+            filter={['==', ['get', 'ape'], 0]}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{ 'line-color': theme.vehicle, 'line-width': 6 }}
+          />
+          <Layer
+            key="guia-ape"
+            id="guia-ape"
+            type="line"
+            filter={['==', ['get', 'ape'], 1]}
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': theme.accent,
+              'line-width': 4,
+              'line-dasharray': [0.1, 2],
             }}
           />
         </GeoJSONSource>

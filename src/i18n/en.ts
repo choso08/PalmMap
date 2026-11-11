@@ -181,6 +181,30 @@ export const en: typeof pt = {
     stopCount: (n: number) => (n === 1 ? '1 stop' : `${n} stops`),
   },
 
+  guide: {
+    preparing: 'Preparing the trip…',
+    walkTo: (stop: string) => `Walk to ${stop}`,
+    walkToDestination: 'Walk to the destination',
+    board: (line: string, headsign: string) =>
+      headsign ? `Take the ${line} → ${headsign}` : `Take the ${line}`,
+    leavesAt: (time: string, wait: string) => `Leaves at ${time} · in ${wait}`,
+    leavingNow: (time: string) => `Leaves at ${time} · now`,
+    getOffAt: (stop: string) => `Get off at ${stop}`,
+    getOffNext: (stop: string) => `Get off at the next stop: ${stop}`,
+    stopsLeft: (n: number, time: string) =>
+      `${n === 1 ? '1 stop to go' : `${n} stops to go`} · ${time}`,
+    arriveAt: (time: string) => `Arrive at ${time}`,
+    arrived: 'You have arrived.',
+    timetable: 'timetable, no delays',
+    end: 'End',
+    // What the voice says.
+    boardVoice: (line: string, headsign: string, time: string) =>
+      `Take the ${line}${headsign ? ` towards ${headsign}` : ''}, at ${time}.`,
+    getOffNextVoice: (stop: string) => `Get off at the next stop, ${stop}.`,
+    walkVoice: (stop: string) => `Walk to ${stop}.`,
+    walkDestinationVoice: 'Walk to the destination.',
+  },
+
   steps: {
     title: 'Directions',
     empty: 'No directions to show yet.',
