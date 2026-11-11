@@ -265,7 +265,11 @@ function HeadingCone() {
         'icon-image': 'heading-cone',
         'icon-rotate': heading,
         'icon-rotation-alignment': 'map',
-        'icon-pitch-alignment': 'map',
+        // 'viewport', not 'map': a map-aligned icon is drawn at the size of its
+        // tile, so it grew and shrank against the blue dot with every zoom
+        // (author's report). Facing the screen it keeps one size, like the dot.
+        // The rotation stays tied to the map, so it still points north-relative.
+        'icon-pitch-alignment': 'viewport',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
       }}

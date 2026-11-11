@@ -303,6 +303,24 @@ function speakPiece(text: string, language: Language): void {
   }
 }
 
+/**
+ * Wakes the speech engine before it is needed.
+ *
+ * Android's engine only starts on first use and takes seconds; the first
+ * sentence waited for it, and now and then came late or not at all when a
+ * route started. Asking whether it is speaking starts it — and that path never
+ * touches the voice list (see the note at the top), so it is safe cold.
+ */
+export function warmUpVoice(): void {
+  try {
+    void Speech.isSpeakingAsync().catch(() => {
+      // Without a voice, the screen carries on guiding.
+    });
+  } catch {
+    // Same.
+  }
+}
+
 /** Silences whatever is being said. Use when navigation ends. */
 export function stopSpeaking(): void {
   try {

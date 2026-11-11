@@ -322,6 +322,7 @@ export const en: typeof pt = {
       map: 'Map',
       satellite: 'Satellite',
       transit: 'Transport',
+      satelliteTransit: 'Satellite + bus',
     },
 
     timeAdjustment: 'Estimated time',

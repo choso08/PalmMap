@@ -649,28 +649,36 @@ def pattern():
     first = upcoming[0]
     print("stop", stop["id"], stop.get("long_name"), "arrival", json.dumps(first, ensure_ascii=False)[:600])
     pid = first["pattern_id"]
-    for url in (f"{CARRIS}/patterns/{pid}", f"https://api.carrismetropolitana.pt/patterns/{pid}"):
+    bare = pid.split("]")[-1]
+    line = first["line_id"].split("]")[-1]
+    print("stop record pattern_ids sample:", (stop.get("pattern_ids") or [])[:5])
+    from urllib.parse import quote
+    urls = [
+        f"{CARRIS}/patterns/{quote(pid)}", f"{CARRIS}/patterns/{bare}",
+        f"https://api.carrismetropolitana.pt/patterns/{bare}",
+        f"{CARRIS}/lines/{line}", f"{CARRIS}/lines/{quote(first['line_id'])}",
+        f"{CARRIS}/routes/{first['route_id'].split(']')[-1]}",
+        f"https://go.tmlmobilidade.pt/hub/api/v1/patterns/{quote(pid)}",
+    ]
+    for url in urls:
         status, ctype, body = get(url)
-        print(f"\n--- {url} -> {status} {ctype} {len(body)} bytes")
-        if status != 200:
-            print(body[:300])
+        print(f"\n--- {url} -> {status} {len(body)} bytes")
+        if status != 200 or len(body) < 5:
+            print(body[:200])
             continue
         p = json.loads(body)
         if isinstance(p, list):
-            print("list of", len(p)); p = p[0]
-        print("keys:", sorted(p))
+            print("list of", len(p)); p = p[0] if p else {}
+        print("keys:", sorted(p) if isinstance(p, dict) else type(p))
+        if not isinstance(p, dict):
+            continue
         for k, v in p.items():
             if isinstance(v, list):
-                print(f"{k}: list[{len(v)}]", json.dumps(v[:3], ensure_ascii=False)[:900])
+                print(f"{k}: list[{len(v)}]", json.dumps(v[:2], ensure_ascii=False)[:1200])
             elif isinstance(v, dict):
                 print(f"{k}: dict", json.dumps(v, ensure_ascii=False)[:400])
             else:
                 print(f"{k}:", json.dumps(v, ensure_ascii=False)[:200])
-        shape = p.get("shape_id")
-        if shape:
-            for su in (f"{CARRIS}/shapes/{shape}", f"https://api.carrismetropolitana.pt/shapes/{shape}"):
-                st, ct, sb = get(su)
-                print(f"--- {su} -> {st} {ct} {len(sb)} bytes", sb[:300])
     # Does the same trip carry per-stop times? Arrivals at a later stop of the pattern.
     for later in (first.get("stop_sequence", 0) + 3, first.get("stop_sequence", 0) + 8):
         print("later stop_sequence", later)

@@ -135,6 +135,7 @@ import {
 import {
   SettingsProvider,
   cacheMegabytesFor,
+  isTransitMap,
   osrmProfile,
   useLearnedPace,
   useSettings,
@@ -150,7 +151,7 @@ import type { SearchCategory } from './src/utils/categories';
 import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
-import { namesArePortuguese, speak, stopSpeaking } from './src/utils/voice';
+import { namesArePortuguese, speak, stopSpeaking, warmUpVoice } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 import { useAppActive } from './src/useAppActive';
 
@@ -485,7 +486,7 @@ function PalmMap() {
       : null);
 
   useEffect(() => {
-    if (settings.mapType !== 'transit' || !perto) {
+    if (!isTransitMap(settings.mapType) || !perto) {
       setTransitStops([]);
       setTransitStations([]);
       return;
@@ -547,7 +548,7 @@ function PalmMap() {
    */
   const appActive = useAppActive();
   useEffect(() => {
-    if (settings.mapType !== 'transit' || !settings.showVehicles || !vehicleZoomOk) {
+    if (!isTransitMap(settings.mapType) || !settings.showVehicles || !vehicleZoomOk) {
       setVehicles([]);
       return;
     }
@@ -1151,7 +1152,7 @@ function PalmMap() {
 
       // The stops in view, only on the transport map and close enough in for
       // them to be told apart. From memory: no request once `/stops` is loaded.
-      if (settings.mapType === 'transit' && zoom >= STOPS_MAP_MIN_ZOOM) {
+      if (isTransitMap(settings.mapType) && zoom >= STOPS_MAP_MIN_ZOOM) {
         const pedido = (stopsRequest.current += 1);
         void stopsInBounds(bounds)
           .then((found) => {
@@ -1785,9 +1786,29 @@ function PalmMap() {
       });
     }
 
+    // Say the first instruction at once, as Maps does. Before, the voice only
+    // spoke 400 m before the first manoeuvre: on a long road it stayed silent
+    // for kilometres, and the start looked like the voice had not come on.
+    const primeiro = route?.steps[0];
+    if (settings.voiceGuidance && primeiro?.instruction) {
+      const aqui = userLocationRef.current;
+      speak(
+        `${primeiro.instruction}.`,
+        primeiro.streetName && namesArePortuguese(aqui) ? [primeiro.streetName] : [],
+      );
+    }
+
     setNavCameraFree(false);
     setNavigating(true);
-  }, [route]);
+  }, [route, settings.voiceGuidance]);
+
+  // The engine is woken when a destination is chosen, so it is ready by the
+  // time "Start" is pressed (`warmUpVoice`).
+  useEffect(() => {
+    if (destination && settings.voiceGuidance) {
+      warmUpVoice();
+    }
+  }, [destination, settings.voiceGuidance]);
 
   /**
    * Over the road's limit: said once, as Waze does with its chime, and then not
@@ -2057,7 +2078,7 @@ function PalmMap() {
   // waiting for the map to move.
   useEffect(() => {
     const current = viewport.current;
-    if (settings.mapType !== 'transit' || !current || current.zoom < STOPS_MAP_MIN_ZOOM) {
+    if (!isTransitMap(settings.mapType) || !current || current.zoom < STOPS_MAP_MIN_ZOOM) {
       setMapStops([]);
       return;
     }
@@ -2079,7 +2100,7 @@ function PalmMap() {
   // `ensureFeedsFor`. Without this the metro "did not exist" until someone
   // found the download in Settings.
   useEffect(() => {
-    if (settings.mapType !== 'transit' || !perto) {
+    if (!isTransitMap(settings.mapType) || !perto) {
       return;
     }
     const [lat, lon] = perto.split(',').map(Number);
@@ -2221,7 +2242,7 @@ function PalmMap() {
           settings.showPlacesOnMap &&
           !category &&
           !localPoisHere &&
-          settings.mapType !== 'transit'
+          !isTransitMap(settings.mapType)
         }
         onTilePoiPress={handleTilePoiPress}
         droppedPin={droppedPin}
@@ -2423,7 +2444,7 @@ function PalmMap() {
         The arrival times. Only on the transport map: elsewhere it would be one more
         button covering the map for someone driving.
       */}
-      {!navigating && settings.mapType === 'transit' ? (
+      {!navigating && isTransitMap(settings.mapType) ? (
         <Pressable
           style={({ pressed }) => [
             styles.transitButton,

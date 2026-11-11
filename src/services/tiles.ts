@@ -327,7 +327,9 @@ export function mapStyleFor(
   offline?: OfflineRegion | null,
   satelliteDetail: SatelliteDetail = 'normal',
 ): StyleSpecification {
-  if (mapType === 'satellite') {
+  // Satellite + bus is the satellite underneath; the buses and stops are the
+  // app's own layers on top.
+  if (mapType === 'satellite' || mapType === 'satelliteTransit') {
     return satelliteDetail === 'alta' ? SATELLITE_DETAILED_STYLE : SATELLITE_STYLE;
   }
   if (mapType === 'transit') {

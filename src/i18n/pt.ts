@@ -358,6 +358,7 @@ export const pt = {
       map: 'Mapa',
       satellite: 'Satélite',
       transit: 'Transportes',
+      satelliteTransit: 'Satélite + bus',
     },
 
     timeAdjustment: 'Tempo estimado',

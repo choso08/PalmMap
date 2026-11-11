@@ -56,8 +56,20 @@ export type TimeAdjustment = 'none' | 'slow' | 'slower' | 'slowest';
 /** How much of the map already seen is kept on the phone. `off` turns the cache off. */
 export type CacheSize = 'off' | 'small' | 'medium' | 'large' | 'huge';
 
-/** Drawn map, satellite imagery or the public transport network. */
-export type MapType = 'map' | 'satellite' | 'transit';
+/**
+ * Drawn map, satellite imagery, the public transport network, or satellite
+ * with the live buses and stops on top (`satelliteTransit`, the author's
+ * request, November 2026).
+ */
+export type MapType = 'map' | 'satellite' | 'transit' | 'satelliteTransit';
+
+/**
+ * Whether this map type shows the live transport: stops to tap, moving buses,
+ * the arrivals button. Both transport types do; only the base differs.
+ */
+export function isTransitMap(mapType: MapType): boolean {
+  return mapType === 'transit' || mapType === 'satelliteTransit';
+}
 
 /**
  * How much detail is asked of the satellite imagery.
@@ -140,6 +152,7 @@ export const MAP_TYPES: { id: MapType; icon: string }[] = [
   { id: 'map', icon: 'map-outline' },
   { id: 'satellite', icon: 'satellite-variant' },
   { id: 'transit', icon: 'bus' },
+  { id: 'satelliteTransit', icon: 'bus-marker' },
 ];
 
 /** The map type after this one, for the corner button. */

@@ -63,7 +63,12 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
                     color={on ? theme.accent : theme.textMuted}
                   />
                 </View>
-                <Text style={[styles.typeLabel, on && styles.typeLabelOn]}>
+                <Text
+                  style={[styles.typeLabel, on && styles.typeLabelOn]}
+                  numberOfLines={2}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
                   {strings.settings.mapTypes[type.id]}
                 </Text>
               </Pressable>
@@ -137,7 +142,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     types: {
       flexDirection: 'row',
-      gap: 14,
+      // Four types side by side: a narrower gap leaves the thumbnails room.
+      gap: 10,
       marginTop: 16,
     },
     type: {
@@ -161,6 +167,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     typeLabel: {
       fontSize: 13,
       color: theme.textMuted,
+      textAlign: 'center',
     },
     typeLabelOn: {
       color: theme.accent,
