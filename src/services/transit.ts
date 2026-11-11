@@ -7,6 +7,7 @@ import {
   REQUEST_TIMEOUT_MS,
   TRANSIT_WALK_MAX_M,
   USER_AGENT,
+  TRANSFER_MAX_WAIT_S,
   WALK_DETOUR,
   WALK_SPEED_MS,
 } from './config';
@@ -1065,6 +1066,21 @@ function matchLegs(
   return legs;
 }
 
+/**
+ * Whether a trip gets there before walking the whole way would (straight line
+ * × `WALK_DETOUR`, at `WALK_SPEED_MS`). A bus that arrives after one could
+ * have walked there is no option — the author's point about a change that
+ * waited five hours where walking took less.
+ */
+export function beatsWalking(
+  trip: TransitTrip,
+  origin: Coordinates,
+  destination: Coordinates,
+  now = Date.now() / 1000,
+): boolean {
+  return trip.reachAt - now < walkSeconds(distanceMeters(origin, destination));
+}
+
 /** At most how many places are tried to change buses. */
 const TRANSFER_STOPS = 6;
 
@@ -1348,7 +1364,8 @@ export async function planBusTrips(
               if (
                 second.from.id !== place.on.id ||
                 second.line === first.line ||
-                second.departsAt < ready
+                second.departsAt < ready ||
+                second.departsAt - ready > TRANSFER_MAX_WAIT_S
               ) {
                 continue;
               }
@@ -1395,7 +1412,9 @@ export async function planBusTrips(
   // Arrives earliest first. A line (or pair of lines) appears only once: the
   // same bus's next three passes are not three options, they are one.
   const byLine = new Map<string, TransitTrip>();
-  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt)) {
+  for (const t of trips
+    .filter((trip) => beatsWalking(trip, origin, destination, now))
+    .sort((a, b) => a.reachAt - b.reachAt)) {
     const id = t.change ? `${t.line}>${t.change.line}` : t.line;
     if (!byLine.has(id)) {
       byLine.set(id, t);

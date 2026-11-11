@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import {
   REQUEST_TIMEOUT_MS,
+  TRANSFER_MAX_WAIT_S,
   TRANSIT_WALK_MAX_M,
   USER_AGENT,
   WALK_DETOUR,
@@ -944,7 +945,7 @@ export function planScheduledTransfers(
             continue;
           }
           const departs = unixAt(day, times[pos]);
-          if (departs < earliest || departs - earliest > SCHEDULED_HORIZON_S) {
+          if (departs < earliest || departs - earliest > TRANSFER_MAX_WAIT_S) {
             continue;
           }
           for (const end of ends) {

@@ -194,6 +194,13 @@ export const WALK_SPEED_MS = 1.35;
 export const WALK_DETOUR = 1.3;
 
 /**
+ * The longest wait at a change, bus or train. Without it the planning offered
+ * Seixal → Barreiro changing at 19:37 for a bus at 00:30 — five hours at a stop
+ * (found with the `trajetos` probe, November 2026).
+ */
+export const TRANSFER_MAX_WAIT_S = 45 * 60;
+
+/**
  * How often the arrival times are requested again while the panel is open.
  * Thirty seconds is enough for the number of minutes to stay right without
  * requesting for nothing.

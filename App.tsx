@@ -118,8 +118,6 @@ import {
 } from './src/services/overpass';
 import {
   ensureFeedsFor,
-  planScheduledTransfers,
-  planScheduledTrips,
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
@@ -129,7 +127,6 @@ import {
   nearbyStations,
   nearbyStops,
   stopsInBounds,
-  planBusTrips,
   type TransitTrip,
   type TransitStation,
   type LineJourney,
@@ -142,6 +139,7 @@ import {
   type GuideProgress,
   type TransitGuide,
 } from './src/services/transitGuide';
+import { planTransit } from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
 import {
   SettingsProvider,
@@ -1016,67 +1014,18 @@ function PalmMap() {
     //   moving train — see `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
-      void (async () => {
-        // The stored timetable first, without waiting for a network: there is
-        // something on screen at once, even if the bus service is down or there
-        // is no connection at all.
-        let doHorario: TransitTrip[] = [];
-        try {
-          doHorario = planScheduledTrips(origem, destination.coordinates);
-          // With one change (Azul to Verde, metro to train): most journeys in
-          // Lisbon need one. Offered when there are few direct trips, or when
-          // changing gets there sooner than the best of them.
-          const directos = doHorario;
-          const melhor = directos[0]?.reachAt ?? Infinity;
-          const comMudanca = planScheduledTransfers(origem, destination.coordinates).filter(
-            (trip) => directos.length < 2 || trip.reachAt < melhor,
-          );
-          doHorario = [...directos, ...comMudanca].sort((a, b) => a.reachAt - b.reachAt);
-        } catch {
-          // A broken timetable must not stop the buses from showing.
+      void planTransit(origem, destination.coordinates).then((plan) => {
+        if (cancelled) {
+          return;
         }
-
-        // Earliest arrival first, wherever it comes from. Same rule as among the
-        // buses: what matters is what time you are there.
-        const juntar = (outros: TransitTrip[]) =>
-          [...outros, ...doHorario].sort((a, b) => a.reachAt - b.reachAt);
-
-        try {
-          const trajetos = await planBusTrips(origem, destination.coordinates);
-          if (cancelled) {
-            return;
-          }
-          const todos = juntar(trajetos ?? []);
-          setTransitTrips(todos);
-          setTransitTripIndex(0);
-          setRouteError(
-            trajetos === null && todos.length === 0
-              ? t().errors.noTransitStops
-              : null,
-          );
+        setTransitTrips(plan.trips);
+        setTransitTripIndex(0);
+        setRouteError(plan.error);
+        setRouteLoading(false);
+        if (plan.trips.length > 0) {
           void rememberRecent(destination).then(setRecents);
-        } catch (error) {
-          if (!cancelled) {
-            setTransitTrips(doHorario);
-            setTransitTripIndex(0);
-            // The error message says what really failed — the service answering with
-            // a number, taking too long or the network down. It used to always be
-            // "check the connection", which says the opposite of what is happening to
-            // someone with a network and the map loading normally.
-            setRouteError(
-              doHorario.length > 0
-                ? null
-                : error instanceof Error
-                  ? error.message
-                  : t().errors.schedulesFailed,
-            );
-          }
-        } finally {
-          if (!cancelled) {
-            setRouteLoading(false);
-          }
         }
-      })();
+      });
 
       return () => {
         cancelled = true;
@@ -1134,8 +1083,8 @@ function PalmMap() {
    * Only the **other** modes are asked for — the chosen one already has the full
    * route — and with OSRM's lightest request (no geometry or manoeuvres). They
    * go through the same one-a-second queue and are kept for the session:
-   * switching modes back and forth asks nothing again. Public transport is not
-   * included — its time comes from the trips, when it is the chosen mode.
+   * switching modes back and forth asks nothing again. Public transport comes
+   * from `planTransit`, whose answer is reused when its chip is pressed.
    */
   const [modeTimes, setModeTimes] = useState<
     Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>
@@ -1169,6 +1118,26 @@ function PalmMap() {
             setModeTimes((prev) => ({ ...prev, [mode]: null }));
           }
         });
+    }
+    // Public transport too, straight away (author's request): the best trip's
+    // time from now to arriving. Without waypoints only — a bus does not stop
+    // at the pharmacy on the way.
+    if (settings.travelMode !== 'transit' && waypoints.length === 0) {
+      void planTransit(origem, destination.coordinates).then((plan) => {
+        if (cancelled) {
+          return;
+        }
+        const best = plan.trips[0];
+        setModeTimes((prev) => ({
+          ...prev,
+          transit: best
+            ? {
+                distanceMeters: 0,
+                durationSeconds: best.reachAt - Math.max(best.leaveAt, Date.now() / 1000),
+              }
+            : null,
+        }));
+      });
     }
     return () => {
       cancelled = true;

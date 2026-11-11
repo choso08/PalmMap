@@ -46,6 +46,11 @@ environment cannot reach.
     service) moves the steps **only forward** (`guideProgress`); a tapped step is the way
     back. The voice says the line to take, "get off at the next stop" one stop before, and
     the arrival. The map draws rides solid and walks dotted (`guidePaths`).
+  - **Transport is planned as soon as a destination is chosen**, whatever the mode
+    (`planTransit`, in `transitPlan.ts`, kept 2 min): its chip shows the best trip's time like
+    car, bike and walking, and switching to it asks nothing again. **No change waits more than
+    `TRANSFER_MAX_WAIT_S` (45 min)**, and **no trip slower than walking** is offered
+    (`beatsWalking`) — the probe had found Seixal → Barreiro changing at 19:37 for a 00:30 bus.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a bus's body with the line number on it**, and a nose turned by the

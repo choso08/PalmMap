@@ -149,6 +149,10 @@ export function RoutePanel({
       return route ? formatDurationShort(eta(route.distanceMeters, route.durationSeconds)) : null;
     }
     const known = modeTimes[mode];
+    if (mode === 'transit') {
+      // Already from now to arriving, walks included: no pace applies.
+      return known ? formatDurationShort(known.durationSeconds) : null;
+    }
     return known
       ? formatDurationShort(eta(known.distanceMeters, known.durationSeconds, null, mode))
       : null;
