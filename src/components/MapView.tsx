@@ -167,6 +167,10 @@ interface MapViewProps {
   journeyLine?: { coordinates: Coordinates[]; colour: string | null } | null;
   /** Called on a tap on a stop pin. */
   onStopPress?: (stopId: string) => void;
+  /** Tapping a train, metro, light-rail or boat station opens its departures. */
+  onStationPress?: (stationId: string) => void;
+  /** The station whose departures are open, drawn bigger. */
+  selectedStationId?: string | null;
   /**
    * Train, metro, light-rail and ferry stations.
    *
@@ -334,6 +338,8 @@ export function MapView({
   transitStations = NONE,
   vehicles = NONE,
   onStopPress,
+  onStationPress,
+  selectedStationId = null,
   compassBottom,
   offlineRegions,
   labelsReady,
@@ -490,10 +496,17 @@ export function MapView({
     () =>
       pointsJson(transitStations, (estacao) => ({
         at: estacao.coordinates,
-        properties: { nome: estacao.name, genero: stationLabel(estacao.kind) },
+        properties: {
+          id: estacao.id,
+          nome: estacao.name,
+          genero: stationLabel(estacao.kind),
+          // Picks the pin: `station-train`, `station-subway`… (generate-poi-icons.py).
+          tipo: estacao.kind,
+          aberta: estacao.id === selectedStationId ? 1 : 0,
+        },
       })),
     // The kind's name depends on the language.
-    [transitStations, settings.language],
+    [transitStations, settings.language, selectedStationId],
   );
 
   const journeyJson = useMemo(
@@ -1120,16 +1133,50 @@ export function MapView({
         <GeoJSONSource
           id="estacoes"
           data={stationsJson}
+          onPress={(event) => {
+            // As with the stops: the tap must not reach the map.
+            event.stopPropagation?.();
+            const id = event.nativeEvent.features[0]?.properties?.id;
+            if (typeof id === 'string') {
+              onStationPress?.(id);
+            }
+          }}
         >
+          {/*
+            A pin per station in its mode's colour — train, metro, light rail,
+            boat — bigger than a bus stop, and tappable (author's request: the
+            plain dots could not be told apart nor opened).
+          */}
           <Layer
-            key="estacoes-circle"
-            id="estacoes-circle"
+            key="estacoes-aberta"
+            id="estacoes-aberta"
             type="circle"
+            filter={['==', ['get', 'aberta'], 1]}
             paint={{
-              'circle-radius': 7,
-              'circle-color': theme.poi,
-              'circle-stroke-width': 2.5,
-              'circle-stroke-color': theme.poiOutline,
+              'circle-radius': 18,
+              'circle-color': theme.accent,
+              'circle-opacity': 0.25,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': theme.accent,
+            }}
+          />
+          <Layer
+            key="estacoes-icon"
+            id="estacoes-icon"
+            type="symbol"
+            layout={{
+              'icon-image': ['concat', 'station-', ['get', 'tipo']],
+              'icon-size': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                11,
+                ['case', ['==', ['get', 'aberta'], 1], 1.1, 0.7],
+                16,
+                ['case', ['==', ['get', 'aberta'], 1], 1.4, 1.05],
+              ],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
             }}
           />
           {labelsReady ? (
@@ -1142,10 +1189,11 @@ export function MapView({
                 'text-field': ['get', 'nome'],
                 'text-font': ['Noto Sans Medium'],
                 'text-size': 11,
-                'text-offset': [0, 1.3],
+                'text-offset': [0, 1.5],
                 'text-anchor': 'top',
                 'text-max-width': 9,
                 'text-allow-overlap': false,
+                'text-optional': true,
               }}
               paint={{
                 'text-color': theme.text,

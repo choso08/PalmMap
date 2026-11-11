@@ -61,6 +61,8 @@ interface TransitSheetProps {
   onSelectedStopChange: (stopId: string | null) => void;
   /** The stop chosen on the map, so the list opens the same one. */
   selectedStopId: string | null;
+  /** The station tapped on the map, whose departures the panel shows. */
+  selectedStationId: string | null;
   /** Where the person is going, if anywhere: a line's journey ends there. */
   destination: Coordinates | null;
   /** The line journey open in the list, for the map to draw; null when closed. */
@@ -90,6 +92,7 @@ export function TransitSheet({
   onGoToStop,
   onSelectedStopChange,
   selectedStopId,
+  selectedStationId,
   destination,
   onJourneyChange,
   dragHandlers,
@@ -107,7 +110,8 @@ export function TransitSheet({
    * have to show on the map **without** this panel open.
    */
   const openStop = selectedStopId;
-  const setOpenStop = onSelectedStopChange;
+  const focusStop = stops.find((s) => s.id === openStop) ?? null;
+  const focusStation = stations.find((e) => e.id === selectedStationId) ?? null;
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -235,6 +239,11 @@ export function TransitSheet({
     setDepartures(departuresNear(estacao.coordinates));
   }, []);
 
+  // The station tapped on the map opens straight away.
+  useEffect(() => {
+    abrirEstacao(stations.find((e) => e.id === selectedStationId) ?? null);
+  }, [selectedStationId, stations, abrirEstacao]);
+
   // The minutes left are counted from the clock, so they need recounting now
   // and then — otherwise it would say "8 min" forever.
   // Not in the background: nobody reads the minutes there (`useAppActive`).
@@ -276,30 +285,56 @@ export function TransitSheet({
         <View style={styles.handle} />
       </View>
 
+      {/*
+        The panel is about the one stop or station tapped on the map (author's
+        request, November 2026: the list of everything nearby, behind a clock
+        button, was not used). Its name is the title; no list row to open.
+      */}
       <View style={styles.header}>
+        <MaterialCommunityIcons
+          name={(focusStation ? STATION_ICONS[focusStation.kind] : 'bus-stop') as never}
+          size={24}
+          color={theme.accent}
+          style={styles.headerIcon}
+        />
         <View style={styles.headerText}>
-          <Text style={styles.title}>{strings.transit.title}</Text>
-          <Text style={styles.subtitle}>{strings.transit.subtitle}</Text>
+          <Text style={styles.title} numberOfLines={2}>
+            {focusStop?.name ?? focusStation?.name ?? strings.transit.title}
+          </Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {focusStop
+              ? [
+                  focusStop.locality,
+                  focusStop.lines.slice(0, 8).join(', '),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : focusStation
+                ? [stationLabel(focusStation.kind), focusStation.locality]
+                    .filter(Boolean)
+                    .join(' · ')
+                : strings.transit.subtitle}
+          </Text>
         </View>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
       </View>
 
-      {loading ? (
+      {loading && !focusStop && !focusStation ? (
         <View style={styles.loading}>
           <ActivityIndicator size="small" color={theme.accent} />
           <Text style={styles.loadingText}>{strings.transit.searching}</Text>
         </View>
       ) : null}
 
-      {!loading && semPosicao ? (
+      {!loading && semPosicao && !focusStop && !focusStation ? (
         <Text style={styles.aviso}>{strings.transit.noPosition}</Text>
       ) : null}
 
       {error ? <Text style={styles.erro}>{error}</Text> : null}
 
-      {outside ? (
+      {outside && !focusStop && !focusStation ? (
         <Text style={styles.aviso}>{strings.transit.outsideArea}</Text>
       ) : null}
 
@@ -309,43 +344,6 @@ export function TransitSheet({
 
           return (
             <View key={stop.id}>
-              <Pressable
-                style={styles.linha}
-                onPress={() => setOpenStop(aberta ? null : stop.id)}
-              >
-                <MaterialCommunityIcons
-                  name="bus-stop"
-                  size={22}
-                  color={aberta ? theme.accent : theme.textMuted}
-                />
-
-                <View style={styles.linhaTexto}>
-                  <Text style={styles.nome} numberOfLines={1}>
-                    {stop.name}
-                  </Text>
-                  <Text style={styles.detalhe} numberOfLines={1}>
-                    {/*
-                      The stop says which modes it connects with. That is what
-                      allows "change here for the train" without matching
-                      coordinates.
-                    */}
-                    {stop.connections
-                      .map((c) => strings.transit.kinds[c as keyof typeof strings.transit.kinds])
-                      .filter(Boolean)
-                      .join(' · ')}
-                    {stop.connections.length > 0 ? ' · ' : ''}
-                    {formatDistance(stop.meters)}
-                    {stop.locality ? ` · ${stop.locality}` : ''}
-                    {stop.lines.length > 0 ? ` · ${stop.lines.slice(0, 6).join(', ')}` : ''}
-                  </Text>
-                </View>
-
-                <MaterialCommunityIcons
-                  name={aberta ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={theme.textMuted}
-                />
-              </Pressable>
 
               {aberta ? (
                 <View style={styles.passagens}>
@@ -442,36 +440,11 @@ export function TransitSheet({
         */}
         {stations.length > 0 ? (
           <>
-            <Text style={styles.seccao}>{strings.transit.stationsNearby}</Text>
             {stations.map((estacao) => {
               const aberta = openStation === estacao.id;
 
               return (
                 <View key={estacao.id}>
-                  <Pressable
-                    style={styles.linha}
-                    onPress={() => abrirEstacao(aberta ? null : estacao)}
-                  >
-                    <MaterialCommunityIcons
-                      name={STATION_ICONS[estacao.kind] as never}
-                      size={22}
-                      color={aberta ? theme.accent : theme.poi}
-                    />
-                    <View style={styles.linhaTexto}>
-                      <Text style={styles.nome} numberOfLines={1}>
-                        {estacao.name}
-                      </Text>
-                      <Text style={styles.detalhe} numberOfLines={1}>
-                        {stationLabel(estacao.kind)} · {formatDistance(estacao.meters)}
-                        {estacao.locality ? ` · ${estacao.locality}` : ''}
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name={aberta ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color={theme.textMuted}
-                    />
-                  </Pressable>
 
                   {aberta ? (
                     <View style={styles.passagens}>
@@ -559,6 +532,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 12,
+    },
+    headerIcon: {
+      marginRight: 10,
     },
     headerText: {
       flex: 1,

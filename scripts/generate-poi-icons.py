@@ -33,7 +33,16 @@ pairs = set(re.findall(r"\['([a-z0-9-]+)', '(food|shop|health|lodging|service|le
 
 # Bus stops on the transport map: smaller than the businesses, as in the Maps,
 # in a transit blue of their own. (name, glyph, colour, size, disc, glyph size)
-STOPS = [("stop-bus", "bus", "#1A73E8", 18, 14, 9)]
+STOPS = [
+    ("stop-bus", "bus", "#1A73E8", 18, 14, 9),
+    # Stations: a little bigger than a bus stop, each mode in its usual colour —
+    # train green (CP), metro red (Metro de Lisboa), light rail teal (MTS), boat
+    # deep blue. Drawn from the same STATION_ICONS glyphs the panel uses.
+    ("station-train", "train", "#2E7D32", 22, 18, 12),
+    ("station-subway", "subway-variant", "#D32F2F", 22, 18, 12),
+    ("station-light_rail", "tram", "#00897B", 22, 18, 12),
+    ("station-boat", "ferry", "#1565C0", 22, 18, 12),
+]
 
 
 def draw(icon: str, family: str, scale: int, colour: str | None = None,

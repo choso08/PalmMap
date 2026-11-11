@@ -17,5 +17,9 @@ export const POI_IMAGE_SOURCES = {
   'food-silverware-fork-knife': require('./food-silverware-fork-knife.png'),
   'leisure-tree': require('./leisure-tree.png'),
   'stop-bus': require('./stop-bus.png'),
+  'station-train': require('./station-train.png'),
+  'station-subway': require('./station-subway.png'),
+  'station-light_rail': require('./station-light_rail.png'),
+  'station-boat': require('./station-boat.png'),
   'heading-cone': require('./heading-cone.png'),
 };

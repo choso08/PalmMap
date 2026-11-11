@@ -282,6 +282,8 @@ function PalmMap() {
   const [mapCentre, setMapCentre] = useState<string | null>(null);
   /** The open stop. It lives here because it opens from the list **or** the map. */
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
+  /** The train, metro, light-rail or boat station tapped on the map. */
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
 
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -2192,8 +2194,20 @@ function PalmMap() {
   }, [transitStops, mapStops, selectedStopId]);
 
   /** A tap on a stop opens its times straight away, without the clock button. */
+  // A tapped stop or station opens the panel on that one alone (author's
+  // request, November 2026: the list of everything nearby, behind a clock
+  // button, was not used — the button is gone).
   const handleStopPress = useCallback((stopId: string) => {
+    setSelectedStationId(null);
+    setLineJourneyShown(null);
     setSelectedStopId(stopId);
+    setTransitVisible(true);
+  }, []);
+
+  const handleStationPress = useCallback((stationId: string) => {
+    setSelectedStopId(null);
+    setLineJourneyShown(null);
+    setSelectedStationId(stationId);
     setTransitVisible(true);
   }, []);
 
@@ -2307,6 +2321,8 @@ function PalmMap() {
         journeyLine={journeyLine}
         selectedStopId={selectedStopId}
         onStopPress={handleStopPress}
+        onStationPress={handleStationPress}
+        selectedStationId={selectedStationId}
         transitStations={transitStations}
         vehicles={vehicles}
         compassBottom={compassBottom}
@@ -2482,22 +2498,6 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {/*
-        The arrival times. Only on the transport map: elsewhere it would be one more
-        button covering the map for someone driving.
-      */}
-      {!navigating && isTransitMap(settings.mapType) ? (
-        <Pressable
-          style={({ pressed }) => [
-            styles.transitButton,
-            selectedPlace || destination || measuring ? { bottom: raisedBottom + 62 } : null,
-            pressed ? styles.buttonPressed : null,
-          ]}
-          onPress={() => setTransitVisible(true)}
-        >
-          <MaterialCommunityIcons name="clock-outline" size={22} color={theme.accent} />
-        </Pressable>
-      ) : null}
 
       {/*
         The Directions button, bottom right, the most used action of a maps
@@ -2655,6 +2655,7 @@ function PalmMap() {
                 dragHandlers={drag}
                 stops={sheetStops}
                 stations={transitStations}
+                selectedStationId={selectedStationId}
                 loading={transitLoading}
                 error={transitError}
                 outside={transitOutside}
@@ -2662,6 +2663,7 @@ function PalmMap() {
                 onClose={() => {
                   setTransitVisible(false);
                   setSelectedStopId(null);
+                  setSelectedStationId(null);
                   setLineJourneyShown(null);
                 }}
                 onGoToStop={handleGoToStop}
@@ -2829,23 +2831,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       backgroundColor: theme.overlay,
       color: theme.onOverlay,
       fontSize: 12,
-    },
-    transitButton: {
-      position: 'absolute',
-      right: 16,
-      // Above the locate button, which is above the Directions button.
-      bottom: insets.bottom + TAB_BAR_HEIGHT + 16 + 64 + 64,
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.surface,
-      elevation: 6,
-      shadowColor: '#000000',
-      shadowOpacity: 0.14,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 4 },
     },
     locateButton: {
       position: 'absolute',
