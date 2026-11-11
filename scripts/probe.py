@@ -753,6 +753,36 @@ def fresh_install():
     status, _, body = get(f"{CARRIS}/stops", timeout=90)
     print(f"Carris stops: {status} {len(body)} B in {int((time.time() - t0) * 1000)} ms")
 
+
+def overpass_mirrors():
+    """Public Overpass servers (OSM wiki list), asked as the app asks: POST, a small query."""
+    section("OVERPASS MIRRORS")
+    q = '[out:json][timeout:25];node(around:300,38.7223,-9.1393)[amenity=pharmacy];out 3;'
+    for url in (
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        "https://overpass.osm.jp/api/interpreter",
+    ):
+        for attempt in (1, 2):
+            t0 = time.time()
+            req = urllib.request.Request(url, data=q.encode(), headers={"User-Agent": UA})
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    body = r.read(); status = r.status
+            except urllib.error.HTTPError as e:
+                body = e.read(); status = e.code
+            except Exception as e:  # noqa: BLE001
+                body = str(e).encode(); status = None
+            n = None
+            try:
+                n = len(json.loads(body).get("elements", []))
+            except Exception:  # noqa: BLE001
+                pass
+            print(f"{url:58} try {attempt}: {status} {int((time.time()-t0)*1000):>6} ms elements={n}", body[:80] if n is None else "")
+            time.sleep(3)
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
