@@ -202,6 +202,17 @@ export const pt = {
     stopCount: (n: number) => (n === 1 ? '1 paragem' : `${n} paragens`),
   },
 
+  when: {
+    now: 'Sair agora',
+    departAt: (time: string, day: string) => `Partir às ${time}${day}`,
+    arriveBy: (time: string, day: string) => `Chegar até às ${time}${day}`,
+    tabNow: 'Agora',
+    tabDepart: 'Partir',
+    tabArrive: 'Chegar',
+    tomorrow: ' (amanhã)',
+    done: 'OK',
+  },
+
   guide: {
     preparing: 'A preparar a viagem…',
     walkTo: (stop: string) => `Caminhe até ${stop}`,

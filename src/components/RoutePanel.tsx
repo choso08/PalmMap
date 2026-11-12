@@ -18,6 +18,8 @@ import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
 import { changesOf, type TransitTrip } from '../services/transit';
+import type { TransitWhen } from '../services/transitPlan';
+import { TransitWhenPicker } from './TransitWhenPicker';
 
 /** Each mode's icon, so trips can be told apart at a glance. */
 const MEIOS: Record<string, string> = {
@@ -78,6 +80,9 @@ interface RoutePanelProps {
   onChooseTransitTrip: (index: number) => void;
   /** Starts the chosen transport trip step by step, as Maps does. */
   onStartTransit?: () => void;
+  /** Leave now, depart at, arrive by — transport only. */
+  transitWhen?: TransitWhen;
+  onChangeTransitWhen?: (when: TransitWhen) => void;
   /** Alternative routes, and which one is chosen. */
   options: Route[];
   optionIndex: number;
@@ -130,6 +135,8 @@ export function RoutePanel({
   transitTripIndex,
   onChooseTransitTrip,
   onStartTransit,
+  transitWhen,
+  onChangeTransitWhen,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
@@ -311,6 +318,10 @@ export function RoutePanel({
         mark. That is not an opinion: it gets the person there first, counting
         the walk at both ends.
       */}
+      {travelMode === 'transit' && transitWhen && onChangeTransitWhen ? (
+        <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
+      ) : null}
+
       {transitTrips && !loading ? (
         <View style={styles.trajetos}>
           {transitTrips.length === 0 && !error ? (

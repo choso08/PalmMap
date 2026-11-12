@@ -75,6 +75,25 @@ environment cannot reach.
     **rail → bus** (`scheduledReachedFrom`, then `busFromPoints`). Rail here is any stored
     timetable: metro, CP, Fertagus, ferries, MTS, Carris de Lisboa. **Checked in `trajetos`**
     at 23:30: Granja → the 3708 to Cais do Sodré (Metro), 5 m from the station.
+  - **Several changes, and when to travel** (author's requests, 12 November):
+    `planScheduledRaptor` (end of `schedules.ts`) is RAPTOR over **every stored timetable at
+    once** — up to `RAPTOR_MAX_RIDES` (4) vehicles, walks of up to 300 m between stations of
+    any operator, bounded from the start by the time to walk the whole way, one answer per
+    number of vehicles that arrives sooner than with fewer, run twice for a later option.
+    **Proved against the real published files** (scratch harness compiling `schedules.ts`
+    with `expo-file-system` stubbed): Granja → Estefânia 3601 → Fertagus at Pragal → 732 at
+    Entrecampos, arriving 08:52; Odivelas → Cascais Amarela → Verde → CP at Cais do Sodré.
+    Speed in Node: 35–640 ms without Carris Metropolitana, ~1.5 s with it (27 MB, 13 000
+    stops) — hence `callsByMinute` (each station's calls sorted, a binary search per day), a
+    `(day, minute)` clock table instead of a `Date` per call, and `breathe()` yields so the
+    screen never freezes. Trips with several changes use `TransitTrip.changes`, always read
+    through `changesOf`. **Leave now / depart at / arrive by** (`TransitWhen`,
+    `TransitWhenPicker` in the route panel, reset per destination): stored timetables answer
+    any day; Carris Metropolitana's live arrivals only today (`planBusTrips(…, at)`). The
+    travel mode is now called "Transportes" / "Transit". Each change shows its walk.
+    **Carris Metropolitana's timetable is listed in Settings** (27 MB, never downloaded by
+    itself — `naApp: false` now only means that); with it, buses plan for later and with
+    several changes, and a live trip hides its timetable twin (`unique`, in `transitPlan.ts`).
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line

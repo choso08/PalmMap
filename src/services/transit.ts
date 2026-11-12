@@ -1384,6 +1384,8 @@ export async function planBusTrips(
   origin: Coordinates,
   destination: Coordinates,
   limit = 5,
+  /** Leaving from this moment on (seconds since 1970); now by default. */
+  at = Date.now() / 1000,
 ): Promise<TransitTrip[] | null> {
   let found = await busStopsFor(origin, destination);
   // **Nothing within the usual walk of the destination: look a little further**
@@ -1403,7 +1405,7 @@ export async function planBusTrips(
     return null;
   }
 
-  const now = Date.now() / 1000;
+  const now = at;
   const trips: TransitTrip[] = [];
 
   if (!noLink) {
@@ -1784,6 +1786,7 @@ export async function busToPoints(
   origin: Coordinates,
   destination: Coordinates,
   points: RailPoint[],
+  at = Date.now() / 1000,
 ): Promise<BusHalf[]> {
   if (points.length === 0) {
     return [];
@@ -1833,7 +1836,7 @@ export async function busToPoints(
     passesAt([...starts.values()]),
     passesAt(offs.map((s) => ({ ...s, meters: 0 }))),
   ]);
-  const now = Date.now() / 1000;
+  const now = at;
   const out: BusHalf[] = [];
   for (const leg of matchLegs(startPasses, offPasses, 0, () => 0)) {
     const walkIn = walkSeconds(leg.from.meters);

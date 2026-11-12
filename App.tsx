@@ -140,7 +140,7 @@ import {
   type GuideProgress,
   type TransitGuide,
 } from './src/services/transitGuide';
-import { planTransit } from './src/services/transitPlan';
+import { LEAVE_NOW, planTransit, type TransitWhen } from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
 import {
   SettingsProvider,
@@ -357,6 +357,11 @@ function PalmMap() {
    */
   const [transitTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
   const [transitTripIndex, setTransitTripIndex] = useState(0);
+  /** Leave now, depart at, arrive by — reset to now with each new destination. */
+  const [transitWhen, setTransitWhen] = useState<TransitWhen>(LEAVE_NOW);
+  useEffect(() => {
+    setTransitWhen(LEAVE_NOW);
+  }, [destination]);
 
   /**
    * A public transport trip being followed step by step, as Maps does after
@@ -1059,7 +1064,7 @@ function PalmMap() {
     //   moving train — see `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
-      void planTransit(origem, destination.coordinates).then((plan) => {
+      void planTransit(origem, destination.coordinates, transitWhen).then((plan) => {
         if (cancelled) {
           return;
         }
@@ -1119,7 +1124,7 @@ function PalmMap() {
     // drawn when the destination is chosen (or when the first position
     // arrives), not again at every step. Following the person is navigation's
     // job, which has its own recalculation.
-  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating]);
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen]);
 
   /**
    * Each travel mode's time, for the route panel buttons ("car 12 min · walk
@@ -1168,7 +1173,7 @@ function PalmMap() {
     // time from now to arriving. Without waypoints only — a bus does not stop
     // at the pharmacy on the way.
     if (settings.travelMode !== 'transit' && waypoints.length === 0) {
-      void planTransit(origem, destination.coordinates).then((plan) => {
+      void planTransit(origem, destination.coordinates, transitWhen).then((plan) => {
         if (cancelled) {
           return;
         }
@@ -1189,7 +1194,7 @@ function PalmMap() {
     };
     // With the chosen mode in the dependencies: on switching, the one left
     // needs its time. The others come from the service cache, with no request.
-  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType]);
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen]);
 
   /**
    * Looks for businesses to show on the map.
@@ -2732,6 +2737,8 @@ function PalmMap() {
                 transitTripIndex={transitTripIndex}
                 onChooseTransitTrip={setTransitTripIndex}
                 onStartTransit={handleStartTransit}
+                transitWhen={transitWhen}
+                onChangeTransitWhen={setTransitWhen}
               />
             )}
           </DraggableSheet>

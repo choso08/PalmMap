@@ -182,6 +182,17 @@ export const en: typeof pt = {
     stopCount: (n: number) => (n === 1 ? '1 stop' : `${n} stops`),
   },
 
+  when: {
+    now: 'Leave now',
+    departAt: (time: string, day: string) => `Depart at ${time}${day}`,
+    arriveBy: (time: string, day: string) => `Arrive by ${time}${day}`,
+    tabNow: 'Now',
+    tabDepart: 'Depart',
+    tabArrive: 'Arrive',
+    tomorrow: ' (tomorrow)',
+    done: 'OK',
+  },
+
   guide: {
     preparing: 'Preparing the trip…',
     walkTo: (stop: string) => `Walk to ${stop}`,

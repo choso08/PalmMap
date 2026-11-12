@@ -12,6 +12,7 @@ import {
 } from './config';
 import type {
   RailPoint,
+  TransitChange,
   RideRef,
   RideStop,
   TransitStation,
@@ -1290,4 +1291,448 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
   autoChecked.set(area, check);
   await check;
   return changed;
+}
+
+// --- Several changes: RAPTOR over the stored timetables -------------------------
+//
+// The author asked whether a trip could take several changes (November 2026):
+// Odivelas → Cascais, or Caparica → a Lisbon street by bus, metro and tram. The
+// one-change planners above stop at one. This is RAPTOR (Delling, Pajor and
+// Werneck, "Round-Based Public Transit Routing", 2012) in its simplest form:
+// round k holds the earliest arrival at every station using k vehicles; each
+// round rides every trip boardable from the stations the last one improved,
+// then walks to stations within `SCHEDULED_TRANSFER_WALK_M`. All on the phone,
+// no request, over every stored timetable at once — metro, CP, Fertagus,
+// ferries, MTS, Carris de Lisboa, and Carris Metropolitana when downloaded.
+
+/** At most this many vehicles in one trip (three changes). */
+const RAPTOR_MAX_RIDES = 4;
+
+/** A label's origin: ridden here from `board`, or walked here from `from`. */
+type RaptorParent =
+  | { type: 'ride'; feed: IndexedFeed; trip: number; boardPos: number; alightPos: number; board: number; departs: number }
+  | { type: 'walk'; from: number; meters: number };
+
+interface RaptorNetwork {
+  feeds: IndexedFeed[];
+  /** Global station id = `offset[feed] + station`. */
+  offset: Map<IndexedFeed, number>;
+  feedOf: IndexedFeed[];
+  stationOf: Int32Array;
+  lat: Float64Array;
+  lon: Float64Array;
+  /** Stations within `SCHEDULED_TRANSFER_WALK_M`, with the distance. */
+  near: { to: number; meters: number }[][];
+}
+
+let network: { key: string; net: RaptorNetwork } | null = null;
+
+/** A station's calls sorted by minute, so a time window is a binary search. */
+const sortedCalls = new WeakMap<IndexedFeed, Map<number, { trip: number; pos: number; min: number }[]>>();
+function callsByMinute(feed: IndexedFeed, station: number) {
+  let byStation = sortedCalls.get(feed);
+  if (!byStation) {
+    byStation = new Map();
+    sortedCalls.set(feed, byStation);
+  }
+  let list = byStation.get(station);
+  if (!list) {
+    list = (feed.byStation.get(station) ?? [])
+      .map(({ trip, pos }) => ({ trip, pos, min: feed.minutes[trip]?.[pos] ?? 0 }))
+      .sort((a, b) => a.min - b.min);
+    byStation.set(station, list);
+  }
+  return list;
+}
+
+/** The stations of every stored feed in one numbering, with the walks between them. */
+function raptorNetwork(feeds: IndexedFeed[]): RaptorNetwork {
+  const key = feeds.map((f) => `${f.info.id}@${f.info.gerado}`).join('|');
+  if (network?.key === key) {
+    return network.net;
+  }
+  let total = 0;
+  const offset = new Map<IndexedFeed, number>();
+  for (const feed of feeds) {
+    offset.set(feed, total);
+    total += feed.data.stops.length;
+  }
+  const feedOf: IndexedFeed[] = new Array(total);
+  const stationOf = new Int32Array(total);
+  const lat = new Float64Array(total);
+  const lon = new Float64Array(total);
+  for (const feed of feeds) {
+    const base = offset.get(feed)!;
+    feed.data.stops.forEach((stop, i) => {
+      feedOf[base + i] = feed;
+      stationOf[base + i] = i;
+      lat[base + i] = stop.y;
+      lon[base + i] = stop.x;
+    });
+  }
+  // A grid of about 300 m, so neighbours are found without comparing all pairs.
+  const cell = (g: number) => `${Math.floor(lat[g] * 370)}:${Math.floor(lon[g] * 290)}`;
+  const grid = new Map<string, number[]>();
+  for (let g = 0; g < total; g += 1) {
+    const k = cell(g);
+    const list = grid.get(k);
+    if (list) {
+      list.push(g);
+    } else {
+      grid.set(k, [g]);
+    }
+  }
+  const near: { to: number; meters: number }[][] = new Array(total);
+  for (let g = 0; g < total; g += 1) {
+    const la = Math.floor(lat[g] * 370);
+    const lo = Math.floor(lon[g] * 290);
+    const list: { to: number; meters: number }[] = [];
+    for (let i = -1; i <= 1; i += 1) {
+      for (let j = -1; j <= 1; j += 1) {
+        for (const h of grid.get(`${la + i}:${lo + j}`) ?? []) {
+          if (h === g) {
+            continue;
+          }
+          const m = distanceMeters(
+            { latitude: lat[g], longitude: lon[g] },
+            { latitude: lat[h], longitude: lon[h] },
+          );
+          if (m <= SCHEDULED_TRANSFER_WALK_M) {
+            list.push({ to: h, meters: m });
+          }
+        }
+      }
+    }
+    near[g] = list;
+  }
+  const net = { feeds, offset, feedOf, stationOf, lat, lon, near };
+  network = { key, net };
+  return net;
+}
+
+/**
+ * Trips with up to three changes, leaving from near `origin` at `departAt` or
+ * later, over every stored timetable. One trip per number of vehicles, each
+ * kept only when it arrives sooner than with fewer (the answer Maps gives:
+ * fewer changes, or faster). Runs up to `runs` times, each from just after the
+ * previous best departure, for later options too.
+ */
+export async function planScheduledRaptor(
+  origin: Coordinates,
+  destination: Coordinates,
+  departAt: number,
+  runs = 2,
+): Promise<TransitTrip[]> {
+  const now = new Date(departAt * 1000);
+  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  if (feeds.length === 0) {
+    return [];
+  }
+  const net = raptorNetwork(feeds);
+  const days = candidateDays(now);
+  const out: TransitTrip[] = [];
+  let from = departAt;
+  for (let run = 0; run < runs; run += 1) {
+    const found = await raptorOnce(net, origin, destination, from, days);
+    if (found.length === 0) {
+      break;
+    }
+    out.push(...found);
+    from = Math.min(...found.map((t) => t.departsAt)) + 60;
+  }
+  return out;
+}
+
+/** Lets the screen draw: a long search must not freeze the app. */
+const breathe = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+async function raptorOnce(
+  net: RaptorNetwork,
+  origin: Coordinates,
+  destination: Coordinates,
+  t0: number,
+  days: string[],
+): Promise<TransitTrip[]> {
+  const total = net.stationOf.length;
+  const horizon = t0 + SCHEDULED_HORIZON_S;
+  // `unixAt` builds a Date, and this asks it hundreds of thousands of times
+  // for a few thousand distinct (day, minute) pairs: kept in a table.
+  const clock = new Map<number, number>();
+  const at = (dayIndex: number, minutes: number) => {
+    const key = dayIndex * 10000 + minutes;
+    let v = clock.get(key);
+    if (v === undefined) {
+      v = unixAt(days[dayIndex], minutes);
+      clock.set(key, v);
+    }
+    return v;
+  };
+  const feedIndex = new Map(net.feeds.map((f, i) => [f, i]));
+
+  // Round 0: walking from the origin.
+  const access = new Map<number, number>();
+  const egress = new Map<number, number>();
+  for (const feed of net.feeds) {
+    const base = net.offset.get(feed)!;
+    for (const [s, m] of stopsNear(feed, origin, TRANSIT_WALK_MAX_M)) {
+      access.set(base + s, m);
+    }
+    for (const [s, m] of stopsNear(feed, destination, TRANSIT_WALK_MAX_M)) {
+      egress.set(base + s, m);
+    }
+  }
+  if (access.size === 0 || egress.size === 0) {
+    return [];
+  }
+
+  const best = new Float64Array(total).fill(Infinity);
+  const rounds: Float64Array[] = [];
+  const parents: Map<number, RaptorParent>[] = [];
+  const round0 = new Float64Array(total).fill(Infinity);
+  let marked = new Set<number>();
+  for (const [g, m] of access) {
+    round0[g] = t0 + walkSeconds(m);
+    best[g] = round0[g];
+    marked.add(g);
+  }
+  rounds.push(round0);
+  parents.push(new Map());
+
+  const results: TransitTrip[] = [];
+  // Nothing slower than walking the whole way is wanted (`beatsWalking`), so
+  // that is the bound from the start — it prunes most of a large network.
+  let bestReach = t0 + walkSeconds(distanceMeters(origin, destination));
+
+  for (let k = 1; k <= RAPTOR_MAX_RIDES && marked.size > 0; k += 1) {
+    await breathe();
+    const prev = rounds[k - 1];
+    const cur = new Float64Array(prev);
+    const par = new Map<number, RaptorParent>();
+    const improved = new Set<number>();
+    // Each (trip, day) scanned once, from its earliest boardable position.
+    const boarded = new Map<number, number>();
+    const boardings: { feed: IndexedFeed; trip: number; day: number; key: number; pos: number; board: number; departs: number }[] = [];
+
+    for (const g of marked) {
+      const feed = net.feedOf[g];
+      const station = net.stationOf[g];
+      const ready = prev[g] + (k > 1 ? SCHEDULED_TRANSFER_MIN_S : 0);
+      const latest = k === 1 ? horizon : ready + TRANSFER_MAX_WAIT_S;
+      const calls = callsByMinute(feed, station);
+      for (let d = 0; d < days.length; d += 1) {
+        // The window in this day's minutes, an hour wider each side for
+        // clock changes; the exact check is below.
+        const midnight = at(d, 0);
+        const lo = Math.floor((ready - midnight) / 60) - 60;
+        const hi = Math.ceil((latest - midnight) / 60) + 60;
+        let a = 0;
+        let z = calls.length;
+        while (a < z) {
+          const m = (a + z) >> 1;
+          if (calls[m].min < lo) {
+            a = m + 1;
+          } else {
+            z = m;
+          }
+        }
+        for (let c = a; c < calls.length && calls[c].min <= hi; c += 1) {
+          const { trip, pos, min } = calls[c];
+          const scheduled = feed.data.trips[trip];
+          if (!feed.days[scheduled.s]?.has(days[d])) {
+            continue;
+          }
+          const pattern = feed.data.patterns[scheduled.p] ?? [];
+          if (pos >= pattern.length - 1) {
+            continue;
+          }
+          const departs = at(d, min);
+          if (departs < ready || departs > latest) {
+            continue;
+          }
+          const key = (feedIndex.get(feed)! * 2_000_000 + trip) * 4 + d;
+          const before = boarded.get(key);
+          if (before !== undefined && before <= pos) {
+            continue;
+          }
+          boarded.set(key, pos);
+          boardings.push({ feed, trip, day: d, key, pos, board: g, departs });
+        }
+      }
+    }
+
+    for (let n = 0; n < boardings.length; n += 1) {
+      const b = boardings[n];
+      if (n % 3000 === 2999) {
+        await breathe();
+      }
+      if (boarded.get(b.key) !== b.pos) {
+        continue;
+      }
+      const base = net.offset.get(b.feed)!;
+      const scheduled = b.feed.data.trips[b.trip];
+      const pattern = b.feed.data.patterns[scheduled.p] ?? [];
+      const times = b.feed.minutes[b.trip] ?? [];
+      for (let p = b.pos + 1; p < pattern.length; p += 1) {
+        const g = base + pattern[p];
+        const arrives = at(b.day, times[p]);
+        if (arrives >= bestReach) {
+          // Later stops of this trip only arrive later still.
+          break;
+        }
+        if (arrives < cur[g] && arrives < best[g]) {
+          cur[g] = arrives;
+          best[g] = arrives;
+          par.set(g, {
+            type: 'ride',
+            feed: b.feed,
+            trip: b.trip,
+            boardPos: b.pos,
+            alightPos: p,
+            board: b.board,
+            departs: b.departs,
+          });
+          improved.add(g);
+        }
+      }
+    }
+
+    // Walks to nearby stations, from what this round reached by riding.
+    const next = new Set<number>(improved);
+    for (const g of improved) {
+      for (const { to, meters } of net.near[g]) {
+        const arrives = cur[g] + walkSeconds(meters);
+        if (arrives < cur[to] && arrives < best[to]) {
+          cur[to] = arrives;
+          best[to] = arrives;
+          par.set(to, { type: 'walk', from: g, meters });
+          next.add(to);
+        }
+      }
+    }
+    rounds.push(cur);
+    parents.push(par);
+    marked = next;
+
+    // The best way to the destination with k vehicles, if it beats fewer.
+    let reach = Infinity;
+    let end = -1;
+    for (const [g, m] of egress) {
+      if (!par.has(g)) {
+        continue;
+      }
+      const r = cur[g] + walkSeconds(m);
+      if (r < reach) {
+        reach = r;
+        end = g;
+      }
+    }
+    if (end >= 0 && reach < bestReach - 120) {
+      bestReach = reach;
+      const trip = raptorJourney(net, parents, k, end, access, egress.get(end)!, reach);
+      if (trip) {
+        results.push(trip);
+      }
+    }
+  }
+  return results;
+}
+
+/** Walks the labels back from the destination's station and builds the trip. */
+function raptorJourney(
+  net: RaptorNetwork,
+  parents: Map<number, RaptorParent>[],
+  rounds: number,
+  end: number,
+  access: Map<number, number>,
+  endWalk: number,
+  reachAt: number,
+): TransitTrip | null {
+  type Ride = Extract<RaptorParent, { type: 'ride' }> & { alight: number; walkAfter: number };
+  const rides: Ride[] = [];
+  // Back from the destination: in each round the label was either ridden to
+  // (`ride`) or walked to from a station ridden to in the same round (`walk`).
+  // The boarding station of round k was improved in round k-1 (only those are
+  // boarded from), so its label lives there — ridden, walked, or the origin's
+  // walk in round 0.
+  let g = end;
+  for (let k = rounds; k >= 1; k -= 1) {
+    let walkAfter = 0;
+    let p = parents[k].get(g);
+    if (p?.type === 'walk') {
+      walkAfter = p.meters;
+      g = p.from;
+      p = parents[k].get(g);
+    }
+    if (!p || p.type !== 'ride') {
+      return null;
+    }
+    rides.unshift({ ...p, alight: g, walkAfter });
+    g = p.board;
+  }
+  const startMeters = access.get(g);
+  if (startMeters === undefined) {
+    return null;
+  }
+
+  const stopAt = (ride: Ride, pos: number, meters: number) => {
+    const scheduled = ride.feed.data.trips[ride.trip];
+    const pattern = ride.feed.data.patterns[scheduled.p] ?? [];
+    return asStop(ride.feed, pattern[pos], meters);
+  };
+  const arrivalOf = (ride: Ride) => {
+    const base = ride.departs;
+    const times = ride.feed.minutes[ride.trip] ?? [];
+    return base + (times[ride.alightPos] - times[ride.boardPos]) * 60;
+  };
+  const describe = (ride: Ride) => {
+    const scheduled = ride.feed.data.trips[ride.trip];
+    return {
+      kind: ride.feed.info.kind,
+      line: shortLine(ride.feed.data.routes[scheduled.r]?.[0] || ride.feed.info.nome),
+      headsign: ride.feed.data.headsigns[scheduled.h] ?? '',
+      ride: {
+        source: 'schedule' as const,
+        feedId: ride.feed.info.id,
+        trip: ride.trip,
+        fromPos: ride.boardPos,
+        toPos: ride.alightPos,
+      },
+    };
+  };
+
+  const first = rides[0];
+  const last = rides[rides.length - 1];
+  const changes: TransitChange[] = rides.slice(1).map((ride, i) => {
+    const prev = rides[i];
+    const d = describe(ride);
+    return {
+      at: stopAt(prev, prev.alightPos, 0),
+      boardAt: stopAt(ride, ride.boardPos, 0),
+      walkMeters: prev.walkAfter,
+      arrivesAt: arrivalOf(prev),
+      kind: d.kind,
+      line: d.line,
+      headsign: d.headsign,
+      departsAt: ride.departs,
+      ride: d.ride,
+    };
+  });
+  const d = describe(first);
+  return {
+    tripId: rides.map((r) => `${r.feed.info.id}:${r.trip}:${r.departs}`).join('>'),
+    kind: d.kind,
+    line: d.line,
+    headsign: d.headsign,
+    from: stopAt(first, first.boardPos, startMeters),
+    // The walk from where one gets off: to a nearby station first, if any, and on.
+    to: stopAt(last, last.alightPos, endWalk + last.walkAfter),
+    departsAt: first.departs,
+    arrivesAt: arrivalOf(last),
+    leaveAt: first.departs - walkSeconds(startMeters),
+    reachAt,
+    stops: rides.reduce((n, r) => n + r.alightPos - r.boardPos, 0),
+    live: false,
+    ride: d.ride,
+    ...(changes.length > 0 ? { changes } : {}),
+  };
 }
