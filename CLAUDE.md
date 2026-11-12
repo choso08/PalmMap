@@ -64,6 +64,17 @@ environment cannot reach.
     area's timetables download when a trip is planned there** (`ensureFeedsFor` in
     `planTransit`, now once per half-degree area, not once per session) — central Lisbon
     answered "no stops nearby", having only Carris de Lisboa and the metro.
+  - **Bus and rail in one trip** (author's report: Caparica → Estefânia gave no buses, "and
+    there certainly are"). Two causes, read with `sondar: estefania`: Estefânia's nearest
+    Carris Metropolitana stops (Marquês de Pombal, Campo Pequeno) are 1–1.2 km away, past
+    `TRANSIT_WALK_MAX_M`; and a live bus was never joined to a stored timetable. Now
+    `planBusTrips` widens the destination's end to `TRANSIT_WALK_WIDE_M` (1600 m) when nothing
+    nearer shares a line, and, when direct options are fewer than two, `planTransit` tries
+    **bus → rail** (`busToPoints` to Carris stops within 300 m of stations from which a
+    timetable reaches the destination, `scheduledBoardingsTo`, then `scheduledOnward`) and
+    **rail → bus** (`scheduledReachedFrom`, then `busFromPoints`). Rail here is any stored
+    timetable: metro, CP, Fertagus, ferries, MTS, Carris de Lisboa. **Checked in `trajetos`**
+    at 23:30: Granja → the 3708 to Cais do Sodré (Metro), 5 m from the station.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
