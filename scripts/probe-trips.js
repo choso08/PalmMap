@@ -29,6 +29,7 @@ const PARES = [
   ['Amadora → Sintra', [38.7538, -9.2308], [38.8003, -9.3808]],
   ['Almada Pragal → Damaia (needs a change)', [38.6655, -9.1765], [38.7465, -9.2155]],
   ['Seixal → Montijo (needs a change)', [38.6406, -9.1015], [38.7066, -8.9738]],
+  ['Granja (Caparica) → Estefânia', [38.6656, -9.1996], [38.7325, -9.1410]],
 ];
 
 const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: 'Europe/Lisbon' });
@@ -84,6 +85,23 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
     } catch (erro) {
       console.log('  ERRO:', erro && erro.message, erro && erro.status);
     }
+  }
+
+  // Bus then metro (busToPoints), with the metro stations from Carris's own
+  // list standing in for the stored timetables the phone would use.
+  try {
+    const axios = require('axios');
+    const r = await axios.get('https://api.carrismetropolitana.pt/v2/facilities/subway_stations', { timeout: 30000 });
+    const points = (r.data || []).map((s) => ({ coordinates: { latitude: Number(s.lat), longitude: Number(s.lon) }, name: s.name }));
+    const origem = { latitude: 38.6656, longitude: -9.1996 };
+    const destino = { latitude: 38.7325, longitude: -9.1410 };
+    const halves = await transit.busToPoints(origem, destino, points);
+    console.log(`\n=== Granja → Estefânia, bus to a metro station: ${halves.length} legs ===`);
+    for (const h of halves.slice(0, 8)) {
+      console.log(`    ${h.trip.line} ${h.trip.headsign}: ${h.trip.from.name} ${hora(h.trip.departsAt)} → ${h.trip.to.name} ${hora(h.trip.arrivesAt)} | metro ${points[h.point].name} (${Math.round(h.walkMeters)} m)`);
+    }
+  } catch (erro) {
+    console.log('  mixed ERRO:', erro && erro.message);
   }
 })();
 

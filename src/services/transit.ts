@@ -6,6 +6,7 @@ import {
   CARRIS_STOPS_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   TRANSIT_WALK_MAX_M,
+  TRANSIT_WALK_WIDE_M,
   USER_AGENT,
   TRANSFER_MAX_WAIT_S,
   WALK_DETOUR,
@@ -815,10 +816,11 @@ const TRIP_STOPS_PER_SIDE = 6;
 async function busStopsFor(
   origin: Coordinates,
   destination: Coordinates,
+  endRadius = TRANSIT_WALK_MAX_M,
 ): Promise<{ departures: TransitStop[]; arrivals: TransitStop[]; noLink: boolean }> {
   const [allDepartures, allArrivals] = await Promise.all([
     stopsNear(origin, TRANSIT_WALK_MAX_M),
-    stopsNear(destination, TRANSIT_WALK_MAX_M),
+    stopsNear(destination, endRadius),
   ]);
 
   const hasPatterns = [...allDepartures, ...allArrivals].some((s) => s.patterns.length > 0);
@@ -1369,7 +1371,20 @@ export async function planBusTrips(
   destination: Coordinates,
   limit = 5,
 ): Promise<TransitTrip[] | null> {
-  const { departures, arrivals, noLink } = await busStopsFor(origin, destination);
+  let found = await busStopsFor(origin, destination);
+  // **Nothing within the usual walk of the destination: look a little further**
+  // (author's report, November 2026). Estefânia's nearest Carris Metropolitana
+  // stops are at Marquês de Pombal and Campo Pequeno, 1 to 1.2 km away, and
+  // the trip from Caparica answered "no stops nearby" where Maps offers the
+  // 3709 and a quarter of an hour's walk. Only the destination's end widens,
+  // and `beatsWalking` still throws out what walking would beat.
+  if (found.departures.length > 0 && (found.noLink || found.arrivals.length === 0)) {
+    const wide = await busStopsFor(origin, destination, TRANSIT_WALK_WIDE_M);
+    if (!wide.noLink && wide.arrivals.length > 0) {
+      found = wide;
+    }
+  }
+  const { departures, arrivals, noLink } = found;
   if (!noLink && (departures.length === 0 || arrivals.length === 0)) {
     return null;
   }
@@ -1636,4 +1651,262 @@ export async function nearbyStations(
     .filter((station) => station.meters <= maxMeters)
     .sort((a, b) => a.meters - b.meters)
     .slice(0, limit);
+}
+
+
+// --- Bus and rail in one trip ---------------------------------------------------
+//
+// Carris Metropolitana's buses come from the network, the train, metro, ferry and
+// Carris de Lisboa from the stored timetables, and until November 2026 a trip used
+// one or the other. From Caparica to Estefânia (author's report) the answer is a
+// bus to Marquês de Pombal and the metro on — both halves existed and nothing
+// joined them. These two functions give the bus half; `transitPlan.ts` joins it
+// to the timetable half from `schedules.ts`.
+
+/** A place where the other half of a mixed trip starts or ends: a station. */
+export interface RailPoint {
+  coordinates: Coordinates;
+  /** For a station one arrives at by rail: when, at the earliest. */
+  arrives?: number;
+}
+
+/** A bus leg of a mixed trip, as a trip of its own, with the station it serves. */
+export interface BusHalf {
+  trip: TransitTrip;
+  /** Index into the `RailPoint` list given. */
+  point: number;
+  /** Walk between the bus stop and the station, in metres. */
+  walkMeters: number;
+}
+
+/** How far a bus stop may be from a station for a change between the two. */
+const MIXED_WALK_M = 300;
+
+/** Carris stops within `MIXED_WALK_M` of each point, with the point and distance. */
+async function stopsByPoints(
+  points: RailPoint[],
+  keep: (stop: TransitStop) => boolean,
+): Promise<Map<string, { stop: TransitStop; point: number; meters: number }>> {
+  const all = await loadStops();
+  const cell = (c: Coordinates) => `${Math.floor(c.latitude * 300)}:${Math.floor(c.longitude * 250)}`;
+  const grid = new Map<string, number[]>();
+  points.forEach((p, i) => {
+    const k = cell(p.coordinates);
+    const list = grid.get(k);
+    if (list) {
+      list.push(i);
+    } else {
+      grid.set(k, [i]);
+    }
+  });
+  const out = new Map<string, { stop: TransitStop; point: number; meters: number }>();
+  for (const stop of all) {
+    if (!keep(stop)) {
+      continue;
+    }
+    const la = Math.floor(stop.coordinates.latitude * 300);
+    const lo = Math.floor(stop.coordinates.longitude * 250);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        for (const p of grid.get(`${la + i}:${lo + j}`) ?? []) {
+          const m = distanceMeters(stop.coordinates, points[p].coordinates);
+          const known = out.get(stop.id);
+          if (m <= MIXED_WALK_M && (!known || m < known.meters)) {
+            out.set(stop.id, { stop, point: p, meters: m });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Of many candidate stops, a few that each add a pattern not yet covered. */
+function pickCovering(
+  candidates: { stop: TransitStop; detour: number }[],
+  useful: (pattern: string) => boolean,
+): TransitStop[] {
+  candidates.sort((a, b) => a.detour - b.detour);
+  const covered = new Set<string>();
+  const chosen: TransitStop[] = [];
+  for (const c of candidates) {
+    const adds = c.stop.patterns.filter((p) => useful(p) && !covered.has(p));
+    if (adds.length === 0) {
+      continue;
+    }
+    adds.forEach((p) => covered.add(p));
+    chosen.push(c.stop);
+    if (chosen.length >= TRANSFER_STOPS) {
+      break;
+    }
+  }
+  return chosen;
+}
+
+function legTrip(leg: Leg, startWalk: number, endWalk: number): TransitTrip {
+  return {
+    tripId: leg.key,
+    kind: 'bus',
+    line: leg.line,
+    headsign: leg.headsign,
+    from: leg.from,
+    to: leg.to,
+    departsAt: leg.departsAt,
+    arrivesAt: leg.arrivesAt,
+    leaveAt: leg.departsAt - startWalk,
+    reachAt: leg.arrivesAt + endWalk,
+    stops: leg.stops,
+    live: leg.live,
+    ride: legRide(leg),
+  };
+}
+
+/**
+ * Buses from near the origin to stops next to the given stations — the first
+ * half of "bus, then the metro". Asks the arrivals of a few stops at each end,
+ * as `planBusTrips` does.
+ */
+export async function busToPoints(
+  origin: Coordinates,
+  destination: Coordinates,
+  points: RailPoint[],
+): Promise<BusHalf[]> {
+  if (points.length === 0) {
+    return [];
+  }
+  const nearStart = await stopsNear(origin, TRANSIT_WALK_MAX_M);
+  const fromStart = new Map<string, TransitStop>();
+  for (const stop of nearStart) {
+    for (const p of stop.patterns) {
+      if (!fromStart.has(p)) {
+        fromStart.set(p, stop);
+      }
+    }
+  }
+  if (fromStart.size === 0) {
+    return [];
+  }
+  const near = await stopsByPoints(
+    points,
+    (s) =>
+      distanceMeters(origin, s.coordinates) >= TRANSIT_WALK_MAX_M &&
+      s.patterns.some((p) => fromStart.has(p)),
+  );
+  const straight = distanceMeters(origin, destination);
+  const offs = pickCovering(
+    [...near.values()].map(({ stop, point }) => ({
+      stop,
+      detour:
+        distanceMeters(origin, stop.coordinates) +
+        distanceMeters(points[point].coordinates, destination) -
+        straight,
+    })),
+    (p) => fromStart.has(p),
+  );
+  if (offs.length === 0) {
+    return [];
+  }
+  const starts = new Map<string, TransitStop>();
+  for (const off of offs) {
+    for (const p of off.patterns) {
+      const s = fromStart.get(p);
+      if (s && (starts.has(s.id) || starts.size < TRIP_STOPS_PER_SIDE)) {
+        starts.set(s.id, s);
+      }
+    }
+  }
+  const [startPasses, offPasses] = await Promise.all([
+    passesAt([...starts.values()]),
+    passesAt(offs.map((s) => ({ ...s, meters: 0 }))),
+  ]);
+  const now = Date.now() / 1000;
+  const out: BusHalf[] = [];
+  for (const leg of matchLegs(startPasses, offPasses, 0, () => 0)) {
+    const walkIn = walkSeconds(leg.from.meters);
+    if (leg.departsAt - walkIn < now - 60) {
+      continue;
+    }
+    const at = near.get(leg.to.id);
+    if (!at) {
+      continue;
+    }
+    out.push({ trip: legTrip(leg, walkIn, 0), point: at.point, walkMeters: at.meters });
+  }
+  return out;
+}
+
+/**
+ * Buses from stops next to the given stations to near the destination — the
+ * second half of "the train, then a bus". A bus counts only if it leaves after
+ * the train arrives (`RailPoint.arrives`) plus the walk and `TRANSFER_MIN_S`.
+ */
+export async function busFromPoints(
+  origin: Coordinates,
+  destination: Coordinates,
+  points: RailPoint[],
+): Promise<BusHalf[]> {
+  if (points.length === 0) {
+    return [];
+  }
+  const nearEnd = await stopsNear(destination, TRANSIT_WALK_MAX_M);
+  const fromEnd = new Map<string, TransitStop>();
+  for (const stop of nearEnd) {
+    for (const p of stop.patterns) {
+      if (!fromEnd.has(p)) {
+        fromEnd.set(p, stop);
+      }
+    }
+  }
+  if (fromEnd.size === 0) {
+    return [];
+  }
+  const near = await stopsByPoints(
+    points,
+    (s) =>
+      distanceMeters(s.coordinates, destination) >= TRANSIT_WALK_MAX_M &&
+      s.patterns.some((p) => fromEnd.has(p)),
+  );
+  const straight = distanceMeters(origin, destination);
+  const ons = pickCovering(
+    [...near.values()].map(({ stop, point }) => ({
+      stop,
+      detour:
+        distanceMeters(origin, points[point].coordinates) +
+        distanceMeters(stop.coordinates, destination) -
+        straight,
+    })),
+    (p) => fromEnd.has(p),
+  );
+  if (ons.length === 0) {
+    return [];
+  }
+  const ends = new Map<string, TransitStop>();
+  for (const on of ons) {
+    for (const p of on.patterns) {
+      const e = fromEnd.get(p);
+      if (e && (ends.has(e.id) || ends.size < TRIP_STOPS_PER_SIDE)) {
+        ends.set(e.id, e);
+      }
+    }
+  }
+  const earliest = Math.min(...points.map((p) => p.arrives ?? Infinity));
+  const [onPasses, endPasses] = await Promise.all([
+    passesAt(ons.map((s) => ({ ...s, meters: 0 }))),
+    passesAt([...ends.values()]),
+  ]);
+  const out: BusHalf[] = [];
+  for (const leg of matchLegs(onPasses, endPasses, Number.isFinite(earliest) ? earliest : 0, (stop) =>
+    walkSeconds(stop.meters),
+  )) {
+    const at = near.get(leg.from.id);
+    if (!at) {
+      continue;
+    }
+    const ready = (points[at.point].arrives ?? 0) + TRANSFER_MIN_S + walkSeconds(at.meters);
+    if (leg.departsAt < ready || leg.departsAt - ready > TRANSFER_MAX_WAIT_S) {
+      continue;
+    }
+    out.push({ trip: legTrip(leg, 0, walkSeconds(leg.to.meters)), point: at.point, walkMeters: at.meters });
+  }
+  return out;
 }

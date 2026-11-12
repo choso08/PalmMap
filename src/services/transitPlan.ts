@@ -1,6 +1,21 @@
 import { t } from '../i18n';
-import { ensureFeedsFor, planScheduledTransfers, planScheduledTrips } from './schedules';
-import { beatsWalking, planBusTrips, type TransitTrip } from './transit';
+import {
+  ensureFeedsFor,
+  planScheduledTransfers,
+  planScheduledTrips,
+  scheduledBoardingsTo,
+  scheduledOnward,
+  scheduledReachedFrom,
+} from './schedules';
+import {
+  beatsWalking,
+  busFromPoints,
+  busToPoints,
+  planBusTrips,
+  type TransitTrip,
+} from './transit';
+import { distanceMeters } from '../utils/geometry';
+import { TRANSIT_WALK_MAX_M } from './config';
 import type { Coordinates } from '../types/geo';
 
 /**
@@ -82,7 +97,13 @@ async function compute(origin: Coordinates, destination: Coordinates): Promise<T
 
   try {
     const buses = await planBusTrips(origin, destination);
-    const trips = merge(buses ?? []);
+    let trips = merge(buses ?? []);
+    // Few answers: try a bus and a train, metro or Carris de Lisboa bus
+    // together. Only then — each way asks the arrivals of a dozen stops.
+    if (trips.length < 2) {
+      const mixed = await mixedTrips(origin, destination).catch(() => []);
+      trips = merge([...(buses ?? []), ...mixed]);
+    }
     return {
       trips,
       error: buses === null && trips.length === 0 ? t().errors.noTransitStops : null,
@@ -101,4 +122,91 @@ async function compute(origin: Coordinates, destination: Coordinates): Promise<T
             : t().errors.schedulesFailed,
     };
   }
+}
+
+
+/** The walk between a bus stop and a station, at the planner's pace. */
+const WALK_SPEED_MS = 1.35;
+/** Minimum time to change, on top of the walk, in seconds. */
+const MIXED_CHANGE_S = 180;
+
+function joined(first: TransitTrip, second: TransitTrip, walkMeters: number): TransitTrip {
+  return {
+    tripId: `${first.tripId}>${second.tripId}`,
+    kind: first.kind,
+    line: first.line,
+    headsign: first.headsign,
+    from: first.from,
+    to: second.to,
+    departsAt: first.departsAt,
+    arrivesAt: second.arrivesAt,
+    leaveAt: first.leaveAt,
+    reachAt: second.reachAt,
+    stops: first.stops + second.stops,
+    live: first.live,
+    ride: first.ride,
+    change: {
+      at: first.to,
+      boardAt: second.from,
+      walkMeters,
+      arrivesAt: first.arrivesAt,
+      kind: second.kind,
+      line: second.line,
+      headsign: second.headsign,
+      departsAt: second.departsAt,
+      ride: second.ride,
+    },
+  };
+}
+
+/**
+ * Trips with one change between a Carris Metropolitana bus (live) and a
+ * stored timetable (metro, train, ferry, Carris de Lisboa) — both ways round:
+ * bus then rail (Caparica → Marquês by bus, then the metro: the author's
+ * Estefânia trip), and rail then bus. The best per pair of lines.
+ */
+async function mixedTrips(origin: Coordinates, destination: Coordinates): Promise<TransitTrip[]> {
+  // Too close for a change to be worth anything.
+  if (distanceMeters(origin, destination) <= 2 * TRANSIT_WALK_MAX_M) {
+    return [];
+  }
+  const out: TransitTrip[] = [];
+
+  const boardings = scheduledBoardingsTo(destination);
+  const reached = scheduledReachedFrom(origin, destination);
+  const [toRail, fromRail] = await Promise.all([
+    busToPoints(origin, destination, boardings.points).catch(() => []),
+    busFromPoints(origin, destination, reached.points).catch(() => []),
+  ]);
+
+  // Bus, then rail.
+  const onward = scheduledOnward(
+    toRail.map((half) => ({
+      ref: boardings.refs[half.point],
+      earliest: half.trip.arrivesAt + MIXED_CHANGE_S + half.walkMeters / WALK_SPEED_MS,
+    })),
+    destination,
+  );
+  toRail.forEach((half, i) => {
+    const second = onward[i];
+    if (second) {
+      out.push(joined(half.trip, second, half.walkMeters));
+    }
+  });
+
+  // Rail, then bus. `busFromPoints` already kept only buses leaving after the
+  // train arrives plus the walk.
+  for (const half of fromRail) {
+    out.push(joined(reached.legs[half.point], half.trip, half.walkMeters));
+  }
+
+  // The best per pair of lines.
+  const byPair = new Map<string, TransitTrip>();
+  for (const trip of out.sort((a, b) => a.reachAt - b.reachAt)) {
+    const key = `${trip.line}>${trip.change?.line}`;
+    if (!byPair.has(key)) {
+      byPair.set(key, trip);
+    }
+  }
+  return [...byPair.values()].slice(0, 4);
 }

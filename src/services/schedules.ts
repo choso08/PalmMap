@@ -10,7 +10,14 @@ import {
   WALK_DETOUR,
   WALK_SPEED_MS,
 } from './config';
-import type { RideRef, RideStop, TransitStation, TransitStop, TransitTrip } from './transit';
+import type {
+  RailPoint,
+  RideRef,
+  RideStop,
+  TransitStation,
+  TransitStop,
+  TransitTrip,
+} from './transit';
 import type { Coordinates } from '../types/geo';
 import type { ScheduleFeed, ScheduleFeedInfo } from '../types/schedule';
 
@@ -767,45 +774,20 @@ interface Reached {
 }
 
 /**
- * Train, metro or ferry trips with **one change** — Azul to Verde, metro to
- * train, train to ferry.
- *
- * Without this the metro alone answered almost nothing: most journeys in
- * Lisbon need a change of line, and the panel said "no connection".
- *
- * Everything is in the stored files, so no request is made:
- *
- * 1. From every station within walking distance of the origin, every trip
- *    leaving in the next two hours is followed, and each later station keeps
- *    the earliest arrival (`reached`).
- * 2. Every trip that calls near the destination is marked, with where.
- * 3. For each reached station, the stations within
- *    `SCHEDULED_TRANSFER_WALK_M` — of any operator — are second boarding
- *    points: the first marked trip leaving at least `SCHEDULED_TRANSFER_MIN_S`
- *    plus the walk later, on another line, gives the arrival.
- *
- * It finds the earliest arrival through each change station, which is what
- * someone would pick; it does not try every combination.
+ * Every station a trip from near `origin` reaches within `SCHEDULED_HORIZON_S`,
+ * with the earliest arrival and the leg that gets there — the first half of a
+ * trip with a change, by rail or by bus (`scheduledReachedFrom`).
  */
-export function planScheduledTransfers(
+function reachFrom(
+  feeds: IndexedFeed[],
   origin: Coordinates,
-  destination: Coordinates,
-  limit = 4,
-  now = new Date(),
-): TransitTrip[] {
-  const nowUnix = now.getTime() / 1000;
-  const days = candidateDays(now);
-  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
-  if (feeds.length === 0) {
-    return [];
-  }
-
+  nowUnix: number,
+  days: string[],
+): Map<string, Reached> {
   const routeKey = (feed: IndexedFeed, trip: number) =>
     `${feed.info.id}:${feed.data.trips[trip].r}`;
   const lineOf = (feed: IndexedFeed, trip: number) =>
     shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || feed.info.nome);
-
-  // 1. Where the first legs can take us, and when.
   const reached = new Map<string, Reached>();
   for (const feed of feeds) {
     const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
@@ -866,6 +848,50 @@ export function planScheduledTransfers(
       }
     }
   }
+  return reached;
+}
+
+/**
+ * Train, metro or ferry trips with **one change** — Azul to Verde, metro to
+ * train, train to ferry.
+ *
+ * Without this the metro alone answered almost nothing: most journeys in
+ * Lisbon need a change of line, and the panel said "no connection".
+ *
+ * Everything is in the stored files, so no request is made:
+ *
+ * 1. From every station within walking distance of the origin, every trip
+ *    leaving in the next two hours is followed, and each later station keeps
+ *    the earliest arrival (`reached`).
+ * 2. Every trip that calls near the destination is marked, with where.
+ * 3. For each reached station, the stations within
+ *    `SCHEDULED_TRANSFER_WALK_M` — of any operator — are second boarding
+ *    points: the first marked trip leaving at least `SCHEDULED_TRANSFER_MIN_S`
+ *    plus the walk later, on another line, gives the arrival.
+ *
+ * It finds the earliest arrival through each change station, which is what
+ * someone would pick; it does not try every combination.
+ */
+export function planScheduledTransfers(
+  origin: Coordinates,
+  destination: Coordinates,
+  limit = 4,
+  now = new Date(),
+): TransitTrip[] {
+  const nowUnix = now.getTime() / 1000;
+  const days = candidateDays(now);
+  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  if (feeds.length === 0) {
+    return [];
+  }
+
+  const routeKey = (feed: IndexedFeed, trip: number) =>
+    `${feed.info.id}:${feed.data.trips[trip].r}`;
+  const lineOf = (feed: IndexedFeed, trip: number) =>
+    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || feed.info.nome);
+
+  // 1. Where the first legs can take us, and when.
+  const reached = reachFrom(feeds, origin, nowUnix, days);
   if (reached.size === 0) {
     return [];
   }
@@ -1000,6 +1026,157 @@ export function planScheduledTransfers(
     }
   }
   return [...byPair.values()].slice(0, limit);
+}
+
+// --- The timetable half of a bus + rail trip ------------------------------------
+//
+// See "Bus and rail in one trip" in `transit.ts`: the bus half comes from there,
+// these give the half that runs on a stored timetable, and `transitPlan.ts` joins
+// them.
+
+/** A station of a stored timetable. */
+export interface StationRef {
+  feedId: string;
+  station: number;
+}
+
+/**
+ * The stations from which some trip calls near the destination later on —
+ * where a bus could leave someone to take the metro, a train or a Carris de
+ * Lisboa bus the rest of the way. Timeless: whether one runs in time is
+ * `scheduledOnward`'s question. Stations already near the destination are left
+ * out: from there one walks.
+ */
+export function scheduledBoardingsTo(destination: Coordinates): {
+  points: RailPoint[];
+  refs: StationRef[];
+} {
+  const points: RailPoint[] = [];
+  const refs: StationRef[] = [];
+  for (const feed of loadedFeeds()) {
+    if (isExpired(feed.info)) {
+      continue;
+    }
+    const seen = new Set<number>();
+    for (const station of stopsNear(feed, destination, TRANSIT_WALK_MAX_M).keys()) {
+      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+        const pattern = feed.data.patterns[feed.data.trips[trip].p] ?? [];
+        for (let i = 0; i < pos; i += 1) {
+          seen.add(pattern[i]);
+        }
+      }
+    }
+    for (const station of seen) {
+      const stop = feed.data.stops[station];
+      if (!stop) {
+        continue;
+      }
+      const at = { latitude: stop.y, longitude: stop.x };
+      if (distanceMeters(at, destination) <= TRANSIT_WALK_MAX_M) {
+        continue;
+      }
+      points.push({ coordinates: at });
+      refs.push({ feedId: feed.info.id, station });
+    }
+  }
+  return { points, refs };
+}
+
+/**
+ * For each request — a station and the earliest moment one can be on its
+ * platform — the trip from there that gets nearest the destination soonest,
+ * leaving within `TRANSFER_MAX_WAIT_S`. Null where none does.
+ */
+export function scheduledOnward(
+  requests: { ref: StationRef; earliest: number }[],
+  destination: Coordinates,
+  now = new Date(),
+): (TransitTrip | null)[] {
+  const days = candidateDays(now);
+  const feeds = new Map(loadedFeeds().map((f) => [f.info.id, f]));
+  const endsByFeed = new Map<string, Map<number, number>>();
+  return requests.map(({ ref, earliest }) => {
+    const feed = feeds.get(ref.feedId);
+    if (!feed || isExpired(feed.info, now)) {
+      return null;
+    }
+    let ends = endsByFeed.get(ref.feedId);
+    if (!ends) {
+      ends = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
+      endsByFeed.set(ref.feedId, ends);
+    }
+    let best: TransitTrip | null = null;
+    for (const { trip, pos } of feed.byStation.get(ref.station) ?? []) {
+      const scheduled = feed.data.trips[trip];
+      const pattern = feed.data.patterns[scheduled.p] ?? [];
+      const times = feed.minutes[trip] ?? [];
+      for (const day of days) {
+        if (!feed.days[scheduled.s]?.has(day)) {
+          continue;
+        }
+        const departs = unixAt(day, times[pos]);
+        if (departs < earliest || departs - earliest > TRANSFER_MAX_WAIT_S) {
+          continue;
+        }
+        for (let next = pos + 1; next < pattern.length; next += 1) {
+          const walkAtEnd = ends.get(pattern[next]);
+          if (walkAtEnd === undefined) {
+            continue;
+          }
+          const arrives = unixAt(day, times[next]);
+          const reachAt = arrives + walkSeconds(walkAtEnd);
+          if (best && reachAt >= best.reachAt) {
+            continue;
+          }
+          best = {
+            tripId: `${feed.info.id}:${trip}:${day}`,
+            kind: feed.info.kind,
+            line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+            headsign: feed.data.headsigns[scheduled.h] ?? '',
+            from: asStop(feed, ref.station, 0),
+            to: asStop(feed, pattern[next], walkAtEnd),
+            departsAt: departs,
+            arrivesAt: arrives,
+            leaveAt: departs,
+            reachAt,
+            stops: next - pos,
+            live: false,
+            ride: { source: 'schedule', feedId: feed.info.id, trip, fromPos: pos, toPos: next },
+          };
+        }
+      }
+    }
+    return best;
+  });
+}
+
+/**
+ * Where a train, metro, ferry or Carris de Lisboa bus from near the origin
+ * gets to, and when — the first half of "the metro, then a bus". Stations
+ * already near the destination are left out: from there one walks.
+ */
+export function scheduledReachedFrom(
+  origin: Coordinates,
+  destination: Coordinates,
+  now = new Date(),
+): { points: RailPoint[]; legs: TransitTrip[] } {
+  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  const reached = reachFrom(feeds, origin, now.getTime() / 1000, candidateDays(now));
+  const points: RailPoint[] = [];
+  const legs: TransitTrip[] = [];
+  for (const r of reached.values()) {
+    const stop = r.feed.data.stops[r.station];
+    if (!stop) {
+      continue;
+    }
+    const at = { latitude: stop.y, longitude: stop.x };
+    if (distanceMeters(at, destination) <= TRANSIT_WALK_MAX_M) {
+      continue;
+    }
+    points.push({ coordinates: at, arrives: r.arrives });
+    legs.push(r.leg);
+  }
+  return { points, legs };
 }
 
 /**

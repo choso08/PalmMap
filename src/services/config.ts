@@ -176,6 +176,12 @@ export const CARRIS_STOPS_TIMEOUT_MS = 60000;
 export const TRANSIT_WALK_MAX_M = 1000;
 
 /**
+ * The walk at the destination's end when nothing is within `TRANSIT_WALK_MAX_M`:
+ * about twenty minutes, as Maps offers from Marquês de Pombal to Estefânia.
+ */
+export const TRANSIT_WALK_WIDE_M = 1600;
+
+/**
  * Walking speed, in metres per second.
  *
  * 1.35 m/s is about 4.9 km/h, an adult's normal pace. It is the same value
