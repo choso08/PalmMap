@@ -2792,7 +2792,11 @@ function PalmMap() {
         the GPS looking. It only disappears if the permission was refused, because
         then there is nothing it can do.
       */}
-      {!locationDenied && !navigating ? (
+      {/*
+        Hidden while searching: the search takes the whole screen, and the
+        button floated over its results (author's photo, November 2026).
+      */}
+      {!locationDenied && !navigating && !searchFocused ? (
         <Pressable
           style={({ pressed }) => [
             styles.locateButton,
@@ -2824,7 +2828,7 @@ function PalmMap() {
         While navigating `NavigationPanel` draws it, lower down, because there the
         other buttons and the compass are not shown.
       */}
-      {!navigating && drivingGps && settings.showSpeed ? (
+      {!navigating && !searchFocused && drivingGps && settings.showSpeed ? (
         <SpeedBadge kmh={speedKmh} bottom={compassBottom + 52} />
       ) : null}
 
