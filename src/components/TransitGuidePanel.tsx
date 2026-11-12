@@ -26,6 +26,8 @@ interface Props {
   /** A step tapped in the list becomes the current one — the way back. */
   onChooseStep: (leg: number) => void;
   onEnd: () => void;
+  voiceOn: boolean;
+  onToggleVoice: () => void;
 }
 
 const MODE_ICONS: Record<string, string> = {
@@ -65,6 +67,8 @@ export function TransitGuidePanel({
   arrived,
   onChooseStep,
   onEnd,
+  voiceOn,
+  onToggleVoice,
 }: Props) {
   const theme = useTheme();
   const strings = useT();
@@ -215,6 +219,18 @@ export function TransitGuidePanel({
         <Pressable style={styles.end} onPress={onEnd} hitSlop={8}>
           <MaterialCommunityIcons name="close" size={22} color={theme.onAccent} />
         </Pressable>
+        <Pressable
+          style={styles.voice}
+          onPress={onToggleVoice}
+          hitSlop={8}
+          accessibilityLabel={voiceOn ? strings.navigation.muteVoice : strings.navigation.unmuteVoice}
+        >
+          <MaterialCommunityIcons
+            name={voiceOn ? 'volume-high' : 'volume-off'}
+            size={22}
+            color={voiceOn ? theme.text : theme.danger}
+          />
+        </Pressable>
         <View style={styles.footerTexts}>
           {guide ? (
             <>
@@ -344,6 +360,14 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       height: 44,
       borderRadius: 22,
       backgroundColor: theme.danger,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    voice: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: theme.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
     },

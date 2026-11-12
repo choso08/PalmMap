@@ -231,6 +231,8 @@ export const pt = {
   },
 
   navigation: {
+    muteVoice: 'Silenciar a voz',
+    unmuteVoice: 'Ligar a voz',
     recalculating: 'A recalcular o percurso…',
     following: 'A seguir o percurso…',
     toDestination: 'até ao destino',

@@ -964,6 +964,14 @@ function PalmMap() {
     });
   }, [transitTrips, transitTripIndex, routeOrigin, destination]);
 
+  /** The speaker button while navigating or on a transport trip. */
+  const toggleVoice = useCallback(() => {
+    if (settings.voiceGuidance) {
+      stopSpeaking();
+    }
+    update('voiceGuidance', !settings.voiceGuidance);
+  }, [settings.voiceGuidance, update]);
+
   const handleEndTransit = useCallback(() => {
     setGuiding(false);
     setGuide(null);
@@ -2156,10 +2164,30 @@ function PalmMap() {
       if (!found) {
         return;
       }
+      // **A dropped pin is a point, not the business there** (author's report,
+      // November 2026): Nominatim's reverse answers with the nearest object,
+      // and the pin came out as "Bento Barbearias", with its icon and phone.
+      // Only the address is kept, as Maps does: the street and number as the
+      // title, the rest under it.
+      const parts = (found.address ?? '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (parts.length > 1 && found.name && parts[0] === found.name) {
+        parts.shift();
+      }
+      let title = parts.shift() ?? '';
+      if (/^\d+[A-Za-z]?$/.test(title) && parts.length > 0) {
+        title = `${parts.shift()} ${title}`;
+      }
       // Only replaced if the person is still looking at this same pin.
       setSelectedPlace((current) =>
         current?.id === fallback.id
-          ? { ...found, id: fallback.id, coordinates: fallback.coordinates }
+          ? {
+              ...fallback,
+              name: title || fallback.name,
+              address: parts.join(', ') || fallback.address,
+            }
           : current,
       );
     })();
@@ -2775,6 +2803,8 @@ function PalmMap() {
                 arrived={guideDone}
                 onChooseStep={(leg) => setGuideStep({ leg, stop: 0 })}
                 onEnd={handleEndTransit}
+                voiceOn={settings.voiceGuidance}
+                onToggleVoice={toggleVoice}
               />
             )}
           </DraggableSheet>
@@ -2788,6 +2818,8 @@ function PalmMap() {
           roadLimit={settings.speedLimitAlerts ? roadLimit : null}
           cameraFree={navCameraFree}
           onRecenter={handleLocatePress}
+          voiceOn={settings.voiceGuidance}
+          onToggleVoice={toggleVoice}
           onOverview={() => {
             mapRef.current?.overview();
             setNavCameraFree(true);

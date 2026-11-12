@@ -211,6 +211,8 @@ export const en: typeof pt = {
   },
 
   navigation: {
+    muteVoice: 'Mute the voice',
+    unmuteVoice: 'Turn the voice on',
     recalculating: 'Working out a new route…',
     following: 'Following the route…',
     toDestination: 'to your destination',

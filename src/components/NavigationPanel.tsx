@@ -25,6 +25,9 @@ interface NavigationPanelProps {
   onRecenter: () => void;
   /** Frame the rest of the route. */
   onOverview: () => void;
+  /** Whether the voice speaks; the speaker button turns it on and off. */
+  voiceOn: boolean;
+  onToggleVoice: () => void;
   /** Distância até essa manobra, em metros. */
   distanceToStep: number;
   /** Quanto falta até ao destino. */
@@ -96,6 +99,8 @@ export function NavigationPanel({
   cameraFree,
   onRecenter,
   onOverview,
+  voiceOn,
+  onToggleVoice,
   distanceToStep,
   remainingMeters,
   remainingSeconds,
@@ -255,6 +260,23 @@ export function NavigationPanel({
           <Text style={styles.limiteText}>{limit}</Text>
         </View>
       ) : null}
+
+      {/*
+        The voice on and off, as the speaker button in Maps (author's
+        request): it is the same setting as in Settings, stored.
+      */}
+      <Pressable
+        style={({ pressed }) => [styles.voiceButton, pressed && styles.pressed]}
+        onPress={onToggleVoice}
+        accessibilityLabel={voiceOn ? strings.navigation.muteVoice : strings.navigation.unmuteVoice}
+        hitSlop={6}
+      >
+        <MaterialCommunityIcons
+          name={voiceOn ? 'volume-high' : 'volume-off'}
+          size={24}
+          color={voiceOn ? theme.text : theme.danger}
+        />
+      </Pressable>
 
       {cameraFree ? (
         <Pressable
@@ -456,6 +478,22 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.onAccent,
       fontSize: 15,
       fontWeight: "600",
+    },
+    voiceButton: {
+      position: "absolute",
+      right: 16,
+      bottom: insets.bottom + 190,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface,
+      elevation: 6,
+      shadowColor: "#000000",
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
     },
     recenter: {
       position: "absolute",

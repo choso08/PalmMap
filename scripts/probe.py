@@ -798,6 +798,8 @@ def search400():
         "no viewbox": dict(q=q, format="jsonv2", limit=8, addressdetails=0, extratags=1),
         "no extratags": dict(q=q, format="jsonv2", limit=8),
         "plain": dict(q=q, format="jsonv2"),
+        "flat viewbox": dict(q=q, format="jsonv2", limit=8, viewbox="-9.2,38.7,-9.1,38.7", bounded=0),
+        "point viewbox": dict(q=q, format="jsonv2", limit=8, viewbox="-9.2,38.7,-9.2,38.7", bounded=0),
     }
     for name, params in variants.items():
         st, ct, body = get(base + up.urlencode(params))
