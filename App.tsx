@@ -131,6 +131,7 @@ import {
   type TransitStation,
   type LineJourney,
   type TransitStop,
+  changesOf,
 } from './src/services/transit';
 import {
   buildGuide,
@@ -2434,7 +2435,7 @@ function PalmMap() {
     if (!trip) {
       return journeyStops ?? mapStopsShown;
     }
-    return [trip.from, ...(trip.change ? [trip.change.at, trip.change.boardAt] : []), trip.to];
+    return [trip.from, ...changesOf(trip).flatMap((c) => [c.at, c.boardAt]), trip.to];
   }, [shownGuide, transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
 
   /**

@@ -3,6 +3,8 @@ import { scheduledRide } from './schedules';
 import {
   carrisRide,
   carrisRideShape,
+  changesOf,
+  type TransitStop,
   type RideRef,
   type RideStop,
   type TransitTrip,
@@ -135,77 +137,96 @@ export async function buildGuide(
   origin: Coordinates,
   destination: Coordinates,
 ): Promise<TransitGuide> {
-  const change = trip.change;
-  const firstTo = change ? change.at : trip.to;
-  const firstArrives = change ? change.arrivesAt : trip.arrivesAt;
-
-  const [walkIn, firstStops, changeWalk, secondStops, walkOut] = await Promise.all([
-    walkLeg(origin, trip.from.coordinates, trip.from.name),
-    rideStops(trip.ride, trip.departsAt, firstArrives),
-    change && distanceMeters(change.at.coordinates, change.boardAt.coordinates) >= WALK_MIN_M
-      ? walkLeg(change.at.coordinates, change.boardAt.coordinates, change.boardAt.name)
-      : Promise.resolve(null),
-    change ? rideStops(change.ride, change.departsAt, trip.arrivesAt) : Promise.resolve([]),
-    walkLeg(trip.to.coordinates, destination, null),
-  ]);
-
-  const legs: GuideLeg[] = [];
-  if (walkIn.meters >= WALK_MIN_M) {
-    legs.push(walkIn);
-  }
-  legs.push({
-    type: 'ride',
+  // The rides in order: the first vehicle, then one per change. Each knows
+  // where it is boarded and left, and when.
+  const changes = changesOf(trip);
+  type Ride = {
+    kind: string;
+    line: string;
+    headsign: string;
+    live: boolean;
+    from: TransitStop;
+    to: TransitStop;
+    departsAt: number;
+    arrivesAt: number;
+    ref: RideRef | undefined;
+  };
+  const rides: Ride[] = [];
+  rides.push({
     kind: trip.kind,
     line: trip.line,
     headsign: trip.headsign,
     live: trip.live,
+    from: trip.from,
+    to: changes[0]?.at ?? trip.to,
     departsAt: trip.departsAt,
-    arrivesAt: firstArrives,
-    stops:
-      firstStops.length >= 2
-        ? firstStops
-        : ends(trip.from, firstTo, trip.departsAt, firstArrives),
-    path: [],
+    arrivesAt: changes[0]?.arrivesAt ?? trip.arrivesAt,
+    ref: trip.ride,
   });
-  if (change) {
-    if (changeWalk) {
-      legs.push(changeWalk);
-    }
-    legs.push({
-      type: 'ride',
-      kind: change.kind ?? trip.kind,
-      line: change.line,
-      headsign: change.headsign,
+  changes.forEach((c, k) => {
+    const next = changes[k + 1];
+    rides.push({
+      kind: c.kind ?? rides[k].kind,
+      line: c.line,
+      headsign: c.headsign,
+      // Only the first vehicle of a planned trip comes with real time.
       live: false,
-      departsAt: change.departsAt,
-      arrivesAt: trip.arrivesAt,
-      stops:
-        secondStops.length >= 2
-          ? secondStops
-          : ends(change.boardAt, trip.to, change.departsAt, trip.arrivesAt),
-      path: [],
+      from: c.boardAt,
+      to: next?.at ?? trip.to,
+      departsAt: c.departsAt,
+      arrivesAt: next?.arrivesAt ?? trip.arrivesAt,
+      ref: c.ride,
     });
+  });
+
+  const [walkIn, walkOut, stopsPerRide, changeWalks] = await Promise.all([
+    walkLeg(origin, trip.from.coordinates, trip.from.name),
+    walkLeg(trip.to.coordinates, destination, null),
+    Promise.all(rides.map((r) => rideStops(r.ref, r.departsAt, r.arrivesAt))),
+    Promise.all(
+      changes.map((c) =>
+        distanceMeters(c.at.coordinates, c.boardAt.coordinates) >= WALK_MIN_M
+          ? walkLeg(c.at.coordinates, c.boardAt.coordinates, c.boardAt.name)
+          : Promise.resolve(null),
+      ),
+    ),
+  ]);
+
+  const legs: GuideLeg[] = [];
+  const rideLegs: { leg: RideLeg; ref: RideRef | undefined }[] = [];
+  if (walkIn.meters >= WALK_MIN_M) {
+    legs.push(walkIn);
   }
+  rides.forEach((r, k) => {
+    if (k > 0) {
+      const walk = changeWalks[k - 1];
+      if (walk) {
+        legs.push(walk);
+      }
+    }
+    const got = stopsPerRide[k];
+    const stops = got.length >= 2 ? got : ends(r.from, r.to, r.departsAt, r.arrivesAt);
+    const leg: RideLeg = {
+      type: 'ride',
+      kind: r.kind,
+      line: r.line,
+      headsign: r.headsign,
+      live: r.live,
+      departsAt: r.departsAt,
+      arrivesAt: r.arrivesAt,
+      stops,
+      path: stops.map((s) => s.coordinates),
+    };
+    legs.push(leg);
+    rideLegs.push({ leg, ref: r.ref });
+  });
   if (walkOut.meters >= WALK_MIN_M) {
     legs.push(walkOut);
   }
 
-  for (const leg of legs) {
-    if (leg.type === 'ride') {
-      leg.path = leg.stops.map((s) => s.coordinates);
-    }
-  }
-
-  // The rides' real ways, in parallel; any failure keeps the stops in a row.
-  const refs = [trip.ride, change?.ride];
-  let ride = 0;
+  // The buses' real ways, in parallel; any failure keeps the stops in a row.
   await Promise.all(
-    legs.map(async (leg) => {
-      if (leg.type !== 'ride') {
-        return;
-      }
-      const ref = refs[ride];
-      ride += 1;
+    rideLegs.map(async ({ leg, ref }) => {
       if (ref?.source !== 'carris') {
         return;
       }

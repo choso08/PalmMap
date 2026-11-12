@@ -11,6 +11,7 @@ import {
   beatsWalking,
   busFromPoints,
   busToPoints,
+  changesOf,
   planBusTrips,
   type TransitTrip,
 } from './transit';
@@ -203,7 +204,7 @@ async function mixedTrips(origin: Coordinates, destination: Coordinates): Promis
   // The best per pair of lines.
   const byPair = new Map<string, TransitTrip>();
   for (const trip of out.sort((a, b) => a.reachAt - b.reachAt)) {
-    const key = `${trip.line}>${trip.change?.line}`;
+    const key = [trip.line, ...changesOf(trip).map((c) => c.line)].join('>');
     if (!byPair.has(key)) {
       byPair.set(key, trip);
     }

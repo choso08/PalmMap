@@ -17,7 +17,7 @@ const BIKE_TYPES: { id: BikeType; icon: string }[] = [
 import type { Theme } from '../theme';
 import type { Place, Route } from '../types/geo';
 import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
-import type { TransitTrip } from '../services/transit';
+import { changesOf, type TransitTrip } from '../services/transit';
 
 /** Each mode's icon, so trips can be told apart at a glance. */
 const MEIOS: Record<string, string> = {
@@ -338,27 +338,27 @@ export function RoutePanel({
                   <View style={styles.linhaBadge}>
                     <Text style={styles.linhaBadgeTexto}>{t.line}</Text>
                   </View>
-                  {t.change ? (
-                    <>
+                  {changesOf(t).map((c, k, all) => (
+                    <View key={k} style={styles.trajetoTopo}>
                       <MaterialCommunityIcons
                         name="chevron-right"
                         size={16}
                         color={theme.textMuted}
                       />
-                      {t.change.kind && t.change.kind !== t.kind ? (
+                      {c.kind && c.kind !== (k === 0 ? t.kind : all[k - 1].kind ?? t.kind) ? (
                         <MaterialCommunityIcons
-                          name={(MEIOS[t.change.kind] ?? 'bus') as never}
+                          name={(MEIOS[c.kind] ?? 'bus') as never}
                           size={16}
                           color={theme.textMuted}
                         />
                       ) : null}
                       <View style={styles.linhaBadge}>
-                        <Text style={styles.linhaBadgeTexto}>{t.change.line}</Text>
+                        <Text style={styles.linhaBadgeTexto}>{c.line}</Text>
                       </View>
-                    </>
-                  ) : null}
+                    </View>
+                  ))}
                   <Text style={styles.trajetoDestino} numberOfLines={1}>
-                    {t.change ? t.change.headsign : t.headsign}
+                    {changesOf(t)[changesOf(t).length - 1]?.headsign ?? t.headsign}
                   </Text>
                   {i === 0 ? (
                     <View style={styles.melhor}>
@@ -372,7 +372,7 @@ export function RoutePanel({
                   {formatDuration(t.reachAt - Math.max(t.leaveAt, Date.now() / 1000))}
                 </Text>
 
-                <Text style={styles.trajetoDetalhe} numberOfLines={3}>
+                <Text style={styles.trajetoDetalhe} numberOfLines={5}>
                   {t.live ? '● ' : ''}
                   {strings.route.walkTo(
                     formatDuration(walkSecondsEntre(t.from.meters)),
@@ -381,14 +381,20 @@ export function RoutePanel({
                   {' · '}
                   {strings.route.stopCount(t.stops)}
                   {' · '}
-                  {t.change
-                    ? `${strings.route.changeAt(
-                        t.change.boardAt.id === t.change.at.id
-                          ? t.change.at.name
-                          : `${t.change.at.name} → ${t.change.boardAt.name}`,
-                        formatDuration(t.change.departsAt - t.change.arrivesAt),
-                      )} · `
-                    : ''}
+                  {/*
+                    Each change with its walk, when there is one (author's
+                    request), and the wait left after walking.
+                  */}
+                  {changesOf(t)
+                    .map((c) => {
+                      const walk = c.walkMeters >= 15 ? walkSecondsEntre(c.walkMeters) : 0;
+                      return `${strings.route.changeAt(
+                        c.boardAt.id === c.at.id ? c.at.name : `${c.at.name} → ${c.boardAt.name}`,
+                        formatDuration(Math.max(0, c.departsAt - c.arrivesAt - walk)),
+                        walk > 0 ? formatDuration(walk) : null,
+                      )} · `;
+                    })
+                    .join('')}
                   {strings.route.walkFrom(formatDuration(walkSecondsEntre(t.to.meters)), t.to.name)}
                 </Text>
               </Pressable>

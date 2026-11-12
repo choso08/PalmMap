@@ -195,7 +195,8 @@ export const pt = {
     noDirectTransit: 'Não há ligação, nem com um transbordo.',
     bikeTypes: { road: 'Estrada', normal: 'Normal', mtb: 'BTT' },
     busStop: 'Paragem',
-    changeAt: (stop: string, wait: string) => `muda em ${stop} (espera ${wait})`,
+    changeAt: (stop: string, wait: string, walk: string | null) =>
+      `muda em ${stop} (${walk ? `${walk} a pé, ` : ''}espera ${wait})`,
     walkTo: (time: string, stop: string) => `${time} a pé até ${stop}`,
     walkFrom: (time: string, stop: string) => `${time} a pé de ${stop}`,
     stopCount: (n: number) => (n === 1 ? '1 paragem' : `${n} paragens`),
@@ -386,7 +387,7 @@ export const pt = {
       driving: 'Carro',
       walking: 'A pé',
       cycling: 'Bicicleta',
-      transit: 'Autocarro',
+      transit: 'Transportes',
     },
 
     mapTypes: {

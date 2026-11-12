@@ -175,7 +175,8 @@ export const en: typeof pt = {
     noDirectTransit: 'No connection, not even with one change.',
     bikeTypes: { road: 'Road', normal: 'Normal', mtb: 'Mountain' },
     busStop: 'Bus stop',
-    changeAt: (stop: string, wait: string) => `change at ${stop} (wait ${wait})`,
+    changeAt: (stop: string, wait: string, walk: string | null) =>
+      `change at ${stop} (${walk ? `${walk} walk, ` : ''}wait ${wait})`,
     walkTo: (time: string, stop: string) => `${time} walk to ${stop}`,
     walkFrom: (time: string, stop: string) => `${time} walk from ${stop}`,
     stopCount: (n: number) => (n === 1 ? '1 stop' : `${n} stops`),
@@ -349,7 +350,7 @@ export const en: typeof pt = {
       driving: 'Car',
       walking: 'Walking',
       cycling: 'Cycling',
-      transit: 'Bus',
+      transit: 'Transit',
     },
 
     mapTypes: {

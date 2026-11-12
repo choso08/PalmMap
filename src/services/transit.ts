@@ -614,21 +614,35 @@ export interface TransitTrip {
    */
   /** Which stops one rides through — see `RideRef`. Absent when unknown. */
   ride?: RideRef;
-  change?: {
-    /** The second vehicle's stops. */
-    ride?: RideRef;
-    /** Where to get off the first bus. */
-    at: TransitStop;
-    /** Where to get on the second: the same stop, or one a short walk away. */
-    boardAt: TransitStop;
-    walkMeters: number;
-    arrivesAt: number;
-    /** The second vehicle's mode, when it differs from the first (metro to train). */
-    kind?: string;
-    line: string;
-    headsign: string;
-    departsAt: number;
-  };
+  /** The one change of a trip with two vehicles. Read through `changesOf`. */
+  change?: TransitChange;
+  /**
+   * Several changes, in order (`raptor.ts`, November 2026). When present it
+   * holds them all and `change` is not used. Read through `changesOf`.
+   */
+  changes?: TransitChange[];
+}
+
+/** Where one vehicle is left for the next, and the next vehicle. */
+export interface TransitChange {
+  /** The second vehicle's stops. */
+  ride?: RideRef;
+  /** Where to get off the first bus. */
+  at: TransitStop;
+  /** Where to get on the second: the same stop, or one a short walk away. */
+  boardAt: TransitStop;
+  walkMeters: number;
+  arrivesAt: number;
+  /** The second vehicle's mode, when it differs from the first (metro to train). */
+  kind?: string;
+  line: string;
+  headsign: string;
+  departsAt: number;
+}
+
+/** A trip's changes, in order, whichever field holds them. */
+export function changesOf(trip: TransitTrip): TransitChange[] {
+  return trip.changes ?? (trip.change ? [trip.change] : []);
 }
 
 /**

@@ -127,12 +127,12 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
       { timeout: REQUEST_TIMEOUT_MS, headers: { 'User-Agent': USER_AGENT } },
     );
 
-    // `naApp: false` removes from the list what makes no sense to download —
-    // today only Carris Metropolitana, which has real time through an API and
-    // needs no paper timetable. **It does not filter by `kind`**: a bus in
-    // Braga has no real time at all, and for that one the timetable is all
-    // there is.
-    return (response.data.horarios ?? []).filter((f) => f.naApp !== false);
+    // Everything is listed, Carris Metropolitana included (author's request,
+    // November 2026): it has real time, but its timetable lets a trip be
+    // planned for later, offline and with several changes. It was hidden with
+    // `naApp: false`; that flag now only keeps it from downloading by itself
+    // (`ensureFeedsFor`) — 27 MB is not fetched without a tap.
+    return response.data.horarios ?? [];
   } catch {
     const stored = installedFeeds();
     if (stored.length > 0) {
@@ -1264,6 +1264,11 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
           point.latitude >= south - m &&
           point.latitude <= north + m;
         if (!covers) {
+          continue;
+        }
+        // Never by itself: what is only offered on request (Carris
+        // Metropolitana, 27 MB, which has real time anyway).
+        if (info.naApp === false) {
           continue;
         }
         const old = stored.get(info.id);
