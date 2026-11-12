@@ -829,6 +829,33 @@ def shapes():
         print("ERR", e, body[:300])
 
 
+def estefania():
+    """The author's trip to Estefânia gave no buses: where the origin is, and
+    which Carris Metropolitana stops lie near each end."""
+    section("ESTEFANIA")
+    import math, urllib.parse as up
+    def geo(q):
+        st, ct, body = get("https://nominatim.openstreetmap.org/search?" + up.urlencode(
+            dict(q=q, format="jsonv2", limit=3, countrycodes="pt")))
+        time.sleep(1.5)
+        try:
+            return [(r["display_name"][:90], float(r["lat"]), float(r["lon"])) for r in json.loads(body)]
+        except Exception:  # noqa: BLE001
+            return []
+    for q in ("Rua da Granja, Almada", "Rua da Granja, Lisboa", "Rua da Granja", "Estefânia, Lisboa"):
+        print(q, geo(q))
+    _, _, body = get(f"{CARRIS}/stops")
+    stops = json.loads(body)
+    def dist(a, b, c, d):
+        k = math.pi / 180
+        x = (d - b) * k * math.cos((a + c) / 2 * k)
+        return 6371000 * math.hypot(x, (c - a) * k)
+    est = (38.7318, -9.1436)
+    near = sorted(((dist(est[0], est[1], float(s["lat"]), float(s["lon"])), s) for s in stops), key=lambda x: x[0])[:12]
+    for m, s in near:
+        print(round(m), s.get("id"), s.get("long_name"), len(s.get("pattern_ids") or []), (s.get("line_ids") or [])[:8])
+
+
 def photos():
     """Open photo sources a place card could use: Commons by file, Wikidata P18, Panoramax."""
     section("PHOTOS")
