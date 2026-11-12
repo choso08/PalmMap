@@ -120,6 +120,15 @@ export interface CarrisArrival {
  * 11 November 2026). The id goes **without** the `[YA15B]` prefix the arrivals
  * carry: with it the service answers 404. It comes as a list of one.
  */
+/** `/v2/shapes/<id>`: the line's way along the streets, read from a real answer. */
+export interface CarrisShape {
+  /** Length in metres. */
+  extension?: number;
+  geojson?: {
+    geometry?: { type?: string; coordinates?: [number, number][] };
+  };
+}
+
 export interface CarrisPattern {
   id?: string;
   line_id?: string;
@@ -127,6 +136,8 @@ export interface CarrisPattern {
   headsign?: string;
   /** The line's colour, `#C61D23`. */
   color?: string;
+  /** The drawn way, at `/shapes/<shape_id>` (prefix included). */
+  shape_id?: string;
   text_color?: string;
   path?: {
     stop_id?: string;

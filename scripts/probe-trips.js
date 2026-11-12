@@ -19,6 +19,7 @@ Module._load = function (pedido, ...resto) {
 
 const pasta = process.argv[2];
 const transit = require(path.join(pasta, 'services/transit.js'));
+const geo = require(path.join(pasta, 'utils/geometry.js'));
 
 const PARES = [
   ['Almada centro → Cacilhas', [38.6790, -9.1569], [38.6876, -9.1487]],
@@ -71,6 +72,11 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
           const r = await transit.carrisRide(comRef.ride, comRef.departsAt, ate);
           console.log(`  ride of ${comRef.line} (${r.length} stops):`,
             r.map((s) => `${s.name}@${s.unix ? hora(s.unix) : '?'}`).join(' > '));
+          if (r.length >= 2) {
+            const shape = await transit.carrisRideShape(comRef.ride, r[0].coordinates, r[r.length - 1].coordinates);
+            const ends = shape.length ? `starts ${Math.round(geo.distanceMeters(shape[0], r[0].coordinates))} m, ends ${Math.round(geo.distanceMeters(shape[shape.length - 1], r[r.length - 1].coordinates))} m from the stops` : '';
+            console.log(`  shape of the ride: ${shape.length} points ${ends}`);
+          }
         } catch (erro) {
           console.log('  ride ERRO:', erro && erro.message);
         }

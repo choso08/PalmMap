@@ -1045,8 +1045,13 @@ export function hasCoverage(point: Coordinates): boolean {
   });
 }
 
-/** Feeds already checked this session, so the published list is asked for once. */
-let autoChecked: Promise<void> | null = null;
+/**
+ * Areas already checked this session (half a degree, about 50 km), so the
+ * published list is asked for once per area. It was one latch for the whole
+ * session: the first place checked was the only one, and planning a trip
+ * somewhere else never fetched that area's timetables.
+ */
+const autoChecked = new Map<string, Promise<void>>();
 
 /**
  * Fetches, on its own, the timetables that cover this point and are missing,
@@ -1060,12 +1065,14 @@ let autoChecked: Promise<void> | null = null;
  * again. Returns whether anything new arrived.
  */
 export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
-  if (autoChecked) {
-    await autoChecked;
+  const area = `${Math.round(point.latitude * 2)},${Math.round(point.longitude * 2)}`;
+  const before = autoChecked.get(area);
+  if (before) {
+    await before;
     return false;
   }
   let changed = false;
-  autoChecked = (async () => {
+  const check = (async () => {
     try {
       const published = await listFeeds();
       const stored = new Map(installedFeeds().map((f) => [f.id, f]));
@@ -1098,6 +1105,7 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
       // No list, no network: nothing to do now.
     }
   })();
-  await autoChecked;
+  autoChecked.set(area, check);
+  await check;
   return changed;
 }

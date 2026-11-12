@@ -369,6 +369,14 @@ function PalmMap() {
   guideRef.current = guide;
   /** What the voice already said on this trip, so nothing is said twice. */
   const guideSaid = useRef(new Set<string>());
+  /**
+   * The chosen transport option drawn on the directions map before starting,
+   * as Maps does (author's request): the walks, and the bus along its real
+   * way. Built with the same `buildGuide` as the trip, and handed to it on
+   * Start.
+   */
+  const [previewGuide, setPreviewGuide] = useState<TransitGuide | null>(null);
+  const shownGuide = guide ?? previewGuide;
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [stepsVisible, setStepsVisible] = useState(false);
@@ -945,6 +953,28 @@ function PalmMap() {
     }
   }, [guide, guideStep, guideDone, settings.voiceGuidance]);
 
+  const previewTrip =
+    !guiding && settings.travelMode === 'transit' && destination
+      ? transitTrips?.[transitTripIndex] ?? null
+      : null;
+  useEffect(() => {
+    setPreviewGuide(null);
+    const origem = routeOrigin?.coordinates ?? userLocationRef.current;
+    if (!previewTrip || !destination || !origem) {
+      return;
+    }
+    let cancelled = false;
+    void buildGuide(previewTrip, origem, destination.coordinates).then((built) => {
+      if (!cancelled) {
+        setPreviewGuide(built);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // The trip object is the key: a new plan or another option is a new one.
+  }, [previewTrip, destination, routeOrigin]);
+
   const handleStartTransit = useCallback(() => {
     const trip = transitTrips?.[transitTripIndex];
     const origem = userLocationRef.current ?? routeOrigin?.coordinates;
@@ -953,16 +983,22 @@ function PalmMap() {
     }
     warmUpVoice();
     guideSaid.current.clear();
-    setGuide(null);
     setGuideStep({ leg: 0, stop: 0 });
-    setGuiding(true);
     setSelectedPlace(null);
     setFollowUser(true);
+    // The preview already built, when it is this trip from where one is.
+    const ready =
+      previewGuide && previewGuide.trip === trip && !routeOrigin ? previewGuide : null;
+    setGuide(ready);
+    setGuiding(true);
+    if (ready) {
+      return;
+    }
     void buildGuide(trip, origem, destination.coordinates).then((built) => {
       // Ended while the steps were being prepared: nothing to show.
       setGuide((before) => (before === null ? built : before));
     });
-  }, [transitTrips, transitTripIndex, routeOrigin, destination]);
+  }, [transitTrips, transitTripIndex, routeOrigin, destination, previewGuide]);
 
   /** The speaker button while navigating or on a transport trip. */
   const toggleVoice = useCallback(() => {
@@ -2367,19 +2403,19 @@ function PalmMap() {
   );
   const guidePaths = useMemo(
     () =>
-      guide
-        ? guide.legs.map((leg) =>
+      shownGuide
+        ? shownGuide.legs.map((leg) =>
             leg.type === 'walk'
               ? { coordinates: leg.path, walk: true }
-              : { coordinates: leg.stops.map((s) => s.coordinates), walk: false },
+              : { coordinates: leg.path, walk: false },
           )
         : null,
-    [guide],
+    [shownGuide],
   );
   const mapTransitStops = useMemo(() => {
-    if (guide) {
+    if (shownGuide) {
       // Every stop the trip rides through, as Maps marks them.
-      return guide.legs.flatMap((leg) =>
+      return shownGuide.legs.flatMap((leg) =>
         leg.type === 'ride'
           ? leg.stops.map((s) => ({
               id: s.id,
@@ -2399,7 +2435,7 @@ function PalmMap() {
       return journeyStops ?? mapStopsShown;
     }
     return [trip.from, ...(trip.change ? [trip.change.at, trip.change.boardAt] : []), trip.to];
-  }, [guide, transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
+  }, [shownGuide, transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
 
   /**
    * The panel's list, with the stop tapped on the map at the top when it is

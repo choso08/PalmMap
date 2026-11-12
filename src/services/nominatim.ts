@@ -101,9 +101,15 @@ export async function searchPlaces(
   }
 
   // The area goes into the key rounded: otherwise every little drag of the map
-  // made the same search count as a new one.
+  // made the same search count as a new one. **Rounded outwards**, never to
+  // the nearest: zoomed in, north and south rounded to the same tenth, and
+  // Nominatim answers a box with no height with 400 "Bounding box with invalid
+  // parameters" (author's photo, November 2026; reproduced with `sondar:
+  // search400`). Outwards, the box is always at least a tenth of a degree.
+  const out = (n: number, up: boolean) =>
+    ((up ? Math.ceil(n * 10 + 1e-9) : Math.floor(n * 10 - 1e-9)) / 10).toFixed(1);
   const viewbox = near
-    ? `${near.west.toFixed(1)},${near.north.toFixed(1)},${near.east.toFixed(1)},${near.south.toFixed(1)}`
+    ? `${out(near.west, false)},${out(near.north, true)},${out(near.east, true)},${out(near.south, false)}`
     : '';
   const cacheKey = `${term.toLowerCase()}|${limit}|${viewbox}`;
   const cached = cache.get(cacheKey);

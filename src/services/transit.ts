@@ -14,7 +14,13 @@ import {
 import { createRateLimiter } from './rateLimit';
 import { t } from '../i18n';
 import type { Bounds, Coordinates } from '../types/geo';
-import type { CarrisArrival, CarrisFacility, CarrisPattern, CarrisStop } from '../types/transit';
+import type {
+  CarrisArrival,
+  CarrisFacility,
+  CarrisPattern,
+  CarrisShape,
+  CarrisStop,
+} from '../types/transit';
 import { distanceMeters } from '../utils/geometry';
 
 /**
@@ -698,6 +704,76 @@ export async function carrisRide(
     });
   });
   return out;
+}
+
+/** How near the line a stop must be for a pass to count as the stop's. */
+const SHAPE_CUT_M = 40;
+
+/** Shapes already asked for: a few hundred kilobytes each, fixed for the day. */
+const shapeCache = new Map<string, Promise<Coordinates[]>>();
+
+function loadShape(id: string): Promise<Coordinates[]> {
+  const cached = shapeCache.get(id);
+  if (cached) {
+    return cached;
+  }
+  const pending = carrisGet<CarrisShape>(`/shapes/${encodeURIComponent(id)}`, CARRIS_STOPS_TIMEOUT_MS)
+    .then((shape) =>
+      (shape.geojson?.geometry?.coordinates ?? []).map(([longitude, latitude]) => ({
+        latitude,
+        longitude,
+      })),
+    )
+    .catch((error: unknown) => {
+      shapeCache.delete(id);
+      throw error;
+    });
+  shapeCache.set(id, pending);
+  return pending;
+}
+
+/**
+ * The way a Carris ride really goes, along the streets — the line's shape
+ * (`/v2/shapes`, by the pattern's `shape_id`) cut between the stop where one
+ * boards and the one where one gets off (author's request: the bus drawn
+ * where it goes, not stop to stop in straight lines). Each cut is the shape's
+ * point nearest the stop, the second searched only after the first, so a
+ * circular line is cut on the right lap. Empty when there is no shape.
+ */
+export async function carrisRideShape(
+  ref: Extract<RideRef, { source: 'carris' }>,
+  from: Coordinates,
+  to: Coordinates,
+): Promise<Coordinates[]> {
+  const pattern = await loadPattern(ref.patternId);
+  if (!pattern?.shape_id) {
+    return [];
+  }
+  const line = await loadShape(pattern.shape_id);
+  if (line.length < 2) {
+    return [];
+  }
+  // The first pass within `SHAPE_CUT_M` of the stop, failing that the
+  // nearest point at all: on a circular line the start and the end are the
+  // same place, and the nearest overall could be the last lap.
+  const nearestFrom = (target: Coordinates, start: number) => {
+    let best = start;
+    let bestM = Infinity;
+    for (let i = start; i < line.length; i += 1) {
+      const m = distanceMeters(line[i], target);
+      if (m < bestM) {
+        bestM = m;
+        best = i;
+      }
+      if (bestM <= SHAPE_CUT_M && m > bestM + SHAPE_CUT_M) {
+        break;
+      }
+    }
+    return best;
+  };
+  const a = nearestFrom(from, 0);
+  const b = nearestFrom(to, a);
+  return b > a ? line.slice(a, b + 1) : [];
 }
 
 /** All the stops within `maxMeters`, from nearest to farthest. */

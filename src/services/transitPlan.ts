@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { planScheduledTransfers, planScheduledTrips } from './schedules';
+import { ensureFeedsFor, planScheduledTransfers, planScheduledTrips } from './schedules';
 import { beatsWalking, planBusTrips, type TransitTrip } from './transit';
 import type { Coordinates } from '../types/geo';
 
@@ -50,6 +50,13 @@ export function planTransit(origin: Coordinates, destination: Coordinates): Prom
 }
 
 async function compute(origin: Coordinates, destination: Coordinates): Promise<TransitPlan> {
+  // The area's timetables (metro, train, Carris de Lisboa…) download by
+  // themselves the first time a trip is planned there, as when the transport
+  // map opens: without them a trip in central Lisbon, where Carris
+  // Metropolitana has no stops, answered "no stops nearby" (author's photo).
+  // Already there, this asks nothing.
+  await Promise.all([ensureFeedsFor(origin), ensureFeedsFor(destination)]);
+
   // The stored timetable first: it answers even with the bus service down.
   let stored: TransitTrip[] = [];
   try {

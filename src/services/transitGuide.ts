@@ -1,6 +1,12 @@
 import { getRoutes } from './osrm';
 import { scheduledRide } from './schedules';
-import { carrisRide, type RideRef, type RideStop, type TransitTrip } from './transit';
+import {
+  carrisRide,
+  carrisRideShape,
+  type RideRef,
+  type RideStop,
+  type TransitTrip,
+} from './transit';
 import type { Coordinates } from '../types/geo';
 import { distanceMeters } from '../utils/geometry';
 
@@ -33,6 +39,12 @@ export interface RideLeg {
   arrivesAt: number;
   /** Boarding stop first, alighting stop last. Never fewer than two. */
   stops: RideStop[];
+  /**
+   * Where the vehicle really goes: the line's shape for a Carris bus, the
+   * stops in a row otherwise (trains and metro, whose timetables carry no
+   * shape — near enough for rails).
+   */
+  path: Coordinates[];
 }
 
 export type GuideLeg = WalkLeg | RideLeg;
@@ -153,6 +165,7 @@ export async function buildGuide(
       firstStops.length >= 2
         ? firstStops
         : ends(trip.from, firstTo, trip.departsAt, firstArrives),
+    path: [],
   });
   if (change) {
     if (changeWalk) {
@@ -170,11 +183,46 @@ export async function buildGuide(
         secondStops.length >= 2
           ? secondStops
           : ends(change.boardAt, trip.to, change.departsAt, trip.arrivesAt),
+      path: [],
     });
   }
   if (walkOut.meters >= WALK_MIN_M) {
     legs.push(walkOut);
   }
+
+  for (const leg of legs) {
+    if (leg.type === 'ride') {
+      leg.path = leg.stops.map((s) => s.coordinates);
+    }
+  }
+
+  // The rides' real ways, in parallel; any failure keeps the stops in a row.
+  const refs = [trip.ride, change?.ride];
+  let ride = 0;
+  await Promise.all(
+    legs.map(async (leg) => {
+      if (leg.type !== 'ride') {
+        return;
+      }
+      const ref = refs[ride];
+      ride += 1;
+      if (ref?.source !== 'carris') {
+        return;
+      }
+      try {
+        const shape = await carrisRideShape(
+          ref,
+          leg.stops[0].coordinates,
+          leg.stops[leg.stops.length - 1].coordinates,
+        );
+        if (shape.length >= 2) {
+          leg.path = shape;
+        }
+      } catch {
+        // The stops in a row, as before.
+      }
+    }),
+  );
   return { trip, legs, destination };
 }
 

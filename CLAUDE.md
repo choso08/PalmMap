@@ -35,7 +35,7 @@ environment cannot reach.
 
 **Recent work (November 2026), none of it seen on a phone yet unless said:**
 
-- **After 7.0.37, not built yet** (build only when the author asks):
+- **Built in 7.0.38** (11 November), plus later fixes not built yet:
   - **Start a transport trip, as in Maps** (`transitGuide.ts`, `TransitGuidePanel.tsx`):
     the route panel's Start for the chosen bus/train/metro/ferry option. Steps: walk to the
     stop (OSRM walking, a straight line if it fails), take the line, the stops to ride,
@@ -51,11 +51,23 @@ environment cannot reach.
     car, bike and walking, and switching to it asks nothing again. **No change waits more than
     `TRANSFER_MAX_WAIT_S` (45 min)**, and **no trip slower than walking** is offered
     (`beatsWalking`) — the probe had found Seixal → Barreiro changing at 19:37 for a 00:30 bus.
+  - **From the author's phone, 12 November (7.0.38):** a **speaker button** turns the voice
+    on and off while navigating and on a transport trip (the `voiceGuidance` setting, as in
+    Maps); **a dropped pin is its address** — Nominatim's reverse answers with the business
+    there, and the pin came out as "Bento Barbearias" with its icon and phone; **search gave
+    400** zoomed in: the viewbox rounded north and south to the same tenth, and Nominatim
+    refuses a box with no height ("Bounding box with invalid parameters", reproduced with
+    `sondar: search400`) — now rounded outwards; **the bus is drawn along its real way**, on
+    the directions map before starting too (`previewGuide`, handed to Start): the pattern's
+    `shape_id` → `/v2/shapes/<id>` (prefix included; `carrisRideShape`, cut at the first pass
+    within `SHAPE_CUT_M` of each stop); trains and metro keep the stations in a row; **the
+    area's timetables download when a trip is planned there** (`ensureFeedsFor` in
+    `planTransit`, now once per half-degree area, not once per session) — central Lisbon
+    answered "no stops nearby", having only Carris de Lisboa and the metro.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
-  - **Live buses are a bus's body with the line number on it**, and a nose turned by the
-    service's `bearing` (`vehicle-live`, `vehicle-heading`, drawn by
-    `generate-poi-icons.py`; no nose when there is no bearing).
+  - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
+    number in a pill underneath (see 6-B-5).
   - **A tapped stop or station opens alone** — its panel shows only its passages; the clock
     button that opened the "stops nearby" list is gone.
   - **Station pins** for train, metro, light rail and boat (`station-<kind>` images), tappable.
@@ -1068,9 +1080,10 @@ ask for less: no filter by area or line (`by_line` gives 404).
 `trip_id`, `speed` (**metres per second**), `timestamp` and `current_status` (`STOPPED_AT`,
 `IN_TRANSIT_TO`, `INCOMING_AT`).
 
-Each bus is a small bus's body with the line number written on it, and a nose turned to the
-service's `bearing` (images `vehicle-live` and `vehicle-heading`, from `generate-poi-icons.py`;
-the nose only when a bearing comes). Those stopped at a stop are fainter. **They go over the
+Each bus is a drop in the vehicle colour whose point turns to the service's `bearing`
+(`vehicle-heading`; a plain disc, `vehicle-disc`, when none comes), a white bus on it that never
+turns (`vehicle-live`), and the line number in a pill underneath (`vehicle-pill`) — the author's
+pick among three drawings. All from `generate-poi-icons.py`. Those stopped at a stop are fainter. **They go over the
 stops**, on purpose.
 
 
