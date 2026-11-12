@@ -784,6 +784,49 @@ def overpass_mirrors():
             time.sleep(3)
 
 
+def search400():
+    """The author's "Rua eleuterio Teixeira 8" answered 400: the app's exact
+    Nominatim request, then variations, then Photon."""
+    section("SEARCH 400")
+    import urllib.parse as up
+    base = "https://nominatim.openstreetmap.org/search?"
+    q = "Rua eleuterio Teixeira 8"
+    variants = {
+        "app": dict(q=q, format="jsonv2", limit=8, addressdetails=0, extratags=1,
+                    **{"accept-language": "pt-PT,pt;q=0.9,en;q=0.5"},
+                    viewbox="-9.2,38.7,-9.1,38.6", bounded=0),
+        "no viewbox": dict(q=q, format="jsonv2", limit=8, addressdetails=0, extratags=1),
+        "no extratags": dict(q=q, format="jsonv2", limit=8),
+        "plain": dict(q=q, format="jsonv2"),
+    }
+    for name, params in variants.items():
+        st, ct, body = get(base + up.urlencode(params))
+        print(name, st, ct, body[:300])
+        time.sleep(1.5)
+    for extra in ("", "&lang=en", "&lat=38.65&lon=-9.15"):
+        st, ct, body = get("https://photon.komoot.io/api/?q=" + up.quote(q) + "&limit=8" + extra)
+        print("photon" + extra, st, ct, body[:300])
+        time.sleep(1.5)
+
+
+def shapes():
+    """A Carris pattern's fields (is there a shape_id?) and the shape service."""
+    section("SHAPES")
+    st, ct, body = get(f"{CARRIS}/patterns/3034_0_1")
+    print("pattern", st, ct, len(body))
+    try:
+        data = json.loads(body)
+        pat = data[0] if isinstance(data, list) else data
+        print("keys", sorted(pat.keys()))
+        sid = pat.get("shape_id")
+        print("shape_id", sid)
+        for url in (f"{CARRIS}/shapes/{sid}", f"https://api.carrismetropolitana.pt/shapes/{sid}"):
+            st, ct, body = get(url)
+            print(url, st, ct, len(body), body[:600])
+    except Exception as e:  # noqa: BLE001
+        print("ERR", e, body[:300])
+
+
 def photos():
     """Open photo sources a place card could use: Commons by file, Wikidata P18, Panoramax."""
     section("PHOTOS")
