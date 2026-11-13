@@ -104,6 +104,10 @@ environment cannot reach.
     pattern colour (`RideLeg.colour`), Metro de Lisboa's four by name, else by mode
     (`src/utils/lineColour.ts` — the stored timetables carry no colours). The trip list
     scrolls, with Start below it.
+  - **The time picker redone** (author's report: each +5 min replanned and the panel shrank
+    and grew under the finger): `TransitWhenPicker` is a chip that opens its own sheet — now /
+    depart / arrive, seven days, hour and minute wheels (5-minute steps) — and **plans once,
+    on "Set"**. The chip sits above the "calculating" line, so it stays put.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
