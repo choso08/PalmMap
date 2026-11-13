@@ -35,7 +35,7 @@ environment cannot reach.
 
 **Recent work (November 2026), none of it seen on a phone yet unless said:**
 
-- **Built in 7.0.38** (11 November), plus later fixes not built yet:
+- **Built in 7.0.38** (11 November); everything below, up to the Maps-style steps, is in **7.0.40** (13 November):
   - **Start a transport trip, as in Maps** (`transitGuide.ts`, `TransitGuidePanel.tsx`):
     the route panel's Start for the chosen bus/train/metro/ferry option. Steps: walk to the
     stop (OSRM walking, a straight line if it fails), take the line, the stops to ride,
