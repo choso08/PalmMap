@@ -885,6 +885,49 @@ def photos():
     except Exception as e:  # noqa: BLE001
         print("  parse failed", e, body[:300])
 
+def entrances():
+    """Entrances of a place, the query `entrances.ts` uses (author's photo:
+    the walk ended on the far side of Almada Forum)."""
+    section("entrances")
+    places = ["Almada Forum", "Hospital Garcia de Orta, Almada", "Centro Colombo, Lisboa",
+              "Mosteiro dos Jeronimos"]
+    for name in places:
+        st, ct, body = get("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="
+                           + urllib.parse.quote(name))
+        try:
+            hit = json.loads(body)[0]
+        except Exception:  # noqa: BLE001
+            print(name, "nominatim", st, body[:200])
+            continue
+        lat, lon = float(hit["lat"]), float(hit["lon"])
+        print(name, hit.get("osm_type"), hit.get("osm_id"), lat, lon, hit.get("category"), hit.get("type"))
+        q = ENTRANCE_QUERY.format(lat=lat, lon=lon)
+        for base in ("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"):
+            st, ct, body = get(base + "?data=" + urllib.parse.quote(q), timeout=60)
+            print("  ", base.split("/")[2], st, len(body))
+            try:
+                data = json.loads(body)
+            except Exception:  # noqa: BLE001
+                print("   ", body[:300])
+                continue
+            if data.get("remark"):
+                print("    remark", data["remark"][:200])
+            for el in data.get("elements", [])[:40]:
+                t = el.get("tags", {})
+                print("    ", el["type"], el["id"], el.get("lat"), el.get("lon"),
+                      {k: t[k] for k in t if k in ("entrance", "door", "access", "name", "ref", "wheelchair", "building", "shop", "amenity")})
+            break
+
+
+ENTRANCE_QUERY = """[out:json][timeout:20];
+is_in({lat},{lon})->.a;
+(way(pivot.a)[~"^(building|shop|amenity|tourism|leisure|healthcare|office|historic)$"~"."];
+ rel(pivot.a)[~"^(building|shop|amenity|tourism|leisure|healthcare|office|historic)$"~"."];)->.p;
+(way(r.p);.p;)->.p;
+(node(around.p:3)[entrance];node(around:60,{lat},{lon})[entrance];);
+out;
+.p out tags center;"""
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
