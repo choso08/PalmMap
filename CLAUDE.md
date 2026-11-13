@@ -108,6 +108,14 @@ environment cannot reach.
     and grew under the finger): `TransitWhenPicker` is a chip that opens its own sheet — now /
     depart / arrive, seven days, hour and minute wheels (5-minute steps) — and **plans once,
     on "Set"**. The chip sits above the "calculating" line, so it stays put.
+  - **Arriving at the door** (author's photo, Almada Forum: the walk ended behind the
+    building): `entrances.ts` asks Overpass for the `entrance=*` nodes on the outlines of the
+    buildings/malls/hospitals containing the place (`is_in` → `around.p:3`) and any within
+    60 m; the door nearest to where one comes from wins, a main one by up to 120 m. Used for
+    walking, cycling and transport (the final walk, from the alighting stop) — **not by car**,
+    which goes to the place itself. The lookup starts when a card opens; a route waits for it
+    at most `ENTRANCE_WAIT_MS` (3 s), then uses the place's point. Dropped pins (negative ids)
+    are exact and left alone. Probed with `sondar: entrances`.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
@@ -484,6 +492,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── vehicles.ts       # Where the buses are right now
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
+│   │   ├── entrances.ts      # A place's doors, to arrive at the right side
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later
@@ -1805,7 +1814,8 @@ timeouts are all in `src/services/config.ts`.
 The heaviest of the services: each query makes the server walk OpenStreetMap's data.
 
 - **Since November 2026, Overpass is only asked by the category buttons, a tapped pin's
-  details (`placeDetails`), the speed cameras and the speed limits.** Automatic pins come from
+  details (`placeDetails`) and doors (`findEntrances`, cached per place), the speed cameras
+  and the speed limits.** Automatic pins come from
   the country's business file or from the OpenFreeMap tiles. Much of what follows was written
   when automatic pins came from Overpass; the queue rules still apply to every caller.
 - At least 2 seconds between requests (`OVERPASS_MIN_INTERVAL_MS`), in **one queue**,
