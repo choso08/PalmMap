@@ -136,6 +136,13 @@ interface MapViewProps {
    */
   followUser?: boolean;
   /**
+   * The height covered by the bottom panel, in points. The camera's centre is
+   * the middle of what is left above it, as in Maps: centring on the person or
+   * following them puts the blue dot in the visible part, not behind the panel
+   * (author's photo, on a transport trip).
+   */
+  bottomInset?: number;
+  /**
    * Called when following drops by itself.
    *
    * MapLibre lets go as soon as the person drags the map — and without this the
@@ -330,6 +337,7 @@ export function MapView({
   onTapEmpty,
   following,
   followUser,
+  bottomInset = 0,
   onFollowUserChange,
   progressIndex = 0,
   cameras = NONE,
@@ -577,12 +585,21 @@ export function MapView({
     [cameras],
   );
 
+  // Read by the camera moves without making them depend on the panel's height.
+  const bottomInsetRef = useRef(bottomInset);
+  bottomInsetRef.current = bottomInset;
+  const viewPadding = useMemo(
+    () => ({ top: 0, right: 0, bottom: bottomInset, left: 0 }),
+    [bottomInset],
+  );
+
   useImperativeHandle(ref, () => ({
     recenter: (coordinates: Coordinates) => {
       cameraRef.current?.flyTo({
         center: [coordinates.longitude, coordinates.latitude],
         zoom: 16,
         duration: 700,
+        padding: { top: 0, right: 0, bottom: bottomInsetRef.current, left: 0 },
       });
     },
     followAgain: () => {
@@ -695,7 +712,12 @@ export function MapView({
       {
         // Padding in pixels, so the line is not stuck to the edges or hidden
         // under the search bar and the route panel.
-        padding: { top: 160, right: 40, bottom: 260, left: 40 },
+        padding: {
+          top: 160,
+          right: 40,
+          bottom: Math.max(260, bottomInsetRef.current + 40),
+          left: 40,
+        },
         duration: 600,
       },
     );
@@ -945,6 +967,7 @@ export function MapView({
           following && !overviewing ? 'course' : followUser && !following ? 'default' : undefined
         }
         onTrackUserLocationChange={handleTrackChange}
+        padding={viewPadding}
         initialViewState={{
           center: userLocation ? [userLocation.longitude, userLocation.latitude] : DEFAULT_CENTER,
           zoom: userLocation ? 15 : DEFAULT_ZOOM,

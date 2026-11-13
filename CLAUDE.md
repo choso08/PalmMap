@@ -116,6 +116,15 @@ environment cannot reach.
     which goes to the place itself. The lookup starts when a card opens; a route waits for it
     at most `ENTRANCE_WAIT_MS` (3 s), then uses the place's point. Dropped pins (negative ids)
     are exact and left alone. Probed with `sondar: entrances`.
+    **Probed 13 November:** Almada Forum has one door mapped, `entrance=main` on the east
+    side; Garcia de Orta five (the two `emergency` ones are skipped).
+  - **From the author's photos, 13 November:** the camera keeps the blue dot in the visible
+    part above the bottom panel (`bottomInset` on `MapView` → the `Camera`'s `padding`, also
+    in `recenter` and the route framing), as in Maps; on a transport trip the GPS button
+    always brings the camera back to the person (it used to toggle following off, which
+    looked like nothing); the trip's footer is laid out like driving navigation — end left,
+    time left in the middle, speaker on the right, no longer next to the end button; and in
+    Directions, choosing an end when the other is known goes straight to the route.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line

@@ -138,14 +138,25 @@ export function DirectionsSheet({
   }, [favourites, recents, query]);
 
   const choose = (place: Place | null) => {
-    if (field === 'from') {
-      setOrigin(place);
-      setField(destination ? 'from' : 'to');
-    } else if (place) {
-      setDestination(place);
-    }
     setQuery('');
     setResults([]);
+    // Both ends known: straight to the route, as in Maps. Choosing "My
+    // location" with the destination already there changed nothing on screen
+    // and seemed not to work (author's report).
+    if (field === 'from' && destination) {
+      setOrigin(place);
+      onConfirm(place, destination, mode);
+      return;
+    }
+    if (field === 'to' && place) {
+      setDestination(place);
+      onConfirm(origin, place, mode);
+      return;
+    }
+    if (field === 'from') {
+      setOrigin(place);
+      setField('to');
+    }
   };
 
   const swap = () => {

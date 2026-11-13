@@ -2091,6 +2091,18 @@ function PalmMap() {
     // anyone understanding why.
     lastLocateTap.current = duplo ? 0 : agora;
 
+    // On a transport trip the camera follows the person from the start: the
+    // button brings it back to them, and never turns following off — a tap
+    // there turned it off and seemed to do nothing (author's report).
+    if (guiding) {
+      if (followUser) {
+        mapRef.current?.followAgain();
+      } else {
+        setFollowUser(true);
+      }
+      return;
+    }
+
     if (followUser) {
       setFollowUser(false);
       return;
@@ -2118,7 +2130,7 @@ function PalmMap() {
       setUserLocation(posicao);
       mapRef.current?.recenter(posicao);
     })();
-  }, [navigating, followUser]);
+  }, [navigating, followUser, guiding]);
 
   /**
    * Choosing a destination turns following off.
@@ -2582,6 +2594,7 @@ function PalmMap() {
     <View style={styles.container}>
       <MapView
         ref={mapRef}
+        bottomInset={navigating || !shownPanel ? 0 : panelHeights[shownPanel]}
         userLocation={userLocation}
         destination={destination?.coordinates ?? null}
         pinned={selectedPlace ?? destination}

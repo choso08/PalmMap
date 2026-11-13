@@ -144,34 +144,46 @@ export function TransitGuidePanel({
         </ScrollView>
       ) : null}
 
+      {/*
+        The same footer as driving navigation: end on the left, the time left in
+        the middle, the speaker on the right — not next to the end button, where
+        a tap meant for the sound could end the trip (author's report).
+      */}
       <View style={styles.footer}>
-        <Pressable style={styles.end} onPress={onEnd} hitSlop={8}>
-          <MaterialCommunityIcons name="close" size={22} color={theme.onAccent} />
-        </Pressable>
         <Pressable
-          style={styles.voice}
-          onPress={onToggleVoice}
-          hitSlop={8}
-          accessibilityLabel={voiceOn ? strings.navigation.muteVoice : strings.navigation.unmuteVoice}
+          style={({ pressed }) => [styles.round, styles.end, pressed && styles.pressed]}
+          onPress={onEnd}
+          hitSlop={6}
+          accessibilityLabel={g.end}
         >
-          <MaterialCommunityIcons
-            name={voiceOn ? 'volume-high' : 'volume-off'}
-            size={22}
-            color={voiceOn ? theme.text : theme.danger}
-          />
+          <MaterialCommunityIcons name="close" size={24} color={theme.onAccent} />
         </Pressable>
         <View style={styles.footerTexts}>
           {guide ? (
             <>
-              <Text style={styles.arrival}>
-                {g.arriveAt(clock(guide.trip.reachAt))}
-              </Text>
-              <Text style={styles.footerDetail}>
+              <Text style={styles.remaining}>
                 {formatDuration(Math.max(0, guide.trip.reachAt - now))}
               </Text>
+              <Text style={styles.footerDetail}>{g.arriveAt(clock(guide.trip.reachAt))}</Text>
             </>
           ) : null}
         </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.round,
+            voiceOn ? styles.voice : styles.voiceOff,
+            pressed && styles.pressed,
+          ]}
+          onPress={onToggleVoice}
+          hitSlop={6}
+          accessibilityLabel={voiceOn ? strings.navigation.muteVoice : strings.navigation.unmuteVoice}
+        >
+          <MaterialCommunityIcons
+            name={voiceOn ? 'volume-high' : 'volume-off'}
+            size={24}
+            color={voiceOn ? theme.text : theme.danger}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -234,35 +246,45 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      marginTop: 10,
+      marginTop: 12,
+    },
+    round: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     end: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
       backgroundColor: theme.danger,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     voice: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: theme.surfaceMuted,
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    voiceOff: {
+      backgroundColor: theme.background,
+      borderWidth: 1.5,
+      borderColor: theme.danger,
+    },
+    pressed: {
+      opacity: 0.7,
     },
     footerTexts: {
       flex: 1,
+      alignItems: 'center',
     },
-    arrival: {
-      fontSize: 17,
-      fontWeight: '700',
+    remaining: {
+      fontSize: 24,
+      fontWeight: '800',
       color: theme.open,
+      letterSpacing: -0.5,
     },
     footerDetail: {
-      fontSize: 13,
+      fontSize: 14,
       color: theme.textMuted,
+      marginTop: 2,
     },
   });
 }
