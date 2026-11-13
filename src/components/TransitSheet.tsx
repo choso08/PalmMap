@@ -14,8 +14,10 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { t } from '../i18n';
 import { ARRIVALS_REFRESH_MS } from '../services/config';
+import { isOnline } from '../services/network';
 import {
   departuresAtStop,
+  busDeparturesNear,
   departuresNear,
   hasCoverage,
   type ScheduleDeparture,
@@ -201,6 +203,34 @@ export function TransitSheet({
       setArrivalsError(null);
     }
     setRefreshing(true);
+    // Offline, the stop's stored timetable (Carris Metropolitana's, when
+    // downloaded) instead of live times that cannot come.
+    const guardadas = (): TransitArrival[] | null => {
+      const stop = stops.find((x) => x.id === stopId);
+      if (!stop) {
+        return null;
+      }
+      const nowUnix = Date.now() / 1000;
+      const list = busDeparturesNear(stop.coordinates).map((d) => ({
+        line: d.line,
+        destination: d.destination,
+        minutes: d.minutes,
+        time: d.time,
+        live: false,
+        unix: nowUnix + d.minutes * 60,
+        patternId: null,
+        stopSequence: null,
+        scheduledText: null,
+      }));
+      return list.length > 0 ? list : null;
+    };
+    if (!isOnline()) {
+      const offline = guardadas();
+      setArrivals(offline ?? []);
+      setArrivalsError(offline ? null : t().transit.offlineTimes);
+      setRefreshing(false);
+      return;
+    }
     try {
       const horas = await arrivalsAt(stopId);
       // Switching stops while the previous one was queued put one stop's times
@@ -212,14 +242,20 @@ export function TransitSheet({
       setArrivalsError(null);
     } catch {
       if (ultimoPedido.current === pedido) {
-        setArrivalsError(t().transit.timesFailed);
+        const offline = guardadas();
+        if (offline) {
+          setArrivals(offline);
+          setArrivalsError(null);
+        } else {
+          setArrivalsError(t().transit.timesFailed);
+        }
       }
     } finally {
       if (ultimoPedido.current === pedido) {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [stops]);
 
   /**
    * The open station, and its times.

@@ -23,7 +23,13 @@ block is a JSON array of places:
 
     [lon, lat, name, key, value, hours, phone, website, osm, address]
 
-`ix = floor(lon / G)`, `iy = floor(lat / G)`. The app reads the header once
+`ix = floor(lon / G)`, `iy = floor(lat / G)`.
+
+**Doors** (November 2026, so arriving at a place's door works offline too —
+see `entrances.ts`): the header also has `"doors": {"ix,iy":[offset,length]}`,
+blocks after the places' ones, each a JSON array of `[lon, lat, main]` (`main`
+1 for `entrance=main`). Apps from before only read `cells`, and the file
+stays v1 for them. The app reads the header once
 and then only the cells in view — Portugal is tens of megabytes, and reading
 it whole into a phone's memory to show twenty pins would be absurd.
 
@@ -85,10 +91,16 @@ def closed(tags):
     return False
 
 
+# Doors that are no way in for a visitor; the same list as `entrances.ts`.
+NOT_A_WAY_IN = {"service", "emergency", "exit", "garage", "staircase", "no"}
+
+
 def main():
     src, bbox, out = sys.argv[1], sys.argv[2], sys.argv[3]
     west, south, east, north = (float(x) for x in bbox.split(","))
     cells = {}
+    doors = {}
+    door_count = 0
     count = 0
     with open(src, encoding="utf-8") as f:
         for line in f:
@@ -100,6 +112,17 @@ def main():
             except json.JSONDecodeError:
                 continue
             tags = feature.get("properties") or {}
+            geometry = feature.get("geometry") or {}
+            entrance = tags.get("entrance")
+            if (entrance and geometry.get("type") == "Point"
+                    and entrance not in NOT_A_WAY_IN
+                    and tags.get("access") not in ("private", "no")):
+                lon, lat = geometry["coordinates"][:2]
+                if west <= lon <= east and south <= lat <= north:
+                    key = f"{math.floor(lon / GRID)},{math.floor(lat / GRID)}"
+                    doors.setdefault(key, []).append(
+                        [round(lon, 6), round(lat, 6), 1 if entrance == "main" else 0])
+                    door_count += 1
             name = tags.get("name")
             # Mobi.E charging points are named by their code ("ALM-90010");
             # the brand is what people recognise.
@@ -170,8 +193,16 @@ def main():
         blocks.append(data)
         offset += len(data)
 
+    door_index = {}
+    for key in sorted(doors):
+        data = json.dumps(doors[key], separators=(",", ":")).encode("utf-8")
+        door_index[key] = [offset, len(data)]
+        blocks.append(data)
+        offset += len(data)
+
     header = json.dumps(
-        {"v": 1, "grid": GRID, "gerado": datetime.date.today().isoformat(), "count": count, "cells": index},
+        {"v": 1, "grid": GRID, "gerado": datetime.date.today().isoformat(), "count": count,
+         "cells": index, "doors": door_index},
         separators=(",", ":"),
     ).encode("utf-8") + b"\n"
     with open(out, "wb") as f:
@@ -179,7 +210,7 @@ def main():
         f.write(header)
         for b in blocks:
             f.write(b)
-    print(f"{out}: {count} places in {len(cells)} cells, {offset / 1048576:.1f} MB")
+    print(f"{out}: {count} places in {len(cells)} cells, {door_count} doors, {offset / 1048576:.1f} MB")
 
 
 if __name__ == "__main__":

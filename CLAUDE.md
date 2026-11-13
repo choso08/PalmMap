@@ -125,6 +125,23 @@ environment cannot reach.
     looked like nothing); the trip's footer is laid out like driving navigation — end left,
     time left in the middle, speaker on the right, no longer next to the end button; and in
     Directions, choosing an end when the other is known goes straight to the route.
+  - **Offline, as Maps** (author's request, 13 November): `services/network.ts` keeps
+    whether the Internet is reachable (`isInternetReachable`, listener; unknown counts as
+    online) — `isOnline()` for services, `useOnline()` for screens. Offline: transport plans
+    from the stored timetables only (`planTransit`; Carris Metropolitana's stored timetable
+    stands in for its live arrivals when downloaded, and its stops come from it,
+    `scheduledBusStops(…, withLive)`); a live stop's panel shows its stored times
+    (`busDeparturesNear`); live buses are not asked; the transport map type draws the
+    downloaded country (`mapStyleFor`) with our stops on top; and a place's **doors come
+    from the country's business file**: `build-pois.py` now also writes every
+    `entrance=*` node (the maps workflow's `tags-filter` gained `n/entrance`) as a
+    `doors` cell index beside `cells` — the file stays v1, older apps ignore it — read by
+    `localDoorsNear` (doors within 150 m), also the fallback when Overpass fails. A pill
+    under the search bar says "Offline · using downloaded maps and timetables" and "Back
+    online" for 3 s (`ConnectivityBanner`); the route and the chip times are worked out
+    again when the state changes. **The published business files get doors only when the
+    maps workflow runs again** (by itself on the 1st, or `apenas_negocios`); phones fetch
+    the new file on Wi-Fi.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
@@ -471,6 +488,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
 │   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
+│   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
 │   │   ├── OfflineMaps.tsx   # Countries to download, with sizes
@@ -502,6 +520,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
+│   │   ├── network.ts        # Online or offline, for the whole app
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later

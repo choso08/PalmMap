@@ -1,3 +1,5 @@
+import { localDoorsNear } from './localPois';
+import { isOnline } from './network';
 import { askOverpass, overpassSchedule } from './overpass';
 import { ENTRANCE_WAIT_MS } from './config';
 import type { Coordinates, Place } from '../types/geo';
@@ -16,6 +18,9 @@ import { distanceMeters } from '../utils/geometry';
  * The door used is the one nearest to where one comes from, with the main one
  * preferred when it is not much further.
  *
+ * **Offline too** (author's request): the country's business file carries
+ * every door (`build-pois.py`), read by `localDoorsNear`.
+ *
  * Only for walking, cycling and transport: a car goes to the car park, and a
  * pedestrian door may be the wrong side of the building for it.
  */
@@ -26,6 +31,13 @@ export interface Entrance {
 
 /** Doors that are no way in for a visitor. */
 const NOT_A_WAY_IN = new Set(['service', 'emergency', 'exit', 'garage', 'staircase', 'no']);
+
+/**
+ * Offline, the doors come from the downloaded country's file, which knows the
+ * doors but not whose building they are on: only those this close to the
+ * place count.
+ */
+const LOCAL_DOORS_M = 150;
 
 /** A main door wins over a nearer side door up to this many metres further. */
 const MAIN_BONUS_M = 120;
@@ -39,7 +51,29 @@ function keyOf(point: Coordinates): string {
   return `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
 }
 
-export function findEntrances(point: Coordinates): Promise<Entrance[]> {
+/** The downloaded country's doors near the point; empty without a file. */
+function localEntrances(point: Coordinates): Entrance[] {
+  return (localDoorsNear(point, LOCAL_DOORS_M) ?? []).map((d) => ({
+    coordinates: { latitude: d.latitude, longitude: d.longitude },
+    main: d.main,
+  }));
+}
+
+/**
+ * The place's doors: from Overpass with a network (it knows which building
+ * each door is on), from the downloaded country with none — and from the
+ * country too when Overpass fails or knows none. Only Overpass's answers are
+ * kept: back online, it is asked.
+ */
+export async function findEntrances(point: Coordinates): Promise<Entrance[]> {
+  if (!isOnline()) {
+    return localEntrances(point);
+  }
+  const remote = await remoteEntrances(point);
+  return remote.length > 0 ? remote : localEntrances(point);
+}
+
+function remoteEntrances(point: Coordinates): Promise<Entrance[]> {
   const key = keyOf(point);
   const kept = known.get(key);
   if (kept) {
@@ -106,7 +140,10 @@ export async function arrivalPoint(place: Place, from: Coordinates): Promise<Coo
   }
   const entrances = await Promise.race([
     findEntrances(place.coordinates),
-    new Promise<Entrance[]>((resolve) => setTimeout(() => resolve([]), ENTRANCE_WAIT_MS)),
+    // Too slow: the country's doors, when downloaded, or none.
+    new Promise<Entrance[]>((resolve) =>
+      setTimeout(() => resolve(localEntrances(place.coordinates)), ENTRANCE_WAIT_MS),
+    ),
   ]);
   return bestEntrance(entrances, from)?.coordinates ?? place.coordinates;
 }

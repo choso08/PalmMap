@@ -49,6 +49,8 @@ interface Header {
   gerado: string;
   count: number;
   cells: Record<string, [number, number]>;
+  /** The doors' cells, in files from November 2026 on — see `localDoorsNear`. */
+  doors?: Record<string, [number, number]>;
 }
 
 /** One record: [lon, lat, name, key, value, hours?, phone?, website?, osm?, address?] */
@@ -288,3 +290,62 @@ export function localPlacesInBounds(
 
 /** How close two records with the same name and kind must be to count as one. */
 const SAME_PLACE_M = 150;
+
+/** One door: [lon, lat, main (1) or not (0)]. */
+type DoorRecord = [number, number, number];
+
+const doorCache = new Map<string, DoorRecord[]>();
+
+/**
+ * The doors (`entrance=*`) within `radiusM` of a point, from the downloaded
+ * country's business file — so that arriving at a place's door works with no
+ * network (author's request). `null` when no downloaded file with doors covers
+ * the point; then only Overpass can say.
+ */
+export function localDoorsNear(
+  point: { latitude: number; longitude: number },
+  radiusM: number,
+): { latitude: number; longitude: number; main: boolean }[] | null {
+  const lat = point.latitude;
+  const lon = point.longitude;
+  const region = poisRegionFor({ west: lon, east: lon, south: lat, north: lat });
+  const opened = region ? openRegion(region) : null;
+  if (!region || !opened || !opened.header.doors) {
+    return null;
+  }
+  const g = opened.header.grid;
+  const dLat = radiusM / 111320;
+  const dLon = radiusM / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  const out: { latitude: number; longitude: number; main: boolean }[] = [];
+  for (let x = Math.floor((lon - dLon) / g); x <= Math.floor((lon + dLon) / g); x += 1) {
+    for (let y = Math.floor((lat - dLat) / g); y <= Math.floor((lat + dLat) / g); y += 1) {
+      const cell = `${x},${y}`;
+      const cacheKey = `${region.id}|${cell}`;
+      let records: DoorRecord[] = doorCache.get(cacheKey) ?? [];
+      if (!doorCache.has(cacheKey)) {
+        const where = opened.header.doors[cell];
+        if (where) {
+          try {
+            records = JSON.parse(utf8(readRange(opened.file, opened.base + where[0], where[1])));
+          } catch {
+            records = [];
+          }
+        }
+        if (doorCache.size >= CELL_CACHE_MAX) {
+          const oldest = doorCache.keys().next().value;
+          if (oldest !== undefined) {
+            doorCache.delete(oldest);
+          }
+        }
+        doorCache.set(cacheKey, records);
+      }
+      for (const [dlon, dlat, main] of records) {
+        const door = { latitude: dlat, longitude: dlon };
+        if (distanceMeters(point, door) <= radiusM) {
+          out.push({ ...door, main: main === 1 });
+        }
+      }
+    }
+  }
+  return out;
+}

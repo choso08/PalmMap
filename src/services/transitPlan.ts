@@ -17,6 +17,7 @@ import {
   type TransitTrip,
 } from './transit';
 import { distanceMeters } from '../utils/geometry';
+import { isOnline } from './network';
 import { TRANSIT_WALK_MAX_M } from './config';
 import type { Coordinates } from '../types/geo';
 
@@ -61,6 +62,8 @@ function keyOf(origin: Coordinates, destination: Coordinates, when: TransitWhen)
   return [origin.latitude, origin.longitude, destination.latitude, destination.longitude]
     .map((n) => n.toFixed(4))
     .concat(when.kind === 'now' ? ['now'] : [when.kind, String(Math.round(when.at / 60))])
+    // Offline and online plans differ: one has the live buses.
+    .concat(isOnline() ? [] : ['offline'])
     .join(',');
 }
 
@@ -133,7 +136,9 @@ async function compute(
   // map opens: without them a trip in central Lisbon, where Carris
   // Metropolitana has no stops, answered "no stops nearby" (author's photo).
   // Already there, this asks nothing.
-  await Promise.all([ensureFeedsFor(origin), ensureFeedsFor(destination)]);
+  if (isOnline()) {
+    await Promise.all([ensureFeedsFor(origin), ensureFeedsFor(destination)]).catch(() => undefined);
+  }
 
   // The stored timetables first: they answer even with the bus service down.
   // Direct, one change, and up to three changes (`planScheduledRaptor`).
@@ -167,10 +172,22 @@ async function compute(
 
   // Carris Metropolitana's arrivals are today's: for another day only the
   // stored timetables answer.
+  //
+  // **Offline, only the stored timetables** (author's request): Carris
+  // Metropolitana's live arrivals cannot come, and its stored timetable —
+  // when downloaded in Settings — answers in their place, like the trains'.
   const today = new Date(nowUnix * 1000).toDateString() === startDate.toDateString();
-  if (!today) {
+  if (!today || !isOnline()) {
     const trips = finish(stored);
-    return { trips, error: trips.length === 0 ? t().errors.noTransitStops : null };
+    return {
+      trips,
+      error:
+        trips.length === 0
+          ? isOnline()
+            ? t().errors.noTransitStops
+            : t().errors.offlineNoTransit
+          : null,
+    };
   }
 
   try {

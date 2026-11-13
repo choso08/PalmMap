@@ -496,15 +496,22 @@ export function departuresNear(
  * tap can open their times (author's request, November 2026: "for the
  * companies without live data, just put the timetables"). Their id says which
  * file and which stop (`sched:<feed>:<index>`), read back by
- * `departuresAtStop`. Carris Metropolitana is left out: it has real time.
+ * `departuresAtStop`. Carris Metropolitana is left out: it has real time —
+ * except offline (`withLive`), when its stored timetable is all there is.
  */
 export function scheduledBusStops(
   bounds: { west: number; south: number; east: number; north: number },
   limit = 300,
+  withLive = false,
 ): TransitStation[] {
   const found: TransitStation[] = [];
   for (const feed of loadedFeeds()) {
     if (feed.info.kind !== 'bus' || isExpired(feed.info)) {
+      continue;
+    }
+    // Carris Metropolitana's own stops come live from its API; its stored
+    // timetable stands in for them only offline (`withLive`).
+    if (feed.info.naApp === false && !withLive) {
       continue;
     }
     feed.data.stops.forEach((stop, i) => {
@@ -528,6 +535,31 @@ export function scheduledBusStops(
     });
   }
   return found;
+}
+
+/**
+ * The stored buses at a stop given by its place — Carris Metropolitana's own
+ * timetable for one of its live stops, when the network is gone (author's
+ * request: "the ones with live times lose them offline"). The nearest stop of
+ * each bus timetable within `maxMeters`.
+ */
+export function busDeparturesNear(
+  point: Coordinates,
+  maxMeters = 60,
+  limit = 8,
+  now = new Date(),
+): ScheduleDeparture[] {
+  const out: ScheduleDeparture[] = [];
+  for (const feed of loadedFeeds()) {
+    if (feed.info.kind !== 'bus' || isExpired(feed.info, now)) {
+      continue;
+    }
+    const nearest = nearestStop(feed, point, maxMeters);
+    if (nearest) {
+      out.push(...departuresFrom(feed, nearest.index, candidateDays(now), now.getTime() / 1000));
+    }
+  }
+  return out.sort((a, b) => a.minutes - b.minutes).slice(0, limit);
 }
 
 /** The next departures at one stop of a stored timetable, by its `sched:` id. */

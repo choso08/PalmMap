@@ -194,7 +194,7 @@ jobs:
               if [ -f "$PBF" ] \
                 && osmium extract -b "$BBOX" -s simple "$PBF" -o "osm/${ID}.pbf" --overwrite \
                 && osmium tags-filter "osm/${ID}.pbf" nwr/amenity nwr/shop nwr/tourism nwr/leisure \
-                     nwr/office nwr/craft nwr/healthcare -o "osm/${ID}-f.pbf" --overwrite \
+                     nwr/office nwr/craft nwr/healthcare n/entrance -o "osm/${ID}-f.pbf" --overwrite \
                 && osmium export "osm/${ID}-f.pbf" -f geojsonseq --add-unique-id=type_id \
                      -o "osm/${ID}.geojsonseq" --overwrite \
                 && python3 scripts/build-pois.py "osm/${ID}.geojsonseq" "$BBOX" "mapas/${ID}.pois"; then

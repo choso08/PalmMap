@@ -336,7 +336,11 @@ export function mapStyleFor(
   if (mapType === 'satellite' || mapType === 'satelliteTransit') {
     return satelliteDetail === 'alta' ? SATELLITE_DETAILED_STYLE : SATELLITE_STYLE;
   }
-  if (mapType === 'transit') {
+  // The transport map's lines are pictures from the Internet; offline, with a
+  // country downloaded, its stored map instead — the stops (from the stored
+  // timetables) are our own layers and still draw on top (author's request:
+  // transport must work offline). `offline` only comes without a network.
+  if (mapType === 'transit' && !offline) {
     return TRANSIT_STYLE;
   }
   if (offline) {

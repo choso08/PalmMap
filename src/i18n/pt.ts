@@ -216,6 +216,11 @@ export const pt = {
     set: 'Definir',
   },
 
+  network: {
+    offline: 'Sem ligação · a usar mapas e horários guardados',
+    backOnline: 'De novo online',
+  },
+
   guide: {
     preparing: 'A preparar a viagem…',
     walkTo: (stop: string) => `Caminhe até ${stop}`,
@@ -293,6 +298,7 @@ export const pt = {
     subtitle: 'Carris Metropolitana · área de Lisboa',
     searching: 'A procurar paragens…',
     loadingTimes: 'A ver as horas…',
+    offlineTimes: 'Sem ligação. Descarregue o horário da Carris Metropolitana em Definições para ver os horários sem rede.',
     timesFailed: 'Não foi possível obter as horas de passagem.',
     stopsFailed: 'Não foi possível obter as paragens.',
     noneSoon: 'Sem passagens nas próximas 2 h.',
@@ -509,6 +515,7 @@ export const pt = {
     mapDownloadFailed: (region: string, detail: string) =>
       `Não foi possível descarregar o mapa de ${region}. ${detail}`.trim(),
     bundledAssetFailed: 'Não foi possível ler um ficheiro incluído na aplicação.',
+    offlineNoTransit: 'Sem ligação, e nenhum horário guardado serve esta viagem.',
     noTransitStops: 'Não há paragens perto.',
   },
 

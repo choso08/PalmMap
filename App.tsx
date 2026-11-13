@@ -142,7 +142,9 @@ import {
 } from './src/services/transitGuide';
 import { LEAVE_NOW, planTransit, type TransitWhen } from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
+import { ConnectivityBanner } from './src/components/ConnectivityBanner';
 import { arrivalPoint, findEntrances } from './src/services/entrances';
+import { isOnline, useOnline } from './src/services/network';
 import {
   SettingsProvider,
   isTransitMap,
@@ -594,8 +596,12 @@ function PalmMap() {
    * next update tries again. This is extra information on the map, not the map.
    */
   const appActive = useAppActive();
+  /** Whether the Internet is reachable — see `services/network.ts`. */
+  const online = useOnline();
   useEffect(() => {
-    if (!isTransitMap(settings.mapType) || !settings.showVehicles || !vehicleZoomOk) {
+    // Offline, live positions cannot come: the buses go, rather than standing
+    // frozen where they were (author's request).
+    if (!isTransitMap(settings.mapType) || !settings.showVehicles || !vehicleZoomOk || !online) {
       setVehicles([]);
       return;
     }
@@ -625,7 +631,7 @@ function PalmMap() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [settings.mapType, settings.showVehicles, vehicleZoomOk, appActive]);
+  }, [settings.mapType, settings.showVehicles, vehicleZoomOk, appActive, online]);
 
   /** Visible area of the map, updated when the map stops moving. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -1146,7 +1152,9 @@ function PalmMap() {
     // drawn when the destination is chosen (or when the first position
     // arrives), not again at every step. Following the person is navigation's
     // job, which has its own recalculation.
-  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen]);
+    // `online` too: going offline replans from the stored timetables, coming
+    // back brings the live buses and a route that may have failed.
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen, online]);
 
   /**
    * Each travel mode's time, for the route panel buttons ("car 12 min · walk
@@ -1224,7 +1232,7 @@ function PalmMap() {
     };
     // With the chosen mode in the dependencies: on switching, the one left
     // needs its time. The others come from the service cache, with no request.
-  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen]);
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen, online]);
 
   /**
    * Looks for businesses to show on the map.
@@ -1348,15 +1356,22 @@ function PalmMap() {
       // them to be told apart. From memory: no request once `/stops` is loaded.
       if (isTransitMap(settings.mapType) && zoom >= STOPS_MAP_MIN_ZOOM) {
         // From the stored timetables, on the phone: no request.
-        setScheduledStops(scheduledBusStops(bounds));
+        // Offline, Carris Metropolitana's stops come from its stored timetable
+        // too, and their live list is not shown: its times cannot come.
+        const semRede = !isOnline();
+        setScheduledStops(scheduledBusStops(bounds, 300, semRede));
         const pedido = (stopsRequest.current += 1);
-        void stopsInBounds(bounds)
-          .then((found) => {
-            if (pedido === stopsRequest.current) {
-              setMapStops(found);
-            }
-          })
-          .catch(() => undefined);
+        if (semRede) {
+          setMapStops((atual) => (atual.length === 0 ? atual : []));
+        } else {
+          void stopsInBounds(bounds)
+            .then((found) => {
+              if (pedido === stopsRequest.current) {
+                setMapStops(found);
+              }
+            })
+            .catch(() => undefined);
+        }
       } else {
         stopsRequest.current += 1;
         setMapStops((atual) => (atual.length === 0 ? atual : []));
@@ -2679,6 +2694,8 @@ function PalmMap() {
             ) : null}
           </>
         )}
+
+        {searchFocused ? null : <ConnectivityBanner />}
 
         {locationDenied ? (
           <Text style={styles.notice}>

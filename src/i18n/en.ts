@@ -196,6 +196,11 @@ export const en: typeof pt = {
     set: 'Set',
   },
 
+  network: {
+    offline: 'Offline · using downloaded maps and timetables',
+    backOnline: 'Back online',
+  },
+
   guide: {
     preparing: 'Preparing the trip…',
     walkTo: (stop: string) => `Walk to ${stop}`,
@@ -259,6 +264,7 @@ export const en: typeof pt = {
     subtitle: 'Carris Metropolitana · Lisbon area',
     searching: 'Looking for stops…',
     loadingTimes: 'Checking times…',
+    offlineTimes: 'Offline. Download Carris Metropolitana\'s timetable in Settings to see times without a network.',
     timesFailed: "Couldn't get the departure times.",
     stopsFailed: 'Could not get the stops.',
     noneSoon: 'Nothing in the next 2 h.',
@@ -471,6 +477,7 @@ export const en: typeof pt = {
     mapDownloadFailed: (region: string, detail: string) =>
       `Couldn't download the map of ${region}. ${detail}`.trim(),
     bundledAssetFailed: "Couldn't read a file included with the app.",
+    offlineNoTransit: 'Offline, and no stored timetable covers this trip.',
     noTransitStops: 'No stops nearby.',
   },
 
