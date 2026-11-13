@@ -311,6 +311,14 @@ export function RoutePanel({
         </View>
       ) : null}
 
+      {/*
+        When to travel: a chip that opens its own sheet, above the status so it
+        stays put while the trips reload.
+      */}
+      {travelMode === 'transit' && transitWhen && onChangeTransitWhen ? (
+        <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
+      ) : null}
+
       {loading ? (
         <View style={styles.status}>
           <ActivityIndicator size="small" color={theme.accent} />
@@ -333,10 +341,6 @@ export function RoutePanel({
         mark. That is not an opinion: it gets the person there first, counting
         the walk at both ends.
       */}
-      {travelMode === 'transit' && transitWhen && onChangeTransitWhen ? (
-        <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
-      ) : null}
-
       {transitTrips && !loading ? (
         <ScrollView
           style={{ maxHeight: windowHeight * 0.5 }}

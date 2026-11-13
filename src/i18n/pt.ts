@@ -209,8 +209,11 @@ export const pt = {
     tabNow: 'Agora',
     tabDepart: 'Partir',
     tabArrive: 'Chegar',
-    tomorrow: ' (amanhã)',
-    done: 'OK',
+    today: 'Hoje',
+    tomorrowShort: 'Amanhã',
+    nowHint: 'Viagens a partir de agora',
+    cancel: 'Cancelar',
+    set: 'Definir',
   },
 
   guide: {

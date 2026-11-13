@@ -189,8 +189,11 @@ export const en: typeof pt = {
     tabNow: 'Now',
     tabDepart: 'Depart',
     tabArrive: 'Arrive',
-    tomorrow: ' (tomorrow)',
-    done: 'OK',
+    today: 'Today',
+    tomorrowShort: 'Tomorrow',
+    nowHint: 'Trips from now on',
+    cancel: 'Cancel',
+    set: 'Set',
   },
 
   guide: {
