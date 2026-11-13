@@ -142,6 +142,7 @@ import {
 } from './src/services/transitGuide';
 import { LEAVE_NOW, planTransit, type TransitWhen } from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
+import { arrivalPoint, findEntrances } from './src/services/entrances';
 import {
   SettingsProvider,
   isTransitMap,
@@ -970,16 +971,26 @@ function PalmMap() {
       return;
     }
     let cancelled = false;
-    void buildGuide(previewTrip, origem, destination.coordinates).then((built) => {
-      if (!cancelled) {
-        setPreviewGuide(built);
-      }
-    });
+    void arrivalPoint(destination, previewTrip.to.coordinates)
+      .then((alvo) => buildGuide(previewTrip, origem, alvo))
+      .then((built) => {
+        if (!cancelled) {
+          setPreviewGuide(built);
+        }
+      });
     return () => {
       cancelled = true;
     };
     // The trip object is the key: a new plan or another option is a new one.
   }, [previewTrip, destination, routeOrigin]);
+
+  // A place's doors are looked up as soon as its card opens, so that pressing
+  // Directions finds them already known (`entrances.ts`).
+  useEffect(() => {
+    if (selectedPlace && selectedPlace.id >= 0) {
+      void findEntrances(selectedPlace.coordinates);
+    }
+  }, [selectedPlace]);
 
   const handleStartTransit = useCallback(() => {
     const trip = transitTrips?.[transitTripIndex];
@@ -1000,10 +1011,12 @@ function PalmMap() {
     if (ready) {
       return;
     }
-    void buildGuide(trip, origem, destination.coordinates).then((built) => {
-      // Ended while the steps were being prepared: nothing to show.
-      setGuide((before) => (before === null ? built : before));
-    });
+    void arrivalPoint(destination, trip.to.coordinates)
+      .then((alvo) => buildGuide(trip, origem, alvo))
+      .then((built) => {
+        // Ended while the steps were being prepared: nothing to show.
+        setGuide((before) => (before === null ? built : before));
+      });
   }, [transitTrips, transitTripIndex, routeOrigin, destination, previewGuide]);
 
   /** The speaker button while navigating or on a transport trip. */
@@ -1064,18 +1077,20 @@ function PalmMap() {
     //   moving train — see `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
-      void planTransit(origem, destination.coordinates, transitWhen).then((plan) => {
-        if (cancelled) {
-          return;
-        }
-        setTransitTrips(plan.trips);
-        setTransitTripIndex(0);
-        setRouteError(plan.error);
-        setRouteLoading(false);
-        if (plan.trips.length > 0) {
-          void rememberRecent(destination).then(setRecents);
-        }
-      });
+      void arrivalPoint(destination, origem)
+        .then((alvo) => planTransit(origem, alvo, transitWhen))
+        .then((plan) => {
+          if (cancelled) {
+            return;
+          }
+          setTransitTrips(plan.trips);
+          setTransitTripIndex(0);
+          setRouteError(plan.error);
+          setRouteLoading(false);
+          if (plan.trips.length > 0) {
+            void rememberRecent(destination).then(setRecents);
+          }
+        });
 
       return () => {
         cancelled = true;
@@ -1086,10 +1101,17 @@ function PalmMap() {
 
     void (async () => {
       try {
+        // On foot or by bike, to the place's door (`entrances.ts`); a car
+        // goes to the place itself — the car park is not the front door.
+        const alvo =
+          perfil === 'driving' ? destination.coordinates : await arrivalPoint(destination, origem);
+        if (cancelled) {
+          return;
+        }
         const result = await getRoutes(
           origem,
           waypoints.map((w) => w.coordinates),
-          destination.coordinates,
+          alvo,
           perfil,
           settings.avoidTolls,
           settings.bikeType,
@@ -1157,7 +1179,13 @@ function PalmMap() {
       if (mode === settings.travelMode) {
         continue;
       }
-      getDuration(origem, via, destination.coordinates, mode, () => !cancelled, settings.bikeType)
+      (mode === 'driving'
+        ? Promise.resolve(destination.coordinates)
+        : arrivalPoint(destination, origem)
+      )
+        .then((alvo) =>
+          getDuration(origem, via, alvo, mode, () => !cancelled, settings.bikeType),
+        )
         .then((result) => {
           if (!cancelled) {
             setModeTimes((prev) => ({ ...prev, [mode]: result }));
@@ -1173,21 +1201,23 @@ function PalmMap() {
     // time from now to arriving. Without waypoints only — a bus does not stop
     // at the pharmacy on the way.
     if (settings.travelMode !== 'transit' && waypoints.length === 0) {
-      void planTransit(origem, destination.coordinates, transitWhen).then((plan) => {
-        if (cancelled) {
-          return;
-        }
-        const best = plan.trips[0];
-        setModeTimes((prev) => ({
-          ...prev,
-          transit: best
-            ? {
-                distanceMeters: 0,
-                durationSeconds: best.reachAt - Math.max(best.leaveAt, Date.now() / 1000),
-              }
-            : null,
-        }));
-      });
+      void arrivalPoint(destination, origem)
+        .then((alvo) => planTransit(origem, alvo, transitWhen))
+        .then((plan) => {
+          if (cancelled) {
+            return;
+          }
+          const best = plan.trips[0];
+          setModeTimes((prev) => ({
+            ...prev,
+            transit: best
+              ? {
+                  distanceMeters: 0,
+                  durationSeconds: best.reachAt - Math.max(best.leaveAt, Date.now() / 1000),
+                }
+              : null,
+          }));
+        });
     }
     return () => {
       cancelled = true;
@@ -1548,11 +1578,14 @@ function PalmMap() {
                 // route on a U-turn.
                 const emFalta = waypoints.filter((_, i) => waypointIndices[i] > index);
 
+                const perfilNav = osrmProfile(settings.travelMode) ?? 'driving';
                 const [fresh] = await getRoutes(
                   position,
                   emFalta.map((w) => w.coordinates),
-                  destination.coordinates,
-                  osrmProfile(settings.travelMode) ?? 'driving',
+                  perfilNav === 'driving'
+                    ? destination.coordinates
+                    : await arrivalPoint(destination, position),
+                  perfilNav,
                   settings.avoidTolls,
                   settings.bikeType,
                 );

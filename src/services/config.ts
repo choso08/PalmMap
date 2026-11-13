@@ -677,6 +677,13 @@ export const REQUEST_TIMEOUT_MS = 15000;
  * is plenty: the other tags are always the same four, because each run of
  * those workflows rewrites its own instead of creating a new one.
  */
+/**
+ * How long a route waits for the destination's doors (`entrances.ts`) before
+ * going to the place's own point. Usually already known: the lookup starts when
+ * the destination is chosen.
+ */
+export const ENTRANCE_WAIT_MS = 3000;
+
 /** A build's Release page, with its whole changelog: `apk-<build>`. */
 export const RELEASE_PAGE_URL = (build: number) =>
   `https://github.com/choso08/PalmMap/releases/tag/apk-${build}`;
