@@ -677,6 +677,10 @@ export const REQUEST_TIMEOUT_MS = 15000;
  * is plenty: the other tags are always the same four, because each run of
  * those workflows rewrites its own instead of creating a new one.
  */
+/** A build's Release page, with its whole changelog: `apk-<build>`. */
+export const RELEASE_PAGE_URL = (build: number) =>
+  `https://github.com/choso08/PalmMap/releases/tag/apk-${build}`;
+
 export const RELEASES_API_URL =
   'https://api.github.com/repos/choso08/PalmMap/releases?per_page=20';
 

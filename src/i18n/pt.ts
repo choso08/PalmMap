@@ -389,6 +389,7 @@ export const pt = {
     updateReady: 'Descarregada. Falta instalar.',
     whatsNew: 'O que mudou',
     moreChanges: (n: number) => (n === 1 ? 'E mais uma mudança' : `E mais ${n} mudanças`),
+    fullChangelog: 'ver todas',
 
     language: 'Língua',
 

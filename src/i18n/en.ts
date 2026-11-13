@@ -352,6 +352,7 @@ export const en: typeof pt = {
     updateReady: 'Downloaded. Ready to install.',
     whatsNew: "What's changed",
     moreChanges: (n: number) => (n === 1 ? 'And one more change' : `And ${n} more changes`),
+    fullChangelog: 'see all',
 
     language: 'Language',
 

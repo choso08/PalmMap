@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { t } from '../i18n';
+import { RELEASE_PAGE_URL } from '../services/config';
 import type { UpdateInfo } from '../services/update';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
@@ -142,9 +143,16 @@ export function UpdateSplash({ info, autoDownload, onDismiss, unfinished = false
                 </View>
               ))}
               {info.notes.length > SPLASH_NOTES ? (
-                <Text style={styles.notesMore}>
-                  {strings.settings.moreChanges(info.notes.length - SPLASH_NOTES)}
-                </Text>
+                // The rest is on the Release's page: the whole changelog.
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => void Linking.openURL(RELEASE_PAGE_URL(info.build))}
+                >
+                  <Text style={styles.notesMore}>
+                    {strings.settings.moreChanges(info.notes.length - SPLASH_NOTES)} ·{' '}
+                    <Text style={styles.notesLink}>{strings.settings.fullChangelog}</Text>
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           ) : null}
@@ -268,6 +276,11 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 12,
       color: theme.textMuted,
       marginLeft: 13,
+    },
+    notesLink: {
+      color: theme.accent,
+      fontWeight: '600',
+      textDecorationLine: 'underline',
     },
     track: {
       alignSelf: 'stretch',
