@@ -94,6 +94,16 @@ environment cannot reach.
     **Carris Metropolitana's timetable is listed in Settings** (27 MB, never downloaded by
     itself — `naApp: false` now only means that); with it, buses plan for later and with
     several changes, and a live trip hides its timetable twin (`unique`, in `transitPlan.ts`).
+  - **Each step as in Maps** (author's request, 13 November): the route panel's trip cards
+    read door-to-door time, duration, the trip as a chain (🚶 5 › [3601] › 🚶 1 › [Fertagus]
+    › 🚶 2) and "08:02 from <stop>"; under the chosen one, and in the trip under way, a
+    **timeline** (`TripTimeline.tsx`, from the same `buildGuide` steps): times on the left,
+    a rail solid in the line's colour while riding and dotted while walking, a circle at each
+    place, "Walk 5 min (400 m)", the line's badge → headsign, real time or timetable, the wait
+    at a change and "N stops · M min", which unfolds. Line colours: Carris Metropolitana's
+    pattern colour (`RideLeg.colour`), Metro de Lisboa's four by name, else by mode
+    (`src/utils/lineColour.ts` — the stored timetables carry no colours). The trip list
+    scrolls, with Start below it.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
@@ -439,6 +449,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── TransitSheet.tsx  # Stops nearby and their arrival times
 │   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
 │   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
+│   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
 │   │   ├── OfflineMaps.tsx   # Countries to download, with sizes
@@ -486,6 +497,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── voice.ts          # Reading the instructions aloud
 │   │   ├── categories.ts     # Business categories and OSM tag labels
 │   │   ├── poiStyle.ts       # OSM value → pin icon and family
+│   │   ├── lineColour.ts     # A transport line's badge colour
 │   │   ├── openingHours.ts   # Reads `opening_hours`: "Open · Closes at 19:00"
 │   │   └── maneuvers.ts      # Turns OSRM manoeuvres into sentences
 │   ├── i18n/                 # The text, in Portuguese and English

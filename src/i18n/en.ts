@@ -209,6 +209,11 @@ export const en: typeof pt = {
     arrived: 'You have arrived.',
     timetable: 'timetable, no delays',
     end: 'End',
+    // The trip's timeline, Maps-style.
+    walkFor: (time: string, distance: string) => `Walk ${time} (${distance})`,
+    wait: (time: string) => `Wait ${time}`,
+    leavesFrom: (time: string, stop: string) => `${time} from ${stop}`,
+    realTime: 'real time',
     // What the voice says.
     boardVoice: (line: string, headsign: string, time: string) =>
       `Take the ${line}${headsign ? ` towards ${headsign}` : ''}, at ${time}.`,

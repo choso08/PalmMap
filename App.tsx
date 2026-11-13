@@ -2738,6 +2738,7 @@ function PalmMap() {
                 onChooseTransitTrip={setTransitTripIndex}
                 onStartTransit={handleStartTransit}
                 transitWhen={transitWhen}
+                transitGuide={previewGuide}
                 onChangeTransitWhen={setTransitWhen}
               />
             )}
@@ -2853,6 +2854,7 @@ function PalmMap() {
                 onEnd={handleEndTransit}
                 voiceOn={settings.voiceGuidance}
                 onToggleVoice={toggleVoice}
+                destinationName={lastDestination?.name ?? ''}
               />
             )}
           </DraggableSheet>

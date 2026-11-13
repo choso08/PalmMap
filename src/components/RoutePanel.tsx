@@ -1,6 +1,14 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
@@ -20,6 +28,9 @@ import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
 import { changesOf, type TransitTrip } from '../services/transit';
 import type { TransitWhen } from '../services/transitPlan';
 import { TransitWhenPicker } from './TransitWhenPicker';
+import { TripTimeline } from './TripTimeline';
+import type { TransitGuide } from '../services/transitGuide';
+import { lineColour, textOn } from '../utils/lineColour';
 
 /** Each mode's icon, so trips can be told apart at a glance. */
 const MEIOS: Record<string, string> = {
@@ -83,6 +94,8 @@ interface RoutePanelProps {
   /** Leave now, depart at, arrive by — transport only. */
   transitWhen?: TransitWhen;
   onChangeTransitWhen?: (when: TransitWhen) => void;
+  /** The chosen trip's steps, for its timeline; null while being prepared. */
+  transitGuide?: TransitGuide | null;
   /** Alternative routes, and which one is chosen. */
   options: Route[];
   optionIndex: number;
@@ -136,10 +149,12 @@ export function RoutePanel({
   onChooseTransitTrip,
   onStartTransit,
   transitWhen,
+  transitGuide,
   onChangeTransitWhen,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
+  const { height: windowHeight } = useWindowDimensions();
   const eta = useEta();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -323,96 +338,135 @@ export function RoutePanel({
       ) : null}
 
       {transitTrips && !loading ? (
-        <View style={styles.trajetos}>
+        <ScrollView
+          style={{ maxHeight: windowHeight * 0.5 }}
+          contentContainerStyle={styles.trajetos}
+          nestedScrollEnabled
+        >
           {transitTrips.length === 0 && !error ? (
             <Text style={styles.avisoTexto}>{strings.route.noDirectTransit}</Text>
           ) : null}
 
           {transitTrips.map((t, i) => {
             const ativo = i === transitTripIndex;
+            const changes = changesOf(t);
+            // The trip in one row, as Maps: 🚶 5 › [3601] › 🚶 1 › [Fertagus] › 🚶 2.
+            const pieces: ({ walk: number } | { kind: string; line: string })[] = [];
+            if (t.from.meters >= 15) {
+              pieces.push({ walk: walkSecondsEntre(t.from.meters) });
+            }
+            pieces.push({ kind: t.kind, line: t.line });
+            changes.forEach((c, k) => {
+              if (c.walkMeters >= 15) {
+                pieces.push({ walk: walkSecondsEntre(c.walkMeters) });
+              }
+              pieces.push({ kind: c.kind ?? (k === 0 ? t.kind : changes[k - 1].kind ?? t.kind), line: c.line });
+            });
+            if (t.to.meters >= 15) {
+              pieces.push({ walk: walkSecondsEntre(t.to.meters) });
+            }
+            const guideHere = ativo && transitGuide && transitGuide.trip === t ? transitGuide : null;
             return (
-              <Pressable
-                key={t.tripId}
-                style={[styles.trajeto, ativo ? styles.trajetoAtivo : null]}
-                onPress={() => onChooseTransitTrip(i)}
-              >
-                <View style={styles.trajetoTopo}>
-                  {/*
-                    The mode's icon. In a list mixing buses and trains, the
-                    line number alone does not say what one is getting on.
-                  */}
-                  <MaterialCommunityIcons
-                    name={(MEIOS[t.kind] ?? 'bus') as never}
-                    size={16}
-                    color={theme.textMuted}
-                  />
-                  <View style={styles.linhaBadge}>
-                    <Text style={styles.linhaBadgeTexto}>{t.line}</Text>
+              <View key={t.tripId}>
+                <Pressable
+                  style={[styles.trajeto, ativo ? styles.trajetoAtivo : null]}
+                  onPress={() => onChooseTransitTrip(i)}
+                >
+                  <View style={styles.trajetoTopo}>
+                    <Text style={styles.trajetoHoras}>
+                      {relogio(t.leaveAt)} – {relogio(t.reachAt)}
+                    </Text>
+                    <Text style={styles.trajetoDuracao}>
+                      {formatDuration(t.reachAt - Math.max(t.leaveAt, Date.now() / 1000))}
+                    </Text>
                   </View>
-                  {changesOf(t).map((c, k, all) => (
-                    <View key={k} style={styles.trajetoTopo}>
-                      <MaterialCommunityIcons
-                        name="chevron-right"
-                        size={16}
-                        color={theme.textMuted}
-                      />
-                      {c.kind && c.kind !== (k === 0 ? t.kind : all[k - 1].kind ?? t.kind) ? (
-                        <MaterialCommunityIcons
-                          name={(MEIOS[c.kind] ?? 'bus') as never}
-                          size={16}
-                          color={theme.textMuted}
-                        />
-                      ) : null}
-                      <View style={styles.linhaBadge}>
-                        <Text style={styles.linhaBadgeTexto}>{c.line}</Text>
+
+                  <View style={styles.cadeia}>
+                    {pieces.map((piece, k) => (
+                      <View key={k} style={styles.cadeiaPeca}>
+                        {k > 0 ? (
+                          <MaterialCommunityIcons
+                            name="chevron-right"
+                            size={14}
+                            color={theme.textMuted}
+                          />
+                        ) : null}
+                        {'walk' in piece ? (
+                          <View style={styles.cadeiaPeca}>
+                            <MaterialCommunityIcons name="walk" size={16} color={theme.textMuted} />
+                            <Text style={styles.cadeiaMinutos}>
+                              {Math.max(1, Math.round(piece.walk / 60))}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.cadeiaPeca}>
+                            <MaterialCommunityIcons
+                              name={(MEIOS[piece.kind] ?? 'bus') as never}
+                              size={16}
+                              color={theme.text}
+                            />
+                            <View
+                              style={[
+                                styles.linhaBadge,
+                                { backgroundColor: lineColour(piece.kind, piece.line, theme.vehicle) },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.linhaBadgeTexto,
+                                  { color: textOn(lineColour(piece.kind, piece.line, theme.vehicle)) },
+                                ]}
+                              >
+                                {piece.line}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
                       </View>
-                    </View>
-                  ))}
-                  <Text style={styles.trajetoDestino} numberOfLines={1}>
-                    {changesOf(t)[changesOf(t).length - 1]?.headsign ?? t.headsign}
-                  </Text>
-                  {i === 0 ? (
-                    <View style={styles.melhor}>
-                      <Text style={styles.melhorTexto}>{strings.route.best}</Text>
-                    </View>
-                  ) : null}
-                </View>
+                    ))}
+                  </View>
 
-                <Text style={styles.trajetoHoras}>
-                  {relogio(t.departsAt)} – {relogio(t.arrivesAt)} ·{' '}
-                  {formatDuration(t.reachAt - Math.max(t.leaveAt, Date.now() / 1000))}
-                </Text>
+                  <View style={styles.trajetoTopo}>
+                    <Text style={styles.trajetoDetalhe} numberOfLines={1}>
+                      {strings.guide.leavesFrom(relogio(t.departsAt), t.from.name)}
+                    </Text>
+                    {t.live ? (
+                      <Text style={styles.tempoReal}>● {strings.guide.realTime}</Text>
+                    ) : null}
+                    {i === 0 ? (
+                      <View style={styles.melhor}>
+                        <Text style={styles.melhorTexto}>{strings.route.best}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
 
-                <Text style={styles.trajetoDetalhe} numberOfLines={5}>
-                  {t.live ? '● ' : ''}
-                  {strings.route.walkTo(
-                    formatDuration(walkSecondsEntre(t.from.meters)),
-                    t.from.name,
-                  )}
-                  {' · '}
-                  {strings.route.stopCount(t.stops)}
-                  {' · '}
-                  {/*
-                    Each change with its walk, when there is one (author's
-                    request), and the wait left after walking.
-                  */}
-                  {changesOf(t)
-                    .map((c) => {
-                      const walk = c.walkMeters >= 15 ? walkSecondsEntre(c.walkMeters) : 0;
-                      return `${strings.route.changeAt(
-                        c.boardAt.id === c.at.id ? c.at.name : `${c.at.name} → ${c.boardAt.name}`,
-                        formatDuration(Math.max(0, c.departsAt - c.arrivesAt - walk)),
-                        walk > 0 ? formatDuration(walk) : null,
-                      )} · `;
-                    })
-                    .join('')}
-                  {strings.route.walkFrom(formatDuration(walkSecondsEntre(t.to.meters)), t.to.name)}
-                </Text>
-              </Pressable>
+                {/*
+                  The chosen option's steps, as Maps shows them under it. The
+                  same `buildGuide` the trip uses, built as soon as it is chosen.
+                */}
+                {ativo ? (
+                  guideHere ? (
+                    <View style={styles.linhaTempo}>
+                      <TripTimeline
+                        guide={guideHere}
+                        originName={fromLabel ?? strings.directions.myLocation}
+                        destinationName={destination.name}
+                      />
+                    </View>
+                  ) : (
+                    <ActivityIndicator style={styles.linhaTempo} size="small" color={theme.accent} />
+                  )
+                ) : null}
+              </View>
             );
           })}
 
-          {transitTrips.length > 0 && onStartTransit ? (
+        </ScrollView>
+      ) : null}
+      {transitTrips && !loading && transitTrips.length > 0 && onStartTransit ? (
+        <>
+          {(
             <View style={styles.botoes}>
               <Pressable style={[styles.button, styles.buttonMain]} onPress={onStartTransit}>
                 <MaterialCommunityIcons
@@ -423,8 +477,8 @@ export function RoutePanel({
                 <Text style={styles.buttonText}>{strings.route.start}</Text>
               </Pressable>
             </View>
-          ) : null}
-        </View>
+          )}
+        </>
       ) : null}
 
       {route ? (
@@ -639,19 +693,48 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       gap: 8,
     },
     linhaBadge: {
-      minWidth: 46,
-      paddingHorizontal: 7,
-      paddingVertical: 3,
+      minWidth: 30,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       borderRadius: 6,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
       alignItems: 'center',
     },
     linhaBadgeTexto: {
       fontSize: 12,
       fontWeight: '700',
       color: theme.accent,
+    },
+    trajetoDuracao: {
+      marginLeft: 'auto',
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    cadeia: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      rowGap: 4,
+      marginTop: 6,
+    },
+    cadeiaPeca: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+    },
+    cadeiaMinutos: {
+      fontSize: 12,
+      color: theme.textMuted,
+      fontWeight: '600',
+    },
+    tempoReal: {
+      fontSize: 12,
+      color: theme.open,
+      fontWeight: '600',
+    },
+    linhaTempo: {
+      marginTop: 6,
+      paddingHorizontal: 4,
     },
     trajetoDestino: {
       flex: 1,
@@ -673,7 +756,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 16,
       fontWeight: '700',
       color: theme.text,
-      marginTop: 7,
     },
     trajetoDetalhe: {
       fontSize: 12,

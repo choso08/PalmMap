@@ -676,6 +676,12 @@ export interface RideStop {
  * is near enough for "three stops to go" and says nothing it does not know at
  * the ends.
  */
+/** A Carris Metropolitana pattern's own colour, `#C61D23`, or null. */
+export async function carrisPatternColour(patternId: string): Promise<string | null> {
+  const pattern = await loadPattern(patternId);
+  return pattern?.color && /^#[0-9a-f]{6}$/i.test(pattern.color) ? pattern.color : null;
+}
+
 export async function carrisRide(
   ref: Extract<RideRef, { source: 'carris' }>,
   departsAt: number,

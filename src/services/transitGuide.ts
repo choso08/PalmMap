@@ -1,6 +1,7 @@
 import { getRoutes } from './osrm';
 import { scheduledRide } from './schedules';
 import {
+  carrisPatternColour,
   carrisRide,
   carrisRideShape,
   changesOf,
@@ -47,6 +48,8 @@ export interface RideLeg {
    * shape — near enough for rails).
    */
   path: Coordinates[];
+  /** The line's own colour, when the service gives one (Carris buses). */
+  colour: string | null;
 }
 
 export type GuideLeg = WalkLeg | RideLeg;
@@ -216,6 +219,7 @@ export async function buildGuide(
       arrivesAt: r.arrivesAt,
       stops,
       path: stops.map((s) => s.coordinates),
+      colour: null,
     };
     legs.push(leg);
     rideLegs.push({ leg, ref: r.ref });
@@ -224,11 +228,17 @@ export async function buildGuide(
     legs.push(walkOut);
   }
 
-  // The buses' real ways, in parallel; any failure keeps the stops in a row.
+  // The buses' real ways and colours, in parallel; any failure keeps the stops
+  // in a row and the mode's colour.
   await Promise.all(
     rideLegs.map(async ({ leg, ref }) => {
       if (ref?.source !== 'carris') {
         return;
+      }
+      try {
+        leg.colour = await carrisPatternColour(ref.patternId);
+      } catch {
+        // The mode's colour (`lineColour`).
       }
       try {
         const shape = await carrisRideShape(

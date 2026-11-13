@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { type EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LineJourney } from './LineJourney';
-import type { GuideLeg, GuideProgress, RideLeg, TransitGuide } from '../services/transitGuide';
+import { MODE_ICONS, TripTimeline } from './TripTimeline';
+import type { GuideProgress, TransitGuide } from '../services/transitGuide';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDistance, formatDuration } from '../utils/format';
@@ -28,15 +28,9 @@ interface Props {
   onEnd: () => void;
   voiceOn: boolean;
   onToggleVoice: () => void;
+  /** The last place's name in the steps. */
+  destinationName: string;
 }
-
-const MODE_ICONS: Record<string, string> = {
-  bus: 'bus',
-  train: 'train',
-  subway: 'subway-variant',
-  light_rail: 'tram',
-  boat: 'ferry',
-};
 
 function clock(unixSeconds: number): string {
   const d = new Date(unixSeconds * 1000);
@@ -69,13 +63,13 @@ export function TransitGuidePanel({
   onEnd,
   voiceOn,
   onToggleVoice,
+  destinationName,
 }: Props) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const now = useNow();
-  const [opened, setOpened] = useState<number | null>(null);
 
   const g = strings.guide;
 
@@ -117,78 +111,6 @@ export function TransitGuidePanel({
   };
   const top = headline();
 
-  const rideJourney = (leg: RideLeg) => ({
-    line: leg.line,
-    headsign: leg.headsign,
-    colour: null,
-    stops: leg.stops.map((s) => ({
-      id: s.id,
-      name: s.name,
-      coordinates: s.coordinates,
-      time: s.unix !== null ? clock(s.unix) : null,
-    })),
-    alightIndex: leg.stops.length - 1,
-  });
-
-  const stepRow = (leg: GuideLeg, i: number) => {
-    const current = !arrived && i === progress.leg;
-    const done = arrived || i < progress.leg;
-    const isRide = leg.type === 'ride';
-    return (
-      <View key={i}>
-        <Pressable
-          style={[styles.step, current ? styles.stepCurrent : null]}
-          onPress={() => {
-            onChooseStep(i);
-            setOpened(isRide && opened !== i ? i : null);
-          }}
-        >
-          <Text style={[styles.stepTime, done ? styles.done : null]}>
-            {isRide ? clock(leg.departsAt) : ''}
-          </Text>
-          <MaterialCommunityIcons
-            name={(isRide ? (MODE_ICONS[leg.kind] ?? 'bus') : 'walk') as never}
-            size={20}
-            color={done ? theme.textMuted : current ? theme.accent : theme.text}
-          />
-          {isRide ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{leg.line}</Text>
-            </View>
-          ) : null}
-          <View style={styles.stepTexts}>
-            <Text style={[styles.stepTitle, done ? styles.done : null]} numberOfLines={2}>
-              {isRide
-                ? leg.headsign || leg.stops[leg.stops.length - 1].name
-                : leg.toName
-                  ? g.walkTo(leg.toName)
-                  : g.walkToDestination}
-            </Text>
-            <Text style={styles.stepDetail} numberOfLines={1}>
-              {isRide
-                ? `${strings.route.stopCount(leg.stops.length - 1)} · ${formatDuration(
-                    leg.arrivesAt - leg.departsAt,
-                  )}${leg.live ? '' : ` · ${g.timetable}`}`
-                : `${formatDistance(leg.meters)} · ${formatDuration(leg.seconds)}`}
-            </Text>
-          </View>
-          {isRide ? (
-            <MaterialCommunityIcons
-              name={opened === i ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={theme.textMuted}
-            />
-          ) : null}
-        </Pressable>
-        {isRide && opened === i ? (
-          <View style={styles.journey}>
-            <LineJourney journey={rideJourney(leg)} loading={false} error={null} />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.handleZone} {...dragHandlers}>
@@ -211,7 +133,14 @@ export function TransitGuidePanel({
 
       {guide ? (
         <ScrollView style={styles.list} nestedScrollEnabled>
-          {guide.legs.map(stepRow)}
+          <TripTimeline
+            guide={guide}
+            originName={strings.directions.myLocation}
+            destinationName={destinationName}
+            progress={progress}
+            arrived={arrived}
+            onPressLeg={onChooseStep}
+          />
         </ScrollView>
       ) : null}
 
@@ -298,56 +227,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       marginTop: 2,
     },
     list: {
-      maxHeight: 260,
+      maxHeight: 320,
       marginTop: 10,
-    },
-    step: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 6,
-      borderRadius: 12,
-    },
-    stepCurrent: {
-      backgroundColor: theme.surfaceMuted,
-    },
-    stepTime: {
-      width: 42,
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.text,
-      fontVariant: ['tabular-nums'],
-    },
-    done: {
-      color: theme.textMuted,
-    },
-    badge: {
-      backgroundColor: theme.vehicle,
-      borderRadius: 6,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    badgeText: {
-      color: theme.onOverlay,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    stepTexts: {
-      flex: 1,
-    },
-    stepTitle: {
-      fontSize: 14,
-      color: theme.text,
-      fontWeight: '600',
-    },
-    stepDetail: {
-      fontSize: 12,
-      color: theme.textMuted,
-      marginTop: 1,
-    },
-    journey: {
-      paddingLeft: 6,
     },
     footer: {
       flexDirection: 'row',

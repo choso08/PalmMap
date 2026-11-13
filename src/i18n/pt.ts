@@ -229,6 +229,11 @@ export const pt = {
     arrived: 'Chegou ao destino.',
     timetable: 'horário, sem atrasos',
     end: 'Terminar',
+    // The trip's timeline, Maps-style.
+    walkFor: (time: string, distance: string) => `Andar ${time} (${distance})`,
+    wait: (time: string) => `Espera ${time}`,
+    leavesFrom: (time: string, stop: string) => `${time} de ${stop}`,
+    realTime: 'tempo real',
     // What the voice says.
     boardVoice: (line: string, headsign: string, time: string) =>
       `Apanhe o ${line}${headsign ? `, sentido ${headsign}` : ''}, às ${time}.`,
