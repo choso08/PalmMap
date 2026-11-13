@@ -557,6 +557,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 ├── map-regions.json          # Which countries are cut for offline, and at what detail
 ├── transit-feeds.json        # Where each operator's GTFS comes from
 ├── metro.config.js           # Makes the bundler accept .pmtiles and .pbf
+├── patches/                  # patch-package fixes to libraries (expo-speech's language tag)
 └── .github/workflows/
     ├── build-apk.yml         # Builds the APK and publishes it in a Release
     ├── build-map.yml         # Cuts the country maps (and business files)
@@ -1670,6 +1671,15 @@ name was judged better than the accent. Only where names are Portuguese
 (`namesArePortuguese`: Portugal, Madeira, Azores, São Tomé, Cape Verde, Guinea-Bissau) — in
 London the English voice is right. Today only the manoeuvre's street (`step.streetName`) is
 passed.
+
+**The language tag was read wrong by `expo-speech`, patched** (author's report, November
+2026: the voice was Brazilian). Its Android `speakOut` built the locale with
+`Locale("pt-PT")` — the Java constructor takes the whole tag as a language code, `pt-pt`,
+which the engine does not know, and Google's TTS fell back to its default Portuguese,
+Brazil's. `patches/expo-speech+57.0.1.patch` changes it to `Locale.forLanguageTag`;
+`patch-package` applies it on every `npm install`/`npm ci` (the `postinstall` script). **When
+upgrading `expo-speech`, check the patch still applies** — `patch-package` fails the install
+otherwise. The phone still needs the Portugal voice installed in Google's TTS.
 
 **Distances are spelled out** (`formatDistanceSpoken`): "850 m" read aloud is "eight hundred
 and fifty em". The screen keeps the abbreviation.

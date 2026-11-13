@@ -1,0 +1,13 @@
+diff --git a/node_modules/expo-speech/android/src/main/java/expo/modules/speech/SpeechModule.kt b/node_modules/expo-speech/android/src/main/java/expo/modules/speech/SpeechModule.kt
+index 9ca869c..b574f0d 100644
+--- a/node_modules/expo-speech/android/src/main/java/expo/modules/speech/SpeechModule.kt
++++ b/node_modules/expo-speech/android/src/main/java/expo/modules/speech/SpeechModule.kt
+@@ -104,7 +104,7 @@ class SpeechModule : Module() {
+     options.rate?.let(textToSpeech::setSpeechRate)
+ 
+     textToSpeech.language = options.language?.let {
+-      val locale = Locale(it)
++      val locale = Locale.forLanguageTag(it)
+       val languageAvailable = textToSpeech.isLanguageAvailable(locale)
+ 
+       return@let if (
