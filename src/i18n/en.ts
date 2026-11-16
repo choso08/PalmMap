@@ -298,6 +298,8 @@ export const en: typeof pt = {
     reminderBody: (stop: string, dest: string) => `${stop} → ${dest}`,
     reminderDenied: 'Notifications are off for PalmMap.',
     reminderSet: 'Remind 5 min before',
+    reminderOff: 'Remove the reminder',
+    reminderFailed: 'Could not set the reminder.',
     vehicleNoNews: 'no newer position',
     vehiclePassed: (n: number) => `${n} earlier stops`,
     vehicleHere: 'The bus is here',

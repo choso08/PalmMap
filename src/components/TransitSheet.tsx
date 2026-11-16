@@ -127,6 +127,8 @@ export function TransitSheet({
   /** The buses with a reminder (the bell), and why one could not be set. */
   const reminded = useReminderKeys();
   const [reminderNote, setReminderNote] = useState<string | null>(null);
+  // A note about one stop's bell does not follow to the next.
+  useEffect(() => setReminderNote(null), [openStop]);
   const focusStation = stations.find((e) => e.id === selectedStationId) ?? null;
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
@@ -462,22 +464,33 @@ export function TransitSheet({
                         </Text>
                       </View>
                       {/* The bell: a notification 5 min before it arrives. */}
-                      <Pressable
-                        hitSlop={8}
-                        style={styles.sino}
-                        accessibilityLabel={strings.transit.reminderSet}
-                        onPress={() =>
-                          void toggleReminder(reminderKey(stop.id, a), a, stop.name).then((ok) =>
-                            setReminderNote(ok ? null : strings.transit.reminderDenied),
-                          )
-                        }
-                      >
-                        <MaterialCommunityIcons
-                          name={reminded.has(reminderKey(stop.id, a)) ? 'bell-ring' : 'bell-outline'}
-                          size={19}
-                          color={reminded.has(reminderKey(stop.id, a)) ? theme.accent : theme.textMuted}
-                        />
-                      </Pressable>
+                      {(() => {
+                        const rk = reminderKey(stop.id, a);
+                        const on = reminded.has(rk);
+                        return (
+                          <Pressable
+                            hitSlop={8}
+                            style={styles.sino}
+                            accessibilityLabel={
+                              on ? strings.transit.reminderOff : strings.transit.reminderSet
+                            }
+                            accessibilityState={{ selected: on }}
+                            onPress={() =>
+                              void toggleReminder(rk, a, stop.name)
+                                .then((ok) =>
+                                  setReminderNote(ok ? null : strings.transit.reminderDenied),
+                                )
+                                .catch(() => setReminderNote(strings.transit.reminderFailed))
+                            }
+                          >
+                            <MaterialCommunityIcons
+                              name={on ? 'bell-ring' : 'bell-outline'}
+                              size={19}
+                              color={on ? theme.accent : theme.textMuted}
+                            />
+                          </Pressable>
+                        );
+                      })()}
                     </Pressable>
                     {open ? (
                       <LineJourney

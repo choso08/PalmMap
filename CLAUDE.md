@@ -162,6 +162,12 @@ environment cannot reach.
 
 - **Built in 7.0.43** (16 November): the bus panel's refresh, origin/destination and stop list,
   and the live buses' refresh interval in Settings (`vehiclesRefresh`).
+- **Built in 7.0.44** (16 November): everything in "After 7.0.43" below, and tapping an
+  alternative route on the map. **After 7.0.44**, from a code review: the reminder's channel
+  is created **before** asking for the permission (Android 13+ shows no prompt without a
+  channel), a second tap on the bell while the first is on its way does nothing (`busy`), a
+  delivered reminder is never rescheduled (`at`), reminders whose bus has gone are dropped
+  (`prune`), and a failure says so under the arrivals.
 - **After 7.0.43** (author: "pull the other real-time library and the open-data things"; none
   seen on a phone): **Carris de Lisboa's buses and trams live** — GTFS-RT vehicle positions
   (`CARRIS_LISBOA_VEHICLES_URL`, Protobuf, ~10 KB for ~110 vehicles), decoded with

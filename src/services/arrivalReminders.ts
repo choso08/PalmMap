@@ -31,6 +31,8 @@ Notifications.setNotificationHandler({
 interface Reminder {
   /** The notification's id, to move or cancel it. */
   id: string;
+  /** When it was set to fire (seconds since 1970); past it, it is not moved. */
+  at: number;
   unix: number;
   line: string;
   stopName: string;
@@ -51,25 +53,49 @@ export function reminderKey(
 
 let channelReady = false;
 async function ready(): Promise<boolean> {
-  const current = await Notifications.getPermissionsAsync();
-  let granted = current.granted;
-  // Asked only here, after a tap on the bell: never at start-up.
-  if (!granted && current.canAskAgain) {
-    granted = (await Notifications.requestPermissionsAsync()).granted;
-  }
-  if (granted && !channelReady && Platform.OS === 'android') {
+  // The channel first: on Android 13+ the system shows no permission prompt
+  // until the app has a notification channel.
+  if (!channelReady && Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL, {
       name: t().transit.reminderChannel,
       importance: Notifications.AndroidImportance.HIGH,
     });
     channelReady = true;
   }
-  return granted;
+  const current = await Notifications.getPermissionsAsync();
+  // Asked only here, after a tap on the bell: never at start-up.
+  if (!current.granted && current.canAskAgain) {
+    return (await Notifications.requestPermissionsAsync()).granted;
+  }
+  return current.granted;
 }
 
-async function schedule(r: Omit<Reminder, 'id'>): Promise<string> {
+/** When a reminder fires: five minutes before, or a few seconds from now. */
+function firesAt(unix: number): number {
+  return Math.max(Date.now() / 1000 + 5, unix - LEAD_S);
+}
+
+/** Keys with a schedule or cancel still on its way — a second tap waits for it. */
+const busy = new Set<string>();
+
+/** Reminders whose bus has gone are dropped, so their bell goes dark. */
+function prune(): void {
   const now = Date.now() / 1000;
-  const minutes = Math.max(0, Math.round((r.unix - Math.max(now, r.unix - LEAD_S)) / 60));
+  let changed = false;
+  for (const [key, r] of reminders) {
+    if (r.unix + 60 < now) {
+      reminders.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    listeners.forEach((l) => l());
+  }
+}
+
+async function schedule(r: Omit<Reminder, 'id' | 'at'>): Promise<string> {
+  const at = firesAt(r.unix);
+  const minutes = Math.max(0, Math.round((r.unix - at) / 60));
   return Notifications.scheduleNotificationAsync({
     content: {
       title: t().transit.reminderTitle(r.line, minutes),
@@ -77,7 +103,7 @@ async function schedule(r: Omit<Reminder, 'id'>): Promise<string> {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: new Date(Math.max(now + 5, r.unix - LEAD_S) * 1000),
+      date: new Date(at * 1000),
       channelId: CHANNEL,
     },
   });
@@ -92,21 +118,32 @@ export async function toggleReminder(
   bus: { unix: number; line: string; destination: string },
   stopName: string,
 ): Promise<boolean> {
-  const old = reminders.get(key);
-  if (old) {
-    reminders.delete(key);
-    listeners.forEach((l) => l());
-    await Notifications.cancelScheduledNotificationAsync(old.id).catch(() => undefined);
+  // A second tap while the first is on its way does nothing: two would
+  // schedule two notifications and lose one's id.
+  if (busy.has(key)) {
     return true;
   }
-  if (!(await ready())) {
-    return false;
+  busy.add(key);
+  try {
+    const old = reminders.get(key);
+    if (old) {
+      reminders.delete(key);
+      listeners.forEach((l) => l());
+      await Notifications.cancelScheduledNotificationAsync(old.id).catch(() => undefined);
+      return true;
+    }
+    if (!(await ready())) {
+      return false;
+    }
+    const data = { unix: bus.unix, line: bus.line, stopName, destination: bus.destination };
+    const at = firesAt(bus.unix);
+    const id = await schedule(data);
+    reminders.set(key, { id, at, ...data });
+    listeners.forEach((l) => l());
+    return true;
+  } finally {
+    busy.delete(key);
   }
-  const data = { unix: bus.unix, line: bus.line, stopName, destination: bus.destination };
-  const id = await schedule(data);
-  reminders.set(key, { id, ...data });
-  listeners.forEach((l) => l());
-  return true;
 }
 
 /** A refresh of a stop's arrivals: each reminded bus moves to its new estimate. */
@@ -120,27 +157,31 @@ export function updateReminders(
     unix: number;
   }[],
 ): void {
+  prune();
+  const now = Date.now() / 1000;
   for (const a of arrivals) {
     const key = reminderKey(stopId, a);
     const r = reminders.get(key);
-    // Only a change of a minute or more is worth rescheduling.
-    if (!r || Math.abs(r.unix - a.unix) < 60) {
+    // Only a change of a minute or more is worth rescheduling; one already
+    // delivered is never sent again; one being moved is left to finish.
+    if (!r || busy.has(key) || r.at <= now || Math.abs(r.unix - a.unix) < 60) {
       continue;
     }
-    const next = { ...r, unix: a.unix };
-    reminders.set(key, next);
+    busy.add(key);
+    const moved = { ...r, unix: a.unix };
     void Notifications.cancelScheduledNotificationAsync(r.id)
-      .then(() => schedule(next))
+      .catch(() => undefined)
+      .then(() => schedule(moved))
       .then((id) => {
-        const still = reminders.get(key);
-        if (still) {
-          reminders.set(key, { ...still, id });
+        if (reminders.has(key)) {
+          reminders.set(key, { ...moved, id, at: firesAt(moved.unix) });
         } else {
           // Cleared meanwhile.
           void Notifications.cancelScheduledNotificationAsync(id);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => busy.delete(key));
   }
 }
 
@@ -150,6 +191,7 @@ export function useReminderKeys(): Set<string> {
   useEffect(() => {
     const update = () => setKeys(new Set(reminders.keys()));
     listeners.add(update);
+    prune();
     update();
     return () => {
       listeners.delete(update);

@@ -334,6 +334,8 @@ export const pt = {
     reminderBody: (stop: string, dest: string) => `${stop} → ${dest}`,
     reminderDenied: 'As notificações estão desligadas para o PalmMap.',
     reminderSet: 'Avisar 5 min antes',
+    reminderOff: 'Tirar o aviso',
+    reminderFailed: 'Não foi possível marcar o aviso.',
     vehicleNoNews: 'sem posição mais recente',
     vehiclePassed: (n: number) => `${n} paragens anteriores`,
     vehicleHere: 'O autocarro está aqui',
