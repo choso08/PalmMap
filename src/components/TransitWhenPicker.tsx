@@ -1,9 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Animated,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,12 +23,16 @@ interface Props {
   onChange: (when: TransitWhen) => void;
 }
 
-const STEP_MIN = 5;
+/** Minutes move one at a time, as in Maps (author's request). */
+const STEP_MIN = 1;
 const DAYS = 7;
 /** One row of the time wheels. */
 const ITEM_H = 44;
 /** Rows seen in a wheel; the middle one is the chosen. */
 const VISIBLE = 5;
+/** Pulled down this far (or flicked), the sheet closes. */
+const DISMISS_DY = 80;
+const DISMISS_VY = 0.8;
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 60 / STEP_MIN }, (_, i) => i * STEP_MIN);
@@ -53,7 +59,7 @@ function dayOffset(unix: number): number {
   return Math.round((b.getTime() - midnight(0).getTime()) / 86400000);
 }
 
-/** Now, rounded up to the next five minutes, in seconds. */
+/** Now, rounded up to the next step, in seconds. */
 function soon(): number {
   const step = STEP_MIN * 60;
   return Math.ceil(Date.now() / 1000 / step) * step;
@@ -75,6 +81,27 @@ export function TransitWhenPicker({ when, onChange }: Props) {
   const w = strings.when;
   const [open, setOpen] = useState(false);
 
+  // The sheet follows the finger down and closes past `DISMISS_DY`, as any
+  // bottom sheet does (author's request: no need to reach for "Cancel").
+  const drag = useRef(new Animated.Value(0)).current;
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
+        onPanResponderRelease: (_, g) => {
+          if (g.dy > DISMISS_DY || g.vy > DISMISS_VY) {
+            setOpen(false);
+          } else {
+            Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+          }
+        },
+        onPanResponderTerminate: () =>
+          Animated.spring(drag, { toValue: 0, useNativeDriver: true }).start(),
+      }),
+    [drag],
+  );
+
   // The draft, changed freely while the sheet is open.
   const [kind, setKind] = useState<TransitWhen['kind']>(when.kind);
   const [day, setDay] = useState(0);
@@ -88,6 +115,7 @@ export function TransitWhenPicker({ when, onChange }: Props) {
     setDay(Math.max(0, Math.min(DAYS - 1, dayOffset(at))));
     setHour(d.getHours());
     setMinute(Math.floor(d.getMinutes() / STEP_MIN) * STEP_MIN);
+    drag.setValue(0);
     setOpen(true);
   };
 
@@ -147,21 +175,24 @@ export function TransitWhenPicker({ when, onChange }: Props) {
         onRequestClose={() => setOpen(false)}
       >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]}>
+          {/* The drag zone: the handle and the tabs, not the wheels, which scroll. */}
+          <View {...pan.panHandlers} style={styles.dragZone}>
+            <View style={styles.handle} />
 
-          <View style={styles.tabs}>
-            {(['now', 'depart', 'arrive'] as const).map((k) => (
-              <Pressable
-                key={k}
-                style={[styles.tab, kind === k && styles.tabOn]}
-                onPress={() => setKind(k)}
-              >
-                <Text style={[styles.tabText, kind === k && styles.tabTextOn]}>
-                  {k === 'now' ? w.tabNow : k === 'depart' ? w.tabDepart : w.tabArrive}
-                </Text>
-              </Pressable>
-            ))}
+            <View style={styles.tabs}>
+              {(['now', 'depart', 'arrive'] as const).map((k) => (
+                <Pressable
+                  key={k}
+                  style={[styles.tab, kind === k && styles.tabOn]}
+                  onPress={() => setKind(k)}
+                >
+                  <Text style={[styles.tabText, kind === k && styles.tabTextOn]}>
+                    {k === 'now' ? w.tabNow : k === 'depart' ? w.tabDepart : w.tabArrive}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
 
           {kind !== 'now' ? (
@@ -213,7 +244,7 @@ export function TransitWhenPicker({ when, onChange }: Props) {
               <Text style={styles.setText}>{w.set}</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </Modal>
     </>
   );
@@ -237,13 +268,12 @@ function Wheel({
   const ref = useRef<ScrollView>(null);
   const index = Math.max(0, values.indexOf(value));
 
-  // Placed on the value when it appears (no animation: it is where it was).
-  useEffect(() => {
-    const timer = setTimeout(() => ref.current?.scrollTo({ y: index * ITEM_H, animated: false }), 0);
-    return () => clearTimeout(timer);
-    // Only on mount: afterwards the wheel is what moves the value.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Placed on the value when it appears. A `scrollTo` before the list is laid
+  // out is lost with no error — the wheels opened at 14:55 at 17:29 (author's
+  // photo) — so it starts there (`contentOffset`) and is placed again once its
+  // content has a size, only that first time.
+  const placed = useRef(false);
+  const start = useRef(index * ITEM_H).current;
 
   const settle = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
@@ -269,6 +299,13 @@ function Wheel({
         }
       }}
       contentContainerStyle={{ paddingVertical: ((VISIBLE - 1) / 2) * ITEM_H }}
+      contentOffset={{ x: 0, y: start }}
+      onContentSizeChange={() => {
+        if (!placed.current) {
+          placed.current = true;
+          ref.current?.scrollTo({ y: start, animated: false });
+        }
+      }}
     >
       {values.map((v, i) => (
         <Pressable
@@ -317,6 +354,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       paddingTop: 10,
       paddingBottom: insets.bottom + 16,
       gap: 16,
+    },
+    dragZone: {
+      gap: 16,
+      paddingTop: 6,
     },
     handle: {
       alignSelf: 'center',

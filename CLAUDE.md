@@ -106,8 +106,11 @@ environment cannot reach.
     scrolls, with Start below it.
   - **The time picker redone** (author's report: each +5 min replanned and the panel shrank
     and grew under the finger): `TransitWhenPicker` is a chip that opens its own sheet — now /
-    depart / arrive, seven days, hour and minute wheels (5-minute steps) — and **plans once,
-    on "Set"**. The chip sits above the "calculating" line, so it stays put.
+    depart / arrive, seven days, hour and minute wheels (minute by minute, author's request 16 November) — and **plans once,
+    on "Set"**. The chip sits above the "calculating" line, so it stays put. The sheet closes
+    by being pulled down by its handle or tabs (not the wheels, which scroll); the wheels start
+    on the value through `contentOffset` — a `scrollTo` before layout was lost, and they
+    opened at 14:55 at 17:29.
   - **Arriving at the door** (author's photo, Almada Forum: the walk ended behind the
     building): `entrances.ts` asks Overpass for the `entrance=*` nodes on the outlines of the
     buildings/malls/hospitals containing the place (`is_in` → `around.p:3`) and any within
