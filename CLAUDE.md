@@ -666,6 +666,7 @@ in one place instead of spread through the code.
   | `batterySaver` | Read the GPS less often far from manoeuvres |
   | `showSpeed` | Show the GPS speed |
   | `showVehicles` | Show moving buses on the transport map |
+  | `vehiclesRefresh` | How often they are asked for: 10, 20 (default), 30 or 60 s — author's request, November 2026; the line under it gives the data per hour (~150 KB compressed per ask) |
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
@@ -1384,7 +1385,8 @@ screen keeps what changes a choice.
   is gone everywhere. Messages telling apart refusal (with the status), delay and no network
   stay — that difference is information.
 - **Four short warnings stay**, preventing a wrong expectation: cameras are only
-  OpenStreetMap's; the car's speedometer rules; live buses cost 1.1 MB every 20 s;
+  OpenStreetMap's; the car's speedometer rules; live buses cost ~1.1 MB per refresh (with
+  the MB per hour of the chosen interval under it);
   train/metro/ferry timetables show no delays.
 - When adding text, measure:
   `Object.values(pt.settings).filter(v => typeof v === 'string').join(' ').length`. Over 1500

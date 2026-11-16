@@ -455,7 +455,11 @@ export const pt = {
     map: 'Mapa',
     showPlaces: 'Mostrar negócios no mapa',
     showVehicles: 'Autocarros a andar',
-    showVehiclesCost: 'Gasta cerca de 1,1 MB a cada 20 s.',
+    showVehiclesCost: '~1,1 MB por atualização (150 KB comprimido).',
+    vehiclesRefresh: 'Atualizar a cada',
+    vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
+    vehiclesRefreshCost: (perHourMb: number) =>
+      `≈ ${perHourMb} MB por hora com o mapa de transportes aberto.`,
 
     tryAgain: 'Tente novamente.',
 

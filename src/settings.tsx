@@ -106,6 +106,12 @@ export interface Settings {
    */
   showVehicles: boolean;
   /**
+   * How often the moving buses are asked for, in seconds (author's request,
+   * November 2026). Each ask is the whole fleet, ~1.1 MB; the buses report
+   * every 20–30 s, so faster mostly repeats the same positions.
+   */
+  vehiclesRefresh: VehiclesRefresh;
+  /**
    * Learn the person's pace from trips and count on it in the arrival time
    * (see `utils/eta.ts`). Off, the routing service's time as it comes —
    * and nothing is measured or stored (author's request, November 2026).
@@ -128,6 +134,7 @@ export const DEFAULT_SETTINGS: Settings = {
   batterySaver: true,
   showSpeed: true,
   showVehicles: true,
+  vehiclesRefresh: '20',
   paceLearning: true,
 };
 
@@ -166,6 +173,16 @@ export const LANGUAGES: { id: LanguagePreference; icon: string }[] = [
   { id: 'auto', icon: 'translate' },
   { id: 'pt', icon: 'alpha-p-box-outline' },
   { id: 'en', icon: 'alpha-e-box-outline' },
+];
+
+/** How often live buses are asked for: seconds, as text so it fits `ChoiceRow`. */
+export type VehiclesRefresh = '10' | '20' | '30' | '60';
+
+export const VEHICLES_REFRESH: { id: VehiclesRefresh; icon: string }[] = [
+  { id: '10', icon: 'clock-fast' },
+  { id: '20', icon: 'timer-outline' },
+  { id: '30', icon: 'clock-outline' },
+  { id: '60', icon: 'timer-sand' },
 ];
 
 export const APPEARANCE_MODES: { id: AppearanceMode; icon: string }[] = [
@@ -264,6 +281,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             mapType: MAP_TYPES.some((m) => m.id === JSON.parse(stored).mapType)
               ? JSON.parse(stored).mapType
               : DEFAULT_SETTINGS.mapType,
+            vehiclesRefresh: VEHICLES_REFRESH.some((r) => r.id === JSON.parse(stored).vehiclesRefresh)
+              ? JSON.parse(stored).vehiclesRefresh
+              : DEFAULT_SETTINGS.vehiclesRefresh,
             bikeType: ['road', 'normal', 'mtb'].includes(JSON.parse(stored).bikeType)
               ? JSON.parse(stored).bikeType
               : DEFAULT_SETTINGS.bikeType,

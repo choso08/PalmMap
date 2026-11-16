@@ -417,7 +417,11 @@ export const en: typeof pt = {
     map: 'Map',
     showPlaces: 'Show businesses on the map',
     showVehicles: 'Buses on the move',
-    showVehiclesCost: 'Uses about 1.1 MB every 20 s.',
+    showVehiclesCost: '~1.1 MB per refresh (150 KB compressed).',
+    vehiclesRefresh: 'Refresh every',
+    vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
+    vehiclesRefreshCost: (perHourMb: number) =>
+      `≈ ${perHourMb} MB an hour with the transport map open.`,
 
     tryAgain: 'Try again.',
 

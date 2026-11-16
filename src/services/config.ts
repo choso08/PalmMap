@@ -227,14 +227,6 @@ export const ARRIVALS_REFRESH_MS = 30000;
  */
 export const VEHICLE_MAX_AGE_S = 120;
 
-/**
- * How often the bus positions are requested again.
- *
- * Twenty seconds is the compromise: faster brings no new positions, because
- * that is roughly the rate at which the buses report them, and slower made them
- * look like they were jumping rather than moving.
- */
-export const VEHICLES_REFRESH_MS = 20000;
 
 /**
  * Minimum zoom for showing the moving buses.

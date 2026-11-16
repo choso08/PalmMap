@@ -77,7 +77,6 @@ import {
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
   STOPS_MAP_MIN_ZOOM,
-  VEHICLES_REFRESH_MS,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
   DRIVING_GPS_INTERVAL_MS,
@@ -631,13 +630,14 @@ function PalmMap() {
     };
 
     void carregar();
-    const timer = setInterval(() => void carregar(), VEHICLES_REFRESH_MS);
+    // How often is the person's choice (`vehiclesRefresh`, in Settings).
+    const timer = setInterval(() => void carregar(), Number(settings.vehiclesRefresh) * 1000);
 
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [settings.mapType, settings.showVehicles, vehicleZoomOk, appActive, online]);
+  }, [settings.mapType, settings.showVehicles, settings.vehiclesRefresh, vehicleZoomOk, appActive, online]);
 
   /** Visible area of the map, updated when the map stops moving. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);

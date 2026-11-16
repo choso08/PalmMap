@@ -25,6 +25,7 @@ import { Updates } from './Updates';
 import type { UpdateInfo } from '../services/update';
 import {
   APPEARANCE_MODES,
+  VEHICLES_REFRESH,
   LANGUAGES,
   SATELLITE_DETAILS,
   TRAVEL_MODES,
@@ -164,7 +165,7 @@ export function SettingsSheet({
       appearance: has(s.appearance, ...Object.values(s.appearanceModes)),
       satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
-      vehicles: has(s.map, s.showVehicles, s.showVehiclesCost),
+      vehicles: has(s.map, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.schedules),
       voice: has(nav, s.voice),
@@ -404,6 +405,26 @@ export function SettingsSheet({
                   trackColor={{ true: theme.accent, false: theme.border }}
                 />
               </View>
+              {settings.showVehicles ? (
+                <>
+                  <Text style={styles.switchLabel}>{s.vehiclesRefresh}</Text>
+                  <ChoiceRow
+                    options={VEHICLES_REFRESH}
+                    label={(id) => s.vehiclesRefreshLabel(id)}
+                    value={settings.vehiclesRefresh}
+                    onChange={(id) => update('vehiclesRefresh', id)}
+                    styles={styles}
+                    theme={theme}
+                  />
+                  {/*
+                    What the choice costs, the transferred (compressed) size:
+                    ~150 KB per refresh, so an hour is 540 / seconds MB.
+                  */}
+                  <Text style={styles.switchHint}>
+                    {s.vehiclesRefreshCost(Math.round(540 / Number(settings.vehiclesRefresh)))}
+                  </Text>
+                </>
+              ) : null}
             </>
           ) : null}
 
