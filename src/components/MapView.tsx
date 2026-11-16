@@ -198,6 +198,10 @@ interface MapViewProps {
    * fleet, parked ones included. See `src/services/vehicles.ts`.
    */
   vehicles?: LiveVehicle[];
+  /** A tap on a moving bus opens its way and next stops. */
+  onVehiclePress?: (vehicleId: string) => void;
+  /** The bus whose panel is open, drawn bigger. */
+  selectedVehicleId?: string | null;
   /**
    * How high the compass sits, in points from the bottom edge of the screen.
    *
@@ -351,6 +355,8 @@ export function MapView({
   guidePaths = null,
   transitStations = NONE,
   vehicles = NONE,
+  onVehiclePress,
+  selectedVehicleId = null,
   onStopPress,
   onStationPress,
   selectedStationId = null,
@@ -568,12 +574,14 @@ export function MapView({
         // `rumo` is -1 when the bus sends no bearing: then no nose is drawn,
         // rather than one pointing north by default.
         properties: {
+          id: v.id,
           linha: v.line,
           parado: v.atStop ? 1 : 0,
           rumo: v.bearing ?? -1,
+          aberto: v.id === selectedVehicleId ? 1 : 0,
         },
       })),
-    [vehicles],
+    [vehicles, selectedVehicleId],
   );
 
   const camerasJson = useMemo(
@@ -1433,6 +1441,14 @@ export function MapView({
         <GeoJSONSource
           id="autocarros"
           data={vehiclesJson}
+          onPress={(event) => {
+            // As with the stops: the tap must not reach the map.
+            event.stopPropagation?.();
+            const id = event.nativeEvent.features[0]?.properties?.id;
+            if (typeof id === 'string') {
+              onVehiclePress?.(id);
+            }
+          }}
         >
           <Layer
             key="autocarros-base"
@@ -1446,6 +1462,8 @@ export function MapView({
                 'vehicle-disc',
               ],
               'icon-rotate': ['max', ['get', 'rumo'], 0],
+              // The bus whose panel is open, bigger.
+              'icon-size': ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
               // Turned with the map, so the point keeps pointing down the
               // street when the map itself is rotated.
               'icon-rotation-alignment': 'map',
@@ -1461,6 +1479,7 @@ export function MapView({
             type="symbol"
             layout={{
               'icon-image': 'vehicle-live',
+              'icon-size': ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
             }}

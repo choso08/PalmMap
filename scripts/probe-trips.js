@@ -35,6 +35,32 @@ const PARES = [
 const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: 'Europe/Lisbon' });
 
 (async () => {
+  // A bus tapped on the map (`vehicleTrip` + `vehicleProgress`): where it is
+  // on its way, the next stop and the times after.
+  try {
+    const vehicles = require(path.join(pasta, 'services/vehicles.js'));
+    const lista = await vehicles.liveVehicles();
+    console.log(`\n=== Live buses: ${lista.length} ===`);
+    for (const v of lista.slice(0, 4)) {
+      try {
+        const trip = await transit.vehicleTrip(v);
+        const p = transit.vehicleProgress(trip, v);
+        const at = p.atIndex >= 0 ? `AT ${trip.stops[p.atIndex].name}` : 'moving';
+        console.log(`  ${v.line} → ${trip.headsign} [${v.stopId} ${v.atStop ? 'stopped' : 'transit'}] ${at};`,
+          `exact trip ${trip.exactTrip}, delay ${p.delaySeconds === null ? '-' : Math.round(p.delaySeconds)} s,`,
+          `shape ahead ${p.shapeAhead.length} pts of ${trip.shape.length}, age ${v.ageSeconds} s`);
+        console.log('    next:', trip.stops.slice(p.nextIndex, p.nextIndex + 5)
+          .map((s, k) => `${p.etas[k] ? hora(p.etas[k]) : '--'} ${s.name}`).join(' | '));
+        console.log('    passed:', trip.stops.slice(Math.max(0, p.nextIndex - 3), p.nextIndex - (p.atIndex >= 0 ? 1 : 0)).map((s) => s.name).join(' | '),
+          '· now', hora(Date.now() / 1000));
+      } catch (erro) {
+        console.log(`  ${v.line} ERRO:`, erro && erro.message);
+      }
+    }
+  } catch (erro) {
+    console.log('vehicles ERRO:', erro && erro.message);
+  }
+
   for (const [nome, [la, lo], [lb, lob]] of PARES) {
     const origem = { latitude: la, longitude: lo };
     const destino = { latitude: lb, longitude: lob };

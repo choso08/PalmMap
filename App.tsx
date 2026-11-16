@@ -58,6 +58,7 @@ import { LayersSheet } from './src/components/LayersSheet';
 import { SavedSheet } from './src/components/SavedSheet';
 import { StepsList } from './src/components/StepsList';
 import { TransitSheet } from './src/components/TransitSheet';
+import { VehicleSheet } from './src/components/VehicleSheet';
 import {
   ANNOUNCE_AT_METERS,
   ARRIVAL_METERS,
@@ -131,7 +132,10 @@ import {
   type TransitStation,
   type LineJourney,
   type TransitStop,
+  type VehicleTrip,
   changesOf,
+  vehicleProgress,
+  vehicleTrip,
 } from './src/services/transit';
 import {
   buildGuide,
@@ -237,6 +241,8 @@ function PalmMap() {
   const [installUnfinished, setInstallUnfinished] = useState(false);
   /** The stops and arrival times panel. */
   const [transitVisible, setTransitVisible] = useState(false);
+  /** A bus tapped on the map, whose panel is open (see `shownVehicle`). */
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   /**
    * Measuring tape: while on, each tap on the map adds a point instead of
    * showing the hint. It is the only thing that changes what a tap does, so it is
@@ -1939,6 +1945,7 @@ function PalmMap() {
     !destination &&
     !measuring &&
     !transitVisible &&
+    !selectedVehicleId &&
     !searchFocused;
 
   const activeTab: Tab = savedVisible
@@ -2441,6 +2448,72 @@ function PalmMap() {
   const mapWaypoints = useMemo(() => waypoints.map((w) => w.coordinates), [waypoints]);
   /** A line tapped in the stop panel: the map shows its stops and its way. */
   const [lineJourneyShown, setLineJourneyShown] = useState<LineJourney | null>(null);
+
+  /**
+   * A bus tapped on the map (author's request, November 2026): its way from
+   * where it is, the stop it is at or heads to, and when it reaches the next.
+   * The bus keeps moving with each refresh of the list; when it drops out of
+   * it (off the transport map, or silent past `VEHICLE_MAX_AGE_S`) the last
+   * known one stays, and the panel's "position from N ago" says how old it is.
+   */
+  const lastVehicle = useRef<LiveVehicle | null>(null);
+  const shownVehicle = useMemo(() => {
+    if (!selectedVehicleId) {
+      lastVehicle.current = null;
+      return null;
+    }
+    const found = vehicles.find((v) => v.id === selectedVehicleId);
+    if (found) {
+      lastVehicle.current = found;
+    }
+    return lastVehicle.current;
+  }, [vehicles, selectedVehicleId]);
+  const [busTrip, setBusTrip] = useState<{
+    trip: VehicleTrip | null;
+    loading: boolean;
+    error: string | null;
+  }>({ trip: null, loading: false, error: null });
+  // The way, stops and timetable: loaded once per trip the bus runs — a bus
+  // that ends its trip and starts another loads the new one.
+  const busTripKey = shownVehicle ? `${shownVehicle.patternId}|${shownVehicle.tripId}` : null;
+  useEffect(() => {
+    const v = lastVehicle.current;
+    if (!busTripKey || !v) {
+      setBusTrip({ trip: null, loading: false, error: null });
+      return;
+    }
+    let cancelled = false;
+    setBusTrip((before) => ({ trip: before.trip, loading: before.trip === null, error: null }));
+    vehicleTrip(v)
+      .then((trip) => {
+        if (!cancelled) {
+          setBusTrip({ trip, loading: false, error: null });
+        }
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setBusTrip({
+            trip: null,
+            loading: false,
+            error: e instanceof Error ? e.message : t().transit.journeyUnavailable,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [busTripKey]);
+  const busProgress = useMemo(
+    () => (busTrip.trip && shownVehicle ? vehicleProgress(busTrip.trip, shownVehicle) : null),
+    [busTrip.trip, shownVehicle],
+  );
+  const handleVehiclePress = useCallback((vehicleId: string) => {
+    setTransitVisible(false);
+    setSelectedStopId(null);
+    setSelectedStationId(null);
+    setLineJourneyShown(null);
+    setSelectedVehicleId(vehicleId);
+  }, []);
   const journeyStops = useMemo<TransitStop[] | null>(
     () =>
       lineJourneyShown
@@ -2459,13 +2532,15 @@ function PalmMap() {
   );
   const journeyLine = useMemo(
     () =>
-      lineJourneyShown && lineJourneyShown.stops.length >= 2
+      busProgress && busTrip.trip && busProgress.shapeAhead.length >= 2
+        ? { coordinates: busProgress.shapeAhead, colour: busTrip.trip.colour }
+        : lineJourneyShown && lineJourneyShown.stops.length >= 2
         ? {
             coordinates: lineJourneyShown.stops.map((s) => s.coordinates),
             colour: lineJourneyShown.colour,
           }
         : null,
-    [lineJourneyShown],
+    [lineJourneyShown, busProgress, busTrip.trip],
   );
   const guidePaths = useMemo(
     () =>
@@ -2496,12 +2571,25 @@ function PalmMap() {
           : [],
       );
     }
+    if (busProgress && busTrip.trip) {
+      // The stops the tapped bus has still to call at.
+      return busTrip.trip.stops.slice(busProgress.nextIndex).map((s) => ({
+        id: s.id,
+        name: s.name,
+        locality: '',
+        coordinates: s.coordinates,
+        lines: [],
+        connections: [],
+        patterns: [],
+        meters: 0,
+      }));
+    }
     const trip = transitTrips?.[transitTripIndex];
     if (!trip) {
       return journeyStops ?? mapStopsShown;
     }
     return [trip.from, ...changesOf(trip).flatMap((c) => [c.at, c.boardAt]), trip.to];
-  }, [shownGuide, transitTrips, transitTripIndex, mapStopsShown, journeyStops]);
+  }, [shownGuide, transitTrips, transitTripIndex, mapStopsShown, journeyStops, busProgress, busTrip.trip]);
 
   /**
    * The panel's list, with the stop tapped on the map at the top when it is
@@ -2521,6 +2609,7 @@ function PalmMap() {
   // request, November 2026: the list of everything nearby, behind a clock
   // button, was not used — the button is gone).
   const handleStopPress = useCallback((stopId: string) => {
+    setSelectedVehicleId(null);
     setSelectedStationId(null);
     setLineJourneyShown(null);
     setSelectedStopId(stopId);
@@ -2528,6 +2617,7 @@ function PalmMap() {
   }, []);
 
   const handleStationPress = useCallback((stationId: string) => {
+    setSelectedVehicleId(null);
     setSelectedStopId(null);
     setLineJourneyShown(null);
     setSelectedStationId(stationId);
@@ -2650,6 +2740,8 @@ function PalmMap() {
         selectedStationId={selectedStationId}
         transitStations={shownStations}
         vehicles={vehicles}
+        onVehiclePress={handleVehiclePress}
+        selectedVehicleId={selectedVehicleId}
         compassBottom={compassBottom}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
@@ -3029,6 +3121,24 @@ function PalmMap() {
                 selectedStopId={selectedStopId}
                 destination={destination?.coordinates ?? null}
                 onJourneyChange={setLineJourneyShown}
+              />
+            )}
+          </DraggableSheet>
+        </Reveal>
+      ) : null}
+
+      {selectedVehicleId && shownVehicle ? (
+        <Reveal style={styles.bottom}>
+          <DraggableSheet>
+            {(drag) => (
+              <VehicleSheet
+                dragHandlers={drag}
+                vehicle={shownVehicle}
+                trip={busTrip.trip}
+                progress={busProgress}
+                loading={busTrip.loading}
+                error={busTrip.error}
+                onClose={() => setSelectedVehicleId(null)}
               />
             )}
           </DraggableSheet>

@@ -313,6 +313,17 @@ export const pt = {
     /** A line's journey from the stop, tapped in the arrivals list. */
     loadingJourney: 'A ver o percurso…',
     journeyUnavailable: 'Não foi possível ver o percurso desta carreira.',
+    /** A bus tapped on the map. */
+    vehicleUpdated: (ago: string) => `Posição de há ${ago}`,
+    vehicleNext: 'Próxima paragem',
+    vehicleAt: 'Parado em',
+    vehicleEnd: 'Chegou ao fim da linha',
+    vehicleLate: (min: number) => `${min} min de atraso`,
+    vehicleEarly: (min: number) => `${min} min adiantado`,
+    vehicleOnTime: 'A horas',
+    vehicleMore: (n: number) => `Mais ${n} paragens`,
+    vehicleLess: 'Mostrar menos',
+    vehicleNearTrip: 'Horas aproximadas',
     getOffHere: 'Sair aqui',
     moreStops: (n: number, minutes: number | null) =>
       `${n === 1 ? '1 paragem' : `${n} paragens`}${minutes !== null ? ` · ${minutes} min` : ''}`,

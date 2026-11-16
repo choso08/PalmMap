@@ -99,6 +99,7 @@ jobs:
           # Compiled from /tmp/t, where there is no tsconfig.json: given a file by
           # hand, tsc refuses to run next to one.
           node_modules/.bin/tsc "$GITHUB_WORKSPACE/src/services/transit.ts" \
+            "$GITHUB_WORKSPACE/src/services/vehicles.ts" \
             --rootDir "$GITHUB_WORKSPACE/src" --outDir /tmp/t/out \
             --module commonjs --target es2020 --skipLibCheck --esModuleInterop \
             --moduleResolution node || true

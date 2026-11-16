@@ -797,6 +797,269 @@ export async function carrisRideShape(
   return b > a ? line.slice(a, b + 1) : [];
 }
 
+/** A stop of a live bus's way, with its timetable time when the trip is known. */
+export interface VehicleTripStop {
+  id: string;
+  name: string;
+  coordinates: Coordinates;
+  /** The trip's timetable here, in seconds after the service day's midnight. */
+  scheduled: number | null;
+}
+
+/** What does not move while a bus is followed: its way, stops and timetable. */
+export interface VehicleTrip {
+  line: string;
+  headsign: string;
+  colour: string | null;
+  /** Every stop of the pattern, in order. */
+  stops: VehicleTripStop[];
+  /** The streets it runs along (the pattern's shape); empty without one. */
+  shape: Coordinates[];
+  /** Whether the timetable is the bus's own trip, not a near one. */
+  exactTrip: boolean;
+}
+
+/** Where a bus is along its way, worked out again at each new position. */
+export interface VehicleProgress {
+  /** The stop it stands at, or -1 when moving. */
+  atIndex: number;
+  /** The next stop it will call at; `stops.length` once past the last. */
+  nextIndex: number;
+  /** When it should reach each stop from `nextIndex` on (unix seconds), or null. */
+  etas: (number | null)[];
+  /** Minutes late (positive) or early, from the timetable; null without one. */
+  delaySeconds: number | null;
+  /** The shape from the bus onwards. */
+  shapeAhead: Coordinates[];
+}
+
+/** The `[…]` prefixes off an id: `[7DQC0][LA77N]1529_0_1` → `1529_0_1`. */
+function bareId(id: string): string {
+  return id.replace(/^(\[[^\]]*\])+/, '');
+}
+
+/** Seconds since the phone's midnight, for comparing with a timetable. */
+function secondsToday(unix: number): number {
+  const d = new Date(unix * 1000);
+  return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+}
+
+/** `YYYYMMDD` of today, as `valid_on` writes it. */
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * A bus tapped on the map: its pattern's stops, the line's colour and shape,
+ * and its trip's timetable (author's request, November 2026: "tap a bus and
+ * see its route, which stop it is at and the next one").
+ *
+ * **The trip is found by its id without prefixes**: the bus sends
+ * `[7DQC0][LA77N]1529_0_1_1730_1759_0_1` and the pattern lists
+ * `[XS3H8]1529_0_1_1730_1759_0_1` — the same trip under another version tag
+ * (probed with `sondar: vehicle_trip`, 16 November 2026). When none matches,
+ * the trip of that pattern due nearest now at the bus's stop lends its minutes
+ * between stops, which hardly change from one trip to the next.
+ */
+export async function vehicleTrip(vehicle: {
+  patternId: string | null;
+  tripId: string | null;
+  stopId: string | null;
+  line: string;
+}): Promise<VehicleTrip> {
+  if (!vehicle.patternId) {
+    throw new TransitError(t().transit.journeyUnavailable);
+  }
+  const [pattern, allStops] = await Promise.all([loadPattern(vehicle.patternId), loadStops()]);
+  const path = (pattern?.path ?? [])
+    .filter((p) => p.stop_id && typeof p.stop_sequence === 'number')
+    .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+  if (!pattern || path.length === 0) {
+    throw new TransitError(t().transit.journeyUnavailable);
+  }
+
+  const trips = pattern.trips ?? [];
+  const wanted = vehicle.tripId ? bareId(vehicle.tripId) : null;
+  const today = todayKey();
+  const runsToday = (tr: (typeof trips)[number]) => !tr.valid_on || tr.valid_on.includes(today);
+  let trip = wanted
+    ? trips.find((tr) => runsToday(tr) && (tr.trip_ids ?? []).some((id) => bareId(id) === wanted)) ??
+      trips.find((tr) => (tr.trip_ids ?? []).some((id) => bareId(id) === wanted))
+    : undefined;
+  const exactTrip = trip !== undefined;
+  if (!trip) {
+    // The nearest trip in time at the bus's stop, within the slack.
+    const seq = path.find((p) => p.stop_id === vehicle.stopId)?.stop_sequence;
+    const now = secondsToday(Date.now() / 1000);
+    let bestGap = JOURNEY_TRIP_SLACK_S + 1;
+    for (const tr of trips) {
+      if (!runsToday(tr)) {
+        continue;
+      }
+      const here = (tr.schedule ?? []).find((x) => x.stop_sequence === seq);
+      const sec = secondsOf(here?.arrival_time);
+      if (sec === null) {
+        continue;
+      }
+      const gap = Math.min(Math.abs(sec - now), Math.abs(sec - now - 86400));
+      if (gap < bestGap) {
+        bestGap = gap;
+        trip = tr;
+      }
+    }
+  }
+  const timeAt = new Map<number, number>();
+  for (const x of trip?.schedule ?? []) {
+    const sec = secondsOf(x.arrival_time);
+    if (typeof x.stop_sequence === 'number' && sec !== null) {
+      timeAt.set(x.stop_sequence, sec);
+    }
+  }
+
+  const byId = new Map(allStops.map((x) => [x.id, x]));
+  const stops: VehicleTripStop[] = [];
+  for (const p of path) {
+    const stop = byId.get(p.stop_id ?? '');
+    if (stop) {
+      stops.push({
+        id: stop.id,
+        name: stop.name,
+        coordinates: stop.coordinates,
+        scheduled: timeAt.get(p.stop_sequence ?? -1) ?? null,
+      });
+    }
+  }
+
+  if (stops.length === 0) {
+    throw new TransitError(t().transit.journeyUnavailable);
+  }
+
+  // The shape is a nicety: without it the stops are joined in a row.
+  const shape = pattern.shape_id ? await loadShape(pattern.shape_id).catch(() => []) : [];
+
+  return {
+    line: vehicle.line,
+    headsign: pattern.headsign ?? '',
+    colour: pattern.color ?? null,
+    stops,
+    shape,
+    exactTrip,
+  };
+}
+
+/** Within this of a stop, a bus with no status is taken to stand at it. */
+const AT_STOP_M = 30;
+
+/**
+ * Where the bus is on its way now: the stop it stands at or heads to, from
+ * the service's `stop_id` and `current_status` — and when it should reach the
+ * stops after, its timetable shifted by how late it runs here.
+ *
+ * A circular line passes a stop twice (1012 starts and ends at the same one):
+ * the pass meant is the one whose stretch the bus is on — for a bus heading to
+ * stop *i*, the one where it is nearest the way from *i − 1* to *i*.
+ */
+export function vehicleProgress(
+  trip: VehicleTrip,
+  vehicle: { coordinates: Coordinates; stopId: string | null; atStop: boolean; reportedAt: number },
+): VehicleProgress {
+  const { stops } = trip;
+  const at = vehicle.coordinates;
+  const d = (i: number) => distanceMeters(at, stops[Math.max(0, Math.min(stops.length - 1, i))].coordinates);
+
+  let candidates = stops.map((s, i) => (s.id === vehicle.stopId ? i : -1)).filter((i) => i >= 0);
+  let standing = vehicle.atStop;
+  if (candidates.length === 0) {
+    // No stop of this pattern named: the nearest one, and standing there only
+    // when right on it.
+    let best = 0;
+    stops.forEach((_, i) => {
+      if (d(i) < d(best)) {
+        best = i;
+      }
+    });
+    candidates = [best];
+    standing = d(best) <= AT_STOP_M;
+  }
+  const cost = (i: number) => (standing ? d(i) : d(i - 1) + d(i));
+  const i = candidates.reduce((a, b) => (cost(b) < cost(a) ? b : a));
+
+  const atIndex = standing ? i : -1;
+  const nextIndex = standing ? i + 1 : i;
+
+  // Where the timetable has the bus right now: at the stop, or partway along
+  // the stretch to it, by distance.
+  let scheduledNow: number | null = null;
+  const here = stops[i]?.scheduled ?? null;
+  const prev = i > 0 ? stops[i - 1].scheduled : null;
+  if (standing || i === 0 || prev === null) {
+    scheduledNow = here;
+  } else if (here !== null) {
+    const a = d(i - 1);
+    const b = d(i);
+    scheduledNow = prev + (a + b > 0 ? a / (a + b) : 1) * (here - prev);
+  }
+
+  const etas: (number | null)[] = [];
+  let delaySeconds: number | null = null;
+  if (scheduledNow !== null) {
+    const when = vehicle.reportedAt;
+    let nowSec = secondsToday(when);
+    // A timetable past 24 h belongs to the day before.
+    if (scheduledNow - nowSec > 12 * 3600) {
+      nowSec += 86400;
+    }
+    delaySeconds = nowSec - scheduledNow;
+    for (let j = nextIndex; j < stops.length; j += 1) {
+      const sec = stops[j].scheduled;
+      etas.push(sec === null ? null : Math.max(when, when + (sec - scheduledNow)));
+    }
+  } else {
+    for (let j = nextIndex; j < stops.length; j += 1) {
+      etas.push(null);
+    }
+  }
+
+  // The shape from the bus on, cut at its nearest point from the stretch it
+  // is on — searched forward from the previous stop, so a circular line is cut
+  // on the right lap.
+  let shapeAhead: Coordinates[] = [];
+  const line = trip.shape;
+  if (line.length >= 2) {
+    const from = stops[Math.max(0, nextIndex - 1)].coordinates;
+    let startCut = 0;
+    let bestM = Infinity;
+    for (let k = 0; k < line.length; k += 1) {
+      const m = distanceMeters(line[k], from);
+      if (m < bestM) {
+        bestM = m;
+        startCut = k;
+      }
+      if (bestM <= SHAPE_CUT_M && m > bestM + SHAPE_CUT_M) {
+        break;
+      }
+    }
+    let cut = startCut;
+    bestM = Infinity;
+    for (let k = startCut; k < line.length; k += 1) {
+      const m = distanceMeters(line[k], at);
+      if (m < bestM) {
+        bestM = m;
+        cut = k;
+      }
+      if (bestM <= SHAPE_CUT_M && m > bestM + 4 * SHAPE_CUT_M) {
+        break;
+      }
+    }
+    shapeAhead = [at, ...line.slice(cut)];
+  } else {
+    shapeAhead = [at, ...stops.slice(nextIndex).map((s) => s.coordinates)];
+  }
+
+  return { atIndex, nextIndex, etas, delaySeconds, shapeAhead };
+}
+
 /** All the stops within `maxMeters`, from nearest to farthest. */
 async function stopsNear(origin: Coordinates, maxMeters: number): Promise<TransitStop[]> {
   const all = await loadStops();

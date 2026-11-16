@@ -147,6 +147,14 @@ export interface CarrisPattern {
   }[];
   /** Every trip of the pattern, each with its time at each stop. */
   trips?: {
+    /**
+     * The GTFS trips this timetable is, one per service, e.g.
+     * `[XS3H8]1529_0_1_1730_1759_0_1`. A live bus's `trip_id` is the same
+     * after its own `[…]` prefixes (probed 16 November 2026).
+     */
+    trip_ids?: string[];
+    /** Days it runs, `YYYYMMDD`. */
+    valid_on?: string[];
     schedule?: {
       stop_id?: string;
       stop_sequence?: number;

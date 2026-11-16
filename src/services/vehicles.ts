@@ -67,8 +67,19 @@ export interface LiveVehicle {
   speedKmh: number;
   /** Whether it is standing at a stop right now. */
   atStop: boolean;
-  /** How many seconds ago it reported in. */
+  /** How many seconds ago it reported in, when the list was fetched. */
   ageSeconds: number;
+  /** When it reported in, in seconds since 1970 — for "updated N s ago". */
+  reportedAt: number;
+  /** The pattern it runs (`[…]1529_0_1`), to place it on its way. */
+  patternId: string | null;
+  /** Its trip, whose timetable says when it is due at each stop. */
+  tripId: string | null;
+  /**
+   * The stop `current_status` speaks of: the one it stands at, or the one it
+   * is heading to. A plain id, as in the pattern's path (probed).
+   */
+  stopId: string | null;
 }
 
 function toNumber(value: unknown): number | null {
@@ -123,6 +134,10 @@ export async function liveVehicles(): Promise<LiveVehicle[]> {
       speedKmh: Math.round(speed * 3.6),
       atStop: vehicle.current_status === 'STOPPED_AT',
       ageSeconds: Math.round(age),
+      reportedAt,
+      patternId: vehicle.pattern_id ?? null,
+      tripId: vehicle.trip_id ?? null,
+      stopId: vehicle.stop_id ?? null,
     });
   }
 
