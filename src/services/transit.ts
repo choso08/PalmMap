@@ -19,6 +19,7 @@ import type { Bounds, Coordinates } from '../types/geo';
 import type {
   CarrisArrival,
   CarrisFacility,
+  CarrisLine,
   CarrisPattern,
   CarrisShape,
   CarrisStop,
@@ -404,6 +405,8 @@ export interface JourneyStop {
 /** Where a bus goes from the stop it was tapped at, as Maps shows a line. */
 export interface LineJourney {
   line: string;
+  /** The streets it runs along, when known; else the stops are joined. */
+  shape?: Coordinates[];
   headsign: string;
   /** The line's own colour, when the service gives one. */
   colour: string | null;
@@ -2216,6 +2219,123 @@ export async function busFromPoints(
       continue;
     }
     out.push({ trip: legTrip(leg, 0, walkSeconds(leg.to.meters)), point: at.point, walkMeters: at.meters });
+  }
+  return out;
+}
+
+// --- Line search (author's request, November 2026: "as in Moovit") -------------
+
+/** A line found by the search. */
+export interface TransitLineInfo {
+  id: string;
+  short: string;
+  long: string;
+  colour: string | null;
+  textColour: string | null;
+  patternIds: string[];
+}
+
+/** One way of a line: where it goes, its stops and streets. */
+export interface LineDirection {
+  patternId: string;
+  headsign: string;
+  stops: JourneyStop[];
+  shape: Coordinates[];
+}
+
+/**
+ * Every Carris Metropolitana line, asked once per session (`/v2/lines`: 717
+ * lines, ~340 KB, probed 16 November 2026) — only when a search looks for one.
+ */
+let linesPending: Promise<TransitLineInfo[]> | null = null;
+function loadLines(): Promise<TransitLineInfo[]> {
+  if (!linesPending) {
+    linesPending = carrisGet<CarrisLine[]>('/lines', CARRIS_STOPS_TIMEOUT_MS)
+      .then((data) =>
+        (Array.isArray(data) ? data : [])
+          .filter((l) => l.id && l.short_name)
+          .map((l) => ({
+            id: l.id ?? '',
+            short: l.short_name ?? '',
+            long: l.long_name ?? '',
+            colour: l.color ?? null,
+            textColour: l.text_color ?? null,
+            patternIds: l.pattern_ids ?? [],
+          })),
+      )
+      .catch((e: unknown) => {
+        linesPending = null;
+        throw e;
+      });
+  }
+  return linesPending;
+}
+
+function plainText(text: string): string {
+  const lower = text.toLowerCase();
+  return typeof lower.normalize === 'function'
+    ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    : lower;
+}
+
+/**
+ * Lines matching what is typed: by number ("36" → 3601, 3602…, the exact one
+ * first) or, from four letters, by the places in the name ("Cova da
+ * Piedade"). Few, so they do not push the places away.
+ */
+export async function searchLines(term: string): Promise<TransitLineInfo[]> {
+  const q = plainText(term.trim());
+  if (q.length < 2) {
+    return [];
+  }
+  const lines = await loadLines();
+  if (/^\d/.test(q)) {
+    return lines
+      .filter((l) => plainText(l.short).startsWith(q))
+      .sort((a, b) => (a.short === q ? -1 : b.short === q ? 1 : a.short.localeCompare(b.short)))
+      .slice(0, 6);
+  }
+  if (q.length < 4) {
+    return [];
+  }
+  return lines.filter((l) => plainText(l.long).includes(q)).slice(0, 3);
+}
+
+/**
+ * A line's ways (usually one per direction), each with its stops and streets.
+ * Each pattern is ~400 KB (its timetable comes with it) and kept for the
+ * session, so at most four are asked.
+ */
+export async function lineDirections(line: TransitLineInfo): Promise<LineDirection[]> {
+  const [allStops, patterns] = await Promise.all([
+    loadStops(),
+    Promise.all(line.patternIds.slice(0, 4).map((id) => loadPattern(id).catch(() => null))),
+  ]);
+  const byId = new Map(allStops.map((x) => [x.id, x]));
+  const out: LineDirection[] = [];
+  for (const [k, pattern] of patterns.entries()) {
+    if (!pattern) {
+      continue;
+    }
+    const stops = (pattern.path ?? [])
+      .filter((p) => p.stop_id && typeof p.stop_sequence === 'number')
+      .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0))
+      .map((p) => byId.get(p.stop_id ?? ''))
+      .filter((x): x is TransitStop => x !== undefined)
+      .map((x) => ({ id: x.id, name: x.name, coordinates: x.coordinates, time: null }));
+    if (stops.length < 2) {
+      continue;
+    }
+    const shape = pattern.shape_id ? await loadShape(pattern.shape_id).catch(() => []) : [];
+    out.push({
+      patternId: line.patternIds[k],
+      headsign: pattern.headsign ?? stops[stops.length - 1].name,
+      stops,
+      shape,
+    });
+  }
+  if (out.length === 0) {
+    throw new TransitError(t().transit.journeyUnavailable);
   }
   return out;
 }

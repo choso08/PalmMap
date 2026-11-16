@@ -219,3 +219,14 @@ export interface CarrisAlert {
   /** `route_id` carries the version prefix: `[LA77N]1714_0`. */
   informed_entity?: { agency_id?: string; route_id?: string; stop_id?: string }[];
 }
+
+/** A line, as `/v2/lines` answers (read from a real response, 16 November 2026). */
+export interface CarrisLine {
+  id?: string;
+  short_name?: string;
+  long_name?: string;
+  color?: string;
+  text_color?: string;
+  /** Its patterns (directions and variants): `3601_0_1`, `3601_0_2`. */
+  pattern_ids?: string[];
+}

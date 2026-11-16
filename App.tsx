@@ -133,10 +133,14 @@ import {
   type LineJourney,
   type TransitStop,
   type VehicleTrip,
+  type LineDirection,
+  type TransitLineInfo,
   changesOf,
+  lineDirections,
   vehicleProgress,
   vehicleTrip,
 } from './src/services/transit';
+import { LineSheet } from './src/components/LineSheet';
 import {
   buildGuide,
   guideArrived,
@@ -211,9 +215,9 @@ function PalmMap() {
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   // The bottom panels' measured heights — see `raisedBottom`.
-  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0, guide: 0, vehicle: 0 });
+  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0, guide: 0, vehicle: 0, line: 0 });
   const measurePanel = useCallback(
-    (which: 'place' | 'route' | 'measure' | 'guide' | 'vehicle') => (event: LayoutChangeEvent) => {
+    (which: 'place' | 'route' | 'measure' | 'guide' | 'vehicle' | 'line') => (event: LayoutChangeEvent) => {
       const height = Math.round(event.nativeEvent.layout.height);
       setPanelHeights((old) => (old[which] === height ? old : { ...old, [which]: height }));
     },
@@ -243,6 +247,14 @@ function PalmMap() {
   const [transitVisible, setTransitVisible] = useState(false);
   /** A bus tapped on the map, whose panel is open (see `shownVehicle`). */
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  /** A line chosen in the search — see `handleSelectLine`. */
+  const [lineShown, setLineShown] = useState<{
+    line: TransitLineInfo;
+    directions: LineDirection[];
+    index: number;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
   /**
    * Measuring tape: while on, each tap on the map adds a point instead of
    * showing the hint. It is the only thing that changes what a tap does, so it is
@@ -1899,6 +1911,8 @@ function PalmMap() {
     ? 'guide'
     : selectedVehicleId
       ? 'vehicle'
+      : lineShown && !transitVisible
+      ? 'line'
       : selectedPlace
       ? 'place'
       : destination
@@ -1949,6 +1963,7 @@ function PalmMap() {
     !measuring &&
     !transitVisible &&
     !selectedVehicleId &&
+    !lineShown &&
     !searchFocused;
 
   const activeTab: Tab = savedVisible
@@ -2458,6 +2473,69 @@ function PalmMap() {
     },
     [routeOptions],
   );
+  /**
+   * A line chosen in the search ("3601"): its directions, loaded once, and
+   * which one is shown. Drawn through `lineJourneyShown`, like a line tapped
+   * at a stop.
+   */
+  const handleSelectLine = useCallback((line: TransitLineInfo) => {
+    setSelectedPlace(null);
+    setSelectedVehicleId(null);
+    setTransitVisible(false);
+    setSelectedStopId(null);
+    setSelectedStationId(null);
+    setLineJourneyShown(null);
+    setLineShown({ line, directions: [], index: 0, loading: true, error: null });
+    lineDirections(line)
+      .then((directions) =>
+        setLineShown((now) =>
+          now && now.line.id === line.id ? { ...now, directions, loading: false } : now,
+        ),
+      )
+      .catch((e: unknown) =>
+        setLineShown((now) =>
+          now && now.line.id === line.id
+            ? {
+                ...now,
+                loading: false,
+                error: e instanceof Error ? e.message : t().transit.journeyUnavailable,
+              }
+            : now,
+        ),
+      );
+  }, []);
+  const shownDirection = lineShown?.directions[lineShown.index] ?? null;
+  useEffect(() => {
+    if (!lineShown || !shownDirection || transitVisible) {
+      return;
+    }
+    setLineJourneyShown({
+      line: lineShown.line.short,
+      headsign: shownDirection.headsign,
+      colour: lineShown.line.colour,
+      stops: shownDirection.stops,
+      alightIndex: null,
+      shape: shownDirection.shape,
+    });
+    mapRef.current?.frame(
+      shownDirection.shape.length >= 2
+        ? shownDirection.shape
+        : shownDirection.stops.map((x) => x.coordinates),
+    );
+    // When the direction changes, and again on coming back from a stop opened
+    // from the list (closing that panel clears the drawing) — not on every redraw.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownDirection, transitVisible]);
+  // A place or a route takes the bottom of the screen: the line gives way.
+  useEffect(() => {
+    if (selectedPlace || destination) {
+      setLineShown(null);
+    }
+  }, [selectedPlace, destination]);
+  const closeLine = useCallback(() => {
+    setLineShown(null);
+    setLineJourneyShown(null);
+  }, []);
   const mapWaypoints = useMemo(() => waypoints.map((w) => w.coordinates), [waypoints]);
   /** A line tapped in the stop panel: the map shows its stops and its way. */
   const [lineJourneyShown, setLineJourneyShown] = useState<LineJourney | null>(null);
@@ -2593,7 +2671,10 @@ function PalmMap() {
         ? { coordinates: busProgress.shapeAhead, colour: busTrip.trip.colour }
         : lineJourneyShown && lineJourneyShown.stops.length >= 2
         ? {
-            coordinates: lineJourneyShown.stops.map((s) => s.coordinates),
+            coordinates:
+              lineJourneyShown.shape && lineJourneyShown.shape.length >= 2
+                ? lineJourneyShown.shape
+                : lineJourneyShown.stops.map((s) => s.coordinates),
             colour: lineJourneyShown.colour,
           }
         : null,
@@ -2831,6 +2912,7 @@ function PalmMap() {
         pointerEvents="box-none"
       >
         <SearchBar
+          onSelectLine={handleSelectLine}
           onSelect={(place) => {
             // A destination picked from the main search starts from the GPS,
             // as it always did; only the Directions screen changes the start.
@@ -3199,6 +3281,33 @@ function PalmMap() {
                 selectedStopId={selectedStopId}
                 destination={destination?.coordinates ?? null}
                 onJourneyChange={setLineJourneyShown}
+              />
+            )}
+          </DraggableSheet>
+        </Reveal>
+      ) : null}
+
+      {lineShown && !selectedVehicleId && !transitVisible ? (
+        <Reveal style={styles.bottom} onLayout={measurePanel('line')}>
+          <DraggableSheet>
+            {(drag) => (
+              <LineSheet
+                dragHandlers={drag}
+                line={lineShown.line}
+                directions={lineShown.directions}
+                index={lineShown.index}
+                loading={lineShown.loading}
+                error={lineShown.error}
+                onChooseDirection={(index) =>
+                  setLineShown((now) => (now ? { ...now, index } : now))
+                }
+                onStopPress={(stop) => {
+                  // The stop's arrivals; the line stays to come back to.
+                  mapRef.current?.recenter(stop.coordinates);
+                  setSelectedStopId(stop.id);
+                  setTransitVisible(true);
+                }}
+                onClose={closeLine}
               />
             )}
           </DraggableSheet>

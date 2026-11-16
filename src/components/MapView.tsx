@@ -230,6 +230,8 @@ export interface MapViewRef {
   followAgain: () => void;
   /** During navigation: let go of the car and frame what is left of the route. */
   overview: () => void;
+  /** Frames these points above the bottom panel (a searched line's way). */
+  frame: (points: Coordinates[]) => void;
 }
 
 /**
@@ -626,6 +628,16 @@ export function MapView({
       cameraRef.current?.fitBounds([area.west, area.south, area.east, area.north], {
         padding: { top: 200, right: 50, bottom: 200, left: 50 },
         duration: 600,
+      });
+    },
+    frame: (points: Coordinates[]) => {
+      if (points.length < 2) {
+        return;
+      }
+      const area = boundsOf(points);
+      cameraRef.current?.fitBounds([area.west, area.south, area.east, area.north], {
+        padding: { top: 160, right: 40, bottom: bottomInsetRef.current + 40, left: 40 },
+        duration: 700,
       });
     },
   }));

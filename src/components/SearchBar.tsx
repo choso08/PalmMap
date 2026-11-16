@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
+import { searchLines, type TransitLineInfo } from '../services/transit';
+import { textOn } from '../utils/lineColour';
 import { isSamePlace } from '../services/favourites';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
@@ -23,6 +25,8 @@ import type { Bounds, Place } from '../types/geo';
 
 interface SearchBarProps {
   onSelect: (place: Place) => void;
+  /** A transport line chosen from the results ("3601"). */
+  onSelectLine?: (line: TransitLineInfo) => void;
   /**
    * The area the map is showing, so the search prefers what is near.
    *
@@ -64,6 +68,7 @@ interface SearchBarProps {
  */
 export function SearchBar({
   onSelect,
+  onSelectLine,
   onOpenSettings,
   onOpenDirections,
   favourites,
@@ -95,6 +100,35 @@ export function SearchBar({
   useEffect(() => {
     void voiceAvailable().then(setHasVoice);
   }, []);
+
+  /**
+   * Transport lines matching the text ("3601", "Cova da Piedade"). No
+   * Nominatim here: the list of lines is asked once and filtered on the phone,
+   * so it follows every keystroke.
+   */
+  const [lineResults, setLineResults] = useState<TransitLineInfo[]>([]);
+  useEffect(() => {
+    if (!onSelectLine || query === escolhidoLinha.current) {
+      setLineResults([]);
+      return;
+    }
+    let cancelled = false;
+    searchLines(query)
+      .then((found) => {
+        if (!cancelled) {
+          setLineResults(found);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLineResults([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query, onSelectLine]);
+  const escolhidoLinha = useRef<string | null>(null);
 
   /** Identifica a pesquisa mais recente, para ignorar respostas atrasadas. */
   const latestSearch = useRef(0);
@@ -178,6 +212,19 @@ export function SearchBar({
     }
   };
 
+  const handleSelectLine = (line: TransitLineInfo) => {
+    escolhido.current = line.short;
+    escolhidoLinha.current = line.short;
+    latestSearch.current += 1;
+    setLoading(false);
+    setQuery(line.short);
+    setResults([]);
+    setLineResults([]);
+    setFocused(false);
+    Keyboard.dismiss();
+    onSelectLine?.(line);
+  };
+
   const handleSelect = (place: Place) => {
     escolhido.current = place.name;
     // A search still on its way no longer matters.
@@ -230,6 +277,7 @@ export function SearchBar({
   const showingSuggestions = parado && sugestoes.length > 0;
   // Only while the box is in use: once something is chosen, the list has no job.
   const list = focused && (showingSuggestions || !parado) ? sugestoes : [];
+  const linesShown = focused && !parado ? lineResults : [];
 
   return (
     <View style={[styles.container, focused && styles.containerFocused]}>
@@ -300,10 +348,40 @@ export function SearchBar({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {list.length > 0 ? (
+      {list.length > 0 || linesShown.length > 0 ? (
         <FlatList
           style={[styles.results, focused && styles.resultsFocused]}
           data={list}
+          ListHeaderComponent={
+            linesShown.length > 0 ? (
+              <View>
+                {linesShown.map((line) => {
+                  const bg = line.colour ?? theme.vehicle;
+                  return (
+                    <Pressable
+                      key={line.id}
+                      style={[styles.result, styles.lineResult]}
+                      onPress={() => handleSelectLine(line)}
+                    >
+                      <View style={[styles.lineBadge, { backgroundColor: bg }]}>
+                        <MaterialCommunityIcons
+                          name="bus"
+                          size={13}
+                          color={line.textColour ?? textOn(bg)}
+                        />
+                        <Text style={[styles.lineBadgeText, { color: line.textColour ?? textOn(bg) }]}>
+                          {line.short}
+                        </Text>
+                      </View>
+                      <Text style={styles.resultAddress} numberOfLines={2}>
+                        {line.long}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null
+          }
           keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item: { place, guardado, local } }) => {
@@ -371,6 +449,23 @@ function normalizar(texto: string): string {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    lineResult: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    lineBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      borderRadius: 6,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    lineBadgeText: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
     container: {
       // Equal on both sides: that is what centres the bar on screen.
       marginHorizontal: 14,
