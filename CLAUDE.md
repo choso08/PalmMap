@@ -160,6 +160,30 @@ environment cannot reach.
   - **A recent search is forgotten** by swiping it sideways or its ✕ (`SwipeToRemove`,
     `forgetRecent`).
 
+- **Built in 7.0.43** (16 November): the bus panel's refresh, origin/destination and stop list,
+  and the live buses' refresh interval in Settings (`vehiclesRefresh`).
+- **After 7.0.43** (author: "pull the other real-time library and the open-data things"; none
+  seen on a phone): **Carris de Lisboa's buses and trams live** — GTFS-RT vehicle positions
+  (`CARRIS_LISBOA_VEHICLES_URL`, Protobuf, ~10 KB for ~110 vehicles), decoded with
+  `gtfs-realtime-bindings` (on `protobufjs/minimal`: no `eval`; `Long` numbers go through
+  `plain()`), merged into `liveVehicles()` (`operator: 'cl'`, ids `cl:<n>`). The feed has
+  only `route_id` (`172_1`), `stop_id`, `current_stop_sequence`; the public number (735, 28E)
+  and the bus panel come from the **stored Carris de Lisboa timetable**, which now carries
+  `stopIds`/`routeIds` (`build-transit.py`, optional fields; regenerated 16 November) —
+  `carrisLisboaLine`, `carrisLisboaTrip` (the trip of that line at that stop due nearest
+  now, marked approximate; no shape stored, stops joined). Without the timetable the bus
+  shows with no number. **Service alerts** (`alerts.ts`, `ServiceAlerts.tsx`): Carris
+  Metropolitana's `/v2/alerts` (JSON, ~57 KB, kept 10 min), on a stop's panel (its lines and
+  the stop) and a Carris Metropolitana bus's panel. **Favourite stops** (`favouriteStops.ts`):
+  a star on the stop's panel; the Saved screen lists them first with the next three buses
+  (`FavouriteStopRow`). **Settings grouped**, as in Maps: General, Map, Transit (live buses
+  and timetables), country maps, Navigation, About (opens by itself when an update is
+  waiting) — `Collapsible` with an `icon` is a top-level group. **The bus panel no longer
+  shows the speed** (author: wrong). Probed with `sondar: realtime_feeds`: Carris de Lisboa
+  has no trip updates or alerts (404); TML's alert/GTFS-RT addresses are 404 now; **Gira has
+  no open real-time data** (EMEL 403, dados.cm-lisboa.pt behind Cloudflare; only a static
+  station list on dados.gov.pt). Still to do from the Moovit list: line search, an arrival
+  notification (needs `expo-notifications`), fares.
 - **Built in 7.0.42** (16 November): the bus panel below and the time picker's minute wheels and swipe-to-close.
 - **Tap a live bus** (author's request, 16 November 2026; not seen on a phone): its panel
   (`VehicleSheet.tsx`) shows the line and headsign, **"position from N s ago"** (counting up
@@ -347,6 +371,7 @@ work in that direction unless the author asks again.
 | Knowing if on Wi-Fi | `expo-network` |
 | Screen on while driving | `expo-keep-awake` |
 | Background navigation | `expo-task-manager` (`expo-location`'s foreground service) |
+| GTFS-RT (Protobuf) | `gtfs-realtime-bindings` — Carris de Lisboa's live vehicles |
 | Internet requests | `axios` |
 | Map tiles | OpenStreetMap; business pins from OpenFreeMap |
 | Address search | Nominatim (`https://nominatim.openstreetmap.org`), and Photon when it fails |
@@ -517,6 +542,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
 │   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
 │   │   ├── VehicleSheet.tsx  # A tapped live bus: its way, stop, next stops, age
+│   │   ├── ServiceAlerts.tsx # Strikes, diversions, works on what is shown
+│   │   ├── FavouriteStopRow.tsx # A favourite stop with its next buses (Saved)
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
@@ -546,7 +573,9 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── vectorStyle.ts    # How a stored map is drawn: colours and widths
 │   │   ├── tiles.ts          # Map styles (light/dark/satellite/transport) and cache
 │   │   ├── transit.ts        # Stops and arrival times (Carris Metropolitana)
-│   │   ├── vehicles.ts       # Where the buses are right now
+│   │   ├── vehicles.ts       # Where the buses are right now (Carris Metropolitana and Lisboa)
+│   │   ├── alerts.ts         # Service alerts (Carris Metropolitana)
+│   │   ├── favouriteStops.ts # Starred stops
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
@@ -670,7 +699,11 @@ in one place instead of spread through the code.
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
-  show it in `SettingsSheet` **and add it to `show`** (the settings search; see below).
+  show it in `SettingsSheet` **inside its group** **and add it to `show`** (the settings
+  search; see below), with the group's name among its terms.
+- **The screen is in groups** (author's request, November 2026): General (language,
+  appearance, recent destinations), Map, Transit, country maps, Navigation, About (updates,
+  rating, credits). Each closed by default; the search opens those holding a match.
 - **The map type is remembered between sessions**, at the author's request (November 2026):
   closing on satellite and reopening on the drawn map was the opposite of what they wanted.
   It was deliberately not stored before because of the live buses (1.1 MB every twenty
@@ -1042,8 +1075,8 @@ Investigated properly so nobody searches again. **State in August 2026**, update
 | Fertagus | ✅ | ✅ **Mobility Database's stored copy** (old, 2020–22, `frequencies.txt`) | ❌ |
 | Ferry (Transtejo/Soflusa) | ✅ `/facilities/boat_stations` | ✅ Mobility Database's copy (`api.transtejo.pt` has a wrong certificate) | ❌ |
 | **Metro Sul do Tejo** | ✅ `/facilities/light_rail_stations` | ✅ **the operator's own site service** (`build_mts`) | ❌ |
-| Carris de Lisboa (city buses, trams) | — | ✅ `gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS` (47 MB, 177 lines; not generated yet — size to measure first) | GTFS-RT Protobuf only |
-| Service alerts (several) | — | — | ✅ **TML, JSON, no key** |
+| Carris de Lisboa (city buses, trams) | — | ✅ `gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS` (generated, `carris-lisboa`) | ✅ vehicle positions only, GTFS-RT (`…/GTFS/realtime/vehiclepositions`) |
+| Service alerts | — | — | ✅ **Carris Metropolitana `/v2/alerts`, JSON** (TML's address is 404 since November 2026) |
 
 **The Mobility Database catalogue is where to look first** (`MobilityData/mobility-database-catalogs`
 on GitHub, readable from the development environment): each source has a `direct_download` and,
@@ -1062,8 +1095,8 @@ its own site, `https://www.mts.pt/mts-timetable-api/` — see "Where this stands
 without a key** (`_id`, `active_period_start_date`, `active_period_end_date`, `agency_id`,
 `cause`, `coordinates`, `description`), alerts from **several operators**. Dates in
 **milliseconds**, unlike Carris, which sends seconds — and neither says so. Everything else
-tried gave 404; do not keep guessing paths. Vehicle positions in GTFS-RT Protobuf would need a
-new library just to decode them.
+tried gave 404; do not keep guessing paths. **Since November 2026 that alerts address is 404
+too**; Carris Metropolitana's `/v2/alerts` serves the same alerts in JSON.
 
 **TML's geoportal is not for timetables**: 186 collections, only `gtfs_stops` and
 `gtfs_shapes` start with `gtfs_` — no `trips`, `stop_times` or `calendar`.

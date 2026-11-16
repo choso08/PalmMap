@@ -40,6 +40,7 @@ import { useAppActive } from '../useAppActive';
 import type { Coordinates } from '../types/geo';
 import { LineJourney } from './LineJourney';
 import { ServiceAlerts } from './ServiceAlerts';
+import { useIsFavouriteStop } from '../services/favouriteStops';
 
 interface TransitSheetProps {
   /**
@@ -120,6 +121,8 @@ export function TransitSheet({
    */
   const openStop = selectedStopId;
   const focusStop = stops.find((s) => s.id === openStop) ?? null;
+  // The star: a favourite stop shows on the Saved screen with its next buses.
+  const [favourite, toggleFavourite] = useIsFavouriteStop(focusStop);
   const focusStation = stations.find((e) => e.id === selectedStationId) ?? null;
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
@@ -359,6 +362,21 @@ export function TransitSheet({
                 : strings.transit.subtitle}
           </Text>
         </View>
+        {focusStop ? (
+          <Pressable
+            onPress={toggleFavourite}
+            hitSlop={10}
+            style={[styles.closeButton, styles.starButton]}
+            accessibilityLabel={strings.saved.stops}
+            accessibilityState={{ selected: favourite }}
+          >
+            <MaterialCommunityIcons
+              name={favourite ? 'star' : 'star-outline'}
+              size={20}
+              color={favourite ? theme.poi : theme.textMuted}
+            />
+          </Pressable>
+        ) : null}
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
@@ -595,6 +613,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 12,
       color: theme.textMuted,
       marginTop: 3,
+    },
+    starButton: {
+      marginRight: 8,
     },
     closeButton: {
       padding: 4,

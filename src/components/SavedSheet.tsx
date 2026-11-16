@@ -6,6 +6,9 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Place } from '../types/geo';
+import { useFavouriteStops } from '../services/favouriteStops';
+import type { TransitStop } from '../services/transit';
+import { FavouriteStopRow } from './FavouriteStopRow';
 
 interface Props {
   visible: boolean;
@@ -13,6 +16,8 @@ interface Props {
   recents: Place[];
   onClose: () => void;
   onSelect: (place: Place) => void;
+  /** A favourite stop tapped: open its panel. */
+  onSelectStop: (stop: TransitStop) => void;
 }
 
 /**
@@ -23,11 +28,12 @@ interface Props {
  * discover by accident. A tab that says "Saved" is where everyone looks first.
  * Everything here is on the phone, so it works without network.
  */
-export function SavedSheet({ visible, favourites, recents, onClose, onSelect }: Props) {
+export function SavedSheet({ visible, favourites, recents, onClose, onSelect, onSelectStop }: Props) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
+  const stops = useFavouriteStops();
 
   const sections = [
     ...(favourites.length > 0
@@ -54,12 +60,30 @@ export function SavedSheet({ visible, favourites, recents, onClose, onSelect }: 
           <Text style={styles.title}>{strings.saved.title}</Text>
         </View>
 
-        {sections.length === 0 ? (
+        {sections.length === 0 && stops.length === 0 ? (
           <Text style={styles.empty}>{strings.saved.empty}</Text>
         ) : (
           <SectionList
             sections={sections}
             keyExtractor={(p, i) => `${p.id}-${i}`}
+            // Favourite stops first, with their next buses, only while open.
+            ListHeaderComponent={
+              stops.length > 0 && visible ? (
+                <View>
+                  <Text style={styles.section}>{strings.saved.stops}</Text>
+                  {stops.map((stop) => (
+                    <FavouriteStopRow
+                      key={stop.id}
+                      stop={stop}
+                      onPress={() => {
+                        onClose();
+                        onSelectStop(stop);
+                      }}
+                    />
+                  ))}
+                </View>
+              ) : null
+            }
             renderSectionHeader={({ section }) => (
               <Text style={styles.section}>{section.title}</Text>
             )}

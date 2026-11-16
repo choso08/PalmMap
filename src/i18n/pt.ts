@@ -76,6 +76,8 @@ export const pt = {
     measure: 'Medir distância ou área',
   },
   saved: {
+    arriving: 'A chegar',
+    stops: 'Paragens',
     title: 'Guardados',
     favourites: 'Sítios guardados',
     recents: 'Recentes',

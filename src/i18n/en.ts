@@ -58,6 +58,8 @@ export const en: typeof pt = {
     measure: 'Measure distance or area',
   },
   saved: {
+    arriving: 'Arriving',
+    stops: 'Stops',
     title: 'Saved',
     favourites: 'Saved places',
     recents: 'Recent',

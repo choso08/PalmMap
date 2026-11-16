@@ -122,6 +122,7 @@ import {
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
+import { useFavouriteStops } from './src/services/favouriteStops';
 import { configureTileRequests, MAP_CACHE_MB, setMapCacheSize } from './src/services/tiles';
 import {
   nearbyStations,
@@ -2658,13 +2659,17 @@ function PalmMap() {
    * not already among the nearest — otherwise tapping a stop a few streets
    * away opened a panel that did not show it.
    */
+  const favouriteStops = useFavouriteStops();
   const sheetStops = useMemo(() => {
     if (!selectedStopId || transitStops.some((s) => s.id === selectedStopId)) {
       return transitStops;
     }
-    const tapped = mapStops.find((s) => s.id === selectedStopId);
+    // A favourite opened from the Saved screen may be on no list yet.
+    const tapped =
+      mapStops.find((s) => s.id === selectedStopId) ??
+      favouriteStops.find((s) => s.id === selectedStopId);
     return tapped ? [tapped, ...transitStops] : transitStops;
-  }, [transitStops, mapStops, selectedStopId]);
+  }, [transitStops, mapStops, favouriteStops, selectedStopId]);
 
   /** A tap on a stop opens its times straight away, without the clock button. */
   // A tapped stop or station opens the panel on that one alone (author's
@@ -3243,6 +3248,10 @@ function PalmMap() {
         onSelect={(place) => {
           setRouteOrigin(null);
           handleSearchSelect(place);
+        }}
+        onSelectStop={(stop) => {
+          mapRef.current?.recenter(stop.coordinates);
+          handleStopPress(stop.id);
         }}
       />
 
