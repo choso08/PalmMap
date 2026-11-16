@@ -139,9 +139,8 @@ environment cannot reach.
     `localDoorsNear` (doors within 150 m), also the fallback when Overpass fails. A pill
     under the search bar says "Offline · using downloaded maps and timetables" and "Back
     online" for 3 s (`ConnectivityBanner`); the route and the chip times are worked out
-    again when the state changes. **The published business files get doors only when the
-    maps workflow runs again** (by itself on the 1st, or `apenas_negocios`); phones fetch
-    the new file on Wi-Fi.
+    again when the state changes. **The published business files have doors since 16
+    November 2026** (all 27 regions); phones fetch the new file on Wi-Fi.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
@@ -205,9 +204,11 @@ environment cannot reach.
   2027**.
 - **Fast business pins.** With the country downloaded they come from a **business file**
   (`<id>.pois`, generated from Geofabrik by the maps workflow, read by squares in
-  `localPois.ts`): mainland Portugal has 164,658 businesses in 18.3 MB (218,642 in 24.5 MB before the
-  twins below were dropped; regenerated 9 November 2026 for the 16 Portugal-and-Western-Europe
-  regions — the other 11 still carry twins, which `localPlacesInBounds` hides). Without a downloaded
+  `localPois.ts`): mainland Portugal has 164,867 businesses and 22,651 doors in 18.9 MB (218,642
+  businesses in 24.5 MB before the twins below were dropped). **All 27 regions regenerated on
+  16 November 2026, with doors and without twins** (`apenas_negocios`); in Germany, Spain and
+  Switzerland doors outnumber businesses or come close (house doors are mapped there) — Germany's
+  file is 234.5 MB. Without a downloaded
   country they come **inside the OpenFreeMap tiles** (`poi` layer), and a tap asks Overpass
   for that one place only (`placeDetails`). Overpass is no longer called for automatic pins —
   **on the transport map either** (there are no automatic pins there; it only produced
