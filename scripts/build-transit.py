@@ -288,6 +288,10 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
     # line, hundreds of trips share the same handful of patterns.
     idx_stops: dict[str, int] = {}
     lista_stops: list[dict] = []
+    # The GTFS ids merged into each station, so a live feed naming a stop
+    # (Carris de Lisboa's GTFS-RT) can find it here. Small: a few per station.
+    ids_stops: list[list[str]] = []
+    ids_routes: list[str] = []
     idx_routes: dict[str, int] = {}
     lista_routes: list[list[str]] = []
     idx_headsigns: dict[str, int] = {}
@@ -300,7 +304,10 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
     def stop_index(stop_id: str) -> int | None:
         estacao = station_of(stops_raw, stop_id)
         if estacao in idx_stops:
-            return idx_stops[estacao]
+            i = idx_stops[estacao]
+            if stop_id not in ids_stops[i]:
+                ids_stops[i].append(stop_id)
+            return i
         linha = stops_raw.get(estacao)
         if not linha:
             return None
@@ -310,6 +317,7 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         except ValueError:
             return None
         idx_stops[estacao] = len(lista_stops)
+        ids_stops.append([stop_id])
         lista_stops.append(
             {
                 "n": (linha.get("stop_name") or "").strip() or estacao,
@@ -353,6 +361,7 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         if route_id not in idx_routes:
             r = routes.get(route_id, {})
             idx_routes[route_id] = len(lista_routes)
+            ids_routes.append(route_id)
             lista_routes.append(
                 [
                     (r.get("route_short_name") or "").strip(),
@@ -407,6 +416,9 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
         "patterns": lista_patterns,
         "services": lista_services,
         "trips": trips_out,
+        # Optional, newer apps only: GTFS ids per station and per line.
+        "stopIds": ids_stops,
+        "routeIds": ids_routes,
     }
 
     log(

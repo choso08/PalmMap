@@ -81,6 +81,14 @@ export interface ScheduleFeed {
    */
   services: string[][];
   trips: ScheduleTrip[];
+  /**
+   * The GTFS stop ids merged into each station, aligned with `stops`. Only in
+   * files generated since November 2026 — older ones lack it. Lets a live
+   * feed that names a stop (Carris de Lisboa's GTFS-RT) find it here.
+   */
+  stopIds?: string[][];
+  /** The GTFS route id of each line, aligned with `routes`. Same age. */
+  routeIds?: string[];
   /** Area covered: west, south, east, north. */
   bbox: [number, number, number, number];
 }
