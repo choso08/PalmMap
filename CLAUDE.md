@@ -1452,6 +1452,9 @@ They end up in the same folder with an identification file next to them.
   uploaded and deleted from disk right after — the runner has about 20 GB and some countries
   are over 1 GB. It also builds each country's **business file** (`<id>.pois`, from
   Geofabrik, `build-pois.py`); option `apenas_negocios` builds only those.
+  **A manual run with `regioes` left empty does not mean "the published ones"**: GitHub
+  puts the input's default (`portugal`) in its place, and only Portugal is redone (seen
+  16 November 2026). To redo everything, list the ids.
 
 #### Keeping maps up to date
 
