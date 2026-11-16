@@ -160,6 +160,7 @@ environment cannot reach.
   - **A recent search is forgotten** by swiping it sideways or its ✕ (`SwipeToRemove`,
     `forgetRecent`).
 
+- **Built in 7.0.42** (16 November): the bus panel below and the time picker's minute wheels and swipe-to-close.
 - **Tap a live bus** (author's request, 16 November 2026; not seen on a phone): its panel
   (`VehicleSheet.tsx`) shows the line and headsign, **"position from N s ago"** (counting up
   each second from the bus's own `timestamp`), the stop it stands at or heads to with the
