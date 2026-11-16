@@ -919,6 +919,47 @@ def entrances():
             break
 
 
+def vehicle_trip():
+    """A moving bus tapped on the map: its pattern, its stop, its trip — to place it on its way."""
+    section("VEHICLE TRIP")
+    _, _, body = get(f"{CARRIS}/vehicles")
+    data = json.loads(body)
+    now = time.time()
+    def age(v):
+        t = v.get("timestamp") or 0
+        t = t / 1000 if t > 1e12 else t
+        return now - t
+    fresh = [v for v in data if v.get("lat") and 0 <= age(v) <= 120 and v.get("pattern_id")]
+    print("fresh with pattern:", len(fresh), "of", len(data))
+    from urllib.parse import quote
+    for v in fresh[:3]:
+        print("\nVEHICLE", json.dumps({k: v.get(k) for k in (
+            "id", "line_id", "route_id", "pattern_id", "trip_id", "stop_id", "current_status",
+            "bearing", "speed", "timestamp", "lat", "lon", "shift_id", "block_id")}, ensure_ascii=False),
+            "age", round(age(v)))
+        bare = v["pattern_id"].split("]")[-1]
+        status, _, pb = get(f"{CARRIS}/patterns/{quote(bare)}")
+        print("pattern", bare, status, len(pb))
+        if status != 200:
+            continue
+        p = json.loads(pb)
+        p = p[0] if isinstance(p, list) else p
+        path = p.get("path") or []
+        print("headsign", p.get("headsign"), "color", p.get("color"), "shape", p.get("shape_id"), "stops", len(path))
+        print("path[0]", json.dumps(path[0], ensure_ascii=False)[:300] if path else None)
+        sid = str(v.get("stop_id") or "").split("]")[-1]
+        hits = [x.get("stop_sequence") for x in path if str(x.get("stop_id")) == sid]
+        print("vehicle stop", v.get("stop_id"), "-> in path at sequences", hits)
+        trips = p.get("trips") or []
+        print("trips", len(trips), "trip keys", sorted(trips[0]) if trips else None)
+        tid = str(v.get("trip_id") or "")
+        match = [t for t in trips if tid and (tid in json.dumps(t))]
+        print("trip_id", tid, "found in pattern trips:", len(match))
+        if trips:
+            print("trip[0]", json.dumps({k: trips[0][k] for k in trips[0] if k != "schedule"}, ensure_ascii=False)[:400])
+            print("schedule[0:2]", json.dumps((trips[0].get("schedule") or [])[:2], ensure_ascii=False)[:400])
+
+
 ENTRANCE_QUERY = """[out:json][timeout:20];
 is_in({lat},{lon})->.a;
 (way(pivot.a)[~"^(building|shop|amenity|tourism|leisure|healthcare|office|historic)$"~"."];
