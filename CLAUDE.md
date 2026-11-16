@@ -160,6 +160,23 @@ environment cannot reach.
   - **A recent search is forgotten** by swiping it sideways or its ✕ (`SwipeToRemove`,
     `forgetRecent`).
 
+- **Tap a live bus** (author's request, 16 November 2026; not seen on a phone): its panel
+  (`VehicleSheet.tsx`) shows the line and headsign, **"position from N s ago"** (counting up
+  each second from the bus's own `timestamp`), the stop it stands at or heads to with the
+  minutes left, how late it runs, and the stops after with the time at each; the map draws
+  its way from where it is (the pattern's shape, cut at the bus) and those stops, and the bus
+  is drawn bigger. `vehicleTrip` (in `transit.ts`) loads the pattern, stops, shape and **the
+  bus's own trip**: its `trip_id` without the `[…]` prefixes is one of the pattern's
+  `trips[].trip_ids` without theirs (`[7DQC0][LA77N]1529_0_1_1730_1759_0_1` ↔
+  `[XS3H8]1529_0_1_1730_1759_0_1`; else the trip due nearest now lends its minutes, marked
+  "approximate"). `vehicleProgress` places it at each refresh: `stop_id` is a plain id in the
+  pattern's path, `current_status` `STOPPED_AT` means at it, otherwise heading to it; on a
+  circular line (1012 starts and ends at one stop) the pass is the one whose stretch the bus
+  is on. The delay is the timetable's time at the bus's point (interpolated by distance
+  between the two stops) against the report time. Probed with `sondar: vehicle_trip` and
+  checked with the app's code in `trajetos` (17:39, four buses, all trips matched, e.g. 1722
+  at R Cravos Abril 45, 19 min late). The panel keeps the last known bus when it drops out
+  of the list.
 - **A line's journey, as in Maps** (author's request): tapping a line in a stop's arrivals
   shows its stops from there (`lineJourney`, in `transit.ts`; `LineJourney.tsx`), folded into
   "12 paragens · 25 min" when there are many, with the time at each — the pattern's timetable
@@ -491,6 +508,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── TransitSheet.tsx  # Stops nearby and their arrival times
 │   │   ├── LineJourney.tsx   # A tapped line's stops from here, Maps-style
 │   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
+│   │   ├── VehicleSheet.tsx  # A tapped live bus: its way, stop, next stops, age
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)

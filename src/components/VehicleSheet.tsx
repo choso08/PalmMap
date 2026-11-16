@@ -139,11 +139,13 @@ export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHand
           {ahead.length > 0 ? (
             <ScrollView style={styles.list} nestedScrollEnabled>
               {shown.map((stop, k) => {
-                const eta = progress.etas[k];
+                // Never before now: the position is some seconds old.
+                const raw = progress.etas[k];
+                const eta = raw === null || raw === undefined ? null : Math.max(raw, now);
                 return (
                   <View key={`${stop.id}-${k}`} style={styles.row}>
                     <Text style={[styles.time, k === 0 && styles.timeFirst]}>
-                      {eta !== null && eta !== undefined ? clock(eta) : ''}
+                      {eta !== null ? clock(eta) : ''}
                     </Text>
                     <View style={styles.railColumn}>
                       <View
