@@ -1137,6 +1137,22 @@ def realtime_feeds():
         print(body[:900])
 
 
+def lines():
+    """Carris Metropolitana's /v2/lines: the fields, for the line search."""
+    section("/v2/lines")
+    status, ctype, body = get(CARRIS + "/lines")
+    print("status", status, ctype, "bytes", len(body))
+    data = json.loads(body)
+    print("count", len(data))
+    for x in data[:2]:
+        print(json.dumps(x, ensure_ascii=False)[:1500])
+    sample = next((x for x in data if x.get("short_name") == "3601" or x.get("id") == "3601"), data[0])
+    print("3601:", json.dumps(sample, ensure_ascii=False)[:1500])
+    for path in ("/lines/3601", "/routes", "/routes/3601_0"):
+        status, ctype, body = get(CARRIS + path)
+        print("\n", path, status, len(body), body[:1200])
+
+
 ENTRANCE_QUERY = """[out:json][timeout:20];
 is_in({lat},{lon})->.a;
 (way(pivot.a)[~"^(building|shop|amenity|tourism|leisure|healthcare|office|historic)$"~"."];
