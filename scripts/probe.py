@@ -960,6 +960,177 @@ def vehicle_trip():
             print("schedule[0:2]", json.dumps((trips[0].get("schedule") or [])[:2], ensure_ascii=False)[:400])
 
 
+def pb_fields(buf):
+    """Protobuf wire format, generically: [(field, wiretype, value)]."""
+    out, i, n = [], 0, len(buf)
+    def varint():
+        nonlocal i
+        shift = v = 0
+        while True:
+            b = buf[i]; i += 1
+            v |= (b & 0x7F) << shift
+            shift += 7
+            if b < 0x80:
+                return v
+    while i < n:
+        key = varint()
+        f, wt = key >> 3, key & 7
+        if wt == 0:
+            out.append((f, 0, varint()))
+        elif wt == 1:
+            out.append((f, 1, buf[i:i + 8])); i += 8
+        elif wt == 2:
+            ln = varint(); out.append((f, 2, buf[i:i + ln])); i += ln
+        elif wt == 5:
+            out.append((f, 5, buf[i:i + 4])); i += 4
+        else:
+            raise ValueError("wire type %d" % wt)
+    return out
+
+
+def pb_dump(buf, depth=0, maxdepth=4):
+    """Readable tree: nested messages tried, strings shown, floats decoded."""
+    import struct
+    res = {}
+    for f, wt, v in pb_fields(buf):
+        if wt == 2:
+            val = None
+            if depth < maxdepth:
+                try:
+                    sub = pb_dump(v, depth + 1, maxdepth)
+                    if sub:
+                        val = sub
+                except Exception:  # noqa: BLE001
+                    val = None
+            if val is None:
+                try:
+                    val = v.decode("utf-8")
+                except UnicodeDecodeError:
+                    val = "<%d bytes>" % len(v)
+        elif wt == 5:
+            val = round(struct.unpack("<f", v)[0], 6)
+        elif wt == 1:
+            val = struct.unpack("<d", v)[0]
+        else:
+            val = v
+        res.setdefault(str(f), []).append(val)
+    return res
+
+
+def realtime_feeds():
+    """Open real-time feeds beyond Carris Metropolitana's JSON: Carris de
+    Lisboa's GTFS-RT vehicle positions, TML's alerts and trip updates, and
+    bike-share candidates for Gira."""
+    import gzip, io, zipfile, csv
+    now = time.time()
+    feeds = {
+        "carris-lisboa vp": "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions",
+        "carris-lisboa tu": "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/tripupdates",
+        "carris-lisboa sa": "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/alerts",
+        "carris-lisboa servicealerts": "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/servicealerts",
+        "tml tu": "https://go.tmlmobilidade.pt/hub/api/v1/realtime/trip-updates/gtfs",
+        "tml vp": "https://go.tmlmobilidade.pt/hub/api/v1/realtime/vehicles/positions/gtfs",
+        "tml sa pb": "https://go.tmlmobilidade.pt/hub/api/v1/alerts/gtfs",
+        "cm sa pb": "https://api.carrismetropolitana.pt/alerts.pb",
+    }
+    vp_trips = []
+    for name, url in feeds.items():
+        section("GTFS-RT " + name)
+        status, ctype, body = get(url, timeout=60)
+        print("status", status, "type", ctype, "bytes", len(body))
+        if status != 200:
+            print(body[:300])
+            continue
+        if body[:2] == b"\x1f\x8b":
+            body = gzip.decompress(body)
+            print("gzipped; unpacked", len(body))
+        try:
+            tree = pb_dump(body, maxdepth=6)
+        except Exception as e:  # noqa: BLE001
+            print("not protobuf:", e, body[:200])
+            continue
+        header = tree.get("1", [{}])[0]
+        ents = tree.get("2", [])
+        print("header", json.dumps(header)[:300])
+        ts = header.get("3", [0])[0] if isinstance(header, dict) else 0
+        if ts:
+            print("header age s", round(now - (ts / 1000 if ts > 1e11 else ts)))
+        print("entities", len(ents))
+        for e in ents[:3]:
+            print(json.dumps(e, ensure_ascii=False)[:1500])
+        if name == "carris-lisboa vp":
+            ages = []
+            for e in ents:
+                v = (e.get("4") or [{}])[0]
+                if not isinstance(v, dict):
+                    continue
+                t = (v.get("5") or [0])[0]
+                if t:
+                    ages.append(now - (t / 1000 if t > 1e11 else t))
+                trip = (v.get("1") or [{}])[0]
+                if isinstance(trip, dict) and trip.get("1"):
+                    vp_trips.append((trip.get("1")[0], (trip.get("5") or [None])[0]))
+            ages.sort()
+            if ages:
+                print("vehicles with time", len(ages), "median age s", round(ages[len(ages) // 2]),
+                      "under 120 s", sum(1 for a in ages if a < 120))
+            print("sample trip/route", vp_trips[:8])
+
+    section("Carris de Lisboa static GTFS: do the live trip ids match?")
+    status, _, body = get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS", timeout=180)
+    print("status", status, "bytes", len(body))
+    if status == 200 and vp_trips:
+        z = zipfile.ZipFile(io.BytesIO(body))
+        print(z.namelist())
+        trips = {r["trip_id"]: r for r in csv.DictReader(io.TextIOWrapper(z.open("trips.txt"), "utf-8-sig"))}
+        routes = {r["route_id"]: r for r in csv.DictReader(io.TextIOWrapper(z.open("routes.txt"), "utf-8-sig"))}
+        hit = sum(1 for t, _ in vp_trips if t in trips)
+        print("live trips", len(vp_trips), "found in trips.txt", hit)
+        print("sample static trip ids", list(trips)[:5])
+        for t, r in vp_trips[:6]:
+            st = trips.get(t)
+            rid = r or (st or {}).get("route_id")
+            ro = routes.get(rid or "", {})
+            print(t, "route", rid, ro.get("route_short_name"), ro.get("route_long_name"), "headsign",
+                  (st or {}).get("trip_headsign"), "shape", (st or {}).get("shape_id"))
+        print("route sample", list(routes.values())[:2])
+
+    section("TML alerts JSON: one whole")
+    status, _, body = get("https://go.tmlmobilidade.pt/hub/api/v1/alerts")
+    print("status", status, "bytes", len(body))
+    try:
+        data = json.loads(body)
+        items = data if isinstance(data, list) else data.get("data", data)
+        print("count", len(items))
+        for a in items[:2]:
+            print(json.dumps(a, ensure_ascii=False)[:2500])
+        keys = {}
+        for a in items:
+            for k in a:
+                keys[k] = keys.get(k, 0) + 1
+        print("keys", keys)
+        print("agencies", sorted({str(a.get("agency_id")) for a in items}))
+    except Exception as e:  # noqa: BLE001
+        print("not json", e, body[:300])
+    for url in ("https://api.carrismetropolitana.pt/alerts", "https://api.carrismetropolitana.pt/v2/alerts"):
+        status, ctype, body = get(url)
+        print(url, status, ctype, len(body), body[:600])
+
+    section("Bike share (Gira and others)")
+    for url in (
+        "https://opendata.emel.pt/cycling/gira/station/list",
+        "https://emel.city-platform.com/opendata/gira/station/list",
+        "https://api-gira.emel.pt/gbfs/gbfs.json",
+        "https://gira.emel.pt/gbfs/gbfs.json",
+        "https://dados.cm-lisboa.pt/api/3/action/package_search?q=gira",
+        "https://dados.gov.pt/api/1/datasets/?q=gira",
+        "https://mds.bird.co/gbfs/v2/public/lisbon/gbfs.json",
+    ):
+        status, ctype, body = get(url, timeout=30)
+        print("\n", url, status, ctype, len(body))
+        print(body[:900])
+
+
 ENTRANCE_QUERY = """[out:json][timeout:20];
 is_in({lat},{lon})->.a;
 (way(pivot.a)[~"^(building|shop|amenity|tourism|leisure|healthcare|office|historic)$"~"."];
