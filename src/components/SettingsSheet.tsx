@@ -160,29 +160,32 @@ export function SettingsSheet({
         ? terms.includes(nav)
         : !q || terms.some((term) => normalise(term).includes(q));
     const result = {
-      language: has(s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
+      language: has(s.general, s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
       time: has(nav, s.timeAdjustment, s.forgetPace, s.paceLearning),
-      appearance: has(s.appearance, ...Object.values(s.appearanceModes)),
-      satellite: has(s.satelliteDetail, ...Object.values(s.satelliteDetails)),
+      appearance: has(s.general, s.appearance, ...Object.values(s.appearanceModes)),
+      satellite: has(s.map, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
-      vehicles: has(s.map, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
+      vehicles: has(s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
-      schedules: has(s.schedules),
+      schedules: has(s.transit, s.schedules),
       voice: has(nav, s.voice),
       limit: has(nav, s.speedLimit),
       cameras: has(nav, s.cameras, s.camerasHint),
       tolls: has(nav, s.tolls, s.tollsHint),
       speed: has(nav, s.speed, s.speedNote),
       battery: has(nav, s.batterySaver, s.batterySaverHint),
-      feedback: has(s.feedback, s.feedbackPlaceholder),
-      recents: has(s.recents, s.forgetRecents),
-      updates: has(s.updates),
+      feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
+      recents: has(s.general, s.recents, s.forgetRecents),
+      updates: has(s.about, s.updates),
       about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'Overpass'),
     };
     return {
       ...result,
       searching: q.length > 0 || onlyNavigation,
-      map: result.places || result.vehicles,
+      general: result.language || result.appearance || result.recents,
+      mapSection: result.satellite || result.places,
+      transit: result.vehicles || result.schedules,
+      aboutSection: result.updates || result.feedback || result.about,
       navigation:
         result.time ||
         result.voice ||
@@ -321,12 +324,14 @@ export function SettingsSheet({
             </View>
           ) : null}
 
-          {/*
-            Language comes first on purpose: whoever opened Settings because
-            they cannot understand the screen has to find it without reading
-            the rest.
+{/*
+            Grouped as in Maps' settings (author's request): each group closed,
+            the search opens those holding a match. Language stays first: whoever
+            cannot read the screen finds it without opening anything else.
           */}
-          {show.language ? (
+          {show.general ? (
+            <Collapsible title={s.general} icon="tune-variant" forceOpen={show.searching}>
+              {show.language ? (
             <>
               <Text style={styles.sectionTitle}>{s.language}</Text>
               <ChoiceRow
@@ -354,7 +359,38 @@ export function SettingsSheet({
             </>
           ) : null}
 
-          {show.satellite ? (
+          {show.recents ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.recents}</Text>
+              {recentsCleared ? (
+                <View style={styles.forgetRow}>
+                  <MaterialCommunityIcons name="check-circle" size={19} color={theme.open} />
+                  <Text style={[styles.clearText, { color: theme.open }]}>
+                    {s.recentsForgotten}
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  style={styles.forgetRow}
+                  onPress={() =>
+                    void clearRecents().then(() => {
+                      onRecentsCleared();
+                      setRecentsCleared(true);
+                    })
+                  }
+                >
+                  <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
+                  <Text style={styles.clearText}>{s.forgetRecents}</Text>
+                </Pressable>
+              )}
+            </>
+          ) : null}
+            </Collapsible>
+          ) : null}
+
+          {show.mapSection ? (
+            <Collapsible title={s.map} icon="map-outline" forceOpen={show.searching}>
+              {show.satellite ? (
             <>
               <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
               <ChoiceRow
@@ -371,7 +407,6 @@ export function SettingsSheet({
             </>
           ) : null}
 
-          {show.map ? <Text style={styles.sectionTitle}>{s.map}</Text> : null}
           {show.places ? (
             <>
               <View style={styles.switchRow}>
@@ -386,8 +421,12 @@ export function SettingsSheet({
               </View>
             </>
           ) : null}
+            </Collapsible>
+          ) : null}
 
-          {show.vehicles ? (
+          {show.transit ? (
+            <Collapsible title={s.transit} icon="bus" forceOpen={show.searching}>
+              {show.vehicles ? (
             <>
               <View style={styles.switchRow}>
                 <View style={styles.switchText}>
@@ -428,8 +467,17 @@ export function SettingsSheet({
             </>
           ) : null}
 
+          {show.schedules ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.schedules}</Text>
+              <Schedules />
+            </>
+          ) : null}
+            </Collapsible>
+          ) : null}
+
           {show.offline ? (
-            <Collapsible title={s.offlineMaps} forceOpen={show.searching}>
+            <Collapsible title={s.offlineMaps} icon="download-outline" forceOpen={show.searching}>
               <OfflineMaps />
               <Text style={styles.note}>{s.offlineMapsNote}</Text>
               {/* A country missing from the list: ask for it on GitHub. */}
@@ -443,15 +491,9 @@ export function SettingsSheet({
             </Collapsible>
           ) : null}
 
-          {show.schedules ? (
-            <Collapsible title={s.schedules} forceOpen={show.searching}>
-              <Schedules />
-            </Collapsible>
-          ) : null}
-
           {/* Every navigation option in one group, closed by default (author's request). */}
           {show.navigation ? (
-            <Collapsible title={s.navigation} forceOpen={show.searching}>
+            <Collapsible title={s.navigation} icon="navigation-variant-outline" forceOpen={show.searching}>
               {/* The arrival time's pace belongs with the trip (author's request). */}
               {show.time ? (
                 <>
@@ -587,50 +629,25 @@ export function SettingsSheet({
             </Collapsible>
           ) : null}
 
-          {show.feedback ? (
-            <Collapsible title={s.feedback} forceOpen={show.searching}>
-              <FeedbackForm />
-            </Collapsible>
-          ) : null}
-
-          {show.recents ? (
-            <>
-              <Text style={styles.sectionTitle}>{s.recents}</Text>
-              {recentsCleared ? (
-                <View style={styles.forgetRow}>
-                  <MaterialCommunityIcons name="check-circle" size={19} color={theme.open} />
-                  <Text style={[styles.clearText, { color: theme.open }]}>
-                    {s.recentsForgotten}
-                  </Text>
-                </View>
-              ) : (
-                <Pressable
-                  style={styles.forgetRow}
-                  onPress={() =>
-                    void clearRecents().then(() => {
-                      onRecentsCleared();
-                      setRecentsCleared(true);
-                    })
-                  }
-                >
-                  <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
-                  <Text style={styles.clearText}>{s.forgetRecents}</Text>
-                </Pressable>
-              )}
-            </>
-          ) : null}
-
-          {show.updates ? (
+          {show.aboutSection ? (
+            <Collapsible title={s.about} icon="information-outline" forceOpen={show.searching || novaVersao != null}>
+              {show.updates ? (
             <>
               <Text style={styles.sectionTitle}>{s.updates}</Text>
               <Updates found={novaVersao} onFound={onUpdateFound} />
             </>
           ) : null}
 
+          {show.feedback ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.feedback}</Text>
+              <FeedbackForm />
+            </>
+          ) : null}
+
           {show.about ? (
             <>
-              <Text style={styles.sectionTitle}>{s.about}</Text>
-              <Text style={styles.about}>{s.aboutText}</Text>
+                            <Text style={styles.about}>{s.aboutText}</Text>
 
               {/*
             The credits. Several of these services require attribution by
@@ -659,7 +676,10 @@ export function SettingsSheet({
               </View>
             </>
           ) : null}
-        </ScrollView>
+            </Collapsible>
+          ) : null}
+
+          </ScrollView>
       </View>
     </Modal>
   );

@@ -359,6 +359,8 @@ export const en: typeof pt = {
     searchPlaceholder: 'Search settings',
     searchNothing: 'No setting by that name.',
     title: 'Settings',
+    general: 'General',
+    transit: 'Transit',
 
     installUnfinished: 'The install did not finish',
     updateTitle: 'A new version is out',

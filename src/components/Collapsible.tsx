@@ -7,6 +7,8 @@ import type { Theme } from '../theme';
 
 interface Props {
   title: string;
+  /** A top-level group of the settings: drawn larger, with this icon. */
+  icon?: keyof typeof MaterialCommunityIcons.glyphMap;
   /** A short line under the title, visible while closed. */
   hint?: string;
   /** Keep it open regardless of the toggle — used while searching the settings. */
@@ -22,22 +24,27 @@ interface Props {
  * and the contents are only mounted while open: the list of countries is not
  * even requested until someone wants to see it.
  */
-export function Collapsible({ title, hint, forceOpen = false, children }: Props) {
+export function Collapsible({ title, icon, hint, forceOpen = false, children }: Props) {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [toggled, setOpen] = useState(false);
   const open = toggled || forceOpen;
 
   return (
-    <View style={styles.wrapper}>
+    <View style={icon ? styles.groupWrapper : styles.wrapper}>
       <Pressable
-        style={styles.header}
+        style={icon ? styles.groupHeader : styles.header}
         onPress={() => setOpen((o) => !o)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
       >
+        {icon ? (
+          <View style={styles.groupIcon}>
+            <MaterialCommunityIcons name={icon} size={20} color={theme.accent} />
+          </View>
+        ) : null}
         <View style={styles.texts}>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={icon ? styles.groupTitle : styles.title}>{title}</Text>
           {hint ? <Text style={styles.hint}>{hint}</Text> : null}
         </View>
         <MaterialCommunityIcons
@@ -46,7 +53,7 @@ export function Collapsible({ title, hint, forceOpen = false, children }: Props)
           color={theme.textMuted}
         />
       </Pressable>
-      {open ? <View style={styles.body}>{children}</View> : null}
+      {open ? <View style={icon ? styles.groupBody : styles.body}>{children}</View> : null}
     </View>
   );
 }
@@ -55,6 +62,29 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrapper: {
       marginTop: 26,
+    },
+    groupWrapper: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
+    },
+    groupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+      gap: 14,
+    },
+    groupIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceMuted,
+    },
+    groupTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
     },
     header: {
       flexDirection: 'row',
@@ -79,6 +109,10 @@ function makeStyles(theme: Theme) {
     },
     body: {
       marginTop: 4,
+    },
+    groupBody: {
+      marginTop: -12,
+      paddingBottom: 20,
     },
   });
 }

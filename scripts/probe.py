@@ -995,7 +995,13 @@ def pb_dump(buf, depth=0, maxdepth=4):
     for f, wt, v in pb_fields(buf):
         if wt == 2:
             val = None
-            if depth < maxdepth:
+            try:
+                text = v.decode("utf-8")
+                if text and all(c.isprintable() or c in "\n\r\t" for c in text):
+                    val = text
+            except UnicodeDecodeError:
+                pass
+            if val is None and depth < maxdepth:
                 try:
                     sub = pb_dump(v, depth + 1, maxdepth)
                     if sub:
@@ -1003,10 +1009,7 @@ def pb_dump(buf, depth=0, maxdepth=4):
                 except Exception:  # noqa: BLE001
                     val = None
             if val is None:
-                try:
-                    val = v.decode("utf-8")
-                except UnicodeDecodeError:
-                    val = "<%d bytes>" % len(v)
+                val = "<%d bytes>" % len(v)
         elif wt == 5:
             val = round(struct.unpack("<f", v)[0], 6)
         elif wt == 1:
@@ -1084,7 +1087,10 @@ def realtime_feeds():
         print(z.namelist())
         trips = {r["trip_id"]: r for r in csv.DictReader(io.TextIOWrapper(z.open("trips.txt"), "utf-8-sig"))}
         routes = {r["route_id"]: r for r in csv.DictReader(io.TextIOWrapper(z.open("routes.txt"), "utf-8-sig"))}
+        vp_trips = [(t, r) for t, r in vp_trips if isinstance(t, str)]
         hit = sum(1 for t, _ in vp_trips if t in trips)
+        stops = {r["stop_id"]: r for r in csv.DictReader(io.TextIOWrapper(z.open("stops.txt"), "utf-8-sig"))}
+        print("stops", len(stops), "sample", list(stops.values())[:2])
         print("live trips", len(vp_trips), "found in trips.txt", hit)
         print("sample static trip ids", list(trips)[:5])
         for t, r in vp_trips[:6]:

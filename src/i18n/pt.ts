@@ -397,6 +397,8 @@ export const pt = {
     searchPlaceholder: 'Procurar nas definições',
     searchNothing: 'Nenhuma definição com esse nome.',
     title: 'Definições',
+    general: 'Geral',
+    transit: 'Transportes',
 
     updateTitle: 'Há uma versão nova',
     installUnfinished: 'A instalação não terminou',
