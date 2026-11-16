@@ -24,7 +24,8 @@
         "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION",
-        "android.permission.RECEIVE_BOOT_COMPLETED"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "intentFilters": [
         {
@@ -58,6 +59,7 @@
     },
     "plugins": [
       "@maplibre/maplibre-react-native",
+      "expo-notifications",
       [
         "expo-location",
         {

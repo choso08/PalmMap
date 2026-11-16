@@ -41,6 +41,7 @@ import type { Coordinates } from '../types/geo';
 import { LineJourney } from './LineJourney';
 import { ServiceAlerts } from './ServiceAlerts';
 import { useIsFavouriteStop } from '../services/favouriteStops';
+import { reminderKey, toggleReminder, updateReminders, useReminderKeys } from '../services/arrivalReminders';
 
 interface TransitSheetProps {
   /**
@@ -123,6 +124,9 @@ export function TransitSheet({
   const focusStop = stops.find((s) => s.id === openStop) ?? null;
   // The star: a favourite stop shows on the Saved screen with its next buses.
   const [favourite, toggleFavourite] = useIsFavouriteStop(focusStop);
+  /** The buses with a reminder (the bell), and why one could not be set. */
+  const reminded = useReminderKeys();
+  const [reminderNote, setReminderNote] = useState<string | null>(null);
   const focusStation = stations.find((e) => e.id === selectedStationId) ?? null;
   const [arrivals, setArrivals] = useState<TransitArrival[] | null>(null);
   const [arrivalsError, setArrivalsError] = useState<string | null>(null);
@@ -244,6 +248,8 @@ export function TransitSheet({
       }
       setArrivals(horas);
       setArrivalsError(null);
+      // A bus with a reminder moves to its new estimate.
+      updateReminders(stopId, horas);
     } catch {
       if (ultimoPedido.current === pedido) {
         const offline = guardadas();
@@ -419,6 +425,7 @@ export function TransitSheet({
                   ) : null}
 
                   {arrivalsError ? <Text style={styles.erro}>{arrivalsError}</Text> : null}
+                  {reminderNote ? <Text style={styles.aviso}>{reminderNote}</Text> : null}
 
                   {arrivals?.length === 0 ? (
                     <Text style={styles.aviso}>
@@ -454,6 +461,23 @@ export function TransitSheet({
                           {a.time}
                         </Text>
                       </View>
+                      {/* The bell: a notification 5 min before it arrives. */}
+                      <Pressable
+                        hitSlop={8}
+                        style={styles.sino}
+                        accessibilityLabel={strings.transit.reminderSet}
+                        onPress={() =>
+                          void toggleReminder(reminderKey(stop.id, a), a, stop.name).then((ok) =>
+                            setReminderNote(ok ? null : strings.transit.reminderDenied),
+                          )
+                        }
+                      >
+                        <MaterialCommunityIcons
+                          name={reminded.has(reminderKey(stop.id, a)) ? 'bell-ring' : 'bell-outline'}
+                          size={19}
+                          color={reminded.has(reminderKey(stop.id, a)) ? theme.accent : theme.textMuted}
+                        />
+                      </Pressable>
                     </Pressable>
                     {open ? (
                       <LineJourney
@@ -613,6 +637,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 12,
       color: theme.textMuted,
       marginTop: 3,
+    },
+    sino: {
+      paddingLeft: 10,
+      justifyContent: 'center',
     },
     starButton: {
       marginRight: 8,

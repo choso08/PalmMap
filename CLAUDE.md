@@ -182,8 +182,19 @@ environment cannot reach.
   shows the speed** (author: wrong). Probed with `sondar: realtime_feeds`: Carris de Lisboa
   has no trip updates or alerts (404); TML's alert/GTFS-RT addresses are 404 now; **Gira has
   no open real-time data** (EMEL 403, dados.cm-lisboa.pt behind Cloudflare; only a static
-  station list on dados.gov.pt). Still to do from the Moovit list: line search, an arrival
-  notification (needs `expo-notifications`), fares.
+  station list on dados.gov.pt). **Line search**: the search bar also lists Carris Metropolitana lines
+  matching the text — by number ("36" → 3601…), or from four letters by the places in the
+  name (`searchLines`; `/v2/lines`, 717 lines, ~340 KB, asked once, filtered on the phone,
+  so no Nominatim rule is touched). A chosen line opens `LineSheet`: a chip per direction
+  (`lineDirections`, up to four patterns at ~400 KB each, cached), its alerts, every stop
+  (a tap opens the stop's arrivals; closing it comes back to the line), and its way on the
+  map (`lineJourneyShown` with `shape`, framed by `MapViewRef.frame`). **Arrival reminder**:
+  a bell on each bus in a stop's arrivals schedules a local notification 5 min before
+  (`arrivalReminders.ts`, `expo-notifications`, channel `chegadas`; permission asked only
+  on the first tap; `POST_NOTIFICATIONS` in `app.json`). It moves with each refresh of the
+  stop's arrivals while the panel is open (`updateReminders`); otherwise it keeps the last
+  estimate. Reminders live for the session. **Fares were not added**: no open source of
+  current prices was found, and made-up numbers would be worse than none.
 - **Built in 7.0.42** (16 November): the bus panel below and the time picker's minute wheels and swipe-to-close.
 - **Tap a live bus** (author's request, 16 November 2026; not seen on a phone): its panel
   (`VehicleSheet.tsx`) shows the line and headsign, **"position from N s ago"** (counting up
@@ -372,6 +383,7 @@ work in that direction unless the author asks again.
 | Screen on while driving | `expo-keep-awake` |
 | Background navigation | `expo-task-manager` (`expo-location`'s foreground service) |
 | GTFS-RT (Protobuf) | `gtfs-realtime-bindings` — Carris de Lisboa's live vehicles |
+| Local notifications | `expo-notifications` — the arrival reminder |
 | Internet requests | `axios` |
 | Map tiles | OpenStreetMap; business pins from OpenFreeMap |
 | Address search | Nominatim (`https://nominatim.openstreetmap.org`), and Photon when it fails |
@@ -543,6 +555,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── TransitGuidePanel.tsx # A transport trip under way, step by step
 │   │   ├── VehicleSheet.tsx  # A tapped live bus: its way, stop, next stops, age
 │   │   ├── ServiceAlerts.tsx # Strikes, diversions, works on what is shown
+│   │   ├── LineSheet.tsx     # A searched line: directions, alerts, stops
 │   │   ├── FavouriteStopRow.tsx # A favourite stop with its next buses (Saved)
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
@@ -576,6 +589,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── vehicles.ts       # Where the buses are right now (Carris Metropolitana and Lisboa)
 │   │   ├── alerts.ts         # Service alerts (Carris Metropolitana)
 │   │   ├── favouriteStops.ts # Starred stops
+│   │   ├── arrivalReminders.ts # "Your bus arrives in 5 min" notifications
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
