@@ -123,6 +123,8 @@ interface MapViewProps {
   measureClosed?: boolean;
   /** The routes not chosen, drawn faded underneath. */
   alternativeRoutes?: Route[];
+  /** An alternative route tapped on the map: switch to it (author's request). */
+  onAlternativePress?: (route: Route) => void;
   /** Stops along the way, marked on the route. */
   waypoints?: Coordinates[];
   /** While navigating the map follows the position and turns with the heading. */
@@ -348,6 +350,7 @@ export function MapView({
   measurePoints = NONE,
   measureClosed = false,
   alternativeRoutes = NONE,
+  onAlternativePress,
   waypoints = NONE,
   transitStops = NONE,
   selectedStopId = null,
@@ -1638,7 +1641,27 @@ export function MapView({
             key={`alt-${i}`}
             id={`rota-alternativa-${i}`}
             data={alternativesJson[i]}
+            onPress={(event) => {
+              // As with the stops: the tap must not reach the map.
+              event.stopPropagation?.();
+              onAlternativePress?.(alt);
+            }}
           >
+            {/*
+              A wide, nearly invisible line under the faded one: five pixels
+              are too thin to hit with a finger.
+            */}
+            <Layer
+              key={`rota-alternativa-${i}-hit`}
+              id={`rota-alternativa-${i}-hit`}
+              type="line"
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              paint={{
+                'line-color': theme.textMuted,
+                'line-width': 26,
+                'line-opacity': 0.01,
+              }}
+            />
             <Layer
               key={`rota-alternativa-${i}-line`}
               id={`rota-alternativa-${i}-line`}

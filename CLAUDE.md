@@ -1306,6 +1306,9 @@ stops**, on purpose.
   layers are added is the order they stack.
 - The chosen route is `routeOptions[routeIndex]`; switching is only changing the index — no
   new request.
+- **An alternative is tapped on the map to switch to it**, as in Maps (author's request,
+  November 2026): each faded line has a wide, nearly transparent line under it to catch the
+  finger (`rota-alternativa-<i>-hit`), and `onAlternativePress` hands back the `Route`.
 
 ### 6-H. Speedometer and speed limit
 

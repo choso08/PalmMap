@@ -2448,6 +2448,16 @@ function PalmMap() {
     () => (navigating ? [] : routeOptions.filter((_, i) => i !== routeIndex)),
     [navigating, routeOptions, routeIndex],
   );
+  /** An alternative tapped on the map becomes the chosen route, as in Maps. */
+  const handleAlternativePress = useCallback(
+    (alt: Route) => {
+      const i = routeOptions.indexOf(alt);
+      if (i >= 0) {
+        setRouteIndex(i);
+      }
+    },
+    [routeOptions],
+  );
   const mapWaypoints = useMemo(() => waypoints.map((w) => w.coordinates), [waypoints]);
   /** A line tapped in the stop panel: the map shows its stops and its way. */
   const [lineJourneyShown, setLineJourneyShown] = useState<LineJourney | null>(null);
@@ -2797,6 +2807,7 @@ function PalmMap() {
         measurePoints={measuring ? measurePoints : undefined}
         measureClosed={measureMode === 'area'}
         alternativeRoutes={mapAlternatives}
+        onAlternativePress={handleAlternativePress}
         waypoints={mapWaypoints}
         transitStops={mapTransitStops}
         journeyLine={journeyLine}
