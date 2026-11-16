@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { type EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { VehicleProgress, VehicleTrip } from '../services/transit';
+import type { VehicleProgress, VehicleTrip, VehicleTripStop } from '../services/transit';
 import type { LiveVehicle } from '../services/vehicles';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
@@ -27,7 +27,19 @@ interface Props {
   error: string | null;
   dragHandlers?: GestureResponderHandlers;
   onClose: () => void;
+  /** Asks for the bus's position now, without waiting for the next refresh. */
+  onRefresh: () => void;
+  refreshing: boolean;
+  /** Said after a refresh that brought nothing newer. */
+  refreshNote: string | null;
+  /** A stop tapped in the list: the map goes to it. */
+  onStopPress: (stop: VehicleTripStop) => void;
+  /** The stop the map was taken to, marked in the list. */
+  selectedStopId: string | null;
 }
+
+/** Passed stops shown before folding them behind "N earlier stops". */
+const FOLDED_PASSED = 2;
 
 /** Stops listed before "N more stops". */
 const FOLDED_STOPS = 6;
@@ -49,13 +61,27 @@ function ago(seconds: number): string {
  * timetable shifted by how late it runs. The map draws its way from where it
  * is, and those stops.
  */
-export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHandlers, onClose }: Props) {
+export function VehicleSheet({
+  vehicle,
+  trip,
+  progress,
+  loading,
+  error,
+  dragHandlers,
+  onClose,
+  onRefresh,
+  refreshing,
+  refreshNote,
+  onStopPress,
+  selectedStopId,
+}: Props) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const tr = strings.transit;
   const [unfolded, setUnfolded] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
   // The age counts up on screen between refreshes of the list.
   const [now, setNow] = useState(() => Date.now() / 1000);
@@ -67,6 +93,13 @@ export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHand
   const colour = trip?.colour ?? theme.vehicle;
   const stops = trip?.stops ?? [];
   const ahead = progress ? stops.slice(progress.nextIndex) : [];
+  // Where it has been, from the line's first stop: the origin always shows,
+  // the ones between it and the bus fold away.
+  const passed = progress ? stops.slice(0, progress.nextIndex) : [];
+  const passedShown =
+    pastOpen || passed.length <= FOLDED_PASSED ? passed : passed.slice(0, 1);
+  const origin = stops[0] ?? null;
+  const terminus = stops.length > 1 ? stops[stops.length - 1] : null;
   const shown = unfolded ? ahead : ahead.slice(0, FOLDED_STOPS);
   const standingAt = progress && progress.atIndex >= 0 ? stops[progress.atIndex] : null;
   const next = ahead[0] ?? null;
@@ -84,6 +117,52 @@ export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHand
   }
   const late = trip?.exactTrip && (progress?.delaySeconds ?? 0) >= 60;
 
+  /** A stop of the list; a tap takes the map to it. */
+  const stopRow = (
+    stop: VehicleTripStop,
+    key: string,
+    o: {
+      time: string | null;
+      faded: boolean;
+      big: boolean;
+      first: boolean;
+      last: boolean;
+      bold?: boolean;
+      label?: string;
+    },
+  ) => (
+    <Pressable
+      key={key}
+      style={[styles.row, stop.id === selectedStopId && styles.rowOn]}
+      onPress={() => onStopPress(stop)}
+    >
+      <Text style={[styles.time, o.bold && styles.timeFirst]}>{o.time ?? ''}</Text>
+      <View style={styles.railColumn}>
+        <View
+          style={[
+            styles.rail,
+            { backgroundColor: colour },
+            o.faded && styles.railPassed,
+            o.first && styles.railFirst,
+            o.last && styles.railLast,
+          ]}
+        />
+        <View
+          style={[o.big ? styles.dotBig : styles.dot, { borderColor: colour }, o.faded && styles.railPassed]}
+        />
+      </View>
+      <View style={styles.nameBox}>
+        <Text
+          style={[styles.name, o.bold && styles.nameBold, o.faded && styles.nameFaded]}
+          numberOfLines={1}
+        >
+          {stop.name}
+        </Text>
+        {o.label ? <Text style={styles.rowLabel}>{o.label}</Text> : null}
+      </View>
+    </Pressable>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.handleZone} {...dragHandlers}>
@@ -99,11 +178,30 @@ export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHand
           <Text style={styles.title} numberOfLines={2}>
             {trip?.headsign ? `→ ${trip.headsign}` : vehicle.line}
           </Text>
+          {origin && terminus ? (
+            <Text style={styles.ends} numberOfLines={2}>
+              {origin.name} → {terminus.name}
+            </Text>
+          ) : null}
           <Text style={styles.updated}>
             {tr.vehicleUpdated(ago(now - vehicle.reportedAt))}
             {vehicle.speedKmh > 0 ? ` · ${vehicle.speedKmh} km/h` : ''}
+            {refreshNote ? ` · ${refreshNote}` : ''}
           </Text>
         </View>
+        <Pressable
+          onPress={onRefresh}
+          disabled={refreshing}
+          hitSlop={10}
+          style={styles.closeButton}
+          accessibilityLabel={tr.vehicleRefresh}
+        >
+          {refreshing ? (
+            <ActivityIndicator size={20} color={theme.accent} />
+          ) : (
+            <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
+          )}
+        </Pressable>
         <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
@@ -136,41 +234,66 @@ export function VehicleSheet({ vehicle, trip, progress, loading, error, dragHand
             ) : null}
           </View>
 
-          {ahead.length > 0 ? (
+          {stops.length > 0 ? (
             <ScrollView style={styles.list} nestedScrollEnabled>
+              {passedShown.map((stop, k) =>
+                stopRow(stop, `p${k}`, {
+                  time: null,
+                  faded: true,
+                  big: k === 0,
+                  first: k === 0,
+                  last: false,
+                  label: k === 0 ? tr.vehicleOrigin : undefined,
+                }),
+              )}
+              {passed.length > FOLDED_PASSED ? (
+                <Pressable style={styles.more} onPress={() => setPastOpen((o) => !o)}>
+                  <MaterialCommunityIcons
+                    name={pastOpen ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={theme.accent}
+                  />
+                  <Text style={styles.moreText}>
+                    {pastOpen ? tr.vehicleLess : tr.vehiclePassed(passed.length - 1)}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {/* The bus itself, between where it has been and where it goes. */}
+              <View style={styles.row}>
+                <Text style={styles.time} />
+                <View style={styles.railColumn}>
+                  <View
+                    style={[
+                      styles.rail,
+                      { backgroundColor: colour },
+                      passed.length === 0 && styles.railFirst,
+                      ahead.length === 0 && styles.railLast,
+                    ]}
+                  />
+                  <View style={[styles.busDot, { backgroundColor: colour }]}>
+                    <MaterialCommunityIcons name="bus" size={12} color={textOn(colour)} />
+                  </View>
+                </View>
+                <Text style={styles.busHere} numberOfLines={1}>
+                  {standingAt ? `${tr.vehicleAt} ${standingAt.name}` : tr.vehicleHere}
+                </Text>
+              </View>
+
               {shown.map((stop, k) => {
                 // Never before now: the position is some seconds old.
                 const raw = progress.etas[k];
                 const eta = raw === null || raw === undefined ? null : Math.max(raw, now);
-                return (
-                  <View key={`${stop.id}-${k}`} style={styles.row}>
-                    <Text style={[styles.time, k === 0 && styles.timeFirst]}>
-                      {eta !== null ? clock(eta) : ''}
-                    </Text>
-                    <View style={styles.railColumn}>
-                      <View
-                        style={[
-                          styles.rail,
-                          { backgroundColor: colour },
-                          k === 0 && styles.railFirst,
-                          k === ahead.length - 1 && styles.railLast,
-                        ]}
-                      />
-                      <View
-                        style={[
-                          k === 0 || k === ahead.length - 1 ? styles.dotBig : styles.dot,
-                          { borderColor: colour },
-                        ]}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.name, (k === 0 || k === ahead.length - 1) && styles.nameBold]}
-                      numberOfLines={1}
-                    >
-                      {stop.name}
-                    </Text>
-                  </View>
-                );
+                const isEnd = k === ahead.length - 1;
+                return stopRow(stop, `a${k}`, {
+                  time: eta !== null ? clock(eta) : '',
+                  faded: false,
+                  big: k === 0 || isEnd,
+                  first: false,
+                  last: isEnd,
+                  bold: k === 0 || isEnd,
+                  label: isEnd ? tr.vehicleTerminus : undefined,
+                });
               })}
               {ahead.length > FOLDED_STOPS ? (
                 <Pressable style={styles.more} onPress={() => setUnfolded((u) => !u)}>
@@ -242,6 +365,11 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.text,
       letterSpacing: -0.3,
     },
+    ends: {
+      fontSize: 12,
+      color: theme.text,
+      marginTop: 2,
+    },
     updated: {
       fontSize: 11,
       color: theme.textMuted,
@@ -292,7 +420,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.danger,
     },
     list: {
-      maxHeight: 260,
+      maxHeight: 300,
     },
     row: {
       flexDirection: 'row',
@@ -342,11 +470,42 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderWidth: 3,
       backgroundColor: theme.surface,
     },
-    name: {
+    rowOn: {
+      backgroundColor: theme.surfaceMuted,
+      borderRadius: 10,
+    },
+    railPassed: {
+      opacity: 0.4,
+    },
+    busDot: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    busHere: {
       flex: 1,
-      fontSize: 14,
+      fontSize: 13,
+      fontWeight: '700',
       color: theme.text,
       paddingLeft: 8,
+    },
+    nameBox: {
+      flex: 1,
+      paddingLeft: 8,
+      paddingVertical: 4,
+    },
+    name: {
+      fontSize: 14,
+      color: theme.text,
+    },
+    nameFaded: {
+      color: theme.textMuted,
+    },
+    rowLabel: {
+      fontSize: 11,
+      color: theme.textMuted,
     },
     nameBold: {
       fontWeight: '700',

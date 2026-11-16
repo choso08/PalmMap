@@ -288,6 +288,12 @@ export const en: typeof pt = {
     vehicleMore: (n: number) => `${n} more stops`,
     vehicleLess: 'Show less',
     vehicleNearTrip: 'Approximate times',
+    vehicleRefresh: 'Refresh position',
+    vehicleNoNews: 'no newer position',
+    vehiclePassed: (n: number) => `${n} earlier stops`,
+    vehicleHere: 'The bus is here',
+    vehicleOrigin: 'Origin',
+    vehicleTerminus: 'Destination',
     getOffHere: 'Get off here',
     moreStops: (n: number, minutes: number | null) =>
       `${n === 1 ? '1 stop' : `${n} stops`}${minutes !== null ? ` · ${minutes} min` : ''}`,

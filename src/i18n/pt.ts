@@ -324,6 +324,12 @@ export const pt = {
     vehicleMore: (n: number) => `Mais ${n} paragens`,
     vehicleLess: 'Mostrar menos',
     vehicleNearTrip: 'Horas aproximadas',
+    vehicleRefresh: 'Atualizar posição',
+    vehicleNoNews: 'sem posição mais recente',
+    vehiclePassed: (n: number) => `${n} paragens anteriores`,
+    vehicleHere: 'O autocarro está aqui',
+    vehicleOrigin: 'Origem',
+    vehicleTerminus: 'Destino',
     getOffHere: 'Sair aqui',
     moreStops: (n: number, minutes: number | null) =>
       `${n === 1 ? '1 paragem' : `${n} paragens`}${minutes !== null ? ` · ${minutes} min` : ''}`,

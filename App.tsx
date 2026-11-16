@@ -211,9 +211,9 @@ function PalmMap() {
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   // The bottom panels' measured heights — see `raisedBottom`.
-  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0, guide: 0 });
+  const [panelHeights, setPanelHeights] = useState({ place: 0, route: 0, measure: 0, guide: 0, vehicle: 0 });
   const measurePanel = useCallback(
-    (which: 'place' | 'route' | 'measure' | 'guide') => (event: LayoutChangeEvent) => {
+    (which: 'place' | 'route' | 'measure' | 'guide' | 'vehicle') => (event: LayoutChangeEvent) => {
       const height = Math.round(event.nativeEvent.layout.height);
       setPanelHeights((old) => (old[which] === height ? old : { ...old, [which]: height }));
     },
@@ -1896,7 +1896,9 @@ function PalmMap() {
    */
   const shownPanel = guiding
     ? 'guide'
-    : selectedPlace
+    : selectedVehicleId
+      ? 'vehicle'
+      : selectedPlace
       ? 'place'
       : destination
         ? 'route'
@@ -2457,17 +2459,29 @@ function PalmMap() {
    * known one stays, and the panel's "position from N ago" says how old it is.
    */
   const lastVehicle = useRef<LiveVehicle | null>(null);
+  /** The bus as brought by the panel's refresh button, between list refreshes. */
+  const [freshVehicle, setFreshVehicle] = useState<LiveVehicle | null>(null);
+  const [busRefreshing, setBusRefreshing] = useState(false);
+  const [busRefreshNote, setBusRefreshNote] = useState<string | null>(null);
   const shownVehicle = useMemo(() => {
     if (!selectedVehicleId) {
       lastVehicle.current = null;
       return null;
     }
-    const found = vehicles.find((v) => v.id === selectedVehicleId);
-    if (found) {
-      lastVehicle.current = found;
+    // The newest report of this bus, wherever it came from.
+    for (const v of [vehicles.find((x) => x.id === selectedVehicleId), freshVehicle]) {
+      if (
+        v &&
+        v.id === selectedVehicleId &&
+        (!lastVehicle.current ||
+          lastVehicle.current.id !== v.id ||
+          v.reportedAt >= lastVehicle.current.reportedAt)
+      ) {
+        lastVehicle.current = v;
+      }
     }
     return lastVehicle.current;
-  }, [vehicles, selectedVehicleId]);
+  }, [vehicles, freshVehicle, selectedVehicleId]);
   const [busTrip, setBusTrip] = useState<{
     trip: VehicleTrip | null;
     loading: boolean;
@@ -2507,7 +2521,39 @@ function PalmMap() {
     () => (busTrip.trip && shownVehicle ? vehicleProgress(busTrip.trip, shownVehicle) : null),
     [busTrip.trip, shownVehicle],
   );
+  /**
+   * The panel's refresh button: the fleet's list asked now (author's request).
+   * The same 1.1 MB request as the map's refresh, so it goes out once at a
+   * time; when the map shows buses, the whole list is updated with it.
+   */
+  const handleBusRefresh = useCallback(async () => {
+    const id = selectedVehicleId;
+    if (!id) {
+      return;
+    }
+    setBusRefreshing(true);
+    setBusRefreshNote(null);
+    try {
+      const lista = await liveVehicles();
+      const before = lastVehicle.current?.reportedAt ?? 0;
+      const found = lista.find((v) => v.id === id) ?? null;
+      setFreshVehicle(found);
+      if (isTransitMap(settings.mapType) && settings.showVehicles && vehicleZoomOk) {
+        setVehicles(lista);
+      }
+      if (!found || found.reportedAt <= before) {
+        setBusRefreshNote(t().transit.vehicleNoNews);
+      }
+    } catch (e: unknown) {
+      setBusRefreshNote(e instanceof Error ? e.message : t().transit.vehicleNoNews);
+    } finally {
+      setBusRefreshing(false);
+    }
+  }, [selectedVehicleId, settings.mapType, settings.showVehicles, vehicleZoomOk]);
+
   const handleVehiclePress = useCallback((vehicleId: string) => {
+    setFreshVehicle(null);
+    setBusRefreshNote(null);
     setTransitVisible(false);
     setSelectedStopId(null);
     setSelectedStationId(null);
@@ -2572,8 +2618,15 @@ function PalmMap() {
       );
     }
     if (busProgress && busTrip.trip) {
-      // The stops the tapped bus has still to call at.
-      return busTrip.trip.stops.slice(busProgress.nextIndex).map((s) => ({
+      // Where the tapped bus started, and the stops it has still to call at.
+      const all = busTrip.trip.stops;
+      const shown = busProgress.nextIndex > 0 ? [all[0], ...all.slice(busProgress.nextIndex)] : all;
+      // A passed stop tapped in the panel's list shows too.
+      const tapped = all.find((x) => x.id === selectedStopId);
+      if (tapped && !shown.includes(tapped)) {
+        shown.push(tapped);
+      }
+      return shown.map((s) => ({
         id: s.id,
         name: s.name,
         locality: '',
@@ -2589,7 +2642,16 @@ function PalmMap() {
       return journeyStops ?? mapStopsShown;
     }
     return [trip.from, ...changesOf(trip).flatMap((c) => [c.at, c.boardAt]), trip.to];
-  }, [shownGuide, transitTrips, transitTripIndex, mapStopsShown, journeyStops, busProgress, busTrip.trip]);
+  }, [
+    shownGuide,
+    transitTrips,
+    transitTripIndex,
+    mapStopsShown,
+    journeyStops,
+    busProgress,
+    busTrip.trip,
+    selectedStopId,
+  ]);
 
   /**
    * The panel's list, with the stop tapped on the map at the top when it is
@@ -3128,7 +3190,7 @@ function PalmMap() {
       ) : null}
 
       {selectedVehicleId && shownVehicle ? (
-        <Reveal style={styles.bottom}>
+        <Reveal style={styles.bottom} onLayout={measurePanel('vehicle')}>
           <DraggableSheet>
             {(drag) => (
               <VehicleSheet
@@ -3138,7 +3200,18 @@ function PalmMap() {
                 progress={busProgress}
                 loading={busTrip.loading}
                 error={busTrip.error}
-                onClose={() => setSelectedVehicleId(null)}
+                onClose={() => {
+                  setSelectedVehicleId(null);
+                  setSelectedStopId(null);
+                }}
+                onRefresh={() => void handleBusRefresh()}
+                refreshing={busRefreshing}
+                refreshNote={busRefreshNote}
+                onStopPress={(stop) => {
+                  setSelectedStopId(stop.id);
+                  mapRef.current?.recenter(stop.coordinates);
+                }}
+                selectedStopId={selectedStopId}
               />
             )}
           </DraggableSheet>

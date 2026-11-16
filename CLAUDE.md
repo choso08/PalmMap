@@ -178,6 +178,13 @@ environment cannot reach.
   checked with the app's code in `trajetos` (17:39, four buses, all trips matched, e.g. 1722
   at R Cravos Abril 45, 19 min late). The panel keeps the last known bus when it drops out
   of the list.
+  **Added after 7.0.42** (author's requests): a **refresh button** asks `/vehicles` at once
+  (`handleBusRefresh`; the newest `reportedAt` wins between the list and this, and "no newer
+  position" is said when nothing moved); the line's **origin → destination** under the title;
+  the list shows the origin, the passed stops folded ("N earlier stops"), a bus row where it
+  is, then the stops ahead ending at the destination; **a tapped stop** takes the map to it
+  (`recenter`, marked in the list and on the map). The panel counts as `'vehicle'` in
+  `shownPanel`, so the camera and floating buttons keep above it.
 - **A line's journey, as in Maps** (author's request): tapping a line in a stop's arrivals
   shows its stops from there (`lineJourney`, in `transit.ts`; `LineJourney.tsx`), folded into
   "12 paragens · 25 min" when there are many, with the time at each — the pattern's timetable
