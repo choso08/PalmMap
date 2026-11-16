@@ -325,6 +325,8 @@ export const pt = {
     vehicleLess: 'Mostrar menos',
     vehicleNearTrip: 'Horas aproximadas',
     vehicleRefresh: 'Atualizar posição',
+    vehicleNeedsTimetable: 'Descarregue os horários da Carris (Lisboa) para ver o percurso.',
+    alertMore: 'Ver aviso',
     vehicleNoNews: 'sem posição mais recente',
     vehiclePassed: (n: number) => `${n} paragens anteriores`,
     vehicleHere: 'O autocarro está aqui',

@@ -1489,6 +1489,9 @@ export function MapView({
               key="autocarros-label"
               id="autocarros-label"
               type="symbol"
+              // Carris de Lisboa's number comes from its stored timetable;
+              // without it, no empty pill.
+              filter={['!=', ['get', 'linha'], '']}
               layout={{
                 'icon-image': 'vehicle-pill',
                 // Under the drop: 16 of its radius, 5 of gap, half the pill.

@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import { carrisLisboaTrip } from './schedules';
 import {
   CARRIS_BASE_URL,
   CARRIS_MIN_INTERVAL_MS,
@@ -800,6 +801,8 @@ export async function carrisRideShape(
 /** A stop of a live bus's way, with its timetable time when the trip is known. */
 export interface VehicleTripStop {
   id: string;
+  /** Other ids the live feed may name this stop by (merged GTFS stops). */
+  ids?: string[];
   name: string;
   coordinates: Coordinates;
   /** The trip's timetable here, in seconds after the service day's midnight. */
@@ -863,11 +866,27 @@ function todayKey(): string {
  * between stops, which hardly change from one trip to the next.
  */
 export async function vehicleTrip(vehicle: {
+  operator?: 'cm' | 'cl';
   patternId: string | null;
   tripId: string | null;
   stopId: string | null;
+  routeId?: string | null;
+  stopSequence?: number | null;
   line: string;
 }): Promise<VehicleTrip> {
+  if (vehicle.operator === 'cl') {
+    // Carris de Lisboa: from the stored timetable, which must be downloaded.
+    const trip = carrisLisboaTrip({
+      routeId: vehicle.routeId ?? null,
+      stopId: vehicle.stopId,
+      stopSequence: vehicle.stopSequence ?? null,
+      line: vehicle.line,
+    });
+    if (!trip) {
+      throw new TransitError(t().transit.vehicleNeedsTimetable);
+    }
+    return trip;
+  }
   if (!vehicle.patternId) {
     throw new TransitError(t().transit.journeyUnavailable);
   }
@@ -968,7 +987,11 @@ export function vehicleProgress(
   const at = vehicle.coordinates;
   const d = (i: number) => distanceMeters(at, stops[Math.max(0, Math.min(stops.length - 1, i))].coordinates);
 
-  let candidates = stops.map((s, i) => (s.id === vehicle.stopId ? i : -1)).filter((i) => i >= 0);
+  let candidates = stops
+    .map((s, i) =>
+      vehicle.stopId !== null && (s.id === vehicle.stopId || s.ids?.includes(vehicle.stopId)) ? i : -1,
+    )
+    .filter((i) => i >= 0);
   let standing = vehicle.atStop;
   if (candidates.length === 0) {
     // No stop of this pattern named: the nearest one, and standing there only

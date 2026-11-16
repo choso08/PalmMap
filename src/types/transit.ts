@@ -199,3 +199,23 @@ export interface CarrisVehicle {
   /** `STOPPED_AT`, `IN_TRANSIT_TO` or `INCOMING_AT`, as in GTFS-RT. */
   current_status?: string;
 }
+
+/** One translation of an alert's text. */
+export interface CarrisAlertText {
+  translation?: { language?: string; text?: string }[];
+}
+
+/**
+ * A service alert, as `/v2/alerts` answers (read from a real response,
+ * 16 November 2026: GTFS-RT's Alert in JSON, times in **seconds**).
+ */
+export interface CarrisAlert {
+  active_period?: { start?: number; end?: number }[];
+  cause?: string;
+  effect?: string;
+  header_text?: CarrisAlertText;
+  description_text?: CarrisAlertText;
+  url?: CarrisAlertText;
+  /** `route_id` carries the version prefix: `[LA77N]1714_0`. */
+  informed_entity?: { agency_id?: string; route_id?: string; stop_id?: string }[];
+}

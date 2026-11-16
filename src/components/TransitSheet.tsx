@@ -39,6 +39,7 @@ import { formatDistance } from '../utils/format';
 import { useAppActive } from '../useAppActive';
 import type { Coordinates } from '../types/geo';
 import { LineJourney } from './LineJourney';
+import { ServiceAlerts } from './ServiceAlerts';
 
 interface TransitSheetProps {
   /**
@@ -362,6 +363,9 @@ export function TransitSheet({
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>
       </View>
+
+      {/* Strikes, diversions, works on this stop's lines. */}
+      {focusStop ? <ServiceAlerts lines={focusStop.lines} stopId={focusStop.id} /> : null}
 
       {loading && !focusStop && !focusStation ? (
         <View style={styles.loading}>

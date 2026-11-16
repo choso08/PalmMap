@@ -289,6 +289,8 @@ export const en: typeof pt = {
     vehicleLess: 'Show less',
     vehicleNearTrip: 'Approximate times',
     vehicleRefresh: 'Refresh position',
+    vehicleNeedsTimetable: 'Download the Carris (Lisboa) timetable to see its route.',
+    alertMore: 'Read alert',
     vehicleNoNews: 'no newer position',
     vehiclePassed: (n: number) => `${n} earlier stops`,
     vehicleHere: 'The bus is here',

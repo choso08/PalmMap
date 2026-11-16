@@ -1,8 +1,12 @@
 import { lineLabel } from './transit';
 import axios from 'axios';
+import { transit_realtime } from 'gtfs-realtime-bindings';
+
+import { carrisLisboaLine } from './schedules';
 
 import {
   CARRIS_BASE_URL,
+  CARRIS_LISBOA_VEHICLES_URL,
   REQUEST_TIMEOUT_MS,
   USER_AGENT,
   VEHICLE_MAX_AGE_S,
@@ -58,6 +62,12 @@ const client = axios.create({
 /** A moving bus, ready for the map. */
 export interface LiveVehicle {
   id: string;
+  /** Carris Metropolitana (JSON API) or Carris de Lisboa (GTFS-RT). */
+  operator: 'cm' | 'cl';
+  /** The GTFS route id (Carris de Lisboa: `172_1`), to find its timetable. */
+  routeId: string | null;
+  /** The sequence of `stopId` in its trip, when the feed says. */
+  stopSequence: number | null;
   /** The line number, as painted on the bus. */
   line: string;
   coordinates: Coordinates;
@@ -94,6 +104,19 @@ function toNumber(value: unknown): number | null {
  * right answer, not a fault.
  */
 export async function liveVehicles(): Promise<LiveVehicle[]> {
+  // Each operator on its own: one failing leaves the other's buses.
+  const [cm, cl] = await Promise.allSettled([metropolitanaVehicles(), lisboaVehicles()]);
+  if (cm.status === 'rejected' && cl.status === 'rejected') {
+    throw cm.reason;
+  }
+  return [
+    ...(cm.status === 'fulfilled' ? cm.value : []),
+    ...(cl.status === 'fulfilled' ? cl.value : []),
+  ];
+}
+
+/** Carris Metropolitana's fleet, from its JSON API. */
+async function metropolitanaVehicles(): Promise<LiveVehicle[]> {
   const { data } = await client.get<CarrisVehicle[]>('/vehicles');
 
   const now = Date.now() / 1000;
@@ -126,6 +149,9 @@ export async function liveVehicles(): Promise<LiveVehicle[]> {
 
     moving.push({
       id: vehicle.id,
+      operator: 'cm',
+      routeId: vehicle.route_id ?? null,
+      stopSequence: null,
       line: lineLabel(vehicle.line_id ?? vehicle.route_id),
       coordinates: { latitude, longitude },
       bearing: toNumber(vehicle.bearing),
@@ -141,5 +167,81 @@ export async function liveVehicles(): Promise<LiveVehicle[]> {
     });
   }
 
+  return moving;
+}
+
+/** Protobuf numbers come as `Long` above 2^53-safe sizes; plain numbers here. */
+function plain(value: unknown): number | null {
+  if (value == null) {
+    return null;
+  }
+  const n =
+    typeof value === 'number'
+      ? value
+      : typeof (value as { toNumber?: () => number }).toNumber === 'function'
+        ? (value as { toNumber: () => number }).toNumber()
+        : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Carris de Lisboa's buses and trams, from their GTFS-RT feed — Protobuf,
+ * decoded with `gtfs-realtime-bindings` (the official bindings, on
+ * `protobufjs/minimal`: no `eval`, fine on Hermes). About 10 KB for the whole
+ * fleet, so it costs next to nothing beside Carris Metropolitana's list.
+ *
+ * Read from a real feed (16 November 2026): `trip.route_id` `172_1` (the
+ * public number, 735, comes from the stored timetable), `stop_id` and
+ * `current_stop_sequence`, `current_status` 2 (in transit), `timestamp` in
+ * seconds, no bearing or speed.
+ */
+async function lisboaVehicles(): Promise<LiveVehicle[]> {
+  const { data } = await axios.get<ArrayBuffer>(CARRIS_LISBOA_VEHICLES_URL, {
+    responseType: 'arraybuffer',
+    timeout: REQUEST_TIMEOUT_MS,
+    headers: { 'User-Agent': USER_AGENT },
+  });
+  const feed = transit_realtime.FeedMessage.decode(new Uint8Array(data));
+  const now = Date.now() / 1000;
+  const moving: LiveVehicle[] = [];
+  const Status = transit_realtime.VehiclePosition.VehicleStopStatus;
+
+  for (const entity of feed.entity ?? []) {
+    const v = entity.vehicle;
+    const position = v?.position;
+    if (!v || !position) {
+      continue;
+    }
+    let reportedAt = plain(v.timestamp);
+    if (reportedAt !== null && reportedAt > 1e12) {
+      reportedAt /= 1000;
+    }
+    if (reportedAt === null) {
+      continue;
+    }
+    // The same filter as for Carris Metropolitana — see the note at the top.
+    const age = now - reportedAt;
+    if (age < -30 || age > VEHICLE_MAX_AGE_S) {
+      continue;
+    }
+    const routeId = v.trip?.routeId || null;
+    const speed = plain(position.speed);
+    moving.push({
+      id: `cl:${v.vehicle?.id || entity.id}`,
+      operator: 'cl',
+      routeId,
+      stopSequence: plain(v.currentStopSequence),
+      line: carrisLisboaLine(routeId) ?? '',
+      coordinates: { latitude: position.latitude, longitude: position.longitude },
+      bearing: position.bearing ? position.bearing : null,
+      speedKmh: speed ? Math.round(speed * 3.6) : 0,
+      atStop: v.currentStatus === Status.STOPPED_AT,
+      ageSeconds: Math.max(0, Math.round(age)),
+      reportedAt: Math.min(reportedAt, now),
+      patternId: null,
+      tripId: v.trip?.tripId || null,
+      stopId: v.stopId || null,
+    });
+  }
   return moving;
 }

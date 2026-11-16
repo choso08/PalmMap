@@ -17,6 +17,7 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDurationShort } from '../utils/format';
 import { textOn } from '../utils/lineColour';
+import { ServiceAlerts } from './ServiceAlerts';
 
 interface Props {
   /** The bus as last seen: it keeps moving while the panel is open. */
@@ -185,7 +186,6 @@ export function VehicleSheet({
           ) : null}
           <Text style={styles.updated}>
             {tr.vehicleUpdated(ago(now - vehicle.reportedAt))}
-            {vehicle.speedKmh > 0 ? ` · ${vehicle.speedKmh} km/h` : ''}
             {refreshNote ? ` · ${refreshNote}` : ''}
           </Text>
         </View>
@@ -233,6 +233,8 @@ export function VehicleSheet({
               <Text style={[styles.delay, late ? styles.delayLate : null]}>{delayText}</Text>
             ) : null}
           </View>
+
+          {vehicle.operator === 'cm' ? <ServiceAlerts lines={[vehicle.line]} /> : null}
 
           {stops.length > 0 ? (
             <ScrollView style={styles.list} nestedScrollEnabled>

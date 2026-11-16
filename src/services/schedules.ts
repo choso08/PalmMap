@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import {
+  CARRIS_LISBOA_FEED_ID,
   REQUEST_TIMEOUT_MS,
   TRANSFER_MAX_WAIT_S,
   TRANSIT_WALK_MAX_M,
@@ -1767,4 +1768,138 @@ function raptorJourney(
     ride: d.ride,
     ...(changes.length > 0 ? { changes } : {}),
   };
+}
+
+// --- Carris de Lisboa's live vehicles, placed on the stored timetable ----------
+
+/** GTFS stop id → station index, per feed, built once. */
+const stationByGtfsId = new Map<string, Map<string, number>>();
+
+function carrisLisboaFeed(): IndexedFeed | null {
+  const info = installedFeeds().find((f) => f.id === CARRIS_LISBOA_FEED_ID);
+  return info ? loadFeed(info) : null;
+}
+
+/**
+ * The public line number of a Carris de Lisboa route id (`172_1` → `735`), from
+ * the stored timetable — the live feed only carries the route id. Null when the
+ * timetable is not downloaded or is older than the ids (before November 2026).
+ */
+export function carrisLisboaLine(routeId: string | null): string | null {
+  const feed = carrisLisboaFeed();
+  const i = routeId && feed?.data.routeIds ? feed.data.routeIds.indexOf(routeId) : -1;
+  return i >= 0 ? feed?.data.routes[i]?.[0] || null : null;
+}
+
+/** The station a GTFS stop id was merged into, in a feed that keeps the ids. */
+function stationOf(feed: IndexedFeed, gtfsId: string | null): number | null {
+  if (!gtfsId || !feed.data.stopIds) {
+    return null;
+  }
+  let map = stationByGtfsId.get(feed.info.id + feed.info.gerado);
+  if (!map) {
+    map = new Map();
+    feed.data.stopIds.forEach((ids, station) => ids.forEach((id) => map?.set(id, station)));
+    stationByGtfsId.set(feed.info.id + feed.info.gerado, map);
+  }
+  return map.get(gtfsId) ?? null;
+}
+
+/**
+ * A tapped Carris de Lisboa bus or tram, as the bus panel wants it: its line's
+ * stops in order, with times.
+ *
+ * The live feed names the route, the stop it heads to and that stop's
+ * sequence; the stored timetable has no trip ids, so the trip is **the one of
+ * that line calling at that stop, at about that place in its route, due
+ * nearest now** — its minutes between stops stand in for the bus's own, and
+ * the panel says the times are approximate.
+ */
+export function carrisLisboaTrip(vehicle: {
+  routeId: string | null;
+  stopId: string | null;
+  stopSequence: number | null;
+  line: string;
+}): VehicleTripLike | null {
+  const feed = carrisLisboaFeed();
+  if (!feed || !feed.data.routeIds || !vehicle.routeId) {
+    return null;
+  }
+  const route = feed.data.routeIds.indexOf(vehicle.routeId);
+  const station = stationOf(feed, vehicle.stopId);
+  if (route < 0 || station === null) {
+    return null;
+  }
+
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const today = ymd(now);
+  const yesterday = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  let best: { trip: number; pos: number; score: number } | null = null;
+  for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+    const data = feed.data.trips[trip];
+    if (data.r !== route) {
+      continue;
+    }
+    const at = feed.minutes[trip][pos];
+    const days = feed.days[data.s];
+    // Today's service, or yesterday's past midnight.
+    const gap = days.has(today)
+      ? Math.abs(at - nowMin)
+      : days.has(yesterday)
+        ? Math.abs(at - 1440 - nowMin)
+        : Infinity;
+    if (!Number.isFinite(gap)) {
+      continue;
+    }
+    // The sequence tells the two directions apart where both call here.
+    const seqMiss =
+      vehicle.stopSequence !== null ? Math.min(Math.abs(pos - (vehicle.stopSequence - 1)), 5) : 0;
+    const score = gap + seqMiss * 60;
+    if (!best || score < best.score) {
+      best = { trip, pos, score };
+    }
+  }
+  if (!best) {
+    return null;
+  }
+
+  const data = feed.data.trips[best.trip];
+  const pattern = feed.data.patterns[data.p] ?? [];
+  const times = feed.minutes[best.trip];
+  const stops = pattern.map((s, k) => {
+    const stop = feed.data.stops[s];
+    return {
+      id: String(s),
+      ids: feed.data.stopIds?.[s] ?? [],
+      name: stop?.n ?? '',
+      coordinates: { latitude: stop?.y ?? 0, longitude: stop?.x ?? 0 },
+      scheduled: typeof times[k] === 'number' ? times[k] * 60 : null,
+    };
+  });
+  return {
+    line: vehicle.line,
+    headsign: feed.data.headsigns[data.h] ?? stops[stops.length - 1]?.name ?? '',
+    colour: null,
+    stops,
+    // No shapes are stored: the stops joined in a row.
+    shape: stops.map((s) => s.coordinates),
+    exactTrip: false,
+  };
+}
+
+/** The shape of `VehicleTrip` (in `transit.ts`), kept here to avoid a cycle. */
+export interface VehicleTripLike {
+  line: string;
+  headsign: string;
+  colour: string | null;
+  stops: {
+    id: string;
+    ids?: string[];
+    name: string;
+    coordinates: Coordinates;
+    scheduled: number | null;
+  }[];
+  shape: Coordinates[];
+  exactTrip: boolean;
 }

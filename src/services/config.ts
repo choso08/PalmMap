@@ -131,6 +131,19 @@ export const OVERPASS_FALLBACK_URL = 'https://overpass.private.coffee/api/interp
 export const CARRIS_BASE_URL = 'https://api.carrismetropolitana.pt/v2';
 
 /**
+ * Carris de Lisboa's buses and trams, where they are now: GTFS-RT vehicle
+ * positions, in Protobuf, no key (listed by the Mobility Database, source
+ * 2930). Probed on 16 November 2026: 108 vehicles in **10 KB**, median age 71 s;
+ * 105 of 107 trip ids are in their static GTFS. Only positions are published —
+ * `tripupdates` and `alerts` answer 404.
+ */
+export const CARRIS_LISBOA_VEHICLES_URL =
+  'https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions';
+
+/** The id of Carris de Lisboa's stored timetable (`transit-feeds.json`). */
+export const CARRIS_LISBOA_FEED_ID = 'carris-lisboa';
+
+/**
  * Minimum interval between requests to Nominatim, in milliseconds.
  * The public service allows at most 1 request per second.
  */
