@@ -9,6 +9,8 @@ Prints what is needed to fix things against real data instead of guesses:
 - Metro Sul do Tejo stations, as the Carris API lists them.
 - Which satellite / orthophoto editions exist (EOX, DGT).
 """
+import re
+import urllib.parse
 import json
 import time
 import urllib.error
@@ -1151,6 +1153,53 @@ def lines():
     for path in ("/lines/3601", "/routes", "/routes/3601_0"):
         status, ctype, body = get(CARRIS + path)
         print("\n", path, status, len(body), body[:1200])
+
+
+def trails():
+    """Trail mode (author's idea): Waymarked Trails' overlay tiles and terms,
+    and how many guideposts OSM has around Monsanto."""
+    import math
+    lat, lon, z = 38.725, -9.19, 13
+    n = 2 ** z
+    x = int((lon + 180) / 360 * n)
+    y = int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
+    section("Waymarked Trails tiles")
+    for kind in ("hiking", "cycling", "mtb", "riding", "skating", "slopes"):
+        url = f"https://tile.waymarkedtrails.org/{kind}/{z}/{x}/{y}.png"
+        status, ctype, body = get(url)
+        print(kind, status, ctype, len(body), "png" if body[:4] == b"\x89PNG" else body[:80])
+    section("Waymarked Trails terms")
+    for url in ("https://waymarkedtrails.org/help/legal", "https://hiking.waymarkedtrails.org/help/legal",
+                "https://waymarkedtrails.org/#help-legal", "https://raw.githubusercontent.com/waymarkedtrails/waymarkedtrails-frontend/master/README.md"):
+        status, ctype, body = get(url)
+        text = re.sub(r"<[^>]+>", " ", body.decode("utf-8", "replace"))
+        text = re.sub(r"\s+", " ", text)
+        print("\n", url, status, len(body))
+        for m in re.finditer(r"(?i)(tile|usage|licen|attribut|commercial|bulk|api)", text):
+            print("  ...", text[max(0, m.start() - 160): m.start() + 200])
+            break
+        print("  ", text[:1500])
+    section("Guideposts around Monsanto (Overpass)")
+    q = '[out:json][timeout:25];(node[tourism=information][information~"guidepost|board|map|route_marker"](38.70,-9.23,38.75,-9.16););out tags 20;'
+    status, ctype, body = get("https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(q))
+    print("status", status, len(body))
+    try:
+        els = json.loads(body).get("elements", [])
+        print("count (first 20)", len(els))
+        for e in els[:20]:
+            print(e.get("tags"))
+    except Exception as e:
+        print("not json", body[:300])
+    q = '[out:json][timeout:25];rel[route~"hiking|foot|bicycle|mtb"](38.70,-9.23,38.75,-9.16);out tags;'
+    status, ctype, body = get("https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(q))
+    try:
+        els = json.loads(body).get("elements", [])
+        print("routes", len(els))
+        for e in els[:15]:
+            t = e.get("tags", {})
+            print(t.get("route"), t.get("ref"), t.get("name"), t.get("network"), t.get("osmc:symbol"))
+    except Exception:
+        print("routes: not json", status, body[:300])
 
 
 ENTRANCE_QUERY = """[out:json][timeout:20];
