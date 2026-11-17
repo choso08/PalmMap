@@ -1,0 +1,18 @@
+# The form "Rate the app" (FeedbackForm.tsx) opens, pre-filled from the app:
+# the title carries the stars, `comentario` and `versao` are filled through the
+# address (?template=avaliacao.yml&comentario=…&versao=…). A template's labels
+# are applied whoever opens the issue; the `labels=` address parameter is not
+# (it needs permission to label). The label is created by labels.yml.
+name: Avaliação
+description: Avaliar a app PalmMap
+title: "Avaliação: "
+labels: ["avaliação"]
+body:
+  - type: textarea
+    id: comentario
+    attributes:
+      label: Comentário
+  - type: input
+    id: versao
+    attributes:
+      label: Versão da app

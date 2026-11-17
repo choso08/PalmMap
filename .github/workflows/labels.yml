@@ -1,0 +1,24 @@
+# Creates (or updates) the issue labels the app's forms rely on — today only
+# "avaliação", put on every rating by .github/ISSUE_TEMPLATE/avaliacao.yml.
+# Runs when this file changes on main, or by hand.
+name: Labels
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/labels.yml]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "avaliação" -R "$GITHUB_REPOSITORY" --force \
+            --color FBCA04 --description "Avaliação enviada pela app"

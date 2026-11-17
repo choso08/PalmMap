@@ -1014,7 +1014,11 @@ in one place instead of spread through the code.
   holding a match by themselves (`forceOpen` on `Collapsible`). A new option must go into
   `show`.
 - **"Rate the app"** (`FeedbackForm`): stars and a comment, sent as a pre-filled GitHub issue
-  (with the version) — there is no server of ours, and nothing leaves the phone until the
+  (with the version) through the issue form `.github/ISSUE_TEMPLATE/avaliacao.yml`, which puts
+  the **"avaliação" label** on it (author's request, 17 November 2026) — a form's labels apply
+  whoever opens it, the `labels=` address parameter only for people allowed to label. Its
+  fields are filled by id (`comentario`, `versao`). The label itself is made by
+  `.github/workflows/labels.yml` (on a change to that file on `main`, or by hand) — there is no server of ours, and nothing leaves the phone until the
   person confirms there. It needs a GitHub account. **"Missing a country?"**, at the end of
   the maps list, does the same to ask for a map (`MAP_REQUEST_URL`). To receive feedback
   without a GitHub account, the way is the author's e-mail address (`mailto:`) — only with

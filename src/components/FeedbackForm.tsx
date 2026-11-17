@@ -23,10 +23,15 @@ export function FeedbackForm() {
 
   const send = () => {
     const title = `${s.feedbackTitle}: ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}`;
-    const body = `${text.trim()}\n\n---\nPalmMap ${currentVersion()}`;
-    void Linking.openURL(
-      `${FEEDBACK_URL}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`,
-    );
+    // The repository's rating form (.github/ISSUE_TEMPLATE/avaliacao.yml),
+    // which puts the "avaliação" label on it; its fields are filled by id.
+    const query = [
+      'template=avaliacao.yml',
+      `title=${encodeURIComponent(title)}`,
+      `comentario=${encodeURIComponent(text.trim())}`,
+      `versao=${encodeURIComponent(`PalmMap ${currentVersion()}`)}`,
+    ].join('&');
+    void Linking.openURL(`${FEEDBACK_URL}?${query}`).catch(() => undefined);
   };
 
   return (
