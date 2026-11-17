@@ -282,6 +282,9 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **Built in 7.0.50** (17 November): arm64 + armeabi-v7a (for the Galaxy A13), the next
+  departures per pair of lines, the code-review fixes (scale bar, see-through pull-to-close
+  screens, header drag) — still signed with the debug key, no secrets yet.
 - **Built in 7.0.49** (17 November): everything after 7.0.48 below — trail mode, the
   time-to-go and get-off notifications, the security fixes, the Lagoon palette, the
   update-downloaded notice, timetables v2, the kept stop list and Carris caches, the new scale
