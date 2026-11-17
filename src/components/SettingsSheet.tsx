@@ -464,7 +464,7 @@ export function SettingsSheet({
               {/* A country missing from the list: ask for it on GitHub. */}
               <Pressable
                 style={styles.forgetRow}
-                onPress={() => void Linking.openURL(MAP_REQUEST_URL)}
+                onPress={() => void Linking.openURL(MAP_REQUEST_URL).catch(() => undefined)}
               >
                 <MaterialCommunityIcons name="map-plus" size={19} color={theme.accent} />
                 <Text style={styles.linkText}>{s.requestMap}</Text>
@@ -715,7 +715,7 @@ export function SettingsSheet({
             <>
               <Pressable
                 style={styles.forgetRow}
-                onPress={() => void Linking.openURL(DONATE_URL)}
+                onPress={() => void Linking.openURL(DONATE_URL).catch(() => undefined)}
               >
                 <MaterialCommunityIcons name="heart-outline" size={19} color={theme.accent} />
                 <Text style={styles.linkText}>{s.donate}</Text>
@@ -735,7 +735,7 @@ export function SettingsSheet({
           */}
               <Pressable
                 style={styles.creditRow}
-                onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')}
+                onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright').catch(() => undefined)}
               >
                 <Text style={styles.creditName}>OpenStreetMap</Text>
                 <Text style={styles.creditRole}>{s.credits.osm}</Text>
@@ -743,7 +743,7 @@ export function SettingsSheet({
 
               <Pressable
                 style={styles.creditRow}
-                onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html')}
+                onPress={() => void Linking.openURL('https://routing.openstreetmap.de/about.html').catch(() => undefined)}
               >
                 <Text style={styles.creditName}>OSRM · FOSSGIS</Text>
                 <Text style={styles.creditRole}>{s.credits.osrm}</Text>

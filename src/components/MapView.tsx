@@ -6,6 +6,7 @@ import {
   Layer,
   VectorSource,
   Map,
+  type MapRef,
   Marker,
   RasterSource,
   type PressEvent,
@@ -81,20 +82,19 @@ const TRAILS_TILES: Record<Exclude<TrailsLayer, 'off'>, string> = {
 const TRAILS_ATTRIBUTION = '© waymarkedtrails.org, data © OpenStreetMap contributors (CC-BY-SA)';
 
 /**
+ * The bus, stop and station layers, asked at the point of a tap on a business
+ * (`transitAt`). See `transitAt` for why.
+ */
+const VEHICLE_LAYERS = ['autocarros-base', 'autocarros-icon', 'autocarros-label'];
+const STOP_LAYERS = ['paragens-aberta', 'paragens-icon', 'paragens-label', 'paragens-label-aberta'];
+const STATION_LAYERS = ['estacoes-aberta', 'estacoes-icon', 'estacoes-icon-aberta', 'estacoes-label'];
+/** Half the touch box MapLibre gives a press (44 × 44 pixels). */
+const TAP_HALF_BOX = 22;
+
+/**
  * Named places, minus transport stops and entrances — those are not
  * businesses, and the transport map has its own stops.
  */
-/**
- * How long after a tap on a bus, stop or station a business under it is not
- * opened. One tap can reach both layers (author's report, 17 November 2026:
- * tapping a bus or a stop planned a route — the second tap of two landed on
- * a business pin underneath, and a double tap on a pin makes it the
- * destination). The business's handler waits `TRANSIT_TAP_WAIT_MS` to see
- * whether the transit layer got the same tap, whichever fires first.
- */
-const TRANSIT_TAP_SHADOW_MS = 600;
-const TRANSIT_TAP_WAIT_MS = 60;
-
 const TILE_POI_FILTER = [
   'all',
   ['has', 'name'],
@@ -404,16 +404,50 @@ export function MapView({
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
-  /** When a bus, stop or station was last tapped (see `TRANSIT_TAP_SHADOW_MS`). */
-  const transitTapAt = useRef(0);
-  /** Runs a business tap only if no transit layer took the same tap. */
-  const unlessTransitTap = useCallback((run: () => void) => {
-    setTimeout(() => {
-      if (Date.now() - transitTapAt.current > TRANSIT_TAP_SHADOW_MS) {
-        run();
+  const mapRef = useRef<MapRef>(null);
+  /**
+   * A tap on a business that has a bus, stop or station under the finger goes
+   * to the transit one (author's report, 17 November 2026: tapping a bus or a
+   * stop planned a route by itself). MapLibre hands a tap only to the source
+   * whose layer is on top, and the business pins, mounted later, are drawn
+   * above the transit layers — so a bus over a business went to the business,
+   * and two taps made it the destination (`pinDoubleTap`). Asked at the tap's
+   * point, in MapLibre's own touch box: true when a transit feature took it.
+   */
+  const transitAt = useCallback(
+    async (point: [number, number]): Promise<boolean> => {
+      const map = mapRef.current;
+      if (!map) {
+        return false;
       }
-    }, TRANSIT_TAP_WAIT_MS);
-  }, []);
+      const box: [[number, number], [number, number]] = [
+        [point[0] - TAP_HALF_BOX, point[1] - TAP_HALF_BOX],
+        [point[0] + TAP_HALF_BOX, point[1] + TAP_HALF_BOX],
+      ];
+      const groups: [string[], ((id: string) => void) | undefined][] = [
+        [VEHICLE_LAYERS, onVehiclePress],
+        [STOP_LAYERS, onStopPress],
+        [STATION_LAYERS, onStationPress],
+      ];
+      for (const [layers, press] of groups) {
+        if (!press) {
+          continue;
+        }
+        try {
+          const found = await map.queryRenderedFeatures(box, { layers });
+          const id = found[0]?.properties?.id;
+          if (typeof id === 'string') {
+            press(id);
+            return true;
+          }
+        } catch {
+          // A layer not on the map now (no buses shown): nothing there.
+        }
+      }
+      return false;
+    },
+    [onVehiclePress, onStopPress, onStationPress],
+  );
   const theme = useTheme();
   const { settings } = useSettings();
 
@@ -626,16 +660,9 @@ export function MapView({
   // Read by the camera moves without making them depend on the panel's height.
   const bottomInsetRef = useRef(bottomInset);
   bottomInsetRef.current = bottomInset;
-  // The panel's height counts only while the camera follows someone (the GPS,
-  // or navigation): then the dot belongs in the visible part. Otherwise a panel
-  // opening — a tapped bus's — changed the padding and slid the whole map under
-  // the finger (author's report, 17 November 2026: "when I tap a bus it takes
-  // me to where it is"). Explicit moves (`recenter`, `frame`, the route) pass
-  // the panel's height themselves.
-  const tracking = following || followUser;
   const viewPadding = useMemo(
-    () => ({ top: 0, right: 0, bottom: tracking ? bottomInset : 0, left: 0 }),
-    [bottomInset, tracking],
+    () => ({ top: 0, right: 0, bottom: bottomInset, left: 0 }),
+    [bottomInset],
   );
 
   useImperativeHandle(ref, () => ({
@@ -992,6 +1019,7 @@ export function MapView({
   return (
     <>
     <Map
+      ref={mapRef}
       style={styles.map}
       mapStyle={mapStyle}
       attribution
@@ -1282,7 +1310,6 @@ export function MapView({
           onPress={(event) => {
             // As with the stops: the tap must not reach the map.
             event.stopPropagation?.();
-            transitTapAt.current = Date.now();
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
               onStationPress?.(id);
@@ -1442,7 +1469,6 @@ export function MapView({
           onPress={(event) => {
             // See the note on the businesses: the tap must not reach the map.
             event.stopPropagation?.();
-            transitTapAt.current = Date.now();
             // Same as the businesses: the features come in `nativeEvent`.
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
@@ -1559,7 +1585,6 @@ export function MapView({
           onPress={(event) => {
             // As with the stops: the tap must not reach the map.
             event.stopPropagation?.();
-            transitTapAt.current = Date.now();
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
               onVehiclePress?.(id);
@@ -1694,7 +1719,8 @@ export function MapView({
             const kind =
               typeof props.subclass === 'string' ? props.subclass : String(props.class ?? '');
             const name = props.name;
-            unlessTransitTap(() => onTilePoiPress?.({
+            const point = event.nativeEvent.point as [number, number];
+            void transitAt(point).then((taken) => !taken && onTilePoiPress?.({
               // Tiles carry no OpenStreetMap id; a negative number from the
               // position keeps it apart from real ids and stable between taps.
               id: -Math.abs(Math.round(latitude * 1e5) * 100000 + Math.round(longitude * 1e5)),
@@ -1730,7 +1756,8 @@ export function MapView({
             const feature = event.nativeEvent.features[0];
             const placeId = feature?.properties?.placeId;
             if (typeof placeId === 'number') {
-              unlessTransitTap(() => onPlacePress(placeId));
+              const point = event.nativeEvent.point as [number, number];
+              void transitAt(point).then((taken) => !taken && onPlacePress(placeId));
             }
           }}
         >

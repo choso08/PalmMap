@@ -382,6 +382,15 @@ function PalmMap() {
    */
   const [choosingStop, setChoosingStop] = useState(false);
   const [stopSearchRequest, setStopSearchRequest] = useState(0);
+  // Closing the search without choosing gives up on the stop. The search hands
+  // a choice over (`onSelect`, which reads `choosingStop` from its render)
+  // right after saying it closed, so resetting here loses nothing.
+  const handleSearchFocusChange = useCallback((focused: boolean) => {
+    setSearchFocused(focused);
+    if (!focused) {
+      setChoosingStop(false);
+    }
+  }, []);
   /**
    * The category chips' bottom edge on screen, measured: the scale bar hangs
    * under it. A larger font or display size makes the top column taller.
@@ -2563,12 +2572,16 @@ function PalmMap() {
    * for little use.
    */
   const handleAddWaypoint = useCallback((place: Place) => {
+    // The destination is not a stop on the way to itself.
+    if (destination && isSamePlace(destination, place)) {
+      return;
+    }
     setWaypoints((atuais) =>
       atuais.some((w) => isSamePlace(w, place)) ? atuais : [...atuais, place],
     );
     setSelectedPlace(null);
     setDroppedPin(null);
-  }, []);
+  }, [destination]);
 
   /**
    * Draws the way to a stop, from the transport panel.
@@ -3110,13 +3123,7 @@ function PalmMap() {
           }}
           focusRequest={stopSearchRequest}
           placeholder={choosingStop && destination ? t().search.stopPlaceholder : undefined}
-          onFocusChange={(focused) => {
-            setSearchFocused(focused);
-            // Closing the search without choosing gives up on the stop.
-            if (!focused) {
-              setTimeout(() => setChoosingStop(false), 0);
-            }
-          }}
+          onFocusChange={handleSearchFocusChange}
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}

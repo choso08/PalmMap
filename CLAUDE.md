@@ -122,9 +122,9 @@ environment cannot reach.
     **Probed 13 November:** Almada Forum has one door mapped, `entrance=main` on the east
     side; Garcia de Orta five (the two `emergency` ones are skipped).
   - **From the author's photos, 13 November:** the camera keeps the blue dot in the visible
-    part above the bottom panel (`bottomInset` on `MapView` → the `Camera`'s `padding` **only while following** — a
-    panel opening otherwise slid the map, e.g. on tapping a bus, author's report 17 November —
-    and passed explicitly by `recenter`, `frame` and the route framing), as in Maps; on a transport trip the GPS button
+    part above the bottom panel (`bottomInset` on `MapView` → the `Camera`'s `padding`, and passed explicitly by
+    `recenter`, `frame` and the route framing; limiting it to following was tried and undone —
+    on Android the `padding` prop alone moves nothing), as in Maps; on a transport trip the GPS button
     always brings the camera back to the person (it used to toggle following off, which
     looked like nothing); the trip's footer is laid out like driving navigation — end left,
     time left in the middle, speaker on the right, no longer next to the end button; and in
@@ -154,9 +154,10 @@ environment cannot reach.
     the first tap opens the card, the second makes it the destination. **A tap on a bus, stop or
     station never reaches the business pins under it** (author's report, 17 November: tapping a
     bus or a stop planned a route by itself — the taps landed on a business underneath too, and
-    two made it the destination): the transit layers stamp `transitTapAt`, and the business
-    handlers wait `TRANSIT_TAP_WAIT_MS` (60 ms) and do nothing within `TRANSIT_TAP_SHADOW_MS`
-    (600 ms) of one (`unlessTransitTap`, in `MapView.tsx`).
+    two made it the destination): MapLibre fires `onPress` only on the topmost source, and the
+    business pins are drawn above the transit layers, so a business handler first asks
+    `queryRenderedFeatures` for a bus, stop or station within `TAP_HALF_BOX` (22 px) of the
+    tap (`transitAt`, in `MapView.tsx`) and opens that instead.
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
     number in a pill underneath (see 6-B-5).
   - **A tapped stop or station opens alone** — its panel shows only its passages; the clock

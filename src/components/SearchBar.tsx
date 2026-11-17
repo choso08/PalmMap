@@ -89,13 +89,7 @@ export function SearchBar({
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [query, setQuery] = useState('');
-  const inputRef = useRef<TextInput>(null);
-  // "Add stop" in the route panel asks for the box: the cursor goes there.
-  useEffect(() => {
-    if (focusRequest) {
-      inputRef.current?.focus();
-    }
-  }, [focusRequest]);
+
   /** True while the box is in use, to show the saved places. */
   const [focused, setFocusedState] = useState(false);
   const setFocused = useCallback(
@@ -120,6 +114,25 @@ export function SearchBar({
    * so it follows every keystroke.
    */
   const [lineResults, setLineResults] = useState<TransitLineInfo[]>([]);
+  const inputRef = useRef<TextInput>(null);
+  /**
+   * "Add stop" in the route panel asks for the box: it is emptied (it still
+   * held the destination's name, which came first in the list) and the cursor
+   * goes there. Only on a change — not when the bar mounts again after
+   * navigating, which would open the search by itself.
+   */
+  const lastFocusRequest = useRef(focusRequest);
+  useEffect(() => {
+    if (!focusRequest || focusRequest === lastFocusRequest.current) {
+      return;
+    }
+    lastFocusRequest.current = focusRequest;
+    escolhido.current = null;
+    setQuery('');
+    setResults([]);
+    setLineResults([]);
+    inputRef.current?.focus();
+  }, [focusRequest]);
   useEffect(() => {
     if (!onSelectLine || query === escolhidoLinha.current) {
       setLineResults([]);
