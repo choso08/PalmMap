@@ -289,6 +289,17 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **"High" satellite was blurry on a Galaxy A20e (Android 11), sharp on the author's X8**
+  (17 November): `ortos.dgterritorio.gov.pt`'s chain ends on **HARICA TLS RSA Root CA 2021**
+  (`sondar: tls_chains`), a root Android 11 and older never shipped — every orthophoto
+  request failed the handshake, silently, and Sentinel-2 was stretched instead. Fixed with
+  Android's network security config: `plugins/withExtraTrust.js` adds that public root
+  (`assets/certs/harica_tls_rsa_root_2021.crt`, SHA-256 `D9:5D:0E:8E:…:CB:7B:1D`, the one in
+  Mozilla's store) **for that host only**, beside the system roots; release keeps cleartext
+  off, the debug variant allows it (Metro). Checked with `expo prebuild` (files and manifest
+  attribute in place); not seen on a phone. The other imagery hosts end on old roots (ISRG
+  X1, GlobalSign, Starfield, GTS via GlobalSign). **A service that works on a new phone and
+  not an old one: probe its chain first.**
 - **"Report" on a place's card → an OpenStreetMap note** (author's request, 17 November: mark
   a business that no longer exists, from the app; not seen on a phone): `ReportPlace.tsx` —
   no longer here / name changed / wrong hours / other, optional details — and

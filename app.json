@@ -84,7 +84,8 @@
           }
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      "./plugins/withExtraTrust"
     ]
   }
 }
