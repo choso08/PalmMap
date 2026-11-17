@@ -289,6 +289,9 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **Built in 7.0.51** (17 November): a tap on a bus, stop or station under a business pin
+  opens the transit thing (`transitAt`), "Add stop" in the route panel, and the review fixes
+  around it — still signed with the debug key.
 - **Built in 7.0.50** (17 November): arm64 + armeabi-v7a (for the Galaxy A13), the next
   departures per pair of lines, the code-review fixes (scale bar, see-through pull-to-close
   screens, header drag) — still signed with the debug key, no secrets yet.
