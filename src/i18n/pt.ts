@@ -503,6 +503,8 @@ export const pt = {
     satelliteHighHint: 'Casa a casa, só em Portugal. Gasta mais dados.',
 
     map: 'Mapa',
+    trails: 'Trilhos marcados',
+    trailsModes: { off: 'Não', hiking: 'A pé', cycling: 'Bicicleta', mtb: 'BTT' },
     showPlaces: 'Mostrar negócios no mapa',
     showVehicles: 'Autocarros a andar',
     showVehiclesCost: '~1,1 MB por atualização (150 KB comprimido).',

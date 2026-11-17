@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { MAP_TYPES, useSettings, useT, useTheme, type MapType } from '../settings';
+import { MAP_TYPES, TRAILS_LAYERS, useSettings, useT, useTheme, type MapType } from '../settings';
 import type { Theme } from '../theme';
 
 interface Props {
@@ -97,6 +97,33 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
             onValueChange={(v) => update('showVehicles', v)}
             trackColor={{ true: theme.accent, false: theme.border }}
           />
+        </View>
+
+        <View style={styles.row}>
+          <MaterialCommunityIcons name="sign-direction" size={22} color={theme.text} />
+          <Text style={styles.rowText}>{strings.settings.trails}</Text>
+        </View>
+        <View style={styles.chips}>
+          {TRAILS_LAYERS.map((layer) => {
+            const on = settings.trails === layer.id;
+            return (
+              <Pressable
+                key={layer.id}
+                style={[styles.chip, on && styles.chipOn]}
+                onPress={() => update('trails', layer.id)}
+                accessibilityState={{ selected: on }}
+              >
+                <MaterialCommunityIcons
+                  name={layer.icon as never}
+                  size={16}
+                  color={on ? theme.accent : theme.textMuted}
+                />
+                <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                  {strings.settings.trailsModes[layer.id]}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <Text style={styles.section}>{strings.layers.tools}</Text>
@@ -201,6 +228,34 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     rowLabel: {
       fontSize: 15,
       color: theme.text,
+    },
+    chips: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingLeft: 36,
+      paddingBottom: 6,
+    },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    chipOn: {
+      borderColor: theme.accent,
+      backgroundColor: theme.surfaceMuted,
+    },
+    chipText: {
+      fontSize: 13,
+      color: theme.textMuted,
+    },
+    chipTextOn: {
+      color: theme.accent,
+      fontWeight: '700',
     },
     rowHint: {
       fontSize: 12,

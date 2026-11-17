@@ -68,6 +68,12 @@ export function isTransitMap(mapType: MapType): boolean {
  */
 export type SatelliteDetail = 'normal' | 'alta';
 
+/**
+ * Trail mode (the author's idea, November 2026): the marked routes of
+ * Waymarked Trails drawn over any map type — walking, cycling or BTT.
+ */
+export type TrailsLayer = 'off' | 'hiking' | 'cycling' | 'mtb';
+
 export interface Settings {
   /** The app's language. On `auto` it follows the phone's. */
   language: LanguagePreference;
@@ -105,6 +111,8 @@ export interface Settings {
    * is the app's heaviest request — see `VEHICLES_MIN_ZOOM`.
    */
   showVehicles: boolean;
+  /** Marked trails over the map (`TRAILS_TILES`, in `MapView.tsx`). */
+  trails: TrailsLayer;
   /**
    * How often the moving buses are asked for, in seconds (author's request,
    * November 2026). Each ask is the whole fleet, ~1.1 MB; the buses report
@@ -154,6 +162,7 @@ export const DEFAULT_SETTINGS: Settings = {
   batterySaver: true,
   showSpeed: true,
   showVehicles: true,
+  trails: 'off',
   vehiclesRefresh: '20',
   mapsOnMobileData: false,
   transitSort: 'best',
@@ -179,6 +188,13 @@ export function nextMapType(current: MapType): MapType {
   const i = MAP_TYPES.findIndex((t) => t.id === current);
   return MAP_TYPES[(i + 1) % MAP_TYPES.length].id;
 }
+
+export const TRAILS_LAYERS: { id: TrailsLayer; icon: string }[] = [
+  { id: 'off', icon: 'close' },
+  { id: 'hiking', icon: 'hiking' },
+  { id: 'cycling', icon: 'bike' },
+  { id: 'mtb', icon: 'bike-fast' },
+];
 
 export const SATELLITE_DETAILS: { id: SatelliteDetail; icon: string }[] = [
   { id: 'normal', icon: 'earth' },
@@ -315,6 +331,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                   TRANSIT_MODE_GROUPS.some((m) => m.id === g),
                 )
               : DEFAULT_SETTINGS.transitAvoid,
+            trails: TRAILS_LAYERS.some((l) => l.id === JSON.parse(stored).trails)
+              ? JSON.parse(stored).trails
+              : DEFAULT_SETTINGS.trails,
             bikeType: ['road', 'normal', 'mtb'].includes(JSON.parse(stored).bikeType)
               ? JSON.parse(stored).bikeType
               : DEFAULT_SETTINGS.bikeType,

@@ -465,6 +465,8 @@ export const en: typeof pt = {
     satelliteHighHint: 'House by house, Portugal only. Uses more data.',
 
     map: 'Map',
+    trails: 'Marked trails',
+    trailsModes: { off: 'Off', hiking: 'Walking', cycling: 'Cycling', mtb: 'MTB' },
     showPlaces: 'Show businesses on the map',
     showVehicles: 'Buses on the move',
     showVehiclesCost: '~1.1 MB per refresh (150 KB compressed).',

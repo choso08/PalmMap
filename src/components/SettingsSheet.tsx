@@ -30,6 +30,7 @@ import {
   VEHICLES_REFRESH,
   LANGUAGES,
   SATELLITE_DETAILS,
+  TRAILS_LAYERS,
   TRAVEL_MODES,
   useLanguage,
   useLearnedPace,
@@ -178,6 +179,7 @@ export function SettingsSheet({
       appearance: has(s.general, s.appearance, ...Object.values(s.appearanceModes)),
       satellite: has(s.dataUsage, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
+      trails: has(s.map, s.trails, ...Object.values(s.trailsModes)),
       vehicles: has(s.dataUsage, s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.transit, s.schedules),
@@ -198,7 +200,7 @@ export function SettingsSheet({
       ...result,
       searching: q.length > 0 || onlyNavigation,
       general: result.language || result.appearance || result.recents,
-      mapSection: result.places,
+      mapSection: result.places || result.trails,
       transit: result.schedules,
       data: result.vehicles || result.satellite || result.mobileMaps || result.storage,
       aboutSection: result.updates || result.feedback || result.about,
@@ -418,6 +420,19 @@ export function SettingsSheet({
                   trackColor={{ true: theme.accent, false: theme.border }}
                 />
               </View>
+            </>
+          ) : null}
+          {show.trails ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.trails}</Text>
+              <ChoiceRow
+                options={TRAILS_LAYERS}
+                label={(id) => s.trailsModes[id]}
+                value={settings.trails}
+                onChange={(id) => update('trails', id)}
+                styles={styles}
+                theme={theme}
+              />
             </>
           ) : null}
             </Collapsible>

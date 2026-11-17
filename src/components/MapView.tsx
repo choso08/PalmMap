@@ -7,6 +7,7 @@ import {
   VectorSource,
   Map,
   Marker,
+  RasterSource,
   type PressEvent,
   type TrackUserLocationChangeEvent,
   UserLocation,
@@ -32,7 +33,7 @@ import { regionForView, type OfflineRegion } from '../services/offlineMap';
 import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
 import { watchCompass } from '../services/location';
-import { useSettings, useTheme } from '../settings';
+import { useSettings, useTheme, type TrailsLayer } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 import { formatDistance } from '../utils/format';
 import { categoryLabel } from '../utils/categories';
@@ -62,6 +63,21 @@ const PIN_GLYPH: Record<PoiFamily, string> = {
 /** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
 const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
 const OPENFREEMAP_ATTRIBUTION = 'OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors';
+
+/**
+ * Trail mode: Waymarked Trails' overlay tiles — transparent PNGs with the
+ * marked routes of OpenStreetMap's route relations, each in its network's
+ * colour and with its ref. No key; probed from GitHub Actions (November
+ * 2026, `sondar: trails`). Only what is on screen is asked, like any tile,
+ * and the map's cache keeps it. Their tiles stop at zoom 17; above it they
+ * are enlarged instead of asked.
+ */
+const TRAILS_TILES: Record<Exclude<TrailsLayer, 'off'>, string> = {
+  hiking: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png',
+  cycling: 'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png',
+  mtb: 'https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png',
+};
+const TRAILS_ATTRIBUTION = '© waymarkedtrails.org, data © OpenStreetMap contributors (CC-BY-SA)';
 
 /**
  * Named places, minus transport stops and entrances — those are not
@@ -986,6 +1002,29 @@ export function MapView({
           zoom: userLocation ? 15 : DEFAULT_ZOOM,
         }}
       />
+
+      {/*
+        Trail mode, over whatever map type is shown and under everything of
+        ours. The `key` makes switching kind a new source instead of a changed
+        one (a source's tiles cannot change in place).
+      */}
+      {settings.trails !== 'off' ? (
+        <RasterSource
+          key={`trilhos-${settings.trails}`}
+          id={`trilhos-${settings.trails}`}
+          tiles={[TRAILS_TILES[settings.trails]]}
+          tileSize={256}
+          maxzoom={17}
+          attribution={TRAILS_ATTRIBUTION}
+        >
+          <Layer
+            key={`trilhos-${settings.trails}-layer`}
+            id={`trilhos-${settings.trails}-layer`}
+            type="raster"
+            paint={{ 'raster-opacity': 0.9 }}
+          />
+        </RasterSource>
+      ) : null}
 
       {/* The blue dot only shows with location permission actually granted. */}
       {/*

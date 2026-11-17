@@ -177,6 +177,21 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **After 7.0.48** (author: "do the other things", 17 November; none seen on a phone):
+  a **time-to-go reminder** — a bell beside Start for a planned transport trip, shown when
+  leaving is more than 3 min away, notifies `LEAVE_LEAD_S` (2 min) before one must leave
+  (`toggleLeaveReminder`, key `sair|<tripId>`, in `arrivalReminders.ts`); **"get off at the
+  next stop" as a notification** too, once per ride, voice on or off (`notifyNow`, the
+  `guideNotified` effect in `App.tsx`; the permission is prepared on Start,
+  `prepareTripNotices`); and **trail mode**: Waymarked Trails' overlay tiles — walking,
+  cycling or BTT (`trails` setting, chips in the layers sheet and Settings → Map;
+  `TRAILS_TILES` in `MapView.tsx`, a `RasterSource` under all our layers, `maxzoom` 17,
+  attribution CC-BY-SA). Probed with `sondar: trails`: the tiles answer 200 PNG with no key;
+  no usage terms page was found, so it stays to tiles on screen, cached like any other.
+  Overpass has Monsanto's guideposts and boards and 28 marked routes (PR1LSB, PR3–5PFM…);
+  guideposts on the map are **not** done yet. **Bike-share (Gira and the like) is left out on
+  the author's word** ("not yet"): some cycling relations carry network "Gira", and the
+  cycling overlay draws whatever OSM marks.
 - **The favourites screen, as Moovit** (author's request, 17 November; not seen on a phone):
   the Saved screen opens with **Home** and **Work** shortcuts (`homeWork.ts`, key
   `palmmap.casaTrabalho`) — set, a tap makes it the destination; empty, or with a long press,
@@ -409,10 +424,10 @@ environment cannot reach.
 **The English translation is done** for the code, the README, the workflows and this file.
 The Portuguese in `src/i18n/pt.ts` is the app's Portuguese text, not a leftover.
 
-**Idea for later (the author's): a "trail mode"**, something Google Maps lacks — the trail
+**Trail mode (the author's idea)**, something Google Maps lacks: the marked walking and
+cycling routes are in (see "After 7.0.48"). Still to do, only if the author asks: the trail
 signposts (`tourism=information` + `information=guidepost`, like Monsanto's "TB.4xx", taken
-out of the normal pins for being junk outside that mode), boards, and marked walking and
-cycling routes. Do not start without the author asking.
+out of the normal pins for being junk outside that mode) and boards, as pins in that mode.
 
 ## Project goal
 
@@ -793,6 +808,7 @@ in one place instead of spread through the code.
   | `batterySaver` | Read the GPS less often far from manoeuvres |
   | `showSpeed` | Show the GPS speed |
   | `showVehicles` | Show moving buses on the transport map |
+| `trails` | Marked trails over the map: off, walking, cycling or BTT (Waymarked Trails) |
   | `vehiclesRefresh` | How often they are asked for: 10, 20 (default), 30 or 60 s — author's request, November 2026; the line under it gives the data per hour (~150 KB compressed per ask) |
   | `mapsOnMobileData` | Refresh outdated country maps on mobile data too — off by default (Wi-Fi only, as before); author's request, November 2026 |
   | `transitSort` | Transport options by earliest arrival, least walking or fewest changes — chosen in the route panel |
