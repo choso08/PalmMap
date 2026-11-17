@@ -499,6 +499,10 @@ environment cannot reach.
   the app's own code in `trajetos`.
 - **"Satélite + bus" map type** (`satelliteTransit`, `isTransitMap`): the satellite underneath,
   with the live buses, Carris stops and arrivals button of the transport map on top.
+- **The compass cone is smoothed** (author's report, 17 November: "very buggy" on the Galaxy
+  A20e; not seen on a phone): `expo-location`'s heading is the raw accelerometer +
+  magnetometer sum, unfiltered, so `watchCompass` averages it as a direction
+  (`HEADING_SMOOTHING`, a third of each reading, about half a second).
 - **The compass cone keeps one size**: it was `icon-pitch-alignment: 'map'`, which drew it at
   its tile's size and made it grow and shrink against the dot with the zoom (author's report);
   now `'viewport'`.

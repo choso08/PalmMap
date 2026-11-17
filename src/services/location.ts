@@ -531,6 +531,16 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
 const HEADING_MIN_CHANGE_DEG = 4;
 
 /**
+ * How much of each new compass reading goes into the smoothed one (0–1).
+ *
+ * `expo-location` hands on the raw accelerometer + magnetometer sum, with no
+ * filter: on cheap phones (a Galaxy A20e, author's report) the cone shook and
+ * jumped tens of degrees standing still. Readings come about five a second, so
+ * a third makes a time constant of about half a second.
+ */
+const HEADING_SMOOTHING = 0.3;
+
+/**
  * The compass: which way the phone points, in degrees from north.
  *
  * For the cone in front of the blue dot, as in Google Maps. It is the
@@ -538,9 +548,11 @@ const HEADING_MIN_CHANGE_DEG = 4;
  * someone turns round to find their way.
  *
  * It only **checks** the permission, never asks (asking opens a dialog; see
- * "Pedir permissão não se faz fora do arranque" in CLAUDE.md). Small changes are
- * not passed on (`HEADING_MIN_CHANGE_DEG`), so the map is not redrawn many
- * times a second for a wobble of the needle.
+ * "Pedir permissão não se faz fora do arranque" in CLAUDE.md). Readings are
+ * smoothed as a direction, not as a number — averaging 350° and 10° gives 0°,
+ * not 180° (`HEADING_SMOOTHING`) — and small changes are not passed on
+ * (`HEADING_MIN_CHANGE_DEG`), so the map is not redrawn many times a second
+ * for a wobble of the needle.
  *
  * Returns a function to stop. Always call it on leaving.
  */
@@ -551,13 +563,29 @@ export async function watchCompass(onChange: (degrees: number) => void): Promise
       return () => undefined;
     }
     let last = -1000;
+    // The smoothed direction as a vector; null until the first reading.
+    let sx: number | null = null;
+    let sy = 0;
     const subscription = await Location.watchHeadingAsync((reading) => {
       // `trueHeading` is -1 until the phone knows where it is; magnetic north
       // is a few degrees off in Portugal, which does not show on a cone.
-      const degrees = reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading;
-      if (degrees < 0) {
+      const raw = reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading;
+      if (!(raw >= 0)) {
         return;
       }
+      const rad = (raw * Math.PI) / 180;
+      if (sx === null) {
+        sx = Math.cos(rad);
+        sy = Math.sin(rad);
+      } else {
+        sx += (Math.cos(rad) - sx) * HEADING_SMOOTHING;
+        sy += (Math.sin(rad) - sy) * HEADING_SMOOTHING;
+      }
+      // Two readings half a turn apart cancel out: no direction to show yet.
+      if (Math.hypot(sx, sy) < 0.05) {
+        return;
+      }
+      const degrees = ((Math.atan2(sy, sx) * 180) / Math.PI + 360) % 360;
       const diff = Math.abs(((degrees - last + 540) % 360) - 180);
       if (diff >= HEADING_MIN_CHANGE_DEG) {
         last = degrees;
