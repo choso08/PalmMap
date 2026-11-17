@@ -97,14 +97,18 @@ export function isInstalled(info: ScheduleFeedInfo): boolean {
   return dataFile(info).exists;
 }
 
-/** The timetables actually on the phone. Reads the folder, so it works without network. */
 /**
- * The folder's list, kept until a timetable is downloaded or removed: it was
- * read again (a folder listing and every identification file) on each
- * question — once per Carris de Lisboa bus on every refresh.
+ * The folder's list, kept until a download or removal touches the folder
+ * (`forgetFeed`): it was read again — a folder listing and every
+ * identification file — on each question, once per Carris de Lisboa bus on
+ * every refresh.
  */
 let installed: ScheduleFeedInfo[] | null = null;
 
+/**
+ * The timetables actually on the phone, from the folder, so it works without
+ * network. Kept between calls: see `installed`.
+ */
 export function installedFeeds(): ScheduleFeedInfo[] {
   if (installed) {
     return installed;
@@ -180,13 +184,14 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
     }
     await downloaded.move(destination);
     infoFile(info.id).write(JSON.stringify(info));
-    cache.delete(info.id);
-    installed = null;
-    carrisLisboaWarming = false;
+    forgetFeed(info.id);
   } catch (error) {
     if (partial.exists) {
       partial.delete();
     }
+    // The old file may already be gone (it is deleted before the move): what
+    // is kept in memory must not go on answering for it.
+    forgetFeed(info.id);
     const detail = error instanceof Error ? error.message : String(error);
     throw new ScheduleError(
       t().errors.scheduleDownloadFailed(info.nome, detail),
@@ -201,9 +206,21 @@ export function removeFeed(info: ScheduleFeedInfo): void {
       file.delete();
     }
   }
-  cache.delete(info.id);
+  forgetFeed(info.id);
+}
+
+/** Drops what is kept in memory about a timetable whose files changed. */
+function forgetFeed(id: string): void {
+  cache.delete(id);
   installed = null;
-  carrisLisboaWarming = false;
+  if (id === CARRIS_LISBOA_FEED_ID) {
+    carrisLisboaWarming = false;
+    carrisLisboaLines = null;
+    const side = linesFile();
+    if (side.exists) {
+      side.delete();
+    }
+  }
 }
 
 /** How much the stored timetables take up, in total. */
@@ -276,7 +293,7 @@ function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
   return {
     info,
     data,
-    minutes: [],
+    minutes: new Array<number[]>(data.trips.length),
     days: data.services.map((dates) => new Set(dates)),
     stationPatterns,
     patternTrips,
@@ -539,12 +556,9 @@ export function departuresNear(
   const days = candidateDays(now);
   const departures: ScheduleDeparture[] = [];
 
-  for (const feed of loadedFeeds((info) => info.kind !== 'bus')) {
-    // Bus timetables answer at their own stops (`departuresAtStop`): their
-    // nearest stop to a metro station would put buses in the station's list.
-    if (isExpired(feed.info, now) || feed.info.kind === 'bus') {
-      continue;
-    }
+  // Bus timetables answer at their own stops (`departuresAtStop`): their
+  // nearest stop to a metro station would put buses in the station's list.
+  for (const feed of loadedFeeds((info) => info.kind !== 'bus' && !isExpired(info, now))) {
 
     const nearest = nearestStop(feed, origin, maxMeters);
     if (!nearest) {
@@ -572,17 +586,11 @@ export function scheduledBusStops(
   withLive = false,
 ): TransitStation[] {
   const found: TransitStation[] = [];
+  // Carris Metropolitana's own stops come live from its API; its stored
+  // timetable stands in for them only offline (`withLive`).
   for (const feed of loadedFeeds(
-    (info) => info.kind === 'bus' && (info.naApp !== false || withLive),
+    (info) => info.kind === 'bus' && (info.naApp !== false || withLive) && !isExpired(info),
   )) {
-    if (feed.info.kind !== 'bus' || isExpired(feed.info)) {
-      continue;
-    }
-    // Carris Metropolitana's own stops come live from its API; its stored
-    // timetable stands in for them only offline (`withLive`).
-    if (feed.info.naApp === false && !withLive) {
-      continue;
-    }
     feed.data.stops.forEach((stop, i) => {
       if (
         found.length < limit &&
@@ -619,10 +627,7 @@ export function busDeparturesNear(
   now = new Date(),
 ): ScheduleDeparture[] {
   const out: ScheduleDeparture[] = [];
-  for (const feed of loadedFeeds((info) => info.kind === 'bus')) {
-    if (feed.info.kind !== 'bus' || isExpired(feed.info, now)) {
-      continue;
-    }
+  for (const feed of loadedFeeds((info) => info.kind === 'bus' && !isExpired(info, now))) {
     const nearest = nearestStop(feed, point, maxMeters);
     if (nearest) {
       out.push(...departuresFrom(feed, nearest.index, candidateDays(now), now.getTime() / 1000));
@@ -661,7 +666,7 @@ function departuresFrom(
   const departures: ScheduleDeparture[] = [];
   for (const { trip, pos } of callsAt(feed, station)) {
     const scheduled = feed.data.trips[trip];
-    const minute = tripMinutes(feed, trip)?.[pos];
+    const minute = tripMinutes(feed, trip)[pos];
     if (minute === undefined) {
       continue;
     }
@@ -735,11 +740,7 @@ export function planScheduledTrips(
   const days = candidateDays(now);
   const trips: TransitTrip[] = [];
 
-  for (const feed of loadedFeeds()) {
-    if (isExpired(feed.info, now)) {
-      continue;
-    }
-
+  for (const feed of loadedFeeds((info) => !isExpired(info, now))) {
     const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
     const arrivals = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
     if (departures.size === 0 || arrivals.size === 0) {
@@ -764,7 +765,7 @@ export function planScheduledTrips(
     for (const [trip, boardings] of candidates) {
       const scheduled = feed.data.trips[trip];
       const pattern = feed.data.patterns[scheduled.p] ?? [];
-      const times = tripMinutes(feed, trip) ?? [];
+      const times = tripMinutes(feed, trip);
 
       for (const day of days) {
         if (!feed.days[scheduled.s]?.has(day)) {
@@ -898,7 +899,7 @@ function reachFrom(
       for (const { trip, pos } of callsAt(feed, station)) {
         const scheduled = feed.data.trips[trip];
         const pattern = feed.data.patterns[scheduled.p] ?? [];
-        const times = tripMinutes(feed, trip) ?? [];
+        const times = tripMinutes(feed, trip);
         if (pos >= pattern.length - 1) {
           continue;
         }
@@ -982,7 +983,7 @@ export function planScheduledTransfers(
 ): TransitTrip[] {
   const nowUnix = now.getTime() / 1000;
   const days = candidateDays(now);
-  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  const feeds = loadedFeeds((info) => !isExpired(info, now));
   if (feeds.length === 0) {
     return [];
   }
@@ -1066,7 +1067,7 @@ export function planScheduledTransfers(
           continue;
         }
         const scheduled = b.feed.data.trips[trip];
-        const times = tripMinutes(b.feed, trip) ?? [];
+        const times = tripMinutes(b.feed, trip);
         const pattern = b.feed.data.patterns[scheduled.p] ?? [];
         for (const day of days) {
           if (!b.feed.days[scheduled.s]?.has(day)) {
@@ -1155,10 +1156,7 @@ export function scheduledBoardingsTo(destination: Coordinates): {
 } {
   const points: RailPoint[] = [];
   const refs: StationRef[] = [];
-  for (const feed of loadedFeeds()) {
-    if (isExpired(feed.info)) {
-      continue;
-    }
+  for (const feed of loadedFeeds((info) => !isExpired(info))) {
     const seen = new Set<number>();
     for (const station of stopsNear(feed, destination, TRANSIT_WALK_MAX_M).keys()) {
       for (const { trip, pos } of callsAt(feed, station)) {
@@ -1195,7 +1193,10 @@ export function scheduledOnward(
   now = new Date(),
 ): (TransitTrip | null)[] {
   const days = candidateDays(now);
-  const feeds = new Map(loadedFeeds().map((f) => [f.info.id, f]));
+  const wanted = new Set(requests.map((r) => r.ref.feedId));
+  const feeds = new Map(
+    loadedFeeds((info) => wanted.has(info.id) && !isExpired(info, now)).map((f) => [f.info.id, f]),
+  );
   const endsByFeed = new Map<string, Map<number, number>>();
   return requests.map(({ ref, earliest }) => {
     const feed = feeds.get(ref.feedId);
@@ -1211,7 +1212,7 @@ export function scheduledOnward(
     for (const { trip, pos } of callsAt(feed, ref.station)) {
       const scheduled = feed.data.trips[trip];
       const pattern = feed.data.patterns[scheduled.p] ?? [];
-      const times = tripMinutes(feed, trip) ?? [];
+      const times = tripMinutes(feed, trip);
       for (const day of days) {
         if (!feed.days[scheduled.s]?.has(day)) {
           continue;
@@ -1262,7 +1263,7 @@ export function scheduledReachedFrom(
   destination: Coordinates,
   now = new Date(),
 ): { points: RailPoint[]; legs: TransitTrip[] } {
-  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  const feeds = loadedFeeds((info) => !isExpired(info, now));
   const reached = reachFrom(feeds, origin, now.getTime() / 1000, candidateDays(now));
   const points: RailPoint[] = [];
   const legs: TransitTrip[] = [];
@@ -1291,13 +1292,13 @@ export function scheduledRide(
   ref: Extract<RideRef, { source: 'schedule' }>,
   departsAt: number,
 ): RideStop[] {
-  const feed = loadedFeeds().find((f) => f.info.id === ref.feedId);
+  const feed = loadedFeeds((info) => info.id === ref.feedId)[0];
   const scheduled = feed?.data.trips[ref.trip];
   if (!feed || !scheduled) {
     return [];
   }
   const pattern = feed.data.patterns[scheduled.p] ?? [];
-  const times = tripMinutes(feed, ref.trip) ?? [];
+  const times = tripMinutes(feed, ref.trip);
   const out: RideStop[] = [];
   for (let pos = ref.fromPos; pos <= ref.toPos && pos < pattern.length; pos += 1) {
     const stop = asStop(feed, pattern[pos], 0);
@@ -1313,8 +1314,9 @@ export function scheduledRide(
 
 /** Whether some stored timetable covers this point. */
 export function hasCoverage(point: Coordinates): boolean {
-  return loadedFeeds().some((feed) => {
-    const [west, south, east, north] = feed.data.bbox ?? [0, 0, 0, 0];
+  // The identification carries the box: no file is opened for this.
+  return installedFeeds().some((info) => {
+    const [west, south, east, north] = info.bbox ?? [0, 0, 0, 0];
     return (
       point.longitude >= west &&
       point.longitude <= east &&
@@ -1438,9 +1440,15 @@ function callsByMinute(feed: IndexedFeed, station: number) {
   }
   let list = byStation.get(station);
   if (!list) {
-    list = (callsAt(feed, station))
-      .map(({ trip, pos }) => ({ trip, pos, min: tripMinutes(feed, trip)?.[pos] ?? 0 }))
-      .sort((a, b) => a.min - b.min);
+    // Straight from the patterns, not through `callsAt`: that would keep a
+    // second copy of every call of every station RAPTOR visits.
+    list = [];
+    for (const { pattern, pos } of feed.stationPatterns.get(station) ?? []) {
+      for (const trip of feed.patternTrips[pattern]) {
+        list.push({ trip, pos, min: tripMinutes(feed, trip)[pos] ?? 0 });
+      }
+    }
+    list.sort((a, b) => a.min - b.min);
     byStation.set(station, list);
   }
   return list;
@@ -1525,7 +1533,7 @@ export async function planScheduledRaptor(
   runs = 2,
 ): Promise<TransitTrip[]> {
   const now = new Date(departAt * 1000);
-  const feeds = loadedFeeds().filter((f) => !isExpired(f.info, now));
+  const feeds = loadedFeeds((info) => !isExpired(info, now));
   if (feeds.length === 0) {
     return [];
   }
@@ -1672,7 +1680,7 @@ async function raptorOnce(
       const base = net.offset.get(b.feed)!;
       const scheduled = b.feed.data.trips[b.trip];
       const pattern = b.feed.data.patterns[scheduled.p] ?? [];
-      const times = tripMinutes(b.feed, b.trip) ?? [];
+      const times = tripMinutes(b.feed, b.trip);
       for (let p = b.pos + 1; p < pattern.length; p += 1) {
         const g = base + pattern[p];
         const arrives = at(b.day, times[p]);
@@ -1782,7 +1790,7 @@ function raptorJourney(
   };
   const arrivalOf = (ride: Ride) => {
     const base = ride.departs;
-    const times = tripMinutes(ride.feed, ride.trip) ?? [];
+    const times = tripMinutes(ride.feed, ride.trip);
     return base + (times[ride.alightPos] - times[ride.boardPos]) * 60;
   };
   const describe = (ride: Ride) => {
@@ -1849,24 +1857,76 @@ function carrisLisboaFeed(): IndexedFeed | null {
 }
 
 let carrisLisboaWarming = false;
+/** Carris de Lisboa's route id → public number, from the side file or the timetable. */
+let carrisLisboaLines: Map<string, string> | null = null;
 
 /**
- * The Carris de Lisboa timetable for the live buses' numbers, **only when
- * already open**. Opening it is 5.5 MB read on the JavaScript thread; done on
- * the first refresh of the live buses it froze the app right as it opened on
- * the transport map. So the first asks get no number, the file is opened a
- * few seconds later, and the next refresh has them.
+ * The line numbers alone, a few kilobytes beside the 5.5 MB timetable
+ * (`carris-lisboa.linhas.json`, written the first time the timetable is
+ * opened and dropped when it changes). The live buses read this, so the big
+ * file is not parsed on the JavaScript thread just to put "735" on a bus.
  */
-function carrisLisboaFeedIfOpen(): IndexedFeed | null {
+function linesFile(): File {
+  return new File(FOLDER, `${CARRIS_LISBOA_FEED_ID}.linhas.json`);
+}
+
+function linesFrom(feed: IndexedFeed): Map<string, string> {
+  const map = new Map<string, string>();
+  (feed.data.routeIds ?? []).forEach((id, i) => {
+    const number = feed.data.routes[i]?.[0];
+    if (number) {
+      map.set(id, number);
+    }
+  });
+  return map;
+}
+
+/**
+ * The live buses' numbers, without opening the timetable for them: from the
+ * open timetable when it already is, else from the side file. Opening the
+ * 5.5 MB on the first refresh froze the app as it opened on the transport
+ * map; now, only when neither exists (once per install), the first asks get
+ * no number and the timetable is opened a few seconds later.
+ */
+function carrisLisboaLineTable(): Map<string, string> | null {
+  if (carrisLisboaLines) {
+    return carrisLisboaLines;
+  }
+  if (!installedFeeds().some((f) => f.id === CARRIS_LISBOA_FEED_ID)) {
+    return null;
+  }
   const open = cache.get(CARRIS_LISBOA_FEED_ID);
   if (open) {
-    return open;
+    carrisLisboaLines = linesFrom(open);
+    return carrisLisboaLines;
   }
-  if (!carrisLisboaWarming && installedFeeds().some((f) => f.id === CARRIS_LISBOA_FEED_ID)) {
+  const side = linesFile();
+  if (side.exists) {
+    try {
+      carrisLisboaLines = new Map(
+        Object.entries(JSON.parse(side.textSync()) as Record<string, string>),
+      );
+      return carrisLisboaLines;
+    } catch {
+      // Broken: made again from the timetable below.
+    }
+  }
+  if (!carrisLisboaWarming) {
     carrisLisboaWarming = true;
-    // A broken file is not read again on every refresh: the flag stays set
-    // until a timetable is downloaded or removed.
-    setTimeout(() => void carrisLisboaFeed(), CARRIS_LISBOA_WARM_MS);
+    // Once per install, a few seconds after the first live buses; a broken
+    // file is not read again on every refresh (the flag stays set until the
+    // timetable changes).
+    setTimeout(() => {
+      const feed = carrisLisboaFeed();
+      if (feed) {
+        carrisLisboaLines = linesFrom(feed);
+        try {
+          linesFile().write(JSON.stringify(Object.fromEntries(carrisLisboaLines)));
+        } catch {
+          // Next start reads the timetable again; nothing else is lost.
+        }
+      }
+    }, CARRIS_LISBOA_WARM_MS);
   }
   return null;
 }
@@ -1879,9 +1939,7 @@ const CARRIS_LISBOA_WARM_MS = 4000;
  * timetable is not downloaded or is older than the ids (before November 2026).
  */
 export function carrisLisboaLine(routeId: string | null): string | null {
-  const feed = carrisLisboaFeedIfOpen();
-  const i = routeId && feed?.data.routeIds ? feed.data.routeIds.indexOf(routeId) : -1;
-  return i >= 0 ? feed?.data.routes[i]?.[0] || null : null;
+  return (routeId && carrisLisboaLineTable()?.get(routeId)) || null;
 }
 
 /** The station a GTFS stop id was merged into, in a feed that keeps the ids. */
@@ -1971,7 +2029,9 @@ export function carrisLisboaTrip(vehicle: {
     };
   });
   return {
-    line: vehicle.line,
+    // The timetable's own number: the live list may not have it yet
+    // (`carrisLisboaLine` waits for the file).
+    line: feed.data.routes[route]?.[0] || vehicle.line,
     headsign: feed.data.headsigns[data.h] ?? stops[stops.length - 1]?.name ?? '',
     colour: null,
     stops,

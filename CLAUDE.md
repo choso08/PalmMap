@@ -186,8 +186,15 @@ environment cannot reach.
   transport map's stops and stations no longer open files they then skip (`loadedFeeds`
   takes a filter on the identification — they used to parse Carris Metropolitana's 27 MB
   online); `installedFeeds()` is kept until a download or removal (it re-read the folder on
-  each Carris de Lisboa bus, every refresh); and the live buses' numbers wait
-  `CARRIS_LISBOA_WARM_MS` (4 s) for that timetable instead of opening it on the first refresh.
+  each Carris de Lisboa bus, every refresh); and the live buses' numbers come from a
+  2 KB side file, `carris-lisboa.linhas.json`, written the first time that timetable is
+  opened (`CARRIS_LISBOA_WARM_MS`, 4 s after the first live buses, once per install) and
+  dropped when it changes. **After a review:** every query names the files it needs before
+  any is read (`loadedFeeds(wanted)`: expired ones, other operators, `hasCoverage` from the
+  identification's `bbox`); a failed update forgets what was kept (`forgetFeed`);
+  `callsByMinute` builds its own list without a second copy in `callsAt`. Author's report
+  behind it: on "Satellite + bus", with the timetables downloaded, only the imagery showed —
+  no position, nothing else.
 - **"As Moovit", four points** (author: "I want to imitate Moovit, it is so annoying with the
   ads"; 17 November, none seen on a phone): a **Transit tab** (`NearbySheet`, tab `'nearby'`,
   icon `bus-clock`) listing the stops (`nearbyStops`, `arrivalsAt`) and stations
