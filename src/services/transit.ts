@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { File, Paths } from 'expo-file-system';
 
 import { carrisLisboaTrip } from './schedules';
 import {
@@ -172,6 +173,25 @@ function toNumber(value: string | number | undefined): number | null {
   return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
 
+/** The stops as last received, in the app's own shape, with when. */
+const STOPS_COPY = new File(Paths.cache, 'carris-paragens.json');
+/** How long that copy is used without asking: stops change a few times a year. */
+const STOPS_COPY_MAX_AGE_MS = 3 * 24 * 3600 * 1000;
+
+function storedStops(): { at: number; stops: TransitStop[] } | null {
+  try {
+    if (!STOPS_COPY.exists) {
+      return null;
+    }
+    const parsed = JSON.parse(STOPS_COPY.textSync()) as { at?: number; stops?: TransitStop[] };
+    return typeof parsed.at === 'number' && Array.isArray(parsed.stops) && parsed.stops.length > 0
+      ? { at: parsed.at, stops: parsed.stops }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadStops(): Promise<TransitStop[]> {
   if (cachedStops) {
     return cachedStops;
@@ -181,7 +201,26 @@ async function loadStops(): Promise<TransitStop[]> {
   }
 
   loading = (async () => {
-    const data = await carrisGet<CarrisStop[]>('/stops', CARRIS_STOPS_TIMEOUT_MS);
+    // The copy kept on the phone answers at once: the list is megabytes over
+    // mobile data, asked again at every start, and was part of "transport
+    // takes ages to load". Stops barely change; past `STOPS_COPY_MAX_AGE_MS`
+    // the network is asked, and its answer replaces the copy.
+    const copy = storedStops();
+    if (copy && Date.now() - copy.at < STOPS_COPY_MAX_AGE_MS) {
+      cachedStops = copy.stops;
+      return copy.stops;
+    }
+    let data: CarrisStop[];
+    try {
+      data = await carrisGet<CarrisStop[]>('/stops', CARRIS_STOPS_TIMEOUT_MS);
+    } catch (error) {
+      // No network or a refusal: an old copy beats no stops.
+      if (copy) {
+        cachedStops = copy.stops;
+        return copy.stops;
+      }
+      throw error;
+    }
     const stops: TransitStop[] = [];
 
     for (const stop of Array.isArray(data) ? data : []) {
@@ -206,6 +245,13 @@ async function loadStops(): Promise<TransitStop[]> {
     }
 
     cachedStops = stops;
+    if (stops.length > 0) {
+      try {
+        STOPS_COPY.write(JSON.stringify({ at: Date.now(), stops }));
+      } catch {
+        // Not kept: asked again next time, as before.
+      }
+    }
     return stops;
   })()
     .catch((error: unknown) => {

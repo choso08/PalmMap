@@ -177,6 +177,24 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **Transport loading, round two** (author, 17 November: "slow to load, above all the
+  transport"; asked whether Rust would help — the answer was the file format first, measured):
+  - **Timetables v2** (`<id>.v2.json`, `ScheduleFeedV2`): trips that share line, service,
+    headsign, pattern and gaps between stops are one group with their start times; the gaps
+    are stored once (`profiles`). Carris Metropolitana 27 MB → 3.1 MB, Carris de Lisboa
+    5.5 → 1.1 MB, metro 163 → 25 KB; CP barely shrinks (one service per trip). Reading all
+    seven in Node: 520 → 155 ms. **Checked against the real files**: every query in the bench
+    harness gives the same answers as v1, only the internal trip numbers differ (trips are
+    renumbered group by group).
+  - `build-transit.py` writes both files (`formato_v2`) and the manifest entry gains
+    `ficheiro2`/`bytes2`; **older apps keep reading v1**, so the v1 files must stay published
+    until no phone runs a version before this one. The app prefers `ficheiro2` (`fileName`),
+    reads either (`fromFile`), deletes the v1 file after a v2 download, and `ensureFeedsFor`
+    replaces an installed v1 by itself — Carris Metropolitana included.
+  - **The Carris Metropolitana stop list is kept on the phone** (`carris-paragens.json` in
+    the cache, `STOPS_COPY_MAX_AGE_MS`, 3 days; an older copy is still used when the network
+    fails). It was megabytes asked at every start before the transport map could show stops.
+    `probe-trips.js` stubs `expo-file-system` (no copy there, every question is real).
 - **Security review, palette and update notice** (author's requests, 17 November; none seen
   on a phone):
   - **The APK is signed with React Native's public debug key** (`CN=Android Debug`, SHA-1

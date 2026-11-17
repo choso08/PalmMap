@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { t } from '../i18n';
 import {
   downloadFeed,
+  feedBytes,
   isExpired,
   isInstalled,
   listFeeds,
@@ -134,7 +135,7 @@ export function Schedules() {
             <View style={styles.rowText}>
               <Text style={styles.name}>{info.nome}</Text>
               <Text style={[styles.size, fora ? styles.expirado : null]}>
-                {stationLabel(info.kind as StationKind)} · {formatBytes(info.bytes)} ·{' '}
+                {stationLabel(info.kind as StationKind)} · {formatBytes(feedBytes(info))} ·{' '}
                 {strings.schedules.stationCount(info.estacoes)}
                 {/*
                   The expiry date has to be visible. An expired timetable gives

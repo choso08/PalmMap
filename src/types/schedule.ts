@@ -49,8 +49,37 @@ export interface ScheduleTrip {
    * **It can go past 1440.** A train at one in the morning belongs to the
    * previous day's service, and comes as 1500 — see `absoluteMinutes` in the
    * service.
+   *
+   * Only in the first format (v1). A v2 file keeps `start` and `prof`.
    */
-  t: number[];
+  t?: number[];
+  /** v2: the first calling time, absolute minutes. */
+  start?: number;
+  /** v2: index into `profiles`, the deltas after `start`. */
+  prof?: number;
+}
+
+/**
+ * The second format (`<id>.v2.json`, November 2026), written next to the first
+ * for the app versions that read only that.
+ *
+ * Why: the first spelled out every trip — Carris Metropolitana is 243,000
+ * trips and 7.8 million numbers in 27 MB, and parsing it on the phone was most
+ * of "transport takes ages to load". But trips of one pattern almost always
+ * keep the same gaps between stops: 4,989 distinct gap lists for those 243,000
+ * trips. So the gaps are stored once (`profiles`), and trips that share line,
+ * service, headsign, pattern and gaps are one group with the list of their
+ * start times (`groups`). 3.3 MB, and parsed about 13 times faster.
+ */
+export interface ScheduleFeedV2 extends Omit<ScheduleFeed, 'trips'> {
+  v: 2;
+  /** Gaps in minutes between consecutive calls, after the first. */
+  profiles: number[][];
+  /**
+   * `[route, service, headsign, pattern, profile, starts]`; `starts` is
+   * sorted and delta-encoded (the first absolute, then what is added).
+   */
+  groups: [number, number, number, number, number, number[]][];
 }
 
 /** One operator's timetable, as it comes from the Release. */
@@ -111,6 +140,10 @@ export interface ScheduleFeedInfo {
   bbox: [number, number, number, number];
   /** Where the GTFS came from. Recorded so it is known which source was used. */
   origem?: string;
+  /** The v2 file (`ScheduleFeedV2`), when published; preferred by this app. */
+  ficheiro2?: string;
+  /** Its size. */
+  bytes2?: number;
   /**
    * When `false`, the app does not offer this timetable for download.
    *

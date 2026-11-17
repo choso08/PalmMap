@@ -21,7 +21,12 @@ import type {
   TransitTrip,
 } from './transit';
 import type { Coordinates } from '../types/geo';
-import type { ScheduleFeed, ScheduleFeedInfo } from '../types/schedule';
+import type {
+  ScheduleFeed,
+  ScheduleFeedInfo,
+  ScheduleFeedV2,
+  ScheduleTrip,
+} from '../types/schedule';
 
 export type { ScheduleFeedInfo };
 import { distanceMeters } from '../utils/geometry';
@@ -80,8 +85,18 @@ function ensureFolder(): void {
   }
 }
 
+/** The file this app keeps for an operator: the v2 one when published. */
+function fileName(info: ScheduleFeedInfo): string {
+  return info.ficheiro2 && safeFileName(info.ficheiro2) ? info.ficheiro2 : info.ficheiro;
+}
+
 function dataFile(info: ScheduleFeedInfo): File {
-  return new File(FOLDER, info.ficheiro);
+  return new File(FOLDER, fileName(info));
+}
+
+/** What a download of this operator costs: the file this app would fetch. */
+export function feedBytes(info: ScheduleFeedInfo): number {
+  return fileName(info) === info.ficheiro2 ? (info.bytes2 ?? info.bytes) : info.bytes;
 }
 
 /**
@@ -95,7 +110,8 @@ function infoFile(id: string): File {
 }
 
 export function isInstalled(info: ScheduleFeedInfo): boolean {
-  return dataFile(info).exists;
+  // Either format: a phone with the v1 file still has the timetable.
+  return dataFile(info).exists || new File(FOLDER, info.ficheiro).exists;
 }
 
 /**
@@ -125,7 +141,7 @@ export function installedFeeds(): ScheduleFeedInfo[] {
     }
     try {
       const info = JSON.parse(entry.textSync()) as ScheduleFeedInfo;
-      if (new File(FOLDER, info.ficheiro).exists) {
+      if (dataFile(info).exists) {
         feeds.push(info);
       }
     } catch {
@@ -171,14 +187,14 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
 
   // The `.parcial` ("partial") suffix stays in Portuguese so leftovers from
   // older versions are still recognised and cleaned up.
-  const partial = new File(FOLDER, `${info.ficheiro}.parcial`);
+  const partial = new File(FOLDER, `${fileName(info)}.parcial`);
   if (partial.exists) {
     partial.delete();
   }
 
   try {
     const downloaded = await File.downloadFileAsync(
-      `${BASE_URL}/${info.ficheiro}`,
+      `${BASE_URL}/${fileName(info)}`,
       partial,
     );
 
@@ -188,6 +204,11 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
     }
     await downloaded.move(destination);
     infoFile(info.id).write(JSON.stringify(info));
+    // The v1 file this one replaces, if the phone had it.
+    const v1 = new File(FOLDER, info.ficheiro);
+    if (fileName(info) !== info.ficheiro && v1.exists) {
+      v1.delete();
+    }
     forgetFeed(info.id);
   } catch (error) {
     if (partial.exists) {
@@ -205,7 +226,7 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
 
 /** Deletes one operator's stored timetable. */
 export function removeFeed(info: ScheduleFeedInfo): void {
-  for (const file of [dataFile(info), infoFile(info.id)]) {
+  for (const file of [dataFile(info), new File(FOLDER, info.ficheiro), infoFile(info.id)]) {
     if (file.exists) {
       file.delete();
     }
@@ -270,11 +291,13 @@ interface IndexedFeed {
   patternTrips: number[][];
   /** Stations already asked about, with their calls in trip order. */
   calls: Map<number, { trip: number; pos: number }[]>;
+  /** v2 files: the gap lists trips point to (`ScheduleTrip.prof`). */
+  profiles: number[][];
 }
 
 const cache = new Map<string, IndexedFeed>();
 
-function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
+function index(info: ScheduleFeedInfo, data: ScheduleFeed, profiles: number[][] = []): IndexedFeed {
   const patternTrips: number[][] = data.patterns.map(() => []);
   data.trips.forEach((trip, i) => {
     patternTrips[trip.p]?.push(i);
@@ -302,6 +325,7 @@ function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
     stationPatterns,
     patternTrips,
     calls: new Map(),
+    profiles,
   };
 }
 
@@ -314,9 +338,19 @@ function tripMinutes(feed: IndexedFeed, trip: number): number[] {
   if (!times) {
     times = [];
     let running = 0;
-    for (const delta of feed.data.trips[trip]?.t ?? []) {
-      running += delta;
+    const scheduled = feed.data.trips[trip];
+    if (scheduled?.t) {
+      for (const delta of scheduled.t) {
+        running += delta;
+        times.push(running);
+      }
+    } else if (scheduled?.start !== undefined) {
+      running = scheduled.start;
       times.push(running);
+      for (const delta of feed.profiles[scheduled.prof ?? -1] ?? []) {
+        running += delta;
+        times.push(running);
+      }
     }
     feed.minutes[trip] = times;
   }
@@ -341,6 +375,29 @@ function callsAt(feed: IndexedFeed, station: number): { trip: number; pos: numbe
 }
 
 /**
+ * Either format as the queries read it. A v2 group becomes one small object
+ * per trip — `start` and a shared gap list instead of every time spelled out.
+ */
+function fromFile(parsed: ScheduleFeed | ScheduleFeedV2): {
+  data: ScheduleFeed;
+  profiles: number[][];
+} {
+  if (!('v' in parsed) || parsed.v !== 2) {
+    return { data: parsed as ScheduleFeed, profiles: [] };
+  }
+  const { groups, profiles, v: _v, ...rest } = parsed;
+  const trips: ScheduleTrip[] = [];
+  for (const [r, s, h, p, prof, starts] of Array.isArray(groups) ? groups : []) {
+    let start = 0;
+    for (const delta of starts) {
+      start += delta;
+      trips.push({ r, s, h, p, start, prof });
+    }
+  }
+  return { data: { ...rest, trips }, profiles: Array.isArray(profiles) ? profiles : [] };
+}
+
+/**
  * Opens a stored timetable.
  *
  * It stays in memory after the first time: it is a file of hundreds of
@@ -359,11 +416,12 @@ export function loadFeed(info: ScheduleFeedInfo): IndexedFeed | null {
   }
 
   try {
-    const data = JSON.parse(file.textSync()) as ScheduleFeed;
+    const parsed = JSON.parse(file.textSync()) as ScheduleFeed | ScheduleFeedV2;
+    const { data, profiles } = fromFile(parsed);
     if (!Array.isArray(data.trips) || !Array.isArray(data.stops)) {
       return null;
     }
-    const prepared = index(info, data);
+    const prepared = index(info, data, profiles);
     cache.set(info.id, prepared);
     return prepared;
   } catch {
@@ -1388,11 +1446,15 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
         }
         // Never by itself: what is only offered on request (Carris
         // Metropolitana, 27 MB, which has real time anyway).
-        if (info.naApp === false) {
+        const old = stored.get(info.id);
+        // The lighter v2 file replaces a v1 one already on the phone — Carris
+        // Metropolitana too: 3 MB instead of 27, and the reason for the change.
+        const upgrade = !!old && !!info.ficheiro2 && !old.ficheiro2;
+        if (info.naApp === false && !upgrade) {
           continue;
         }
-        const old = stored.get(info.id);
-        const needed = !old || !isInstalled(old) || isExpired(old) || info.gerado > old.gerado;
+        const needed =
+          upgrade || !old || !isInstalled(old) || isExpired(old) || info.gerado > old.gerado;
         if (!needed) {
           continue;
         }

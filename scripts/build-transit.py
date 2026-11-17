@@ -1005,6 +1005,38 @@ def discover() -> None:
 # --- Entry ---------------------------------------------------------------------
 
 
+def formato_v2(resultado: dict) -> dict:
+    """The second format: trips grouped instead of spelled out.
+
+    Trips of one pattern almost always keep the same gaps between stops —
+    Carris Metropolitana has 243,000 trips and under 5,000 distinct gap lists.
+    So each gap list is stored once (`profiles`), and the trips sharing line,
+    service, headsign, pattern and gaps are one group with their start times,
+    sorted and delta-encoded. 27 MB became 3.3 MB, parsed about 13 times
+    faster on the phone. See `ScheduleFeedV2` in `src/types/schedule.ts`.
+    """
+    perfis: dict[tuple, int] = {}
+    grupos: dict[tuple, list[int]] = {}
+    for viagem in resultado["trips"]:
+        tempos = viagem["t"]
+        chave_perfil = tuple(tempos[1:])
+        perfil = perfis.setdefault(chave_perfil, len(perfis))
+        chave = (viagem["r"], viagem["s"], viagem["h"], viagem["p"], perfil)
+        grupos.setdefault(chave, []).append(tempos[0])
+
+    lista = []
+    for chave, inicios in grupos.items():
+        inicios.sort()
+        deltas = [inicios[0]] + [b - a for a, b in zip(inicios, inicios[1:])]
+        lista.append([*chave, deltas])
+
+    saida = {k: v for k, v in resultado.items() if k != "trips"}
+    saida["v"] = 2
+    saida["profiles"] = [list(p) for p in perfis]
+    saida["groups"] = lista
+    return saida
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalogo", default="transit-feeds.json")
@@ -1084,6 +1116,15 @@ def main() -> int:
             )
             bytes_ = destino.stat().st_size
             log(f"  {destino}: {bytes_ / 1024:.0f} KB  (from {url})")
+            # The v2 file, read by apps from November 2026 on (see `formato_v2`);
+            # the v1 one stays for the versions already installed.
+            destino2 = pasta / f"{feed['id']}.v2.json"
+            destino2.write_text(
+                json.dumps(formato_v2(resultado), ensure_ascii=False, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            bytes2 = destino2.stat().st_size
+            log(f"  {destino2}: {bytes2 / 1024:.0f} KB")
 
             entradas.append(
                 {
@@ -1097,6 +1138,8 @@ def main() -> int:
                     "estacoes": len(resultado["stops"]),
                     "bbox": resultado["bbox"],
                     "origem": url,
+                    "ficheiro2": f"{feed['id']}.v2.json",
+                    "bytes2": bytes2,
                     # Only written when false, so the list is not full of fields
                     # stating what is already the rule.
                     **({} if feed.get("naApp", True) else {"naApp": False}),

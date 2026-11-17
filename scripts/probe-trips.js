@@ -14,6 +14,30 @@ Module._load = function (pedido, ...resto) {
   if (pedido === 'expo-localization') {
     return { getLocales: () => [{ languageCode: 'pt', languageTag: 'pt-PT' }] };
   }
+  // Files on the phone (stored timetables, the kept stop list): none here,
+  // so every question goes to the real service.
+  if (pedido === 'expo-file-system') {
+    class Directory {
+      get exists() {
+        return false;
+      }
+      list() {
+        return [];
+      }
+      create() {}
+    }
+    class File {
+      get exists() {
+        return false;
+      }
+      write() {}
+      delete() {}
+      textSync() {
+        return '';
+      }
+    }
+    return { Directory, File, Paths: { document: '', cache: '' } };
+  }
   return original.call(this, pedido, ...resto);
 };
 
