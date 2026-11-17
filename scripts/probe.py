@@ -1211,6 +1211,73 @@ is_in({lat},{lon})->.a;
 out;
 .p out tags center;"""
 
+def fares():
+    """Fares: what the operators' GTFS carry (fare_* files), what the APIs and
+    the price pages say, and the Metro Sul do Tejo lines' own colours."""
+    import io
+    import zipfile
+
+    catalogue = json.load(open("transit-feeds.json", encoding="utf-8"))
+    for feed in catalogue.get("feeds", []):
+        for url in feed.get("urls") or []:
+            section(f"GTFS {feed['id']}: {url[:90]}")
+            status, ctype, body = get(url, timeout=240)
+            print(status, ctype, len(body), "bytes")
+            if status != 200 or body[:2] != b"PK":
+                continue
+            z = zipfile.ZipFile(io.BytesIO(body))
+            names = z.namelist()
+            print("files:", names)
+            for name in names:
+                if "fare" in name or name in ("networks.txt", "route_networks.txt", "areas.txt", "stop_areas.txt", "timeframes.txt", "rider_categories.txt", "fare_media.txt"):
+                    lines = z.read(name).decode("utf-8-sig", "replace").splitlines()
+                    print(f"-- {name}: {len(lines) - 1} rows")
+                    for line in lines[:25]:
+                        print("   ", line[:300])
+            if "routes.txt" in names:
+                r = z.read("routes.txt").decode("utf-8-sig", "replace").splitlines()
+                print("-- routes.txt header:", r[0])
+                for line in r[1:6]:
+                    print("   ", line[:200])
+            break
+
+    section("MTS lines (colours?)")
+    status, ctype, body = get("https://www.mts.pt/mts-timetable-api/lines", 40)
+    print(status, ctype, body[:3000])
+
+    section("Carris Metropolitana API: fares?")
+    for path in ("/fares", "/v2/fares", "/v2/lines/3601", "/v2/stops/010001"):
+        base = "https://api.carrismetropolitana.pt"
+        st, ct, b = get(base + path, 40)
+        print(path, st, ct, b[:1500])
+
+    section("Price pages (lines with €)")
+    pages = [
+        "https://www.navegante.pt/viajar/bilhetes",
+        "https://www.navegante.pt/viajar/titulos",
+        "https://www.navegante.pt/tarifario",
+        "https://www.metrolisboa.pt/comprar/",
+        "https://www.metrolisboa.pt/comprar/tarifario/",
+        "https://www.carris.pt/viaje/tarifario/",
+        "https://www.carris.pt/viaje/titulos-e-tarifas/",
+        "https://www.carrismetropolitana.pt/tarifarios/",
+        "https://www.carrismetropolitana.pt/tarifas/",
+        "https://www.mts.pt/tarifario/",
+        "https://www.mts.pt/bilhetes-e-passes/",
+        "https://www.fertagus.pt/pt/bilhetes-e-passes",
+        "https://www.ttsl.pt/passageiros/bilhetes-e-passes/",
+        "https://www.cp.pt/passageiros/pt/comprar-bilhetes/tarifas",
+    ]
+    for url in pages:
+        st, ct, b = get(url, 40)
+        text = re.sub(r"<[^>]+>", " ", b.decode("utf-8", "replace"))
+        text = re.sub(r"\s+", " ", text)
+        hits = [m.start() for m in re.finditer("€", text)][:12]
+        print(f"\n{url} -> {st} {len(b)} bytes, {len(hits)} € shown")
+        for i in hits:
+            print("   ", text[max(0, i - 110): i + 20])
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
