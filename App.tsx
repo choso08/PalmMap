@@ -3442,6 +3442,7 @@ function PalmMap() {
           mapRef.current?.recenter(stop.coordinates);
           handleStopPress(stop.id);
         }}
+        onSelectLine={handleSelectLine}
       />
 
       <DirectionsSheet

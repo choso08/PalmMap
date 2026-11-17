@@ -16,6 +16,7 @@ import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { textOn } from '../utils/lineColour';
 import { ServiceAlerts } from './ServiceAlerts';
+import { useIsFavouriteLine } from '../services/favouriteLines';
 
 interface Props {
   line: TransitLineInfo;
@@ -52,6 +53,7 @@ export function LineSheet({
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const colour = line.colour ?? theme.vehicle;
   const shown = directions[index] ?? null;
+  const [favourite, toggleFavourite] = useIsFavouriteLine(line);
 
   return (
     <View style={styles.container}>
@@ -68,6 +70,18 @@ export function LineSheet({
         <Text style={styles.title} numberOfLines={2}>
           {line.long}
         </Text>
+        <Pressable
+          onPress={toggleFavourite}
+          hitSlop={12}
+          accessibilityLabel={favourite ? strings.transit.unfavouriteLine : strings.transit.favouriteLine}
+          accessibilityState={{ selected: favourite }}
+        >
+          <MaterialCommunityIcons
+            name={favourite ? 'star' : 'star-outline'}
+            size={22}
+            color={favourite ? theme.accent : theme.textMuted}
+          />
+        </Pressable>
         <Pressable onPress={onClose} hitSlop={12} style={styles.close}>
           <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
         </Pressable>

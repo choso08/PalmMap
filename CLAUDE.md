@@ -177,6 +177,14 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **The favourites screen, as Moovit** (author's request, 17 November; not seen on a phone):
+  the Saved screen opens with **Home** and **Work** shortcuts (`homeWork.ts`, key
+  `palmmap.casaTrabalho`) — set, a tap makes it the destination; empty, or with a long press,
+  the next place tapped in the lists below becomes it ("Clear" and "Cancel" in the bar that
+  says so) — then **favourite lines** (`favouriteLines.ts`, key `palmmap.linhasFavoritas`, a
+  star on `LineSheet`; a tap opens the line through `handleSelectLine`), favourite stops,
+  saved places and recents. Both stores use `savedStore.ts` (one value, listeners, written at
+  each change); `favouriteStops.ts` predates it.
 - **"The app takes ages to load"** (author, 17 November, after 7.0.46; not seen on a phone):
   the stored timetables were the suspects, measured with the real published files in Node
   (`schedules.ts` compiled, `expo-file-system` stubbed). Opening one built a per-trip index —

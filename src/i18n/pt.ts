@@ -87,6 +87,14 @@ export const pt = {
     measure: 'Medir distância ou área',
   },
   saved: {
+    home: 'Casa',
+    work: 'Trabalho',
+    set: 'Definir',
+    clear: 'Apagar',
+    changeHint: 'Manter premido para mudar',
+    pickFor: (what: string) => `Toque num sítio abaixo para o definir como ${what.toLowerCase()}.`,
+    pickNone: 'Guarde primeiro um sítio (ou procure um destino).',
+    lines: 'Linhas',
     arriving: 'A chegar',
     stops: 'Paragens',
     title: 'Guardados',
@@ -331,6 +339,8 @@ export const pt = {
     fullTimetable: 'Horário completo',
     noTimesThatDay: 'Não passa neste dia.',
     timetableFailed: 'Não foi possível ler o horário.',
+    favouriteLine: 'Guardar linha',
+    unfavouriteLine: 'Deixar de guardar linha',
     loadingJourney: 'A ver o percurso…',
     journeyUnavailable: 'Não foi possível ver o percurso desta carreira.',
     /** A bus tapped on the map. */
