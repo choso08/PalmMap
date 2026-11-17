@@ -634,8 +634,10 @@ export function SettingsSheet({
                     theme={theme}
                   />
                   {/*
-                    What the choice costs, the transferred (compressed) size:
-                    ~150 KB per refresh, so an hour is 540 / seconds MB.
+                    What the choice costs at most, the transferred (compressed)
+                    size: ~150 KB per refresh in Lisbon (Carris Metropolitana
+                    ~100 KB + Carris de Lisboa ~45 KB, probed November 2026), so
+                    an hour is 540 / seconds MB; less with the map still.
                   */}
                   <Text style={styles.switchHint}>
                     {s.vehiclesRefreshCost(Math.round(540 / Number(settings.vehiclesRefresh)))}

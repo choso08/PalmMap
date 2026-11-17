@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 
 import { carrisLisboaTrip } from './schedules';
 import {
@@ -469,6 +469,74 @@ export interface LineJourney {
 }
 
 /**
+ * Answers that barely change, kept on the phone between sessions (author's
+ * request, November 2026: transport using too much data). A line's pattern,
+ * its shape and the list of lines were asked again at every start; now a copy
+ * younger than `maxAgeMs` answers, and a failed request falls back to any
+ * copy. It is in the cache folder: Android may clear it, and then it is asked
+ * again.
+ */
+const KEPT = new Directory(Paths.cache, 'carris');
+/** Copies older than this are deleted when the folder is first used. */
+const KEPT_PRUNE_MS = 14 * 24 * 3600 * 1000;
+let keptPruned = false;
+
+function keptFile(name: string): File {
+  if (!KEPT.exists) {
+    KEPT.create({ intermediates: true });
+  }
+  if (!keptPruned) {
+    keptPruned = true;
+    try {
+      for (const entry of KEPT.list()) {
+        if (entry instanceof File && Date.now() - (entry.modificationTime ?? 0) > KEPT_PRUNE_MS) {
+          entry.delete();
+        }
+      }
+    } catch {
+      // Not cleaned this time.
+    }
+  }
+  return new File(KEPT, `${name.replace(/[^A-Za-z0-9._-]/g, '_')}.json`);
+}
+
+async function keptOrAsked<T>(name: string, maxAgeMs: number, ask: () => Promise<T>): Promise<T> {
+  let copy: { at: number; data: T } | null = null;
+  try {
+    const file = keptFile(name);
+    if (file.exists) {
+      copy = JSON.parse(file.textSync()) as { at: number; data: T };
+    }
+  } catch {
+    copy = null;
+  }
+  if (copy && Date.now() - copy.at < maxAgeMs) {
+    return copy.data;
+  }
+  try {
+    const data = await ask();
+    try {
+      keptFile(name).write(JSON.stringify({ at: Date.now(), data }));
+    } catch {
+      // Not kept: asked again next time.
+    }
+    return data;
+  } catch (error) {
+    if (copy) {
+      return copy.data;
+    }
+    throw error;
+  }
+}
+
+/** A pattern's trips and stops: kept a day (its timetable may change). */
+const PATTERN_KEEP_MS = 24 * 3600 * 1000;
+/** A line's shape: kept a week. */
+const SHAPE_KEEP_MS = 7 * 24 * 3600 * 1000;
+/** The list of lines: kept a day. */
+const LINES_KEEP_MS = 24 * 3600 * 1000;
+
+/**
  * Patterns already asked for. Each answer is a few hundred kilobytes (every
  * trip of the line with its times) and does not change during a session.
  */
@@ -481,9 +549,11 @@ function loadPattern(rawId: string): Promise<CarrisPattern | null> {
   if (cached) {
     return cached;
   }
-  const pending = carrisGet<CarrisPattern[] | CarrisPattern>(
-    `/patterns/${encodeURIComponent(id)}`,
-    CARRIS_STOPS_TIMEOUT_MS,
+  const pending = keptOrAsked(`padrao-${id}`, PATTERN_KEEP_MS, () =>
+    carrisGet<CarrisPattern[] | CarrisPattern>(
+      `/patterns/${encodeURIComponent(id)}`,
+      CARRIS_STOPS_TIMEOUT_MS,
+    ),
   )
     .then((data) => (Array.isArray(data) ? data[0] ?? null : data))
     .catch((error: unknown) => {
@@ -839,7 +909,9 @@ function loadShape(id: string): Promise<Coordinates[]> {
   if (cached) {
     return cached;
   }
-  const pending = carrisGet<CarrisShape>(`/shapes/${encodeURIComponent(id)}`, CARRIS_STOPS_TIMEOUT_MS)
+  const pending = keptOrAsked(`forma-${id}`, SHAPE_KEEP_MS, () =>
+    carrisGet<CarrisShape>(`/shapes/${encodeURIComponent(id)}`, CARRIS_STOPS_TIMEOUT_MS),
+  )
     .then((shape) =>
       (shape.geojson?.geometry?.coordinates ?? []).map(([longitude, latitude]) => ({
         latitude,
@@ -2346,7 +2418,9 @@ export interface LineDirection {
 let linesPending: Promise<TransitLineInfo[]> | null = null;
 function loadLines(): Promise<TransitLineInfo[]> {
   if (!linesPending) {
-    linesPending = carrisGet<CarrisLine[]>('/lines', CARRIS_STOPS_TIMEOUT_MS)
+    linesPending = keptOrAsked('linhas', LINES_KEEP_MS, () =>
+      carrisGet<CarrisLine[]>('/lines', CARRIS_STOPS_TIMEOUT_MS),
+    )
       .then((data) =>
         (Array.isArray(data) ? data : [])
           .filter((l) => l.id && l.short_name)

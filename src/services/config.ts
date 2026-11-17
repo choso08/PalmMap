@@ -252,6 +252,14 @@ export const VEHICLE_MAX_AGE_S = 120;
 export const VEHICLES_MIN_ZOOM = 12;
 
 /**
+ * A map untouched this long (and no bus's panel open) has its buses asked a
+ * third as often, at most once a minute: each ask is ~100 KB compressed for
+ * Carris Metropolitana's whole fleet (probed November 2026, `sondar:
+ * data_use`), whatever the view.
+ */
+export const VEHICLES_IDLE_MS = 90 * 1000;
+
+/**
  * From which zoom every stop in view is drawn on the transport map, ready to
  * be tapped. Further out they would be hundreds of dots on top of each other.
  */

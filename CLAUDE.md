@@ -189,6 +189,22 @@ environment cannot reach.
   `rideOperator`, `RideLeg.operator`, `ScheduleDeparture.feedId`); a Carris Metropolitana
   line's own colour from the service still wins. The live buses on the map use the same two
   colours (`generate-poi-icons.py`, `VEHICLE_OPERATORS`; same list as `lineColour.ts`).
+- **Less data for transport** (author's request, 17 November; not seen on a phone). Measured
+  first (`sondar: data_use`): Carris Metropolitana's `/vehicles` is 99 KB gzipped (751 KB
+  raw, 952 buses), no filter of any kind (`agency_id`, `line_id`, `bbox`, `fields` all
+  ignored), no ETag, and 922 of 950 positions change in 10 s; Carris de Lisboa's GTFS-RT is
+  45 KB and **not compressed**; `/stops` 760 KB gzipped; `/lines` 53 KB; a pattern ~20 KB,
+  a shape ~23 KB, alerts 10 KB, a stop's arrivals 1 KB. So:
+  - only the operators whose area the view touches are asked (`vehicleAreas` in
+    `vehicles.ts`; `vehicleOperators` in `App.tsx`) — no Carris de Lisboa over Almada,
+    nothing outside the Lisbon area;
+  - a map untouched for `VEHICLES_IDLE_MS` (90 s), with no bus's panel open, refreshes a
+    third as often, at most once a minute; a touch brings the pace back;
+  - nothing is asked while a full-screen sheet hides the map (`mapCovered`);
+  - the bus panel's refresh asks the view's operators and the open bus's own;
+  - patterns (a day), shapes (a week) and the list of lines (a day) are kept on the phone
+    (`keptOrAsked`, `Paths.cache/carris`, pruned after 14 days), as the stop list already is.
+  The Settings line gives the most per hour ("less with the map still").
 - **Fares, probed 17 November** (`sondar: fares`): only some exist as data. Metro de
   Lisboa's GTFS has `fare_attributes` (1,90 €, the Carris/Metro ticket, same as its price
   page); Transtejo/Soflusa's (the old Mobility Database copy) one price per crossing (MT
@@ -1607,7 +1623,7 @@ screen keeps what changes a choice.
   is gone everywhere. Messages telling apart refusal (with the status), delay and no network
   stay — that difference is information.
 - **Four short warnings stay**, preventing a wrong expectation: cameras are only
-  OpenStreetMap's; the car's speedometer rules; live buses cost ~1.1 MB per refresh (with
+  OpenStreetMap's; the car's speedometer rules; live buses cost ~100–150 KB per refresh (with
   the MB per hour of the chosen interval under it);
   train/metro/ferry timetables show no delays.
 - When adding text, measure:

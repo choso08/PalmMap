@@ -97,15 +97,41 @@ function toNumber(value: unknown): number | null {
   return typeof n === 'number' && Number.isFinite(n) ? n : null;
 }
 
+/** Where each operator runs, roughly: west, south, east, north. */
+const CM_AREA: [number, number, number, number] = [-9.52, 38.4, -8.47, 39.08];
+const CL_AREA: [number, number, number, number] = [-9.24, 38.68, -9.08, 38.8];
+
+/**
+ * Which operators' buses the view can show: an operator whose area does not
+ * touch it is not asked (each ask is the whole fleet).
+ */
+export function vehicleAreas(bounds: {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}): { cm: boolean; cl: boolean } {
+  const touches = ([w, s, e, n]: [number, number, number, number]) =>
+    bounds.west <= e && bounds.east >= w && bounds.south <= n && bounds.north >= s;
+  return { cm: touches(CM_AREA), cl: touches(CL_AREA) };
+}
+
 /**
  * The buses that really are moving now.
  *
  * Returns an empty list when there are none — which in the small hours is the
  * right answer, not a fault.
  */
-export async function liveVehicles(): Promise<LiveVehicle[]> {
-  // Each operator on its own: one failing leaves the other's buses.
-  const [cm, cl] = await Promise.allSettled([metropolitanaVehicles(), lisboaVehicles()]);
+export async function liveVehicles(
+  which: { cm: boolean; cl: boolean } = { cm: true, cl: true },
+): Promise<LiveVehicle[]> {
+  // Each operator on its own: one failing leaves the other's buses. Only those
+  // whose area the map shows are asked (`vehicleAreas`): Carris de Lisboa's
+  // 45 KB, which its server does not compress, are no use over Almada.
+  const [cm, cl] = await Promise.allSettled([
+    which.cm ? metropolitanaVehicles() : Promise.resolve([]),
+    which.cl ? lisboaVehicles() : Promise.resolve([]),
+  ]);
   if (cm.status === 'rejected' && cl.status === 'rejected') {
     throw cm.reason;
   }

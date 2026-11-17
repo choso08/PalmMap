@@ -469,11 +469,11 @@ export const en: typeof pt = {
     trailsModes: { off: 'Off', hiking: 'Walking', cycling: 'Cycling', mtb: 'MTB' },
     showPlaces: 'Show businesses on the map',
     showVehicles: 'Buses on the move',
-    showVehiclesCost: '~1.1 MB per refresh (150 KB compressed).',
+    showVehiclesCost: '~100–150 KB per refresh.',
     vehiclesRefresh: 'Refresh every',
     vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
     vehiclesRefreshCost: (perHourMb: number) =>
-      `≈ ${perHourMb} MB an hour with the transport map open.`,
+      `Up to ≈ ${perHourMb} MB an hour, less with the map still.`,
 
     tryAgain: 'Try again.',
 

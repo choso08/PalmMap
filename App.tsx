@@ -77,6 +77,7 @@ import {
   THEN_MAX_METERS,
   MAP_PINS_DEBOUNCE_MS,
   VEHICLES_MIN_ZOOM,
+  VEHICLES_IDLE_MS,
   STOPS_MAP_MIN_ZOOM,
   MAP_PINS_MIN_ZOOM,
   OFF_ROUTE_METERS,
@@ -122,7 +123,7 @@ import {
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
-import { liveVehicles, type LiveVehicle } from './src/services/vehicles';
+import { liveVehicles, vehicleAreas, type LiveVehicle } from './src/services/vehicles';
 import { useFavouriteStops } from './src/services/favouriteStops';
 import { configureTileRequests, MAP_CACHE_MB, setMapCacheSize } from './src/services/tiles';
 import {
@@ -257,6 +258,9 @@ function PalmMap() {
   const [transitVisible, setTransitVisible] = useState(false);
   /** A bus tapped on the map, whose panel is open (see `shownVehicle`). */
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  /** The same, for the vehicles' timer, which must not restart with it. */
+  const selectedVehicleRef = useRef<string | null>(null);
+  selectedVehicleRef.current = selectedVehicleId;
   /** The "Near you" and alerts screens (Moovit-style, author's request). */
   const [nearbyVisible, setNearbyVisible] = useState(false);
   const [alertsVisible, setAlertsVisible] = useState(false);
@@ -323,6 +327,10 @@ function PalmMap() {
    */
   const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
   const [vehicleZoomOk, setVehicleZoomOk] = useState(false);
+  /** Operators whose area the view touches: `cm`, `cl`, both or neither. */
+  const [vehicleOperators, setVehicleOperators] = useState('cmcl');
+  /** When the map last moved: past `VEHICLES_IDLE_MS` the buses are asked less often. */
+  const lastMapMove = useRef(Date.now());
   /**
    * The middle of the map, as text and rounded to three decimals — about a
    * hundred metres.
@@ -674,43 +682,76 @@ function PalmMap() {
    * next update tries again. This is extra information on the map, not the map.
    */
   const appActive = useAppActive();
+  /** A full-screen sheet hides the map: nothing on it needs refreshing. */
+  const mapCovered =
+    settingsVisible || nearbyVisible || alertsVisible || savedVisible || directionsVisible || stepsVisible;
   /** Whether the Internet is reachable — see `services/network.ts`. */
   const online = useOnline();
   useEffect(() => {
     // Offline, live positions cannot come: the buses go, rather than standing
     // frozen where they were (author's request).
-    if (!isTransitMap(settings.mapType) || !settings.showVehicles || !vehicleZoomOk || !online) {
+    if (
+      !isTransitMap(settings.mapType) ||
+      !settings.showVehicles ||
+      !vehicleZoomOk ||
+      !online ||
+      vehicleOperators === ''
+    ) {
       setVehicles([]);
       return;
     }
     // In the background the buses stay as they were and nothing is asked; back
-    // on screen this runs again and asks at once.
-    if (!appActive) {
+    // on screen this runs again and asks at once. The same under a screen that
+    // hides the whole map (Settings, Saved, Transit, alerts, Directions,
+    // steps): ~150 KB a time for buses nobody can see.
+    if (!appActive || mapCovered) {
       return;
     }
 
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const which = { cm: vehicleOperators.includes('cm'), cl: vehicleOperators.includes('cl') };
 
     const carregar = async () => {
       try {
-        const lista = await liveVehicles();
+        const lista = await liveVehicles(which);
         if (!cancelled) {
           setVehicles(lista);
         }
       } catch {
         // See above: without new positions, the old ones stay.
       }
+      if (cancelled) {
+        return;
+      }
+      // How often is the person's choice (`vehiclesRefresh`, in Settings).
+      // A map left untouched for `VEHICLES_IDLE_MS` — the phone on the table —
+      // is refreshed a third as often, at most once a minute; a touch on the
+      // map, or a bus's panel open, brings the chosen pace back at once.
+      const base = Number(settings.vehiclesRefresh) * 1000;
+      const idle =
+        Date.now() - lastMapMove.current > VEHICLES_IDLE_MS && !selectedVehicleRef.current;
+      timer = setTimeout(() => void carregar(), idle ? Math.max(base, Math.min(base * 3, 60000)) : base);
     };
 
     void carregar();
-    // How often is the person's choice (`vehiclesRefresh`, in Settings).
-    const timer = setInterval(() => void carregar(), Number(settings.vehiclesRefresh) * 1000);
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
     };
-  }, [settings.mapType, settings.showVehicles, settings.vehiclesRefresh, vehicleZoomOk, appActive, online]);
+  }, [
+    settings.mapType,
+    settings.showVehicles,
+    settings.vehiclesRefresh,
+    vehicleZoomOk,
+    appActive,
+    online,
+    mapCovered,
+    vehicleOperators,
+  ]);
 
   /** Visible area of the map, updated when the map stops moving. */
   const viewport = useRef<{ bounds: Bounds; zoom: number } | null>(null);
@@ -1459,6 +1500,12 @@ function PalmMap() {
       // redraws nothing, but it is worth making clear that is what is relied on.
       const daParaVer = zoom >= VEHICLES_MIN_ZOOM;
       setVehicleZoomOk((atual) => (atual === daParaVer ? atual : daParaVer));
+      // Which operators' buses this view can show, as a short key that only
+      // changes when the map crosses an operator's edge.
+      const areas = vehicleAreas(bounds);
+      const areasKey = `${areas.cm ? 'cm' : ''}${areas.cl ? 'cl' : ''}`;
+      setVehicleOperators((atual) => (atual === areasKey ? atual : areasKey));
+      lastMapMove.current = Date.now();
 
       // The middle of the map, rounded to about a hundred metres. It tells the
       // stops and stations where to look — rounded because the list does not
@@ -2728,7 +2775,12 @@ function PalmMap() {
     setBusRefreshing(true);
     setBusRefreshNote(null);
     try {
-      const lista = await liveVehicles();
+      // The operators the view shows, and always the open bus's own.
+      const ofCl = id.startsWith('cl:');
+      const lista = await liveVehicles({
+        cm: !ofCl || vehicleOperators.includes('cm'),
+        cl: ofCl || vehicleOperators.includes('cl'),
+      });
       const before = lastVehicle.current?.reportedAt ?? 0;
       const found = lista.find((v) => v.id === id) ?? null;
       setFreshVehicle(found);
@@ -2743,7 +2795,7 @@ function PalmMap() {
     } finally {
       setBusRefreshing(false);
     }
-  }, [selectedVehicleId, settings.mapType, settings.showVehicles, vehicleZoomOk]);
+  }, [selectedVehicleId, settings.mapType, settings.showVehicles, vehicleZoomOk, vehicleOperators]);
 
   const handleVehiclePress = useCallback((vehicleId: string) => {
     setFreshVehicle(null);

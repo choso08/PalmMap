@@ -507,11 +507,11 @@ export const pt = {
     trailsModes: { off: 'Não', hiking: 'A pé', cycling: 'Bicicleta', mtb: 'BTT' },
     showPlaces: 'Mostrar negócios no mapa',
     showVehicles: 'Autocarros a andar',
-    showVehiclesCost: '~1,1 MB por atualização (150 KB comprimido).',
+    showVehiclesCost: '~100–150 KB por atualização.',
     vehiclesRefresh: 'Atualizar a cada',
     vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
     vehiclesRefreshCost: (perHourMb: number) =>
-      `≈ ${perHourMb} MB por hora com o mapa de transportes aberto.`,
+      `Até ≈ ${perHourMb} MB por hora, menos com o mapa parado.`,
 
     tryAgain: 'Tente novamente.',
 
