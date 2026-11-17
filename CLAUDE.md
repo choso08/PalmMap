@@ -177,6 +177,31 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **Security review, palette and update notice** (author's requests, 17 November; none seen
+  on a phone):
+  - **The APK is signed with React Native's public debug key** (`CN=Android Debug`, SHA-1
+    `5e8f1606…`, seen in the build log): `expo prebuild`'s template signs `release` with
+    `debug.keystore`, which everyone has. Anyone could sign an APK Android accepts as an
+    update of PalmMap, inheriting its data. **Not fixed yet — the author's decision**: a key of
+    our own lives in GitHub secrets (never in the repository) and the workflow signs with it;
+    switching keys means uninstalling the old app once (saved places and downloads lost).
+  - **Links from OpenStreetMap are filtered** (`src/utils/safeLink.ts`): a `website` tag, a
+    photo or a phone goes to Android only as `http(s)` (a bare `www.x.pt` gets `https://`) or
+    a plain `tel:` number — `Linking.openURL` opens any scheme, and anyone edits OSM.
+  - **File names from the published manifests** (`mapas.json`, `horarios.json`) must be plain
+    names (`safeFileName`); **the update APK must come from this repository's Releases**
+    (`RELEASE_DOWNLOAD_PREFIX`, in `update.ts`).
+  - **The palette is "Lagoon"** (author: the sand/coral one felt heavy): cool near-white
+    surfaces, ink text, teal accent `#0B7C74` (4.5:1 on every light surface), violet
+    destination, amber businesses; dark is blue-grey with `#2DD4BF`. `theme.ts`,
+    `vectorStyle.ts` (the offline map), `tiles.ts`' empty colour and `app.json`'s
+    notification colour changed together.
+  - **"Update downloaded — Install" notification** (`updateNotice.ts`): posted when a download
+    the person started ends, with an Install button (category `atualizacao`, channel
+    `atualizacoes`); a tap brings the app to the front and opens the installer with the file
+    already downloaded (`downloadedUpdate`). The installer no longer opens from the
+    background, which Android refuses — the notice does it. Permission asked when the
+    download starts.
 - **Built in 7.0.48** (17 November): the favourites screen (Home, Work, favourite lines).
 - **After 7.0.48** (author: "do the other things", 17 November; none seen on a phone):
   a **time-to-go reminder** — a bell beside Start for a planned transport trip, shown when

@@ -30,6 +30,7 @@ import {
   type UpdateInfo,
 } from './src/services/update';
 import { guarded, installCrashHandler } from './src/services/crash';
+import { listenForUpdateNotice } from './src/services/updateNotice';
 
 /** When a new version was last looked for. See the effect that uses it. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
@@ -426,6 +427,9 @@ function PalmMap() {
   useEffect(() => {
     setTransitWhen(LEAVE_NOW);
   }, [destination]);
+
+  // A tap on "update downloaded — Install" opens the installer (`updateNotice.ts`).
+  useEffect(() => listenForUpdateNotice(), []);
 
   /**
    * A public transport trip being followed step by step, as Maps does after

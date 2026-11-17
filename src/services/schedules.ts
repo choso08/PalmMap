@@ -25,6 +25,7 @@ import type { ScheduleFeed, ScheduleFeedInfo } from '../types/schedule';
 
 export type { ScheduleFeedInfo };
 import { distanceMeters } from '../utils/geometry';
+import { safeFileName } from '../utils/safeLink';
 
 /**
  * Train, metro and ferry timetables, stored on the phone.
@@ -149,7 +150,10 @@ export async function listFeeds(): Promise<ScheduleFeedInfo[]> {
     // planned for later, offline and with several changes. It was hidden with
     // `naApp: false`; that flag now only keeps it from downloading by itself
     // (`ensureFeedsFor`) — 27 MB is not fetched without a tap.
-    return response.data.horarios ?? [];
+    // File names become paths on the phone (`safeFileName`).
+    return (response.data.horarios ?? []).filter(
+      (f) => safeFileName(f?.id) && safeFileName(f?.ficheiro),
+    );
   } catch {
     const stored = installedFeeds();
     if (stored.length > 0) {

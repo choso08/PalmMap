@@ -183,7 +183,8 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
     // A Release without the APK inside is no use — and it happens if a build
     // fails halfway through uploading. Skip to the next.
     const apk = (entry.assets ?? []).find((a) => a?.name?.endsWith('.apk'));
-    if (!apk?.browser_download_url) {
+    // Only a file from this repository's own Releases is downloaded.
+    if (!apk?.browser_download_url?.startsWith(RELEASE_DOWNLOAD_PREFIX)) {
       continue;
     }
 
@@ -204,6 +205,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
  * "update") is a runtime name and stays as it is.
  */
 const FOLDER = new Directory(Paths.cache, 'atualizacao');
+const RELEASE_DOWNLOAD_PREFIX = 'https://github.com/choso08/PalmMap/releases/download/apk-';
 
 /**
  * Downloads the new version's APK.
@@ -289,6 +291,15 @@ export async function downloadUpdate(
  * or higher: it worked, and the note goes. Lower: it did not finish, and the
  * app says so with a button to try again — from the file already downloaded.
  */
+/** The update already downloaded for this version, or null (cleared or never done). */
+export function downloadedUpdate(info: UpdateInfo): File | null {
+  if (info.build <= currentBuild()) {
+    return null;
+  }
+  const file = new File(FOLDER, `PalmMap-${info.build}.apk`);
+  return file.exists ? file : null;
+}
+
 const PENDING_INSTALL_KEY = 'palmmap.instalacaoPendente';
 
 async function markInstallAttempt(info: UpdateInfo): Promise<void> {

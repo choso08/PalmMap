@@ -1,8 +1,10 @@
 import type { File } from 'expo-file-system';
 import { useCallback, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { t } from './i18n';
 import { downloadUpdate, installUpdate, type UpdateInfo } from './services/update';
+import { notifyUpdateReady, prepareUpdateNotice } from './services/updateNotice';
 
 /**
  * Download the new version and open the installer.
@@ -38,13 +40,20 @@ export function useUpdateDownload() {
     target.current = info;
     setProgress(0);
     setError(null);
+    // Asked now, while the person is tapping: the notice at the end needs it.
+    void prepareUpdateNotice();
     try {
       const file = await downloadUpdate(info, setProgress);
       setReady(file);
+      // The notice with its Install button: the way back to the installer
+      // when the app went to the background meanwhile, or the installer was
+      // closed (`updateNotice.ts`).
+      void notifyUpdateReady(info);
       // The installer opens right after: whoever pressed "update" does not
       // want to press another button. If they close the installer without
-      // installing, the button stays there to open it again.
-      if (!gaveUp.current) {
+      // installing, the button stays there to open it again. Not from the
+      // background — Android does not allow it; the notice does it then.
+      if (!gaveUp.current && AppState.currentState === 'active') {
         await installUpdate(file, info);
       }
     } catch (err) {

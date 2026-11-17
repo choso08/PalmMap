@@ -1,4 +1,6 @@
 import axios from 'axios';
+
+import { safeFileName } from '../utils/safeLink';
 import { t } from '../i18n';
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
@@ -270,8 +272,14 @@ async function fetchManifest(): Promise<OfflineRegion[]> {
     // looking right.
     params: { t: Date.now() },
   });
-  const regions = response.data?.regioes;
-  if (!Array.isArray(regions) || regions.length === 0) {
+  // File names become paths on the phone: one with a folder or `..` in it
+  // is left out (`safeFileName`).
+  const regions = Array.isArray(response.data?.regioes)
+    ? response.data.regioes.filter(
+        (r) => safeFileName(r?.id) && safeFileName(r?.ficheiro) && (!r.negocios || safeFileName(r.negocios)),
+      )
+    : null;
+  if (!regions || regions.length === 0) {
     throw new Error('empty manifest');
   }
   return regions;

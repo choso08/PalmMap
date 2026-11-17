@@ -88,8 +88,8 @@ const MAX_TILE_ZOOM = 18;
  * network. With a colour underneath, a missing tile looks like a map still
  * loading instead of a fault.
  */
-const EMPTY_LIGHT = '#EFE6D9';
-const EMPTY_DARK = '#0B1319';
+const EMPTY_LIGHT = '#F3F5F8';
+const EMPTY_DARK = '#0B0F14';
 
 function rasterStyle(
   tiles: string[],

@@ -1,25 +1,27 @@
 /**
  * The app's colours, in light and dark versions.
  *
- * ## The idea: Island
+ * ## The idea: Lagoon
  *
- * The name is PalmMap and the logo is a palm tree inside a pin. The colours
- * come from there: **sand, deep water and coral**. In light mode, the screen
- * is warm sand with petrol-coloured text; in dark mode, deep water with sand on
- * top. The accent is coral — the colour that stands out on sand and sea
- * without shouting.
+ * Until November 2026 the app was sand, petrol and coral ("Island"); the
+ * author found it heavy and asked for combinations that look modern. Now:
+ * **cool near-white surfaces, ink text and one vivid accent, lagoon teal** —
+ * the shallow water around the palm's island. In dark mode, near-black blue
+ * greys with a brighter teal. Colour is kept for what means something; the
+ * rest is neutral, which is what makes a screen feel light.
  *
  * ## What drove the choices
  *
  * This is used while driving and in the sun, so pretty has to fit inside
  * legible. Two rules that must not be undone when changing things here:
  *
- * - **Text always clearly separated from the background.** No light greys on
- *   sand: the main text is nearly black, and the secondary text still reads in
- *   the sun.
- * - **Every important thing has its own colour.** The route is coral, the
- *   destination is water and businesses are amber. While driving there is no
- *   time to read legends.
+ * - **Text always clearly separated from the background.** The main text is
+ *   nearly black, the secondary text at least 4.5:1 on every surface, and
+ *   the accent at least 4.5:1 against white and every light surface, as text
+ *   on them and under white text.
+ * - **Every important thing has its own colour.** The route is teal, the
+ *   destination violet and businesses amber. While driving there is no time
+ *   to read legends.
  *
  * The **map**'s colours are separate, in `src/services/vectorStyle.ts`, and
  * follow this palette. When changing one, look at the other.
@@ -91,28 +93,28 @@ export interface Theme {
 
 export const light: Theme = {
   dark: false,
-  background: '#EFE6D9',
-  surface: '#FCF8F2',
-  surfaceMuted: '#F5EDE1',
-  text: '#1C2B33',
-  textMuted: '#5F7079',
-  placeholder: '#97A6AD',
-  accent: '#D9634A',
-  accentDeep: '#A8442F',
+  background: '#F3F5F8',
+  surface: '#FFFFFF',
+  surfaceMuted: '#EEF2F6',
+  text: '#0F172A',
+  textMuted: '#556070',
+  placeholder: '#98A2B0',
+  accent: '#0B7C74',
+  accentDeep: '#09615B',
   onAccent: '#FFFFFF',
-  border: '#E3D8C8',
-  danger: '#A8341F',
-  open: '#188038',
-  closingSoon: '#E37400',
-  // Deep water. The destination has to stand apart from the route, which is coral.
-  destination: '#0F6E70',
-  poi: '#C98526',
-  poiOutline: '#FCF8F2',
+  border: '#E2E7ED',
+  danger: '#D92D20',
+  open: '#15803D',
+  closingSoon: '#D97706',
+  // Violet: it has to stand apart from the route, which is teal.
+  destination: '#6D5DFC',
+  poi: '#F59E0B',
+  poiOutline: '#FFFFFF',
   pin: '#EA4335',
   pinOutline: '#FFFFFF',
-  vehicle: '#2F7D32',
-  overlay: 'rgba(24, 38, 45, 0.80)',
-  onOverlay: '#FCF8F2',
+  vehicle: '#2563EB',
+  overlay: 'rgba(15, 23, 42, 0.82)',
+  onOverlay: '#F8FAFC',
   signFace: '#FFFFFF',
   signEdge: '#D32F2F',
   signInk: '#111111',
@@ -120,29 +122,29 @@ export const light: Theme = {
 
 export const dark: Theme = {
   dark: true,
-  background: '#0B1319',
-  surface: '#152230',
+  background: '#0B0F14',
+  surface: '#151B23',
   // One step above `surface`, otherwise unselected buttons disappeared.
-  surfaceMuted: '#1E2E3C',
-  text: '#EDE5D8',
-  textMuted: '#95A6B0',
-  placeholder: '#6C7D87',
-  // Lighter coral: the daytime one got lost against the deep water.
-  accent: '#F2846B',
-  accentDeep: '#B8553F',
-  onAccent: '#0B1319',
-  border: '#25384A',
-  danger: '#F08A72',
-  open: '#81C995',
-  closingSoon: '#FDD663',
-  destination: '#3FAAA6',
-  poi: '#E0AC55',
-  poiOutline: '#152230',
+  surfaceMuted: '#212934',
+  text: '#E6EDF3',
+  textMuted: '#9AA6B2',
+  placeholder: '#6B7682',
+  // A brighter teal: the daytime one got lost against the dark.
+  accent: '#2DD4BF',
+  accentDeep: '#0F766E',
+  onAccent: '#042F2B',
+  border: '#28313C',
+  danger: '#F87171',
+  open: '#4ADE80',
+  closingSoon: '#FBBF24',
+  destination: '#A59BFF',
+  poi: '#FBBF24',
+  poiOutline: '#151B23',
   pin: '#EA4335',
   pinOutline: '#FFFFFF',
-  vehicle: '#5FBF63',
-  overlay: 'rgba(5, 11, 15, 0.86)',
-  onOverlay: '#EDE5D8',
+  vehicle: '#60A5FA',
+  overlay: 'rgba(0, 0, 0, 0.82)',
+  onOverlay: '#E6EDF3',
   signFace: '#FFFFFF',
   signEdge: '#D32F2F',
   signInk: '#111111',

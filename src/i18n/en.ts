@@ -516,6 +516,12 @@ export const en: typeof pt = {
     },
   },
 
+  updateNotice: {
+    channel: 'App updates',
+    title: (version: string) => `PalmMap ${version} downloaded`,
+    body: 'Tap to install.',
+    install: 'Install',
+  },
   errors: {
     noRoute: 'No route between these points.',
     tooFar: {

@@ -11,6 +11,7 @@ import type { Theme } from '../theme';
 import type { Coordinates, Place } from '../types/geo';
 import { formatDistance } from '../utils/format';
 import { distanceMeters } from '../utils/geometry';
+import { telLink, webLink } from '../utils/safeLink';
 import {
   clock,
   openStatus,
@@ -68,7 +69,12 @@ export function PlaceSheet({
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const [weekOpen, setWeekOpen] = useState(false);
 
-  const { phone, website, openingHours } = place.details ?? {};
+  const { openingHours } = place.details ?? {};
+  // From OpenStreetMap, which anyone edits: only a real web address and a
+  // plain phone number are handed to Android (`safeLink.ts`).
+  const website = webLink(place.details?.website);
+  const tel = telLink(place.details?.phone);
+  const phone = tel ? place.details?.phone : undefined;
   const week = useMemo(() => parseOpeningHours(openingHours), [openingHours]);
 
   // The status changes with the clock; once a minute is plenty.
@@ -147,7 +153,7 @@ export function PlaceSheet({
   const actions: Action[] = [
     { key: 'route', icon: 'directions', label: s.route, onPress: onRoute, primary: true },
     ...(phone
-      ? [{ key: 'call', icon: 'phone', label: s.call, onPress: () => void Linking.openURL(`tel:${phone}`) }]
+      ? [{ key: 'call', icon: 'phone', label: s.call, onPress: () => void Linking.openURL(tel as string) }]
       : []),
     {
       key: 'save',
@@ -235,7 +241,12 @@ export function PlaceSheet({
             contentContainerStyle={styles.photos}
           >
             {photos.map((p) => (
-              <Pressable key={p.uri} onPress={() => void Linking.openURL(p.uri)}>
+              <Pressable key={p.uri} onPress={() => {
+                  const link = webLink(p.uri);
+                  if (link) {
+                    void Linking.openURL(link);
+                  }
+                }}>
                 <Image
                   source={{ uri: p.uri, headers: PHOTO_HEADERS }}
                   style={styles.photo}
@@ -293,7 +304,7 @@ export function PlaceSheet({
         ) : null}
 
         {phone ? (
-          <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)} style={styles.detailRow}>
+          <Pressable onPress={() => void Linking.openURL(tel as string)} style={styles.detailRow}>
             <MaterialCommunityIcons name="phone-outline" size={19} color={theme.textMuted} />
             <Text style={[styles.detailText, styles.link]} numberOfLines={1}>
               {phone}

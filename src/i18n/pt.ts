@@ -554,6 +554,12 @@ export const pt = {
     },
   },
 
+  updateNotice: {
+    channel: 'Atualizações da app',
+    title: (version: string) => `PalmMap ${version} descarregada`,
+    body: 'Toque para instalar.',
+    install: 'Instalar',
+  },
   errors: {
     noRoute: 'Não há percurso entre estes pontos.',
     tooFar: {
