@@ -1,3 +1,4 @@
+import { resolveLanguage } from '../i18n';
 import {
   Camera,
   type CameraRef,
@@ -450,6 +451,9 @@ export function MapView({
   );
   const theme = useTheme();
   const { settings } = useSettings();
+  // Borders and names over the satellite imagery (Google's hybrid view).
+  const satelliteLabels = settings.mapType === 'satellite' || settings.mapType === 'satelliteTransit';
+  const placeLanguage = resolveLanguage(settings.language);
 
   /** The stored map covering the area in view, if there is one. */
   const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
@@ -1094,6 +1098,132 @@ export function MapView({
             paint={{ 'raster-opacity': 0.9 }}
           />
         </RasterSource>
+      ) : null}
+
+      {/*
+        Borders and place names over the satellite, as Google's hybrid view
+        (author's request, 17 November 2026): the imagery alone had no country
+        lines, capitals or towns. From the OpenFreeMap tiles already used for
+        the business pins (OpenMapTiles schema: `boundary`, `place`), so no
+        new service. Under every layer of ours.
+      */}
+      {satelliteLabels ? (
+        <VectorSource id="ofm-satellite-labels" url={OPENFREEMAP_TILEJSON} attribution={OPENFREEMAP_ATTRIBUTION}>
+          {/* Regions (districts, Spanish communities): faint and dashed. */}
+          <Layer
+            key="sat-boundary-region"
+            id="sat-boundary-region"
+            type="line"
+            source-layer="boundary"
+            minzoom={5}
+            filter={['all', ['==', ['get', 'admin_level'], 4], ['!=', ['get', 'maritime'], 1]]}
+            paint={{
+              'line-color': 'rgba(255,255,255,0.55)',
+              'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 12, 1.4],
+              'line-dasharray': [3, 2],
+            }}
+          />
+          {/* Countries: a dark casing under a light line, readable on sea and desert. */}
+          <Layer
+            key="sat-boundary-country-casing"
+            id="sat-boundary-country-casing"
+            type="line"
+            source-layer="boundary"
+            filter={['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]]}
+            paint={{
+              'line-color': 'rgba(0,0,0,0.45)',
+              'line-width': ['interpolate', ['linear'], ['zoom'], 2, 1.6, 10, 4],
+            }}
+          />
+          <Layer
+            key="sat-boundary-country"
+            id="sat-boundary-country"
+            type="line"
+            source-layer="boundary"
+            filter={['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]]}
+            paint={{
+              'line-color': '#F4F1EA',
+              'line-width': ['interpolate', ['linear'], ['zoom'], 2, 0.7, 10, 1.8],
+            }}
+          />
+          {labelsReady ? (
+            <Layer
+              key="sat-capital-dot"
+              id="sat-capital-dot"
+              type="circle"
+              source-layer="place"
+              minzoom={3}
+              maxzoom={10}
+              filter={['all', ['==', ['get', 'class'], 'city'], ['==', ['get', 'capital'], 2]]}
+              paint={{
+                'circle-radius': 3.5,
+                'circle-color': '#FFFFFF',
+                'circle-stroke-color': 'rgba(0,0,0,0.7)',
+                'circle-stroke-width': 1.5,
+              }}
+            />
+          ) : null}
+          {labelsReady ? (
+            <Layer
+              key="sat-place-labels"
+              id="sat-place-labels"
+              type="symbol"
+              source-layer="place"
+              filter={[
+                'any',
+                ['all', ['==', ['get', 'class'], 'country'], ['<', ['zoom'], 7]],
+                ['all', ['==', ['get', 'class'], 'city'], ['==', ['get', 'capital'], 2]],
+                ['all', ['==', ['get', 'class'], 'city'], ['>=', ['zoom'], 5]],
+                ['all', ['==', ['get', 'class'], 'town'], ['>=', ['zoom'], 9]],
+                ['all', ['==', ['get', 'class'], 'village'], ['>=', ['zoom'], 12]],
+                ['all', ['in', ['get', 'class'], ['literal', ['suburb', 'quarter', 'neighbourhood']]], ['>=', ['zoom'], 13]],
+              ]}
+              layout={{
+                // The language's name first, then the Latin one: the bundled
+                // glyphs only cover Latin-1, so Arabic or Greek names would
+                // come out blank.
+                'text-field': [
+                  'coalesce',
+                  ['get', `name:${placeLanguage}`],
+                  ['get', 'name:latin'],
+                  ['get', 'name'],
+                ],
+                'text-font': ['Noto Sans Medium'],
+                'text-size': [
+                  'match',
+                  ['get', 'class'],
+                  'country', 15,
+                  'city', ['case', ['==', ['get', 'capital'], 2], 14, 13],
+                  'town', 12,
+                  11,
+                ],
+                'text-transform': ['case', ['==', ['get', 'class'], 'country'], 'uppercase', 'none'],
+                'text-letter-spacing': ['case', ['==', ['get', 'class'], 'country'], 0.08, 0],
+                'text-max-width': 8,
+                // A capital's name sits beside its dot; the rest on the place.
+                'text-anchor': ['step', ['zoom'], ['case', ['==', ['get', 'capital'], 2], 'left', 'center'], 10, 'center'],
+                'text-offset': [
+                  'step',
+                  ['zoom'],
+                  ['case', ['==', ['get', 'capital'], 2], ['literal', [0.6, 0]], ['literal', [0, 0]]],
+                  10,
+                  ['literal', [0, 0]],
+                ],
+                // Countries and capitals win a collision; then by OpenMapTiles' rank.
+                'symbol-sort-key': [
+                  '+',
+                  ['match', ['get', 'class'], 'country', 0, 'city', ['case', ['==', ['get', 'capital'], 2], 0, 10], 20],
+                  ['coalesce', ['get', 'rank'], 10],
+                ],
+              }}
+              paint={{
+                'text-color': ['case', ['==', ['get', 'class'], 'country'], '#FDE7B0', '#FFFFFF'],
+                'text-halo-color': 'rgba(0,0,0,0.75)',
+                'text-halo-width': 1.4,
+              }}
+            />
+          ) : null}
+        </VectorSource>
       ) : null}
 
       {/* The blue dot only shows with location permission actually granted. */}
@@ -1927,7 +2057,7 @@ export function MapView({
       {/*
         The red teardrop pin, as in the maps everyone knows: the place whose
         card is open, or the destination. It carries the business-kind icon
-        inside. The tip of the drop marks the spot — hence the \`anchor\` at the
+        inside. The tip of the drop marks the spot — hence the `anchor` at the
         bottom.
       */}
       {pinned || destination ? (
@@ -2097,7 +2227,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   // The rotated drop has its tip 38 points from the top; the box ends right
-  // after, so \`anchor="bottom"\` puts the tip on the spot.
+  // after, so `anchor="bottom"` puts the tip on the spot.
   pin: {
     width: 34,
     height: 39,

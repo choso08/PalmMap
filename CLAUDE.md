@@ -289,6 +289,15 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **Borders and place names over the satellite** (author's photo, 17 November: "the borders
+  and capitals are missing, as in Google"; not seen on a phone): a `VectorSource`
+  `ofm-satellite-labels` in `MapView.tsx`, only on `satellite` and `satelliteTransit`, from the
+  same OpenFreeMap tiles as the business pins (OpenMapTiles `boundary` and `place`): country
+  lines (light over a dark casing, no maritime ones), regions dashed from zoom 5, capitals
+  (`capital` 2) as a dot with the name beside it, country names in capitals up to zoom 7,
+  cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
+  `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
+  spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
 - **Spain's aerial orthophotos in "High" satellite detail** (author's request, 17 November;
   not seen on a phone): the IGN's PNOA "máxima actualidad" (`PNOA_ORTOS` in `tiles.ts`, the
   WMS `www.ign.es/wms-inspire/pnoa-ma`, layer `OI.OrthoimageCoverage`), 15–25 cm, the newest
