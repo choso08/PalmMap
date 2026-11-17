@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   ActivityIndicator,
   Modal,
   Pressable,
@@ -10,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { serviceAlerts } from '../services/alerts';
@@ -217,6 +219,9 @@ export function NearbySheet({
   }, [visible, appActive, load]);
 
   const t = strings.nearby;
+  // Pull the header down to close (`useSwipeToClose`).
+  const swipe = useSwipeToClose(onClose, visible);
+
   return (
     <Modal
       visible={visible}
@@ -225,8 +230,8 @@ export function NearbySheet({
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={styles.screen}>
-        <View style={styles.header}>
+      <Animated.View style={[styles.screen, swipe.sheetStyle]}>
+        <View style={styles.header} {...swipe.headerHandlers}>
           <Pressable onPress={onClose} hitSlop={12} accessibilityLabel={strings.common.close}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
           </Pressable>
@@ -307,7 +312,7 @@ export function NearbySheet({
             </Pressable>
           ))}
         </ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }

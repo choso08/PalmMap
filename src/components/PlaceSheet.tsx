@@ -26,6 +26,8 @@ interface PlaceSheetProps {
    * come from `DraggableSheet` — see there why they stay on the handle only.
    */
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   place: Place;
   /** Where the person is, for "350 m" next to the category. */
   from?: Coordinates | null;
@@ -61,6 +63,7 @@ export function PlaceSheet({
   onAddStop,
   onClose,
   dragHandlers,
+  headerHandlers,
 }: PlaceSheetProps) {
   const theme = useTheme();
   const strings = useT();
@@ -176,7 +179,7 @@ export function PlaceSheet({
         <View style={styles.handle} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <View style={styles.headerText}>
           <Text style={styles.name} numberOfLines={2}>
             {place.name}
@@ -382,8 +385,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       // A generous touch area round the handle: the visible target is four
       // points tall and nobody hits that with a thumb.
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       width: 40,

@@ -21,6 +21,8 @@ interface MeasureSheetProps {
    * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   points: Coordinates[];
   mode: MeasureMode;
   onChangeMode: (mode: MeasureMode) => void;
@@ -47,6 +49,7 @@ export function MeasureSheet({
   onClear,
   onClose,
   dragHandlers,
+  headerHandlers,
 }: MeasureSheetProps) {
   const theme = useTheme();
   const strings = useT();
@@ -66,7 +69,7 @@ export function MeasureSheet({
         <View style={styles.handle} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <View style={styles.headerText}>
           <Text style={styles.title}>{strings.measure.title}</Text>
           <Text style={styles.subtitle}>
@@ -179,8 +182,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       // A generous touch area around the handle: the visible target is 4 points
       // tall and nobody hits that with a thumb.
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       alignSelf: 'center',

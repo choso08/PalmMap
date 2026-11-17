@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
-import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { MAP_TYPES, TRAILS_LAYERS, useSettings, useT, useTheme, type MapType } from '../settings';
@@ -33,6 +34,9 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
     update('mapType', type);
   };
 
+  // Pull the header down to close (`useSwipeToClose`).
+  const swipe = useSwipeToClose(onClose, visible);
+
   return (
     <Modal
       visible={visible}
@@ -43,8 +47,8 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
       navigationBarTranslucent
     >
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.sheet}>
-        <View style={styles.header}>
+      <Animated.View style={[styles.sheet, swipe.sheetStyle]}>
+        <View style={styles.header} {...swipe.headerHandlers}>
           <Text style={styles.title}>{strings.layers.mapType}</Text>
           <Pressable onPress={onClose} hitSlop={12} accessibilityLabel={strings.common.close}>
             <MaterialCommunityIcons name="close" size={22} color={theme.textMuted} />
@@ -138,7 +142,7 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
           <Text style={styles.rowText}>{strings.layers.measure}</Text>
           <MaterialCommunityIcons name="chevron-right" size={22} color={theme.textMuted} />
         </Pressable>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }

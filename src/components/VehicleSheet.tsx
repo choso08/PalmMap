@@ -27,6 +27,8 @@ interface Props {
   loading: boolean;
   error: string | null;
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   onClose: () => void;
   /** Asks for the bus's position now, without waiting for the next refresh. */
   onRefresh: () => void;
@@ -69,6 +71,7 @@ export function VehicleSheet({
   loading,
   error,
   dragHandlers,
+  headerHandlers,
   onClose,
   onRefresh,
   refreshing,
@@ -171,7 +174,7 @@ export function VehicleSheet({
         <View style={styles.handle} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <View style={[styles.badge, { backgroundColor: colour }]}>
           <MaterialCommunityIcons name="bus" size={16} color={textOn(colour)} />
           <Text style={[styles.badgeText, { color: textOn(colour) }]}>{vehicle.line}</Text>
@@ -331,8 +334,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     handleZone: {
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       width: 40,

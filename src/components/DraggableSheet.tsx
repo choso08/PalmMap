@@ -17,7 +17,10 @@ interface DraggableSheetProps {
    * panel, dragging a list inside it pulled the panel down instead of
    * scrolling the list.
    */
-  children: (dragHandlers: GestureResponderHandlers) => ReactNode;
+  children: (
+    dragHandlers: GestureResponderHandlers,
+    headerHandlers: GestureResponderHandlers,
+  ) => ReactNode;
   style?: StyleProp<ViewStyle>;
   /**
    * How much of the panel stays visible when shrunk.
@@ -30,6 +33,9 @@ interface DraggableSheetProps {
 
 /** Distance below which it counts as a tap and not a drag. */
 const TAP_MAX = 5;
+
+/** How far a finger moves on the header before it is a drag, not a tap. */
+const HEADER_DRAG_MIN = 8;
 
 /** Speed above which the flick matters more than the position. */
 const FLICK = 0.5;
@@ -105,6 +111,48 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
     });
   }, [maxDown, translateY]);
 
+  /**
+   * The same drag on the panel's header — title, badge and buttons — so the
+   * whole top of the panel pulls it down, not only the little bar (author's
+   * report, November 2026: the bar alone was too small a target). It never
+   * claims a touch at its start, so a tap on a button or the title stays a
+   * tap; only a clearly vertical move takes over, and a button being pressed
+   * lets go of it (the default).
+   */
+  const headerResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dy) > HEADER_DRAG_MIN && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.5,
+        onPanResponderMove: (_, gesture) => {
+          translateY.setValue(Math.min(Math.max(base.current + gesture.dy, 0), maxDown));
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const at = Math.min(Math.max(base.current + gesture.dy, 0), maxDown);
+          const target =
+            gesture.vy > FLICK ? maxDown : gesture.vy < -FLICK ? 0 : at > maxDown / 2 ? maxDown : 0;
+          base.current = target;
+          Animated.spring(translateY, {
+            toValue: target,
+            useNativeDriver: true,
+            speed: 18,
+            bounciness: 2,
+          }).start();
+        },
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderTerminate: () => {
+          Animated.spring(translateY, {
+            toValue: base.current,
+            useNativeDriver: true,
+            speed: 18,
+            bounciness: 2,
+          }).start();
+        },
+      }),
+    [maxDown, translateY],
+  );
+
   return (
     <Animated.View
       style={[style, { transform: [{ translateY }] }]}
@@ -113,7 +161,7 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
         setHeight((current) => (Math.abs(measured - current) > 1 ? measured : current));
       }}
     >
-      {children(responder.panHandlers)}
+      {children(responder.panHandlers, headerResponder.panHandlers)}
     </Animated.View>
   );
 }

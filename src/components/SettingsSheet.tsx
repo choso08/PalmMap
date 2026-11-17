@@ -2,6 +2,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo } from 'react';
 import { useState } from 'react';
 import {
+  Animated,
   Linking,
   Modal,
   Pressable,
@@ -12,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
@@ -273,6 +275,9 @@ export function SettingsSheet({
       .join(' · ');
   }, [pace, s, strings]);
 
+  // Pull the header down to close (`useSwipeToClose`).
+  const swipe = useSwipeToClose(onClose, visible);
+
   return (
     <Modal
       visible={visible}
@@ -284,8 +289,8 @@ export function SettingsSheet({
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <Animated.View style={[styles.container, swipe.sheetStyle]}>
+        <View style={styles.header} {...swipe.headerHandlers}>
           <Text style={styles.title}>{onlyNavigation ? s.navigation : s.title}</Text>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>
             <MaterialCommunityIcons name="close" size={22} color={theme.textMuted} />
@@ -737,7 +742,7 @@ export function SettingsSheet({
           ) : null}
 
           </ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }

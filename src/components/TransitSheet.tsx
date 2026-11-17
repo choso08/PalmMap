@@ -52,6 +52,8 @@ interface TransitSheetProps {
    * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   /** Stops nearby, already found by `App`. */
   stops: TransitStop[];
   /** Train, metro, light-rail and boat stations nearby. */
@@ -108,6 +110,7 @@ export function TransitSheet({
   destination,
   onJourneyChange,
   dragHandlers,
+  headerHandlers,
 }: TransitSheetProps) {
   const theme = useTheme();
   const strings = useT();
@@ -345,7 +348,7 @@ export function TransitSheet({
         request, November 2026: the list of everything nearby, behind a clock
         button, was not used). Its name is the title; no list row to open.
       */}
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <MaterialCommunityIcons
           name={(focusStation ? STATION_ICONS[focusStation.kind] : 'bus-stop') as never}
           size={24}
@@ -628,8 +631,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       // A generous touch area around the handle: the visible target is 4 points
       // tall and nobody hits that with a thumb.
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       alignSelf: 'center',

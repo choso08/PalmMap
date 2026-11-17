@@ -2023,10 +2023,17 @@ navigation bar. The elements on top of the map move away.
 
 - The panels with a handle — place card, route, transport, measuring tape — shrink when the
   handle is pulled down, and come back when pulled up. A tap on the handle does the same.
-- **The gesture is only on the handle, never the whole panel**, otherwise dragging the stops
-  list pulled the panel down. That is why `DraggableSheet` hands the gestures through a
-  function (`children(dragHandlers)`).
-- The touch area around the handle is much bigger than it.
+- **The gesture is on the handle and the header, never the whole panel**, otherwise dragging
+  the stops list pulled the panel down. That is why `DraggableSheet` hands the gestures through
+  a function (`children(dragHandlers, headerHandlers)`).
+- **The header drags too** (author's report, November 2026: the bar alone was too small a
+  target): `headerHandlers` never claim a touch at its start, so a tap on a button or the title
+  stays a tap; only a clearly vertical move (`HEADER_DRAG_MIN`, 8 pt, 1.5× more vertical than
+  sideways) takes over. Every bottom panel spreads it on its `header` (the trip's `banner`).
+- The touch area around the handle is much bigger than it (16 pt above, 10 below, full width).
+- **The screens that open over the map close when pulled down by their header**
+  (`useSwipeToClose`): layers, Saved, Transit, alerts, Directions, Settings and the steps list.
+  They follow the finger and spring back short of `CLOSE_AT` (90 pt) unless flicked.
 - **`Reveal` uses `pointerEvents="box-none"`**, so taps reach the map under a shrunk panel.
 - The animation runs natively (`useNativeDriver`).
 

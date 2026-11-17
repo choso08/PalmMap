@@ -52,6 +52,8 @@ interface RoutePanelProps {
    * only and not on the whole panel.
    */
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   destination: Place;
   route: Route | null;
   loading: boolean;
@@ -148,6 +150,7 @@ export function RoutePanel({
   optionIndex,
   onChooseOption,
   dragHandlers,
+  headerHandlers,
   transitTrips,
   transitHidden = 0,
   transitTripIndex,
@@ -207,7 +210,7 @@ export function RoutePanel({
         <View style={styles.handle} />
       </View>
 
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <View style={styles.headerText}>
           <Text style={styles.name} numberOfLines={1}>
             {destination.name}
@@ -706,8 +709,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       // A generous touch area around the handle: the visible target is 4 points
       // tall and nobody hits that with a thumb.
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       alignSelf: 'center',

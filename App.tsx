@@ -3151,9 +3151,10 @@ function PalmMap() {
           onLayout={measurePanel('place')}
         >
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <PlaceSheet
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 place={lastPlace}
                 from={userLocation}
                 favourite={isFavourite(lastPlace)}
@@ -3177,9 +3178,10 @@ function PalmMap() {
           onLayout={measurePanel('route')}
         >
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <RoutePanel
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 fromLabel={
                   routeOrigin
                     ? routeOrigin.name
@@ -3231,9 +3233,10 @@ function PalmMap() {
       {measuring ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('measure')}>
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <MeasureSheet
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 points={measurePoints}
                 mode={measureMode}
                 onChangeMode={setMeasureMode}
@@ -3326,9 +3329,10 @@ function PalmMap() {
       {guiding ? (
         <View style={styles.bottom} onLayout={measurePanel('guide')}>
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <TransitGuidePanel
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 guide={guide}
                 progress={guideStep}
                 arrived={guideDone}
@@ -3427,9 +3431,10 @@ function PalmMap() {
       {transitVisible ? (
         <Reveal style={styles.bottom}>
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <TransitSheet
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 stops={sheetStops}
                 stations={shownStations}
                 selectedStationId={selectedStationId}
@@ -3457,9 +3462,10 @@ function PalmMap() {
       {lineShown && !selectedVehicleId && !transitVisible ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('line')}>
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <LineSheet
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 line={lineShown.line}
                 directions={lineShown.directions}
                 index={lineShown.index}
@@ -3484,9 +3490,10 @@ function PalmMap() {
       {selectedVehicleId && shownVehicle ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('vehicle')}>
           <DraggableSheet>
-            {(drag) => (
+            {(drag, dragHeader) => (
               <VehicleSheet
                 dragHandlers={drag}
+                headerHandlers={dragHeader}
                 vehicle={shownVehicle}
                 trip={busTrip.trip}
                 progress={busProgress}

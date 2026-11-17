@@ -19,6 +19,8 @@ import { formatDistance, formatDuration } from '../utils/format';
 
 interface Props {
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   /** Null while the steps are being prepared. */
   guide: TransitGuide | null;
   progress: GuideProgress;
@@ -56,6 +58,7 @@ function useNow(): number {
  */
 export function TransitGuidePanel({
   dragHandlers,
+  headerHandlers,
   guide,
   progress,
   arrived,
@@ -117,7 +120,7 @@ export function TransitGuidePanel({
         <View style={styles.handle} />
       </View>
 
-      <View style={styles.banner}>
+      <View style={styles.banner} {...headerHandlers}>
         {guide ? (
           <MaterialCommunityIcons name={top.icon as never} size={30} color={theme.onAccent} />
         ) : (
@@ -206,8 +209,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     handleZone: {
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       width: 40,

@@ -26,6 +26,8 @@ interface Props {
   loading: boolean;
   error: string | null;
   dragHandlers?: GestureResponderHandlers;
+  /** The same drag on the header (`DraggableSheet`). */
+  headerHandlers?: GestureResponderHandlers;
   onChooseDirection: (index: number) => void;
   onStopPress: (stop: JourneyStop) => void;
   onClose: () => void;
@@ -43,6 +45,7 @@ export function LineSheet({
   loading,
   error,
   dragHandlers,
+  headerHandlers,
   onChooseDirection,
   onStopPress,
   onClose,
@@ -60,7 +63,7 @@ export function LineSheet({
       <View style={styles.handleZone} {...dragHandlers}>
         <View style={styles.handle} />
       </View>
-      <View style={styles.header}>
+      <View style={styles.header} {...headerHandlers}>
         <View style={[styles.badge, { backgroundColor: colour }]}>
           <MaterialCommunityIcons name="bus" size={16} color={line.textColour ?? textOn(colour)} />
           <Text style={[styles.badgeText, { color: line.textColour ?? textOn(colour) }]}>
@@ -159,8 +162,10 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     handleZone: {
       alignItems: 'center',
-      paddingTop: 10,
-      marginTop: -10,
+      alignSelf: 'stretch',
+      paddingTop: 16,
+      paddingBottom: 10,
+      marginTop: -16,
     },
     handle: {
       width: 40,

@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSwipeToClose } from '../useSwipeToClose';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -30,6 +31,9 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
 
   const steps = route?.steps ?? [];
 
+  // Pull the header down to close (`useSwipeToClose`).
+  const swipe = useSwipeToClose(onClose, visible);
+
   return (
     <Modal
       visible={visible}
@@ -41,8 +45,8 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <Animated.View style={[styles.container, swipe.sheetStyle]}>
+        <View style={styles.header} {...swipe.headerHandlers}>
           <View>
             <Text style={styles.title}>{strings.steps.title}</Text>
             {route ? (
@@ -86,7 +90,7 @@ export function StepsList({ visible, route, onClose }: StepsListProps) {
             <Text style={styles.empty}>{strings.steps.empty}</Text>
           }
         />
-      </View>
+      </Animated.View>
     </Modal>
   );
 }

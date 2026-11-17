@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { useT, useTheme } from '../settings';
@@ -76,6 +77,9 @@ export function SavedSheet({
       : []),
   ];
 
+  // Pull the header down to close (`useSwipeToClose`).
+  const swipe = useSwipeToClose(onClose, visible);
+
   return (
     <Modal
       visible={visible}
@@ -84,8 +88,8 @@ export function SavedSheet({
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View style={styles.screen}>
-        <View style={styles.header}>
+      <Animated.View style={[styles.screen, swipe.sheetStyle]}>
+        <View style={styles.header} {...swipe.headerHandlers}>
           <Pressable onPress={onClose} hitSlop={12} accessibilityLabel={strings.common.close}>
             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
           </Pressable>
@@ -250,7 +254,7 @@ export function SavedSheet({
             contentContainerStyle={styles.list}
           />
         )}
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
