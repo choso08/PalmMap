@@ -1429,6 +1429,52 @@ def pnoa():
         print("licence page", st)
 
 
+def pnoa_blank():
+    """What a PNOA JPEG tile looks like where there is no imagery (Portugal, sea, France),
+    and DGT's JPEG over Spain: small tiles are printed in base64 to be decoded elsewhere."""
+    import base64
+    import math
+    section("PNOA blank tiles")
+
+    def tile(lat, lon, z):
+        n = 2 ** z
+        return (int((lon + 180) / 360 * n),
+                int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n))
+
+    spots = {"Lisboa": (38.7223, -9.1393, 18), "Atlantic off Galicia": (43.0, -10.5, 13),
+             "Cadiz coast": (36.53, -6.31, 14), "France Toulouse": (43.60, 1.44, 14),
+             "Tanger": (35.77, -5.80, 14), "Mediterranean": (39.0, 1.0, 13)}
+    for name, (lat, lon, z) in spots.items():
+        x, y = tile(lat, lon, z)
+        url = ("https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&version=1.0.0"
+               f"&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible"
+               f"&tilematrix={z}&tilerow={y}&tilecol={x}&format=image/jpeg")
+        st, ct, b = get(url, 60)
+        print(f"PNOA jpeg {name} z{z}: {st} {ct} {len(b)}")
+        if st == 200 and len(b) < 4000:
+            print("B64", name, base64.b64encode(b).decode())
+    lat, lon, z = 38.8794, -6.9707, 15
+    x, y = tile(lat, lon, z)
+    r = 6378137 * math.pi
+    size = 2 * r / 2 ** z
+    minx = -r + x * size; maxy = r - y * size
+    bbox = f"{minx},{maxy - size},{minx + size},{maxy}"
+    url = ("https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+           "&LAYERS=ortoSat2023-CorVerdadeira&STYLES=&CRS=EPSG:3857&BBOX=" + bbox +
+           "&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false")
+    st, ct, b = get(url, 60)
+    print(f"DGT jpeg Badajoz: {st} {ct} {len(b)}")
+    if st == 200 and len(b) < 8000:
+        print("B64 DGT-Badajoz", base64.b64encode(b).decode())
+    for fmt in ("image/webp", "image/png8", "image/png; mode=8bit"):
+        x, y = tile(40.4168, -3.7038, 16)
+        url = ("https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&version=1.0.0"
+               f"&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible"
+               f"&tilematrix=16&tilerow={y}&tilecol={x}&format={urllib.parse.quote(fmt)}")
+        st, ct, b = get(url, 60)
+        print(f"PNOA Madrid {fmt}: {st} {ct} {len(b)}")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
