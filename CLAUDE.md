@@ -518,7 +518,7 @@ environment cannot reach.
 - **Directions screen** (button next to the search): any origin and destination, swap, travel
   mode. Navigation always starts from the GPS.
 - **Satellite:** Sentinel-2 moved to 2025. The DGT orthophotos stay at 2023 — nothing newer is
-  published (probed: `ortos.dgterritorio.gov.pt` only has `ortosat2023`).
+  published (probed again 17 November 2026, `sondar: satellite`: `ortos.dgterritorio.gov.pt` only has `ortosat2023`, and EOX's newest is `s2cloudless-2025`; 2026 is 404).
 - **Maps list:** retries once, keeps the last full list, is alphabetical, and maps and
   timetables are collapsible sections in Settings.
 - **Main screen in the style of Google Maps** (the author: "imitate Google Maps in the vast
