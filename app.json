@@ -83,7 +83,8 @@
             "backgroundColor": "#0B0F14"
           }
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ]
   }
 }

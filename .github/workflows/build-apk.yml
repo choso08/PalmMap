@@ -58,7 +58,32 @@ jobs:
             console.log('This build\'s version: ' + app.expo.version);
           "
 
+      # PalmMap's own signing key (author's decision, November 2026), from the
+      # repository's secrets: the keystore in base64 and its password. It used
+      # to be React Native's public debug key, which anyone has — anyone could
+      # sign an APK Android would accept as an update of PalmMap. Without the
+      # secrets the build stops here: a debug-signed APK after this would not
+      # install over the ones signed with our key.
+      - name: Put the signing key in place
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PALMMAP_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.PALMMAP_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Missing the PALMMAP_KEYSTORE_BASE64 / PALMMAP_KEYSTORE_PASSWORD secrets."
+            exit 1
+          fi
+          KS="$RUNNER_TEMP/palmmap.jks"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+          # Fails here, clearly, if the file or the password is wrong.
+          keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias palmmap > /dev/null
+          {
+            echo "PALMMAP_KEYSTORE=$KS"
+            echo "PALMMAP_KEY_ALIAS=palmmap"
+          } >> "$GITHUB_ENV"
+
       # The android/ folder is not in the repository — Expo generates it.
+      # `plugins/withReleaseSigning.js` makes `release` sign with the key above.
       - name: Generate the Android project
         run: npx expo prebuild --platform android --no-install
 
@@ -67,6 +92,9 @@ jobs:
       # APK is more likely to arrive truncated.
       - name: Build the APK
         working-directory: android
+        env:
+          PALMMAP_KEYSTORE_PASSWORD: ${{ secrets.PALMMAP_KEYSTORE_PASSWORD }}
+          PALMMAP_KEY_PASSWORD: ${{ secrets.PALMMAP_KEYSTORE_PASSWORD }}
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
@@ -83,7 +111,36 @@ jobs:
           echo "--- identification ---"
           "$TOOLS/aapt2" dump badging "$APK" | grep -E "^package|sdkVersion|native-code"
           echo "--- signature ---"
-          "$TOOLS/apksigner" verify --print-certs -v "$APK"
+          "$TOOLS/apksigner" verify --print-certs -v "$APK" | tee CERTS.txt
+          if grep -q "CN=Android Debug" CERTS.txt; then
+            echo "::error::The APK is signed with the public debug key, not PalmMap's."
+            exit 1
+          fi
+          grep -m1 "certificate SHA-256 digest" CERTS.txt | awk '{print $NF}' > CERT_SHA.txt
+
+      # When the signing key differs from the previous build's (the first build
+      # with our own key, November 2026), Android refuses to install over the
+      # old app — the release notes say to uninstall it first.
+      - name: Compare the key with the previous build's
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ANTERIOR=$(gh release list --limit 100 --json tagName \
+            --jq '.[].tagName | select(startswith("apk-"))' \
+            | sort -t- -k2 -n | tail -1)
+          [ -z "$ANTERIOR" ] && exit 0
+          mkdir -p previous
+          if ! gh release download "$ANTERIOR" -p PalmMap.apk -D previous; then
+            exit 0
+          fi
+          TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          OLD=$("$TOOLS/apksigner" verify --print-certs previous/PalmMap.apk \
+            | grep -m1 "certificate SHA-256 digest" | awk '{print $NF}')
+          if [ -n "$OLD" ] && [ "$OLD" != "$(cat CERT_SHA.txt)" ]; then
+            echo "Signing key changed since $ANTERIOR."
+            touch KEY_CHANGED
+          fi
+          rm -rf previous
 
       # The list of what changed since the previous build, taken from the commits.
       #
@@ -131,9 +188,17 @@ jobs:
             echo
             echo "## Install"
             echo
-            echo "Download \`PalmMap.apk\` below and open it on the phone."
-            echo "It is the full app: it installs over the previous one without losing"
-            echo "settings, saved places or downloaded maps."
+            if [ -f KEY_CHANGED ]; then
+              echo "> **Uninstall the previous PalmMap first.** This version is signed with"
+              echo "> a new key, and Android will not install it over the old one. Saved places"
+              echo "> and downloaded maps are lost once; later versions update normally."
+              echo
+              echo "Download \`PalmMap.apk\` below and open it on the phone."
+            else
+              echo "Download \`PalmMap.apk\` below and open it on the phone."
+              echo "It is the full app: it installs over the previous one without losing"
+              echo "settings, saved places or downloaded maps."
+            fi
             echo
             echo "Version $VERSAO · $SIZE · SHA-256 starts with \`$SHA\`"
             if [ -n "$ANTERIOR" ]; then
