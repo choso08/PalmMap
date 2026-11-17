@@ -165,6 +165,7 @@ import {
   type TransitWhen,
 } from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
+import { notifyNow, prepareTripNotices } from './src/services/arrivalReminders';
 import { ConnectivityBanner } from './src/components/ConnectivityBanner';
 import { arrivalPoint, findEntrances } from './src/services/entrances';
 import { isOnline, useOnline } from './src/services/network';
@@ -1047,6 +1048,29 @@ function PalmMap() {
     }
   }, [guide, guideStep, guideDone, settings.voiceGuidance]);
 
+  /**
+   * "Get off at the next stop" as a notification too, voice on or off: with
+   * the phone in a pocket and the sound down, the voice is not heard (author's
+   * request, November 2026). Once per ride.
+   */
+  const guideNotified = useRef(new Set<string>());
+  useEffect(() => {
+    if (!guide) {
+      guideNotified.current.clear();
+      return;
+    }
+    const step = guide.legs[guideStep.leg];
+    if (!step || step.type === 'walk' || guideDone) {
+      return;
+    }
+    const last = step.stops.length - 1;
+    const key = `sair-${guideStep.leg}`;
+    if (guideStep.stop > 0 && last - guideStep.stop === 1 && !guideNotified.current.has(key)) {
+      guideNotified.current.add(key);
+      void notifyNow(t().transit.getOffTitle, t().guide.getOffNextVoice(step.stops[last].name));
+    }
+  }, [guide, guideStep, guideDone]);
+
   const previewTrip =
     !guiding && settings.travelMode === 'transit' && destination
       ? transitTrips?.[transitTripIndex] ?? null
@@ -1086,6 +1110,8 @@ function PalmMap() {
       return;
     }
     warmUpVoice();
+    // Asked now, on the tap: "get off at the next stop" is also a notification.
+    void prepareTripNotices();
     guideSaid.current.clear();
     setGuideStep({ leg: 0, stop: 0 });
     setSelectedPlace(null);

@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -29,6 +29,7 @@ import { changesOf, type TransitTrip } from '../services/transit';
 import type { TransitWhen } from '../services/transitPlan';
 import { TransitWhenPicker } from './TransitWhenPicker';
 import { fastestTrip } from '../services/transitPlan';
+import { leaveKey, toggleLeaveReminder, useReminderKeys } from '../services/arrivalReminders';
 import { TripTimeline } from './TripTimeline';
 import type { TransitGuide } from '../services/transitGuide';
 import { lineColour, textOn } from '../utils/lineColour';
@@ -159,6 +160,10 @@ export function RoutePanel({
   const theme = useTheme();
   const strings = useT();
   const { settings, update } = useSettings();
+  const reminded = useReminderKeys();
+  const chosenTrip = transitTrips?.[transitTripIndex] ?? null;
+  const leaveOn = chosenTrip !== null && reminded.has(leaveKey(chosenTrip.tripId));
+  const [leaveNote, setLeaveNote] = useState<string | null>(null);
   const { height: windowHeight } = useWindowDimensions();
   const eta = useEta();
   const insets = useSafeAreaInsets();
@@ -542,8 +547,36 @@ export function RoutePanel({
                 />
                 <Text style={styles.buttonText}>{strings.route.start}</Text>
               </Pressable>
+              {/*
+                "Time to go": a notification two minutes before one must leave
+                for the chosen option — only for one that leaves later.
+              */}
+              {chosenTrip && chosenTrip.leaveAt - Date.now() / 1000 > 3 * 60 ? (
+                <Pressable
+                  style={[styles.secondaryButton, styles.buttonSquare, leaveOn && styles.leaveOn]}
+                  accessibilityLabel={leaveOn ? strings.transit.leaveOff : strings.transit.leaveSet}
+                  accessibilityState={{ selected: leaveOn }}
+                  onPress={() => {
+                    setLeaveNote(null);
+                    toggleLeaveReminder(chosenTrip)
+                      .then((ok) => {
+                        if (!ok) {
+                          setLeaveNote(strings.transit.reminderDenied);
+                        }
+                      })
+                      .catch(() => setLeaveNote(strings.transit.reminderFailed));
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={leaveOn ? 'bell-ring' : 'bell-outline'}
+                    size={20}
+                    color={theme.accent}
+                  />
+                </Pressable>
+              ) : null}
             </View>
           )}
+          {leaveNote ? <Text style={styles.avisoTexto}>{leaveNote}</Text> : null}
         </>
       ) : null}
 
@@ -950,6 +983,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     buttonSquare: {
       width: 52,
+    },
+    leaveOn: {
+      borderColor: theme.accent,
     },
     button: {
       flexDirection: 'row',

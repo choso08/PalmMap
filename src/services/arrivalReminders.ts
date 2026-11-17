@@ -219,3 +219,112 @@ export function useReminderKeys(): Set<string> {
   }, []);
   return keys;
 }
+
+// --- Leaving, and getting off -------------------------------------------------
+
+/** How long before leaving the "time to go" notification comes. */
+const LEAVE_LEAD_S = 2 * 60;
+
+/** The key of a trip's "time to go" reminder, in the same list as the bells. */
+export function leaveKey(tripId: string): string {
+  return `sair|${tripId}`;
+}
+
+/**
+ * "Time to go" for a planned transport trip (author's request, November 2026):
+ * a notification `LEAVE_LEAD_S` before one must leave to walk to the first
+ * stop, saying which line to catch where and when. From the plan as it was
+ * when set: the trip is not followed while the phone sleeps. Returns false
+ * when notifications are not allowed. A second call clears it.
+ */
+export async function toggleLeaveReminder(trip: {
+  tripId: string;
+  leaveAt: number;
+  departsAt: number;
+  line: string;
+  from: { name: string };
+}): Promise<boolean> {
+  const key = leaveKey(trip.tripId);
+  const old = reminders.get(key);
+  if (old) {
+    reminders.delete(key);
+    listeners.forEach((l) => l());
+    if (old.id) {
+      await Notifications.cancelScheduledNotificationAsync(old.id).catch(() => undefined);
+    }
+    return true;
+  }
+  const at = Math.max(Date.now() / 1000 + 5, trip.leaveAt - LEAVE_LEAD_S);
+  const placeholder: Reminder = {
+    id: '',
+    at,
+    unix: trip.departsAt,
+    line: trip.line,
+    stopName: trip.from.name,
+    destination: '',
+  };
+  reminders.set(key, placeholder);
+  listeners.forEach((l) => l());
+  try {
+    if (!(await ready())) {
+      if (reminders.get(key) === placeholder) {
+        reminders.delete(key);
+        listeners.forEach((l) => l());
+      }
+      return false;
+    }
+    const d = new Date(trip.departsAt * 1000);
+    const clock = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: t().transit.leaveTitle,
+        body: t().transit.leaveBody(trip.line, clock, trip.from.name),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: new Date(at * 1000),
+        channelId: CHANNEL,
+      },
+    });
+    if (reminders.get(key) === placeholder) {
+      reminders.set(key, { ...placeholder, id });
+    } else {
+      await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    }
+    return true;
+  } catch (e) {
+    if (reminders.get(key) === placeholder) {
+      reminders.delete(key);
+      listeners.forEach((l) => l());
+    }
+    throw e;
+  }
+}
+
+/**
+ * Asks for notifications ahead of a transport trip (on its Start, a tap), so
+ * that "get off at the next stop" can reach a phone in a pocket.
+ */
+export async function prepareTripNotices(): Promise<void> {
+  await ready().catch(() => false);
+}
+
+/**
+ * A notification now, for the trip under way: "get off at the next stop"
+ * reaches a phone in a pocket with the sound off, where the voice does not.
+ * Only when already allowed — never asks in the middle of a trip.
+ */
+export async function notifyNow(title: string, body: string): Promise<void> {
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (!current.granted || !channelReady && Platform.OS === 'android') {
+      return;
+    }
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: { channelId: CHANNEL },
+    });
+  } catch {
+    // A missed notice never stops the trip.
+  }
+}
