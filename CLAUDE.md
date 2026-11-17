@@ -333,6 +333,9 @@ environment cannot reach.
   Probed with `sondar: pnoa`, `pnoa_blank` and `ortho_formats`. An Airbus 2025 image the
   author had heard of is not open: Airbus sells it (OneAtlas); the DGT's 2023 one is Airbus
   Pléiades Neo, bought by the State.
+- **Built in 7.0.53** (17 November): the HARICA root for the DGT host (old Androids' "High"
+  satellite), borders and place names over the satellite, "Report" → OpenStreetMap note, and
+  ratings through the issue form with the "avaliação" label.
 - **Built in 7.0.52** (17 November): Spain's PNOA orthophotos and the transparent orthophoto
   format (no more white squares from the DGT along the border). Not in it: the borders and
   place names over the satellite.
