@@ -689,9 +689,12 @@ Alternatively, with a (free) Expo account, the build profiles are in `eas.json`:
 | `preview` | The real, standalone app. Install and use. To change the code, build again. |
 | `development` | Install once and connect to the computer with `npx expo start`. The code reloads without rebuilding. |
 
-The APK is built only for **arm64-v8a**, the processor of every current Android phone.
-Including all four architectures tripled the size for no benefit, and a huge file is more
-likely to arrive truncated — which gives "there was a problem parsing the package".
+The APK is built for **arm64-v8a and armeabi-v7a**. It was arm64 only until November 2026,
+when a colleague's **Samsung Galaxy A13** refused it ("the app is not compatible with your
+phone"): budget phones often run a 32-bit Android on a 64-bit processor, and then only
+`armeabi-v7a` libraries load. The x86 ones stay out: all four tripled the size, and a huge
+file is more likely to arrive truncated — which gives "there was a problem parsing the
+package".
 
 **The version comes from the build, not from anyone's hand.** `app.json` keeps only the
 meaningful part — the `7.0` of "version 7" — and the workflow appends the run number. APK 12

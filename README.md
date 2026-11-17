@@ -19,7 +19,7 @@ the browser or file manager that opens the file.
 > Xiaomi/POCO phones usually show an extra security warning. If the install is blocked,
 > turn off automatic app scanning in the security settings.
 
-The APK is built only for **arm64-v8a**, the processor of every current Android phone.
+The APK is built for **arm64-v8a** and **armeabi-v7a** — every Android phone of the last decade, including budget ones running a 32-bit system.
 
 ## What it does
 

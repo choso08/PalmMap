@@ -87,9 +87,11 @@ jobs:
       - name: Generate the Android project
         run: npx expo prebuild --platform android --no-install
 
-      # Only arm64-v8a: the processor of every current Android phone. Including
-      # all four architectures tripled the file size for no benefit, and a huge
-      # APK is more likely to arrive truncated.
+      # arm64-v8a and armeabi-v7a. arm64 alone was enough for the author's phone,
+      # but a Samsung Galaxy A13 refused it as "not compatible" (November 2026):
+      # cheap phones often run a 32-bit Android on a 64-bit processor. The two
+      # x86 ones (emulators, a few old tablets) stay out — all four tripled the
+      # size, and a huge APK is more likely to arrive truncated.
       - name: Build the APK
         working-directory: android
         env:
@@ -97,7 +99,7 @@ jobs:
           PALMMAP_KEY_PASSWORD: ${{ secrets.PALMMAP_KEYSTORE_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
       # Confirms the APK came out whole and properly signed. Without this, a broken
       # file is only found on the phone, with a "problem parsing the package".
