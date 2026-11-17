@@ -84,6 +84,17 @@ const TRAILS_ATTRIBUTION = '© waymarkedtrails.org, data © OpenStreetMap contri
  * Named places, minus transport stops and entrances — those are not
  * businesses, and the transport map has its own stops.
  */
+/**
+ * How long after a tap on a bus, stop or station a business under it is not
+ * opened. One tap can reach both layers (author's report, 17 November 2026:
+ * tapping a bus or a stop planned a route — the second tap of two landed on
+ * a business pin underneath, and a double tap on a pin makes it the
+ * destination). The business's handler waits `TRANSIT_TAP_WAIT_MS` to see
+ * whether the transit layer got the same tap, whichever fires first.
+ */
+const TRANSIT_TAP_SHADOW_MS = 600;
+const TRANSIT_TAP_WAIT_MS = 60;
+
 const TILE_POI_FILTER = [
   'all',
   ['has', 'name'],
@@ -393,6 +404,16 @@ export function MapView({
   ref,
 }: MapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
+  /** When a bus, stop or station was last tapped (see `TRANSIT_TAP_SHADOW_MS`). */
+  const transitTapAt = useRef(0);
+  /** Runs a business tap only if no transit layer took the same tap. */
+  const unlessTransitTap = useCallback((run: () => void) => {
+    setTimeout(() => {
+      if (Date.now() - transitTapAt.current > TRANSIT_TAP_SHADOW_MS) {
+        run();
+      }
+    }, TRANSIT_TAP_WAIT_MS);
+  }, []);
   const theme = useTheme();
   const { settings } = useSettings();
 
@@ -1261,6 +1282,7 @@ export function MapView({
           onPress={(event) => {
             // As with the stops: the tap must not reach the map.
             event.stopPropagation?.();
+            transitTapAt.current = Date.now();
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
               onStationPress?.(id);
@@ -1420,6 +1442,7 @@ export function MapView({
           onPress={(event) => {
             // See the note on the businesses: the tap must not reach the map.
             event.stopPropagation?.();
+            transitTapAt.current = Date.now();
             // Same as the businesses: the features come in `nativeEvent`.
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
@@ -1536,6 +1559,7 @@ export function MapView({
           onPress={(event) => {
             // As with the stops: the tap must not reach the map.
             event.stopPropagation?.();
+            transitTapAt.current = Date.now();
             const id = event.nativeEvent.features[0]?.properties?.id;
             if (typeof id === 'string') {
               onVehiclePress?.(id);
@@ -1669,16 +1693,17 @@ export function MapView({
             const [longitude, latitude] = geometry.coordinates as number[];
             const kind =
               typeof props.subclass === 'string' ? props.subclass : String(props.class ?? '');
-            onTilePoiPress?.({
+            const name = props.name;
+            unlessTransitTap(() => onTilePoiPress?.({
               // Tiles carry no OpenStreetMap id; a negative number from the
               // position keeps it apart from real ids and stable between taps.
               id: -Math.abs(Math.round(latitude * 1e5) * 100000 + Math.round(longitude * 1e5)),
-              name: props.name,
+              name,
               address: '',
               coordinates: { latitude, longitude },
               category: categoryLabel({ amenity: kind }),
               kindValue: kind,
-            });
+            }));
           }}
         >
           {poiLayers('ofm-pois', {
@@ -1705,7 +1730,7 @@ export function MapView({
             const feature = event.nativeEvent.features[0];
             const placeId = feature?.properties?.placeId;
             if (typeof placeId === 'number') {
-              onPlacePress(placeId);
+              unlessTransitTap(() => onPlacePress(placeId));
             }
           }}
         >

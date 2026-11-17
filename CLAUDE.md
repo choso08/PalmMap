@@ -151,7 +151,12 @@ environment cannot reach.
     own listener). The pill goes away after 5 s or with a swipe sideways or up. **The published business files have doors since 16
     November 2026** (all 27 regions); phones fetch the new file on Wi-Fi.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
-    the first tap opens the card, the second makes it the destination.
+    the first tap opens the card, the second makes it the destination. **A tap on a bus, stop or
+    station never reaches the business pins under it** (author's report, 17 November: tapping a
+    bus or a stop planned a route by itself — the taps landed on a business underneath too, and
+    two made it the destination): the transit layers stamp `transitTapAt`, and the business
+    handlers wait `TRANSIT_TAP_WAIT_MS` (60 ms) and do nothing within `TRANSIT_TAP_SHADOW_MS`
+    (600 ms) of one (`unlessTransitTap`, in `MapView.tsx`).
   - **Live buses are a drop pointing where the bus heads**, a white bus on it and the line
     number in a pill underneath (see 6-B-5).
   - **A tapped stop or station opens alone** — its panel shows only its passages; the clock
