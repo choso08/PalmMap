@@ -84,6 +84,8 @@ interface RoutePanelProps {
   /** Stops along the way, in the order they are passed. */
   waypoints: Place[];
   onRemoveWaypoint: (index: number) => void;
+  /** Add a stop on the way: the search opens to choose it, as in Maps. */
+  onAddStop?: () => void;
   /**
    * Bus trips, when public transport is the chosen mode.
    *
@@ -146,6 +148,7 @@ export function RoutePanel({
   onOpenDirections,
   waypoints,
   onRemoveWaypoint,
+  onAddStop,
   options,
   optionIndex,
   onChooseOption,
@@ -323,6 +326,18 @@ export function RoutePanel({
             </View>
           ))}
         </View>
+      ) : null}
+
+      {/*
+        Add a stop on the way, as in Maps (author's report: "I have no option
+        to add a stop" — it only lived on a place's card once a destination was
+        chosen). Not by transport: stops are a road route's thing.
+      */}
+      {onAddStop && travelMode !== 'transit' ? (
+        <Pressable style={styles.addStop} onPress={onAddStop} accessibilityRole="button">
+          <MaterialCommunityIcons name="map-marker-plus-outline" size={18} color={theme.accent} />
+          <Text style={styles.addStopText}>{strings.route.addStop}</Text>
+        </Pressable>
       ) : null}
 
       {/*
@@ -778,6 +793,23 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       flex: 1,
       fontSize: 13,
       color: theme.text,
+    },
+    addStop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 6,
+      marginTop: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    addStopText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.accent,
     },
     trajetos: {
       marginTop: 14,

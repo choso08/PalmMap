@@ -118,6 +118,7 @@ export const pt = {
   search: {
     removeRecent: 'Esquecer este recente',
     placeholder: 'Pesquisar aqui',
+    stopPlaceholder: 'Procurar uma paragem pelo caminho',
     failed: 'Não foi possível pesquisar.',
     failedStatus: (status: number) =>
       `O serviço de pesquisa recusou (resposta ${status}). Tente daqui a pouco.`,
@@ -202,6 +203,7 @@ export const pt = {
   },
 
   route: {
+    addStop: 'Adicionar paragem',
     calculating: 'A calcular o percurso…',
     start: 'Iniciar',
     steps: 'Passos',

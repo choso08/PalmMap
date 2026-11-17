@@ -100,6 +100,7 @@ export const en: typeof pt = {
   search: {
     removeRecent: 'Forget this recent',
     placeholder: 'Search here',
+    stopPlaceholder: 'Search for a stop on the way',
     failed: 'Search failed.',
     failedStatus: (status: number) =>
       `The search service refused (answer ${status}). Try again shortly.`,
@@ -182,6 +183,7 @@ export const en: typeof pt = {
   },
 
   route: {
+    addStop: 'Add stop',
     calculating: 'Working out the route…',
     start: 'Start',
     steps: 'Steps',

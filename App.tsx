@@ -377,6 +377,12 @@ function PalmMap() {
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
   /**
+   * The search is choosing a stop on the way, not a new destination (the route
+   * panel's "Add stop"). `stopSearchRequest` puts the cursor in the box.
+   */
+  const [choosingStop, setChoosingStop] = useState(false);
+  const [stopSearchRequest, setStopSearchRequest] = useState(0);
+  /**
    * The category chips' bottom edge on screen, measured: the scale bar hangs
    * under it. A larger font or display size makes the top column taller.
    */
@@ -3091,12 +3097,26 @@ function PalmMap() {
         <SearchBar
           onSelectLine={handleSelectLine}
           onSelect={(place) => {
+            if (choosingStop && destination) {
+              setChoosingStop(false);
+              handleAddWaypoint(place);
+              return;
+            }
+            setChoosingStop(false);
             // A destination picked from the main search starts from the GPS,
             // as it always did; only the Directions screen changes the start.
             setRouteOrigin(null);
             handleSearchSelect(place);
           }}
-          onFocusChange={setSearchFocused}
+          focusRequest={stopSearchRequest}
+          placeholder={choosingStop && destination ? t().search.stopPlaceholder : undefined}
+          onFocusChange={(focused) => {
+            setSearchFocused(focused);
+            // Closing the search without choosing gives up on the stop.
+            if (!focused) {
+              setTimeout(() => setChoosingStop(false), 0);
+            }
+          }}
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}
@@ -3232,6 +3252,10 @@ function PalmMap() {
                 onRemoveWaypoint={(i) =>
                   setWaypoints((atuais) => atuais.filter((_, j) => j !== i))
                 }
+                onAddStop={() => {
+                  setChoosingStop(true);
+                  setStopSearchRequest((n) => n + 1);
+                }}
                 options={routeOptions}
                 optionIndex={routeIndex}
                 onChooseOption={setRouteIndex}

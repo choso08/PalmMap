@@ -57,6 +57,10 @@ interface SearchBarProps {
   favourites: Place[];
   /** Recent destinations, shown after the saved ones. */
   recents: Place[];
+  /** Each change puts the cursor in the box (the route panel's "Add stop"). */
+  focusRequest?: number;
+  /** The box's hint instead of the usual one (choosing a stop). */
+  placeholder?: string;
 }
 
 /**
@@ -73,6 +77,8 @@ export function SearchBar({
   onOpenDirections,
   favourites,
   recents,
+  focusRequest,
+  placeholder,
   getBounds,
   updateAvailable = false,
   onFocusChange,
@@ -83,6 +89,13 @@ export function SearchBar({
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const [query, setQuery] = useState('');
+  const inputRef = useRef<TextInput>(null);
+  // "Add stop" in the route panel asks for the box: the cursor goes there.
+  useEffect(() => {
+    if (focusRequest) {
+      inputRef.current?.focus();
+    }
+  }, [focusRequest]);
   /** True while the box is in use, to show the saved places. */
   const [focused, setFocusedState] = useState(false);
   const setFocused = useCallback(
@@ -298,10 +311,11 @@ export function SearchBar({
         )}
 
         <TextInput
+          ref={inputRef}
           style={styles.input}
           value={query}
           onChangeText={setQuery}
-          placeholder={strings.search.placeholder}
+          placeholder={placeholder ?? strings.search.placeholder}
           placeholderTextColor={theme.placeholder}
           returnKeyType="search"
           onFocus={() => setFocused(true)}

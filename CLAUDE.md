@@ -1552,6 +1552,11 @@ stops**, on purpose.
 - **Waypoints** (`waypoints`, in `App.tsx`) are points the route must pass before the
   destination, added from a place's card ("Stop here on the way", only with a destination
   chosen). They go at the end of the list.
+- **"Add stop" in the route panel** (author's report, 17 November 2026: "I have no option to
+  add a stop" — the card's button was too hidden): it puts the cursor in the search with
+  "Search for a stop on the way" (`choosingStop`, `stopSearchRequest`, SearchBar's
+  `focusRequest`/`placeholder`), and the place chosen becomes a waypoint instead of the
+  destination. Closing the search gives up. Not offered by transport.
 - **When recalculating while navigating, only the waypoints still ahead go in** — going
   through the pharmacy again would mean a U-turn (`waypointIndices`).
 - **Alternatives and waypoints do not mix.** OSRM can only find alternatives between two
