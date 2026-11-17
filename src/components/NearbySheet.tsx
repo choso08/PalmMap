@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -13,11 +13,13 @@ import {
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { serviceAlerts } from '../services/alerts';
-import { departuresNear } from '../services/schedules';
+import { busDeparturesNear, departuresNear, type ScheduleDeparture } from '../services/schedules';
+import { useOnline } from '../services/network';
 import { arrivalsAt, nearbyStops, type TransitStop } from '../services/transit';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates } from '../types/geo';
+import { distanceMeters } from '../utils/geometry';
 import { useAppActive } from '../useAppActive';
 import { formatDistance } from '../utils/format';
 import { lineColour, textOn } from '../utils/lineColour';
@@ -36,6 +38,8 @@ interface Props {
   onClose: () => void;
   /** A stop tapped: its panel on the map. */
   onOpenStop: (stop: TransitStop) => void;
+  /** A station or timetable stop tapped: the map there, its panel if shown. */
+  onOpenStation: (at: Coordinates) => void;
   onOpenAlerts: () => void;
 }
 
@@ -55,6 +59,8 @@ interface Place {
   meters: number | null;
   icon: string;
   stop: TransitStop | null;
+  /** A station from the stored timetables: where it is. */
+  at: Coordinates | null;
   rows: LineRow[];
 }
 
@@ -88,7 +94,14 @@ function group(
  * touching the map. Live times for Carris Metropolitana, stored timetables for
  * the rest. A tap on a stop opens its panel on the map.
  */
-export function NearbySheet({ visible, origin, onClose, onOpenStop, onOpenAlerts }: Props) {
+export function NearbySheet({
+  visible,
+  origin,
+  onClose,
+  onOpenStop,
+  onOpenStation,
+  onOpenAlerts,
+}: Props) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
@@ -99,50 +112,86 @@ export function NearbySheet({ visible, origin, onClose, onOpenStop, onOpenAlerts
   const [refreshing, setRefreshing] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
 
+  const online = useOnline();
+  /** Each load's number: only the latest one may write the list. */
+  const loadId = useRef(0);
+
   const load = useCallback(async () => {
+    const id = (loadId.current += 1);
     if (!origin) {
       setPlaces([]);
       return;
     }
     const out: Place[] = [];
-    // Trains, metro, ferries and Carris de Lisboa: the stored timetables, at once.
-    const rail = departuresNear(origin, 900, 40);
-    const byStation = new Map<string, typeof rail>();
-    for (const d of rail) {
-      byStation.set(d.station, [...(byStation.get(d.station) ?? []), d]);
+    // The stored timetables answer at once: trains, metro, ferries and Metro
+    // Sul do Tejo by station; the timetable-only buses (Carris de Lisboa)
+    // at their nearest stop — and offline Carris Metropolitana's stored
+    // timetable stands in for its live arrivals, as on a stop's panel.
+    const stored = [
+      ...departuresNear(origin, 900, 40),
+      ...busDeparturesNear(origin, 400, 40, new Date(), !online),
+    ];
+    const byStation = new Map<string, ScheduleDeparture[]>();
+    for (const d of stored) {
+      const key = `${d.operator}|${d.station}`;
+      byStation.set(key, [...(byStation.get(key) ?? []), d]);
     }
-    for (const [station, list] of byStation) {
+    for (const [key, list] of byStation) {
+      const kind = list[0].kind;
       out.push({
-        key: `st:${station}`,
-        name: station,
-        meters: null,
-        icon: list[0].kind === 'subway' ? 'subway-variant' : list[0].kind === 'boat' ? 'ferry' : list[0].kind === 'bus' ? 'bus-stop' : 'train',
+        key: `st:${key}`,
+        name: list[0].station,
+        meters: Math.round(distanceMeters(origin, list[0].coordinates)),
+        icon:
+          kind === 'subway'
+            ? 'subway-variant'
+            : kind === 'boat'
+              ? 'ferry'
+              : kind === 'light_rail'
+                ? 'tram'
+                : kind === 'bus'
+                  ? 'bus-stop'
+                  : 'train',
         stop: null,
+        at: list[0].coordinates,
         rows: group(list.map((d) => ({ ...d, live: false }))),
       });
     }
-    try {
-      const stops = (await nearbyStops(origin, NEARBY_STOPS)) ?? [];
-      const arrivals = await Promise.all(
-        stops.map((s) => arrivalsAt(s.id, 12).catch(() => [])),
-      );
-      stops.forEach((stop, i) => {
-        out.push({
-          key: stop.id,
-          name: stop.name,
-          meters: stop.meters,
-          icon: 'bus-stop',
-          stop,
-          rows: group(arrivals[i].map((a) => ({ ...a, kind: 'bus' }))),
+    if (online) {
+      try {
+        const stops = (await nearbyStops(origin, NEARBY_STOPS)) ?? [];
+        const arrivals = await Promise.all(
+          stops.map((s) => arrivalsAt(s.id, 12).catch(() => [])),
+        );
+        stops.forEach((stop, i) => {
+          out.push({
+            key: stop.id,
+            name: stop.name,
+            meters: stop.meters,
+            icon: 'bus-stop',
+            stop,
+            at: null,
+            rows: group(arrivals[i].map((a) => ({ ...a, kind: 'bus' }))),
+          });
         });
-      });
+        if (id === loadId.current) {
+          setError(null);
+        }
+      } catch (e) {
+        if (id === loadId.current) {
+          setError(e instanceof Error ? e.message : strings.transit.stopsFailed);
+        }
+      }
+    } else {
       setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : strings.transit.stopsFailed);
     }
-    // Stops first, nearest first; stations after, as they come.
+    // An older load that finished late does not overwrite a newer one.
+    if (id !== loadId.current) {
+      return;
+    }
+    // Nearest first, stops and stations together.
     setPlaces(out.sort((a, b) => (a.meters ?? 1e9) - (b.meters ?? 1e9)));
-  }, [origin, strings]);
+  }, [origin, strings, online]);
 
   useEffect(() => {
     if (!visible || !appActive) {
@@ -208,6 +257,9 @@ export function NearbySheet({ visible, origin, onClose, onOpenStop, onOpenAlerts
                 if (place.stop) {
                   onClose();
                   onOpenStop(place.stop);
+                } else if (place.at) {
+                  onClose();
+                  onOpenStation(place.at);
                 }
               }}
             >

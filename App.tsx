@@ -159,6 +159,7 @@ import {
 } from './src/services/transitGuide';
 import {
   applyTransitPrefs,
+  fastestTrip,
   LEAVE_NOW,
   planTransit,
   type TransitWhen,
@@ -186,7 +187,7 @@ import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/g
 import type { SearchCategory } from './src/utils/categories';
 import { formatDistance, formatDistanceSpoken } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
-import { distanceAlong, locateOnRoute, nearestIndex } from './src/utils/geometry';
+import { distanceAlong, distanceMeters, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { namesArePortuguese, speak, stopSpeaking, warmUpVoice } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 import { useAppActive } from './src/useAppActive';
@@ -396,7 +397,19 @@ function PalmMap() {
    * reads the route to tell the two apart.
    */
   const [plannedTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
-  const [transitTripIndex, setTransitTripIndex] = useState(0);
+  /**
+   * The chosen option, stamped with the preferences it was chosen under: a
+   * new order makes it 0 in the same render. Reset in an effect it was one
+   * render late, and that render previewed (and asked OSRM walks for) a trip
+   * nobody chose.
+   */
+  const transitPrefsKey = `${settings.transitSort}|${settings.transitAvoid.join(',')}`;
+  const [chosenTrip, setChosenTrip] = useState({ key: transitPrefsKey, index: 0 });
+  const transitTripIndex = chosenTrip.key === transitPrefsKey ? chosenTrip.index : 0;
+  const setTransitTripIndex = useCallback(
+    (index: number) => setChosenTrip({ key: transitPrefsKey, index }),
+    [transitPrefsKey],
+  );
   // The plan as the person prefers it (`applyTransitPrefs`): a preference
   // reorders what was planned, it asks nothing again.
   const shownTransit = useMemo(
@@ -407,9 +420,6 @@ function PalmMap() {
     [plannedTrips, settings.transitSort, settings.transitAvoid],
   );
   const transitTrips = shownTransit?.trips ?? null;
-  useEffect(() => {
-    setTransitTripIndex(0);
-  }, [settings.transitSort, settings.transitAvoid]);
   /** Leave now, depart at, arrive by — reset to now with each new destination. */
   const [transitWhen, setTransitWhen] = useState<TransitWhen>(LEAVE_NOW);
   useEffect(() => {
@@ -585,13 +595,17 @@ function PalmMap() {
       : null);
 
   /**
-   * "Near you": the GPS first (that is what the screen is for), else the map's
-   * middle — rounded to about 100 m, so the list is not asked again on every
-   * reading.
+   * "Near you" is near the map's middle, like every other list of stops
+   * ("A 'near you' list follows the map, not the GPS — learnt twice", in
+   * CLAUDE.md): the map opens on the person, so it is near them until they
+   * drag it elsewhere. The GPS only before the map has said where it is.
+   * Rounded to about 100 m, so the list is not asked again on every move.
    */
-  const nearbyKey = userLocation
-    ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
-    : mapCentre;
+  const nearbyKey =
+    mapCentre ??
+    (userLocation
+      ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
+      : null);
   const nearbyOrigin = useMemo<Coordinates | null>(() => {
     if (!nearbyKey) {
       return null;
@@ -1236,10 +1250,35 @@ function PalmMap() {
   const [modeTimes, setModeTimes] = useState<
     Partial<Record<TravelMode, { distanceMeters: number; durationSeconds: number } | null>>
   >({});
+  /**
+   * The transport plan behind the transport chip while another mode is
+   * chosen; `undefined` until one comes. Kept whole, so the chip's time is
+   * the person's preferences applied to it (`shownModeTimes`) — it used to
+   * show a ferry left out, then a different time on switching.
+   */
+  const [chipTrips, setChipTrips] = useState<TransitTrip[] | null | undefined>(undefined);
   // Another destination, origin or stops: the earlier times no longer apply.
   useEffect(() => {
     setModeTimes({});
+    setChipTrips(undefined);
   }, [destination, routeOrigin, waypoints, settings.bikeType]);
+  const shownModeTimes = useMemo(() => {
+    if (chipTrips === undefined) {
+      return modeTimes;
+    }
+    const best = fastestTrip(
+      applyTransitPrefs(chipTrips ?? [], settings.transitSort, settings.transitAvoid).trips,
+    );
+    return {
+      ...modeTimes,
+      transit: best
+        ? {
+            distanceMeters: 0,
+            durationSeconds: best.reachAt - Math.max(best.leaveAt, Date.now() / 1000),
+          }
+        : null,
+    };
+  }, [modeTimes, chipTrips, settings.transitSort, settings.transitAvoid]);
   useEffect(() => {
     if (navigating || !destination) {
       return;
@@ -1282,16 +1321,7 @@ function PalmMap() {
           if (cancelled) {
             return;
           }
-          const best = plan.trips[0];
-          setModeTimes((prev) => ({
-            ...prev,
-            transit: best
-              ? {
-                  distanceMeters: 0,
-                  durationSeconds: best.reachAt - Math.max(best.leaveAt, Date.now() / 1000),
-                }
-              : null,
-          }));
+          setChipTrips(plan.trips);
         });
     }
     return () => {
@@ -3095,7 +3125,7 @@ function PalmMap() {
                 onChangeTravelMode={(mode) => update('travelMode', mode)}
                 bikeType={settings.bikeType}
                 onChangeBikeType={(bike) => update('bikeType', bike)}
-                modeTimes={modeTimes}
+                modeTimes={shownModeTimes}
                 waypoints={waypoints}
                 onRemoveWaypoint={(i) =>
                   setWaypoints((atuais) => atuais.filter((_, j) => j !== i))
@@ -3424,6 +3454,21 @@ function PalmMap() {
           setPickedStop(stop);
           mapRef.current?.recenter(stop.coordinates);
           handleStopPress(stop.id);
+        }}
+        onOpenStation={(at) => {
+          mapRef.current?.recenter(at);
+          // Its panel, when the map already lists it (the transport map):
+          // the nearest station within a short walk of the stored point.
+          let best: { id: string; d: number } | null = null;
+          for (const st of shownStations) {
+            const d = distanceMeters(st.coordinates, at);
+            if (d <= 300 && (!best || d < best.d)) {
+              best = { id: st.id, d };
+            }
+          }
+          if (best) {
+            handleStationPress(best.id);
+          }
         }}
         onOpenAlerts={() => setAlertsVisible(true)}
       />

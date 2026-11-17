@@ -2,9 +2,16 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { dayKeyOf, stopTimetable } from '../services/transit';
+import { stopTimetable } from '../services/transit';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
+import { dayChipLabel } from './TransitWhenPicker';
+
+/** Seconds since today's midnight, to the minute. */
+function secondsNow(): number {
+  const d = new Date();
+  return d.getHours() * 3600 + d.getMinutes() * 60;
+}
 
 interface Props {
   patternId: string;
@@ -43,7 +50,7 @@ export function LineTimetable({ patternId, boardSequence, stopId }: Props) {
     let cancelled = false;
     setTimes(null);
     setFailed(false);
-    stopTimetable(patternId, boardSequence, stopId, dayKeyOf(day(offset)))
+    stopTimetable(patternId, boardSequence, stopId, day(offset))
       .then((found) => !cancelled && setTimes(found))
       .catch(() => !cancelled && setFailed(true));
     return () => {
@@ -63,22 +70,19 @@ export function LineTimetable({ patternId, boardSequence, stopId }: Props) {
     return [...byHour.entries()];
   }, [times]);
 
-  // The passages already gone today are faded, as on Moovit.
-  const nowSec = (() => {
-    const d = new Date();
-    return d.getHours() * 3600 + d.getMinutes() * 60;
-  })();
+  // The passages already gone today are faded, as on Moovit — kept current
+  // while the timetable is open (a tick a minute).
+  const [nowSec, setNowSec] = useState(secondsNow);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setNowSec(secondsNow());
+    const timer = setInterval(() => setNowSec(secondsNow()), 60000);
+    return () => clearInterval(timer);
+  }, [open]);
 
-  const label = (n: number) => {
-    if (n === 0) {
-      return strings.when.today;
-    }
-    if (n === 1) {
-      return strings.when.tomorrowShort;
-    }
-    const d = day(n);
-    return `${strings.place.weekdaysShort[(d.getDay() + 6) % 7]} ${d.getDate()}`;
-  };
+  const label = (n: number) => dayChipLabel(n, strings);
 
   return (
     <View>

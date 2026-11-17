@@ -28,6 +28,7 @@ import { WALK_DETOUR, WALK_SPEED_MS } from '../services/config';
 import { changesOf, type TransitTrip } from '../services/transit';
 import type { TransitWhen } from '../services/transitPlan';
 import { TransitWhenPicker } from './TransitWhenPicker';
+import { fastestTrip } from '../services/transitPlan';
 import { TripTimeline } from './TripTimeline';
 import type { TransitGuide } from '../services/transitGuide';
 import { lineColour, textOn } from '../utils/lineColour';
@@ -167,7 +168,8 @@ export function RoutePanel({
   const timeFor = (mode: TravelMode): string | null => {
     if (mode === travelMode) {
       if (mode === 'transit') {
-        const first = transitTrips?.[0];
+        // The one arriving first, whatever order the preferences chose.
+        const first = fastestTrip(transitTrips ?? []);
         return first
           ? formatDurationShort(first.reachAt - Math.max(first.leaveAt, Date.now() / 1000))
           : null;
@@ -495,7 +497,11 @@ export function RoutePanel({
                     ) : null}
                     {i === 0 ? (
                       <View style={styles.melhor}>
-                        <Text style={styles.melhorTexto}>{strings.route.best}</Text>
+                        <Text style={styles.melhorTexto}>
+                          {settings.transitSort === 'best'
+                            ? strings.route.best
+                            : strings.route.transitSorts[settings.transitSort].toLowerCase()}
+                        </Text>
                       </View>
                     ) : null}
                   </View>

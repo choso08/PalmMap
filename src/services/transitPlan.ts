@@ -313,9 +313,13 @@ async function mixedTrips(
   return [...byPair.values()].slice(0, 4);
 }
 
-/** Which of the person's groups a trip's mode belongs to. */
-export function modeGroup(kind: string): TransitModeGroup {
-  if (kind === 'subway' || kind === 'light_rail' || kind === 'tram') {
+/**
+ * Which of the person's groups a ride belongs to. Carris de Lisboa's
+ * timetable is all `bus`, trams and lifts included: those are told by their
+ * number, 28E, 15E, 51E… (read in the published file), and go with the rail.
+ */
+export function modeGroup(kind: string, line = ''): TransitModeGroup {
+  if (kind === 'subway' || kind === 'light_rail' || kind === 'tram' || /^\d+E$/.test(line)) {
     return 'metro';
   }
   if (kind === 'train' || kind === 'boat') {
@@ -324,13 +328,15 @@ export function modeGroup(kind: string): TransitModeGroup {
   return 'bus';
 }
 
-/** Every vehicle's mode in a trip, the first and each change's. */
-function tripKinds(trip: TransitTrip): string[] {
-  const kinds = [trip.kind];
+/** Every ride's group in a trip, the first and each change's. */
+function tripGroups(trip: TransitTrip): TransitModeGroup[] {
+  let kind = trip.kind;
+  const groups = [modeGroup(kind, trip.line)];
   for (const c of changesOf(trip)) {
-    kinds.push(c.kind ?? kinds[kinds.length - 1]);
+    kind = c.kind ?? kind;
+    groups.push(modeGroup(kind, c.line));
   }
-  return kinds;
+  return groups;
 }
 
 /** Metres on foot: to the first stop, at each change, from the last. */
@@ -358,7 +364,7 @@ export function applyTransitPrefs(
   const kept =
     avoid.length === 0
       ? trips
-      : trips.filter((trip) => !tripKinds(trip).some((k) => avoid.includes(modeGroup(k))));
+      : trips.filter((trip) => !tripGroups(trip).some((g) => avoid.includes(g)));
   const hidden = trips.length - kept.length;
   if (sort === 'best') {
     return { trips: kept, hidden };
@@ -371,4 +377,15 @@ export function applyTransitPrefs(
     trips: [...kept].sort((a, b) => step(a) - step(b) || a.reachAt - b.reachAt),
     hidden,
   };
+}
+
+/** The option that arrives first — what the transport chip's time is. */
+export function fastestTrip(trips: TransitTrip[]): TransitTrip | null {
+  let best: TransitTrip | null = null;
+  for (const trip of trips) {
+    if (!best || trip.reachAt < best.reachAt) {
+      best = trip;
+    }
+  }
+  return best;
 }

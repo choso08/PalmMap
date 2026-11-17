@@ -52,6 +52,21 @@ function midnight(offset: number): Date {
   return d;
 }
 
+/**
+ * A day chip's name: "Today", "Tomorrow", then "Wed 19". Shared with the
+ * line timetable (`LineTimetable`), so the two never name a day differently.
+ */
+export function dayChipLabel(offset: number, strings: ReturnType<typeof useT>): string {
+  if (offset === 0) {
+    return strings.when.today;
+  }
+  if (offset === 1) {
+    return strings.when.tomorrowShort;
+  }
+  const d = midnight(offset);
+  return `${strings.place.weekdaysShort[(d.getDay() + 6) % 7]} ${d.getDate()}`;
+}
+
 /** Whole days from today to that moment's day. */
 function dayOffset(unix: number): number {
   const b = new Date(unix * 1000);
@@ -136,16 +151,7 @@ export function TransitWhenPicker({ when, onChange }: Props) {
     }
   };
 
-  const dayName = (offset: number) => {
-    if (offset === 0) {
-      return w.today;
-    }
-    if (offset === 1) {
-      return w.tomorrowShort;
-    }
-    const d = midnight(offset);
-    return `${strings.place.weekdaysShort[(d.getDay() + 6) % 7]} ${d.getDate()}`;
-  };
+  const dayName = (offset: number) => dayChipLabel(offset, strings);
 
   const suffix = (unix: number) => {
     const off = dayOffset(unix);

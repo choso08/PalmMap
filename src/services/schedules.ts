@@ -456,6 +456,8 @@ export interface ScheduleDeparture {
   minutes: number;
   /** The time it departs, as `HH:MM`. */
   time: string;
+  /** Where the station is, to take the map there. */
+  coordinates: Coordinates;
 }
 
 /** `HH:MM` from seconds since 1970. */
@@ -625,9 +627,15 @@ export function busDeparturesNear(
   maxMeters = 60,
   limit = 8,
   now = new Date(),
+  // Carris Metropolitana's stored timetable too (27 MB); without it, only
+  // the timetable-only operators (Carris de Lisboa, Braga) — online, its
+  // live arrivals answer instead.
+  withLive = true,
 ): ScheduleDeparture[] {
   const out: ScheduleDeparture[] = [];
-  for (const feed of loadedFeeds((info) => info.kind === 'bus' && !isExpired(info, now))) {
+  for (const feed of loadedFeeds(
+    (info) => info.kind === 'bus' && (info.naApp !== false || withLive) && !isExpired(info, now),
+  )) {
     const nearest = nearestStop(feed, point, maxMeters);
     if (nearest) {
       out.push(...departuresFrom(feed, nearest.index, candidateDays(now), now.getTime() / 1000));
@@ -688,6 +696,10 @@ function departuresFrom(
         operator: feed.info.nome,
         kind: feed.info.kind,
         station: feed.data.stops[station]?.n ?? '',
+        coordinates: {
+          latitude: feed.data.stops[station]?.y ?? 0,
+          longitude: feed.data.stops[station]?.x ?? 0,
+        },
         line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
         destination: feed.data.headsigns[scheduled.h] ?? '',
         minutes: minutesLeft,

@@ -220,6 +220,16 @@ environment cannot reach.
   (`LineTimetable`, `stopTimetable` in `transit.ts`): seven day chips, the pattern's trips
   that run that day (`valid_on`) at that stop sequence, hour by hour, the ones gone faded.
   Same pattern answer as the journey, nothing new asked.
+  **Fixed after a review (17 November):** the transport chip's time is the preferences
+  applied to the plan (`chipTrips` → `shownModeTimes`, `fastestTrip`), and the badge says
+  the chosen order ("less walking") instead of "best" on a slower trip; the chosen option is
+  stamped with the preferences (`chosenTrip`) so a new order is 0 in the same render; Carris
+  de Lisboa's trams and lifts (`\d+E`, all `bus` in its timetable) go with the rail in
+  `modeGroup`; the timetable is per calendar day (yesterday's 24:xx trips at the top, the
+  day's own at the next day); the Transit tab follows the map's centre, lists Carris de
+  Lisboa's stops and, offline, Carris Metropolitana's stored times (`busDeparturesNear(…,
+  withLive)`), opens a tapped station (the map there, its panel when listed) and ignores
+  a load that finished after a newer one.
 - **Built in 7.0.44** (16 November): everything in "After 7.0.43" below, and tapping an
   alternative route on the map. **After 7.0.44**, from a code review: the reminder's channel
   is created **before** asking for the permission (Android 13+ shows no prompt without a

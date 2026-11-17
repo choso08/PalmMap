@@ -588,34 +588,45 @@ export function dayKeyOf(d: Date): string {
 }
 
 /**
- * Every time a line passes a stop on a day, as Moovit's timetable (author's
- * request, November 2026): the pattern's trips that run that day, their time
- * at this stop, earliest first, in seconds from that day's midnight — past
- * 24 h for the service after midnight, as GTFS writes it. The same pattern
- * answer the journey already loaded, so nothing new is asked.
+ * Every time a line passes a stop on a calendar day, as Moovit's timetable
+ * (author's request, November 2026), in seconds from that day's midnight,
+ * earliest first. GTFS writes the small hours past 24 under the day before
+ * (25:10 is yesterday's service at 01:10): those come from the previous
+ * day's trips, and the chosen day's own past-24 trips go to the next day —
+ * at 00:20 the 00:45 bus is in today's list. The same pattern answer the
+ * journey already loaded, so nothing new is asked.
  */
 export async function stopTimetable(
   patternId: string,
   boardSequence: number | undefined,
   stopId: string,
-  dayKey: string,
+  day: Date,
 ): Promise<number[]> {
   const pattern = await loadPattern(patternId);
+  const dayKey = dayKeyOf(day);
+  const before = new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1, 12);
+  const beforeKey = dayKeyOf(before);
   const times: number[] = [];
   for (const tr of pattern?.trips ?? []) {
-    if (tr.valid_on && !tr.valid_on.includes(dayKey)) {
-      continue;
-    }
     const here = (tr.schedule ?? []).find((x) =>
       boardSequence !== undefined ? x.stop_sequence === boardSequence : x.stop_id === stopId,
     );
     const sec = secondsOf(here?.arrival_time);
-    if (sec !== null) {
+    if (sec === null) {
+      continue;
+    }
+    // No `valid_on` means every day.
+    const runs = (key: string) => !tr.valid_on || tr.valid_on.includes(key);
+    if (sec < DAY_S && runs(dayKey)) {
       times.push(sec);
+    } else if (sec >= DAY_S && runs(beforeKey)) {
+      times.push(sec - DAY_S);
     }
   }
   return [...new Set(times)].sort((a, b) => a - b);
 }
+
+const DAY_S = 86400;
 
 /**
  * A public transport trip, from where one is to where one wants to go.
