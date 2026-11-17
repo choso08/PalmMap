@@ -196,6 +196,8 @@ environment cannot reach.
   price page says 0,85 €. **None** in CP, Fertagus, Carris de Lisboa or Carris Metropolitana
   (its `/fares` is 404; its and navegante's pages are drawn by JavaScript). The Carris
   Metropolitana GTFS address on GitHub is 404 now; `api.carrismetropolitana.pt/gtfs` serves it.
+  **The author chose no fares for now** (17 November): not partial prices, not "included in
+  navegante". Do not add them unless asked again.
 - **Transport loading, round two** (author, 17 November: "slow to load, above all the
   transport"; asked whether Rust would help — the answer was the file format first, measured):
   - **Timetables v2** (`<id>.v2.json`, `ScheduleFeedV2`): trips that share line, service,
