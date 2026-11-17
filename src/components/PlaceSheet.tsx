@@ -6,6 +6,7 @@ import type { GestureResponderHandlers } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { PHOTO_HEADERS, placePhotos, type PlacePhoto } from '../services/photos';
+import { ReportPlace } from './ReportPlace';
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates, Place } from '../types/geo';
@@ -94,6 +95,13 @@ export function PlaceSheet({
     Asked again when the details arrive, since that is when the photo tags do.
   */
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
+  // The report panel belongs to one place: another place closes it.
+  const [reporting, setReporting] = useState(false);
+  const [reportFor, setReportFor] = useState(place.id);
+  if (reportFor !== place.id) {
+    setReportFor(place.id);
+    setReporting(false);
+  }
   const photoTags = place.details?.photoTags;
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +179,10 @@ export function PlaceSheet({
     ...(website
       ? [{ key: 'web', icon: 'web', label: s.website, onPress: () => void Linking.openURL(website) }]
       : []),
+    // Dropped pins (negative ids) are a point, not a business: nothing to report.
+    ...(place.id > 0 || place.kindValue
+      ? [{ key: 'report', icon: 'flag-outline', label: s.report, onPress: () => setReporting(true) }]
+      : []),
   ];
 
   return (
@@ -235,6 +247,8 @@ export function PlaceSheet({
           </Pressable>
         ))}
       </ScrollView>
+
+      {reporting ? <ReportPlace key={place.id} place={place} onDone={() => setReporting(false)} /> : null}
 
       {photos.length > 0 ? (
         <>

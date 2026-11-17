@@ -677,6 +677,13 @@ export const ALTERNATIVES_MAX_KM = 1000;
 export const REQUEST_TIMEOUT_MS = 15000;
 
 /**
+ * OpenStreetMap's own API, only for notes ("this shop closed"), sent by a tap
+ * on the place card — see `osmNotes.ts`. Anonymous, no key.
+ */
+export const OSM_API_URL = 'https://api.openstreetmap.org';
+export const OSM_NOTE_TIMEOUT_MS = 20000;
+
+/**
  * Where the app finds out whether there is a new version.
  *
  * It is GitHub's public API, and **it answers without any key** because the

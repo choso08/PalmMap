@@ -289,6 +289,17 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **"Report" on a place's card → an OpenStreetMap note** (author's request, 17 November: mark
+  a business that no longer exists, from the app; not seen on a phone): `ReportPlace.tsx` —
+  no longer here / name changed / wrong hours / other, optional details — and
+  `createOsmNote` (`services/osmNotes.ts`) posts `api.openstreetmap.org/api/0.6/notes.json`
+  at the place, **anonymous** (OSM takes notes without an account: no key, no credential in
+  the APK), only on "Send", once (`busy`). The text names the place and kind in the app's
+  language and ends "(Sent from the PalmMap app)"; after sending, "See the note" opens
+  `openstreetmap.org/note/<id>`. Local mappers fix the map; the fix reaches the tiles in days
+  and the country files with the monthly rebuild. Not offered on a bare dropped pin. Never
+  tried against the real API (the development environment cannot reach it, and a probe
+  would publish a real note).
 - **Borders and place names over the satellite** (author's photo, 17 November: "the borders
   and capitals are missing, as in Google"; not seen on a phone): a `VectorSource`
   `ofm-satellite-labels` in `MapView.tsx`, only on `satellite` and `satelliteTransit`, from the
@@ -855,6 +866,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── arrivalReminders.ts # "Your bus arrives in 5 min" notifications
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
+│   │   ├── osmNotes.ts       # "This shop closed": an anonymous OpenStreetMap note
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
 │   │   ├── network.ts        # Online or offline, for the whole app
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
@@ -2307,6 +2319,14 @@ The heaviest of the services: each query makes the server walk OpenStreetMap's d
   Portuguese reads "em direção à a ciclovia". No lanes for bikes.
 - `directions_type: 'none'` for the chip times; `alternates: 2` only between two points.
 - **Any failure falls back to OSRM's bicycle server**: one kind of bike beats no route.
+
+### OpenStreetMap notes — "Report" on a place
+
+- `POST https://api.openstreetmap.org/api/0.6/notes.json` with `lat`, `lon`, `text`
+  (`osmNotes.ts`), **anonymous**. Only a person's tap on "Send" sends one: nothing automatic,
+  no retries, no bulk. The `User-Agent` goes with it. Notes are public; no name, e-mail or
+  account goes in them.
+- **Never probe it by sending** — a test note is a real note someone has to close.
 
 ### Protomaps — offline maps
 
