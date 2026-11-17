@@ -602,6 +602,13 @@ work in that direction unless the author asks again.
 The target platform is **Android**. Nothing prevents iOS, but the permissions and the
 install-file build described here are Android-specific.
 
+**iPhone: left for later, by the author's decision** (17 November 2026). The routes were
+researched and written up in `docs/ios-custo-minimo.md` (in Portuguese): an unsigned `.ipa`
+built free on GitHub's macOS runners and signed by each person with SideStore (free Apple ID,
+7-day renewal — too fiddly for the author's friends), or the US$99/year Apple Developer
+Program with TestFlight or the App Store (possibly paid by the donation goal). No iOS work
+until the author asks.
+
 ## Important decision: which map component — decided
 
 **The project uses MapLibre** (`@maplibre/maplibre-react-native`). The reason is recorded
