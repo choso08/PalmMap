@@ -23,9 +23,9 @@ import {
   type Ref,
 } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import * as Network from 'expo-network';
 import { Animated, AppState, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
+import { useInternetReachable } from '../services/network';
 import { type SpeedCamera } from '../services/cameras';
 import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
@@ -419,30 +419,10 @@ export function MapView({
    * not used**: at start-up there is nearly always a network, and switching
    * style twice in a row makes the map reload in front of whoever is looking.
    */
-  const [internetReachable, setInternetReachable] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let vivo = true;
-    void Network.getNetworkStateAsync()
-      .then((estado) => {
-        if (vivo) {
-          setInternetReachable(estado.isInternetReachable ?? estado.isConnected ?? null);
-        }
-      })
-      .catch(() => undefined);
-
-    // The network comes and goes mid-trip — exactly the case stored maps are
-    // for. Without listening, entering a tunnel left the map blank until the
-    // app was closed and opened again.
-    const subscricao = Network.addNetworkStateListener((estado) => {
-      setInternetReachable(estado.isInternetReachable ?? estado.isConnected ?? null);
-    });
-
-    return () => {
-      vivo = false;
-      subscricao.remove();
-    };
-  }, []);
+  // From the app's one network watcher (`services/network.ts`), which asks
+  // again on coming back from the background — this used to keep its own
+  // listener, which stayed "offline" after switching apps.
+  const internetReachable = useInternetReachable();
 
   /** How many route points are already behind. */
   const andado = following ? progressIndex : 0;

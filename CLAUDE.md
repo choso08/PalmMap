@@ -142,7 +142,12 @@ environment cannot reach.
     `localDoorsNear` (doors within 150 m), also the fallback when Overpass fails. A pill
     under the search bar says "Offline · using downloaded maps and timetables" and "Back
     online" for 3 s (`ConnectivityBanner`); the route and the chip times are worked out
-    again when the state changes. **The published business files have doors since 16
+    again when the state changes. **From the author's phone, 17 November:** after switching
+    apps the app said "offline" for good — in the background Android stops checking and the
+    event saying the network is back may never come. `network.ts` now asks Android again on
+    coming back to the app and every 10 s while offline, ignores "offline" heard in the
+    background, and is the only watcher (`MapView` uses `useInternetReachable` instead of its
+    own listener). The pill goes away after 5 s or with a swipe sideways or up. **The published business files have doors since 16
     November 2026** (all 27 regions); phones fetch the new file on Wi-Fi.
   - **Double tap on a map pin → directions** (`pinDoubleTap`, `PIN_DOUBLE_TAP_MS` 450 ms):
     the first tap opens the card, the second makes it the destination.
