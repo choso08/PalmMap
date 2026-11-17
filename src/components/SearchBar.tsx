@@ -14,7 +14,7 @@ import {
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchLines, type TransitLineInfo } from '../services/transit';
-import { textOn } from '../utils/lineColour';
+import { operatorColour, textOn } from '../utils/lineColour';
 import { isSamePlace } from '../services/favourites';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
@@ -356,7 +356,7 @@ export function SearchBar({
             linesShown.length > 0 ? (
               <View>
                 {linesShown.map((line) => {
-                  const bg = line.colour ?? theme.vehicle;
+                  const bg = line.colour ?? operatorColour('carris-metropolitana', theme.vehicle);
                   return (
                     <Pressable
                       key={line.id}

@@ -12,6 +12,7 @@ import {
 } from './transit';
 import type { Coordinates } from '../types/geo';
 import { distanceMeters } from '../utils/geometry';
+import { rideOperator } from '../utils/lineColour';
 
 /**
  * A public transport trip turned into steps, as Maps shows one after "Start":
@@ -50,6 +51,8 @@ export interface RideLeg {
   path: Coordinates[];
   /** The line's own colour, when the service gives one (Carris buses). */
   colour: string | null;
+  /** Who runs it, for its colour when it has none of its own (`lineColour`). */
+  operator?: string;
 }
 
 export type GuideLeg = WalkLeg | RideLeg;
@@ -220,6 +223,7 @@ export async function buildGuide(
       stops,
       path: stops.map((s) => s.coordinates),
       colour: null,
+      operator: rideOperator(r.ref) ?? (r.live ? 'carris-metropolitana' : undefined),
     };
     legs.push(leg);
     rideLegs.push({ leg, ref: r.ref });

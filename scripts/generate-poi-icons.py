@@ -56,7 +56,14 @@ STOPS = [
 VEHICLE_SIZE, VEHICLE_R, VEHICLE_TIP, VEHICLE_EDGE = 60, 16, 25, 2.2
 VEHICLE_GLYPH = 17
 PILL_W, PILL_H = 40, 16
-VEHICLE_COLOUR = "#2F7D32"
+# Each operator its own colour (author's request, November 2026), the same
+# as `OPERATOR_COLOURS` in `src/utils/lineColour.ts`: Carris Metropolitana's
+# yellow with a dark bus, Carris de Lisboa's deep blue with a white one.
+# Name suffix, drop colour, bus and pill-text colour.
+VEHICLE_OPERATORS = [
+    ("cm", "#FFD100", "#1F1F1F"),
+    ("cl", "#1E3A8A", "#FFFFFF"),
+]
 
 
 def _drop(d: ImageDraw.ImageDraw, c: float, r: float, tip: float | None, fill: str) -> None:
@@ -74,17 +81,17 @@ def _drop(d: ImageDraw.ImageDraw, c: float, r: float, tip: float | None, fill: s
     d.polygon(pts, fill=fill)
 
 
-def draw_vehicle_base(scale: int, pointed: bool) -> Image.Image:
+def draw_vehicle_base(scale: int, pointed: bool, colour: str) -> Image.Image:
     size = VEHICLE_SIZE * scale
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     c, r, e = size / 2, VEHICLE_R * scale, VEHICLE_EDGE * scale
     _drop(d, c, r, VEHICLE_TIP * scale if pointed else None, "#FFFFFF")
-    _drop(d, c, r - e, (VEHICLE_TIP * scale - e * 1.8) if pointed else None, VEHICLE_COLOUR)
+    _drop(d, c, r - e, (VEHICLE_TIP * scale - e * 1.8) if pointed else None, colour)
     return img
 
 
-def draw_vehicle_glyph(scale: int) -> Image.Image:
+def draw_vehicle_glyph(scale: int, ink: str) -> Image.Image:
     size = VEHICLE_SIZE * scale
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -93,17 +100,17 @@ def draw_vehicle_glyph(scale: int) -> Image.Image:
     box = d.textbbox((0, 0), ch, font=font)
     c = size / 2
     d.text((c - (box[2] - box[0]) / 2 - box[0], c - (box[3] - box[1]) / 2 - box[1]), ch,
-           font=font, fill="#FFFFFF")
+           font=font, fill=ink)
     return img
 
 
-def draw_vehicle_pill(scale: int) -> Image.Image:
+def draw_vehicle_pill(scale: int, colour: str) -> Image.Image:
     w, h = PILL_W * scale, PILL_H * scale
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle((0, 0, w - 1, h - 1), radius=h / 2, fill="#FFFFFF")
     e = 1.5 * scale
-    d.rounded_rectangle((e, e, w - 1 - e, h - 1 - e), radius=h / 2 - e, fill=VEHICLE_COLOUR)
+    d.rounded_rectangle((e, e, w - 1 - e, h - 1 - e), radius=h / 2 - e, fill=colour)
     return img
 
 
@@ -179,16 +186,17 @@ def main() -> None:
             draw(icon, "other", scale, colour, (size, disc, glyph)).save(
                 OUT / f"{name}{suffix}.png", optimize=True)
 
-    for name, painter in (
-        ("vehicle-heading", lambda sc: draw_vehicle_base(sc, True)),
-        ("vehicle-disc", lambda sc: draw_vehicle_base(sc, False)),
-        ("vehicle-live", draw_vehicle_glyph),
-        ("vehicle-pill", draw_vehicle_pill),
-    ):
-        names.append(name)
-        for scale in (1, 2, 3):
-            suffix = "" if scale == 1 else f"@{scale}x"
-            painter(scale).save(OUT / f"{name}{suffix}.png", optimize=True)
+    for op, colour, ink in VEHICLE_OPERATORS:
+        for name, painter in (
+            (f"vehicle-heading-{op}", lambda sc, c=colour: draw_vehicle_base(sc, True, c)),
+            (f"vehicle-disc-{op}", lambda sc, c=colour: draw_vehicle_base(sc, False, c)),
+            (f"vehicle-live-{op}", lambda sc, i=ink: draw_vehicle_glyph(sc, i)),
+            (f"vehicle-pill-{op}", lambda sc, c=colour: draw_vehicle_pill(sc, c)),
+        ):
+            names.append(name)
+            for scale in (1, 2, 3):
+                suffix = "" if scale == 1 else f"@{scale}x"
+                painter(scale).save(OUT / f"{name}{suffix}.png", optimize=True)
 
     names.append("heading-cone")
     for scale in (1, 2, 3):

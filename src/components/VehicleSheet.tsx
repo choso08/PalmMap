@@ -16,7 +16,7 @@ import type { LiveVehicle } from '../services/vehicles';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { formatDurationShort } from '../utils/format';
-import { textOn } from '../utils/lineColour';
+import { lineColour, textOn } from '../utils/lineColour';
 import { ServiceAlerts } from './ServiceAlerts';
 
 interface Props {
@@ -91,7 +91,8 @@ export function VehicleSheet({
     return () => clearInterval(timer);
   }, []);
 
-  const colour = trip?.colour ?? theme.vehicle;
+  const colour = trip?.colour ??
+    lineColour('bus', vehicle.line, theme.vehicle, vehicle.operator === 'cl' ? 'carris-lisboa' : 'carris-metropolitana');
   const stops = trip?.stops ?? [];
   const ahead = progress ? stops.slice(progress.nextIndex) : [];
   // Where it has been, from the line's first stop: the origin always shows,

@@ -158,9 +158,11 @@ environment cannot reach.
   - **Station pins** for train, metro, light rail and boat (`station-<kind>` images), tappable;
     **only from zoom `STATIONS_MIN_ZOOM` (13)** — zoomed out over a city, a few pins in the
     middle looked like a fault (author's photo, 17 November); the open station shows at any zoom.
-  - **A scale bar**, as in Maps (author's request, 17 November): MapLibre's own (`scaleBar`),
-    which Android only places top-left — under the search and category bars
-    (`SCALE_BAR_TOP` in `App.tsx`), hidden while navigating.
+  - **A scale bar**, as in Maps (author's request, 17 November). First MapLibre's own, which
+    Android only places top-left; the author found it inconvenient, so it is now ours
+    (`ScaleBar.tsx`): low on the left beside the compass (`compassBottom`), shown while the
+    zoom changes (`onRegionIsChanging`, a drag alone does not bring it up) and fading out
+    2.5 s after, metric, 1/2/5 × 10ⁿ, hidden while navigating.
   - **Business photos** in the card (`photos.ts`): OSM's `image`, `wikimedia_commons`,
     `wikidata` (P18) and `panoramax` tags, else a Panoramax street photo within 25 m. No keys.
   - **Carris de Lisboa timetables** generated and published (`horarios`); its timetable-only
@@ -177,6 +179,14 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **Colours per operator** (author's request, 17 November; not seen on a phone):
+  `OPERATOR_COLOURS` in `src/utils/lineColour.ts` — Carris Metropolitana yellow `#FFD100`,
+  Carris de Lisboa deep blue `#1E3A8A` (its trams and lifts, `\d+E`, orange), Metro de
+  Lisboa its four lines (grey otherwise), CP green, Fertagus purple, Transtejo/Soflusa sky
+  blue, Metro Sul do Tejo teal. Badges and timelines pass the operator (`tripOperator`,
+  `rideOperator`, `RideLeg.operator`, `ScheduleDeparture.feedId`); a Carris Metropolitana
+  line's own colour from the service still wins. The live buses on the map use the same two
+  colours (`generate-poi-icons.py`, `VEHICLE_OPERATORS`; same list as `lineColour.ts`).
 - **Transport loading, round two** (author, 17 November: "slow to load, above all the
   transport"; asked whether Rust would help — the answer was the file format first, measured):
   - **Timetables v2** (`<id>.v2.json`, `ScheduleFeedV2`): trips that share line, service,
@@ -1391,9 +1401,11 @@ ask for less: no filter by area or line (`by_line` gives 404).
 `trip_id`, `speed` (**metres per second**), `timestamp` and `current_status` (`STOPPED_AT`,
 `IN_TRANSIT_TO`, `INCOMING_AT`).
 
-Each bus is a drop in the vehicle colour whose point turns to the service's `bearing`
-(`vehicle-heading`; a plain disc, `vehicle-disc`, when none comes), a white bus on it that never
-turns (`vehicle-live`), and the line number in a pill underneath (`vehicle-pill`) — the author's
+Each bus is a drop in its **operator's colour** whose point turns to the service's `bearing`
+(`vehicle-heading-<op>`; a plain disc, `vehicle-disc-<op>`, when none comes), a bus on it that
+never turns (`vehicle-live-<op>`), and the line number in a pill underneath (`vehicle-pill-<op>`);
+`<op>` is `cm` (Carris Metropolitana, yellow, dark bus and text) or `cl` (Carris de Lisboa, deep
+blue, white) — the author's
 pick among three drawings. All from `generate-poi-icons.py`. Those stopped at a stop are fainter. **They go over the
 stops**, on purpose.
 

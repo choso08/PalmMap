@@ -36,13 +36,6 @@ import { listenForUpdateNotice } from './src/services/updateNotice';
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
 
 /**
- * The scale bar's distance from the top, under the safe area: search bar and
- * category chips, plus a gap — left of the layers button. Android only puts
- * MapLibre's scale bar in the top-left corner.
- */
-const SCALE_BAR_TOP = 132;
-
-/**
  * The version that was dismissed, so the notice does not come back.
  *
  * The **number** of the postponed build is stored, not a yes-or-no: the notice
@@ -3015,7 +3008,7 @@ function PalmMap() {
         onVehiclePress={handleVehiclePress}
         selectedVehicleId={selectedVehicleId}
         // Under the search bar and the category chips, as in Maps.
-        scaleBarTop={navigating ? null : insets.top + SCALE_BAR_TOP}
+        showScale={!navigating}
         compassBottom={compassBottom}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}

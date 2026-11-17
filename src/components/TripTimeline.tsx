@@ -60,7 +60,7 @@ export function TripTimeline({
   const g = strings.guide;
   const { legs, trip } = guide;
 
-  const colourOf = (leg: RideLeg) => leg.colour ?? lineColour(leg.kind, leg.line, theme.vehicle);
+  const colourOf = (leg: RideLeg) => leg.colour ?? lineColour(leg.kind, leg.line, theme.vehicle, leg.operator);
   const railOf = (leg: GuideLeg | undefined): RailKind =>
     !leg
       ? null

@@ -48,6 +48,7 @@ interface LineRow {
   key: string;
   line: string;
   kind: string;
+  operator?: string;
   destination: string;
   minutes: number[];
   live: boolean;
@@ -66,7 +67,14 @@ interface Place {
 
 /** The same line and destination once, with its next passes side by side. */
 function group(
-  list: { line: string; destination: string; minutes: number; live: boolean; kind: string }[],
+  list: {
+    line: string;
+    destination: string;
+    minutes: number;
+    live: boolean;
+    kind: string;
+    operator?: string;
+  }[],
 ): LineRow[] {
   const byKey = new Map<string, LineRow>();
   for (const a of [...list].sort((x, y) => x.minutes - y.minutes)) {
@@ -77,6 +85,7 @@ function group(
         key,
         line: a.line,
         kind: a.kind,
+        operator: a.operator,
         destination: a.destination,
         minutes: [a.minutes],
         live: a.live,
@@ -154,7 +163,7 @@ export function NearbySheet({
                   : 'train',
         stop: null,
         at: list[0].coordinates,
-        rows: group(list.map((d) => ({ ...d, live: false }))),
+        rows: group(list.map((d) => ({ ...d, operator: d.feedId, live: false }))),
       });
     }
     if (online) {
@@ -171,7 +180,9 @@ export function NearbySheet({
             icon: 'bus-stop',
             stop,
             at: null,
-            rows: group(arrivals[i].map((a) => ({ ...a, kind: 'bus' }))),
+            rows: group(
+              arrivals[i].map((a) => ({ ...a, kind: 'bus', operator: 'carris-metropolitana' })),
+            ),
           });
         });
         if (id === loadId.current) {
@@ -276,7 +287,7 @@ export function NearbySheet({
                 <Text style={styles.muted}>{strings.transit.noneSoon}</Text>
               ) : (
                 place.rows.slice(0, 6).map((row) => {
-                  const bg = lineColour(row.kind, row.line, theme.vehicle);
+                  const bg = lineColour(row.kind, row.line, theme.vehicle, row.operator);
                   return (
                     <View key={row.key} style={styles.row}>
                       <Text style={[styles.badge, { backgroundColor: bg, color: textOn(bg) }]}>

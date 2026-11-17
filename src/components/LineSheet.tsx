@@ -14,7 +14,7 @@ import { type EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-conte
 import type { JourneyStop, LineDirection, TransitLineInfo } from '../services/transit';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
-import { textOn } from '../utils/lineColour';
+import { operatorColour, textOn } from '../utils/lineColour';
 import { ServiceAlerts } from './ServiceAlerts';
 import { useIsFavouriteLine } from '../services/favouriteLines';
 
@@ -51,7 +51,7 @@ export function LineSheet({
   const strings = useT();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
-  const colour = line.colour ?? theme.vehicle;
+  const colour = line.colour ?? operatorColour('carris-metropolitana', theme.vehicle);
   const shown = directions[index] ?? null;
   const [favourite, toggleFavourite] = useIsFavouriteLine(line);
 

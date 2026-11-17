@@ -81,7 +81,7 @@ export function FavouriteStopRow({ stop, onPress }: Props) {
           <Text style={styles.muted}>{strings.transit.noneSoon}</Text>
         ) : (
           next.map((n, i) => {
-            const bg = lineColour('bus', n.line, theme.vehicle);
+            const bg = lineColour('bus', n.line, theme.vehicle, 'carris-metropolitana');
             return (
               <View key={i} style={styles.next}>
                 <Text style={[styles.badge, { backgroundColor: bg, color: textOn(bg) }]}>

@@ -506,6 +506,8 @@ export interface ScheduleDeparture {
   key: string;
   /** Which operator. */
   operator: string;
+  /** Its stored timetable's id, for the operator's colour. */
+  feedId: string;
   /** Train, metro, light rail or ferry. */
   kind: string;
   /** At which station. */
@@ -756,6 +758,7 @@ function departuresFrom(
       departures.push({
         key: `${feed.info.id}-${trip}-${day}`,
         operator: feed.info.nome,
+        feedId: feed.info.id,
         kind: feed.info.kind,
         station: feed.data.stops[station]?.n ?? '',
         coordinates: {

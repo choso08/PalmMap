@@ -27,6 +27,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Animated, AppState, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
 
 import { useInternetReachable } from '../services/network';
+import { ScaleBar, type ScaleBarRef } from './ScaleBar';
 import { type SpeedCamera } from '../services/cameras';
 import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
 import { regionForView, type OfflineRegion } from '../services/offlineMap';
@@ -227,8 +228,8 @@ interface MapViewProps {
    * bottom panels — see `compassBottom`, in `App.tsx`.
    */
   compassBottom: number;
-  /** Where the scale bar goes, from the top; null hides it. */
-  scaleBarTop: number | null;
+  /** Whether the scale may show while zooming (not while navigating). */
+  showScale: boolean;
   /** Country maps stored on the phone, for use without a network. */
   offlineRegions: OfflineRegion[];
   /**
@@ -386,7 +387,7 @@ export function MapView({
   onStationPress,
   selectedStationId = null,
   compassBottom,
-  scaleBarTop,
+  showScale,
   offlineRegions,
   labelsReady,
   ref,
@@ -582,6 +583,8 @@ export function MapView({
         properties: {
           id: v.id,
           linha: v.line,
+          // Each operator its own colour (`-cm` yellow, `-cl` deep blue).
+          op: v.operator,
           parado: v.atStop ? 1 : 0,
           rumo: v.bearing ?? -1,
           aberto: v.id === selectedVehicleId ? 1 : 0,
@@ -768,6 +771,15 @@ export function MapView({
     [onDropPin],
   );
 
+  const scaleRef = useRef<ScaleBarRef>(null);
+  const handleRegionIsChanging = useCallback(
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      const { zoom, center } = event.nativeEvent;
+      scaleRef.current?.update(zoom, center[1]);
+    },
+    [],
+  );
+
   const handleRegionDidChange = useCallback(
     (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
       const { bounds, zoom } = event.nativeEvent;
@@ -950,6 +962,7 @@ export function MapView({
   };
 
   return (
+    <>
     <Map
       style={styles.map}
       mapStyle={mapStyle}
@@ -973,11 +986,12 @@ export function MapView({
       // A small scale, as in Maps (author's request). Android only places it
       // top-left; `App.tsx` gives the height under the search and category
       // bars, and none while navigating (the manoeuvre banner is there).
-      scaleBar={scaleBarTop !== null}
-      scaleBarPosition={{ top: scaleBarTop ?? 0, left: 16 }}
+      // MapLibre's own scale only goes top-left on Android: ours is `ScaleBar`.
+      scaleBar={false}
       onDidFinishLoadingMap={handleMapReady}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
+      onRegionIsChanging={handleRegionIsChanging}
       onPress={(event) => {
         const [longitude, latitude] = event.nativeEvent.lngLat;
         onTapEmpty({ latitude, longitude });
@@ -1498,7 +1512,7 @@ export function MapView({
 
       {/*
         The moving buses (author's choice among three drawings, November 2026):
-        a drop in the vehicle colour whose point turns to where the bus is
+        a drop in the operator's colour (`-cm`, `-cl`) whose point turns to where the bus is
         heading (`vehicle-heading`, by the service's `bearing`; a plain disc,
         `vehicle-disc`, when none comes), a white bus on it that never turns
         (`vehicle-live`), and the line number in a pill underneath
@@ -1529,8 +1543,8 @@ export function MapView({
               'icon-image': [
                 'case',
                 ['>=', ['get', 'rumo'], 0],
-                'vehicle-heading',
-                'vehicle-disc',
+                ['concat', 'vehicle-heading-', ['get', 'op']],
+                ['concat', 'vehicle-disc-', ['get', 'op']],
               ],
               'icon-rotate': ['max', ['get', 'rumo'], 0],
               // The bus whose panel is open, bigger.
@@ -1549,7 +1563,7 @@ export function MapView({
             id="autocarros-icon"
             type="symbol"
             layout={{
-              'icon-image': 'vehicle-live',
+              'icon-image': ['concat', 'vehicle-live-', ['get', 'op']],
               'icon-size': ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
@@ -1564,7 +1578,7 @@ export function MapView({
               // without it, no empty pill.
               filter={['!=', ['get', 'linha'], '']}
               layout={{
-                'icon-image': 'vehicle-pill',
+                'icon-image': ['concat', 'vehicle-pill-', ['get', 'op']],
                 // Under the drop: 16 of its radius, 5 of gap, half the pill.
                 'icon-offset': [0, 29],
                 'text-field': ['get', 'linha'],
@@ -1579,7 +1593,8 @@ export function MapView({
                 'text-ignore-placement': true,
               }}
               paint={{
-                'text-color': '#FFFFFF',
+                // Dark on Carris Metropolitana's yellow, white on the rest.
+                'text-color': ['case', ['==', ['get', 'op'], 'cm'], '#1F1F1F', '#FFFFFF'],
                 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1],
               }}
             />
@@ -1899,6 +1914,9 @@ export function MapView({
         </Marker>
       ) : null}
     </Map>
+    {/* Low on the left, beside where the compass appears (`ScaleBar`). */}
+    {showScale ? <ScaleBar ref={scaleRef} bottom={compassBottom + 4} left={64} /> : null}
+    </>
   );
 }
 

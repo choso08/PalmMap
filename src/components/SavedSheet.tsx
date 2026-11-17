@@ -12,7 +12,7 @@ import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
 import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
 import type { TransitLineInfo } from '../services/transit';
-import { textOn } from '../utils/lineColour';
+import { operatorColour, textOn } from '../utils/lineColour';
 
 interface Props {
   visible: boolean;
@@ -168,7 +168,7 @@ export function SavedSheet({
                   <View>
                     <Text style={styles.section}>{strings.saved.lines}</Text>
                     {lines.map((line) => {
-                      const colour = line.colour ?? theme.vehicle;
+                      const colour = line.colour ?? operatorColour('carris-metropolitana', theme.vehicle);
                       return (
                         <Pressable
                           key={line.id}

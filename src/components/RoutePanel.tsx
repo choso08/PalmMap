@@ -32,7 +32,7 @@ import { fastestTrip } from '../services/transitPlan';
 import { leaveKey, toggleLeaveReminder, useReminderKeys } from '../services/arrivalReminders';
 import { TripTimeline } from './TripTimeline';
 import type { TransitGuide } from '../services/transitGuide';
-import { lineColour, textOn } from '../utils/lineColour';
+import { lineColour, rideOperator, textOn, tripOperator } from '../utils/lineColour';
 
 /** Each mode's icon, so trips can be told apart at a glance. */
 const MEIOS: Record<string, string> = {
@@ -418,16 +418,20 @@ export function RoutePanel({
             const ativo = i === transitTripIndex;
             const changes = changesOf(t);
             // The trip in one row, as Maps: 🚶 5 › [3601] › 🚶 1 › [Fertagus] › 🚶 2.
-            const pieces: ({ walk: number } | { kind: string; line: string })[] = [];
+            const pieces: ({ walk: number } | { kind: string; line: string; operator?: string })[] = [];
             if (t.from.meters >= 15) {
               pieces.push({ walk: walkSecondsEntre(t.from.meters) });
             }
-            pieces.push({ kind: t.kind, line: t.line });
+            pieces.push({ kind: t.kind, line: t.line, operator: tripOperator(t) });
             changes.forEach((c, k) => {
               if (c.walkMeters >= 15) {
                 pieces.push({ walk: walkSecondsEntre(c.walkMeters) });
               }
-              pieces.push({ kind: c.kind ?? (k === 0 ? t.kind : changes[k - 1].kind ?? t.kind), line: c.line });
+              pieces.push({
+                kind: c.kind ?? (k === 0 ? t.kind : changes[k - 1].kind ?? t.kind),
+                line: c.line,
+                operator: rideOperator(c.ride),
+              });
             });
             if (t.to.meters >= 15) {
               pieces.push({ walk: walkSecondsEntre(t.to.meters) });
@@ -475,13 +479,13 @@ export function RoutePanel({
                             <View
                               style={[
                                 styles.linhaBadge,
-                                { backgroundColor: lineColour(piece.kind, piece.line, theme.vehicle) },
+                                { backgroundColor: lineColour(piece.kind, piece.line, theme.vehicle, piece.operator) },
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.linhaBadgeTexto,
-                                  { color: textOn(lineColour(piece.kind, piece.line, theme.vehicle)) },
+                                  { color: textOn(lineColour(piece.kind, piece.line, theme.vehicle, piece.operator)) },
                                 ]}
                               >
                                 {piece.line}
