@@ -516,6 +516,8 @@ export const pt = {
     tryAgain: 'Tente novamente.',
 
     offlineMaps: 'Mapas de países',
+    donate: 'Apoiar o PalmMap',
+    donateHint: 'Donativos para metas, como pôr a app na Play Store.',
     feedback: 'Avaliar a aplicação',
     feedbackTitle: 'Avaliação',
     feedbackPlaceholder: 'O que acha? O que falta?',

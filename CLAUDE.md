@@ -965,6 +965,11 @@ in one place instead of spread through the code.
   the maps list, does the same to ask for a map (`MAP_REQUEST_URL`). To receive feedback
   without a GitHub account, the way is the author's e-mail address (`mailto:`) — only with
   the author saying which.
+- **"Support PalmMap"** (author's choice, 17 November 2026): donations towards goals — the
+  Play Store fee and the like — instead of ads or a paid app, which the free services' terms
+  (EOX's non-commercial licence, the volunteer-run OSM/FOSSGIS servers) would not allow without
+  replacing them. A link in About to `DONATE_URL` (`config.ts`), **hidden while it is empty**:
+  the author makes the page (Ko-fi with a goal was suggested) and gives the address.
 - **Updates are not a setting**, they are a screen inside Settings — see "6-I".
 - **The last crash is not a setting either**, it is a card at the top of the screen that only
   exists when the app closed by itself — see "6-K".

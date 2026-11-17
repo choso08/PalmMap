@@ -478,6 +478,8 @@ export const en: typeof pt = {
     tryAgain: 'Try again.',
 
     offlineMaps: 'Country maps',
+    donate: 'Support PalmMap',
+    donateHint: 'Donations towards goals, like putting the app on the Play Store.',
     feedback: 'Rate the app',
     feedbackTitle: 'Rating',
     feedbackPlaceholder: 'What do you think? What is missing?',

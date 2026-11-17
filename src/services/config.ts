@@ -15,6 +15,13 @@
 export const MAP_REQUEST_URL =
   'https://github.com/choso08/PalmMap/issues/new?title=Map%20request%3A%20';
 
+/**
+ * Where donations go (author's choice, November 2026: donations towards goals
+ * such as the Play Store fee). The author's own page, made by them; until it
+ * is filled in, Settings shows no donate button.
+ */
+export const DONATE_URL = '';
+
 /** The feedback form's destination: a new GitHub issue, filled in by the app. */
 export const FEEDBACK_URL = 'https://github.com/choso08/PalmMap/issues/new';
 

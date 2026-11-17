@@ -18,7 +18,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
-import { MAP_REQUEST_URL } from '../services/config';
+import { DONATE_URL, MAP_REQUEST_URL } from '../services/config';
 import { Collapsible } from './Collapsible';
 import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
@@ -194,6 +194,7 @@ export function SettingsSheet({
       mobileMaps: has(s.dataUsage, s.mapsOnMobileData),
       storage: has(s.dataUsage, s.storage),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
+      donate: DONATE_URL !== '' && has(s.about, s.donate, s.donateHint),
       recents: has(s.general, s.recents, s.forgetRecents),
       updates: has(s.about, s.updates),
       about: has(s.about, s.aboutText, 'OpenStreetMap', 'OSRM', 'Overpass'),
@@ -205,7 +206,7 @@ export function SettingsSheet({
       mapSection: result.places || result.trails,
       transit: result.schedules,
       data: result.vehicles || result.satellite || result.mobileMaps || result.storage,
-      aboutSection: result.updates || result.feedback || result.about,
+      aboutSection: result.updates || result.feedback || result.donate || result.about,
       navigation:
         result.time ||
         result.voice ||
@@ -706,6 +707,20 @@ export function SettingsSheet({
             <>
               <Text style={styles.sectionTitle}>{s.feedback}</Text>
               <FeedbackForm />
+            </>
+          ) : null}
+
+          {/* Donations, once the author's page exists (`DONATE_URL`). */}
+          {show.donate ? (
+            <>
+              <Pressable
+                style={styles.forgetRow}
+                onPress={() => void Linking.openURL(DONATE_URL)}
+              >
+                <MaterialCommunityIcons name="heart-outline" size={19} color={theme.accent} />
+                <Text style={styles.linkText}>{s.donate}</Text>
+              </Pressable>
+              <Text style={styles.note}>{s.donateHint}</Text>
             </>
           ) : null}
 
