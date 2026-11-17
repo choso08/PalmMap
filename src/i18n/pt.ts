@@ -62,7 +62,18 @@ export const pt = {
     listFailed: 'Não foi possível obter a lista.',
   },
 
+  nearby: {
+    title: 'Perto de si',
+    alerts: 'Avisos',
+    alertsCount: (n: number) => `${n} avisos`,
+    none: 'Sem paragens nem estações por perto.',
+    noPosition: 'Sem posição: abra o mapa onde quer ver.',
+    noAlerts: 'Sem avisos de serviço.',
+    alertsFailed: 'Não foi possível obter os avisos.',
+    until: (date: string) => `até ${date}`,
+  },
   tabs: {
+    nearby: 'Transportes',
     explore: 'Explorar',
     go: 'Ir',
     saved: 'Guardados',

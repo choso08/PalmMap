@@ -44,7 +44,18 @@ export const en: typeof pt = {
     listFailed: "Couldn't get the list.",
   },
 
+  nearby: {
+    title: 'Near you',
+    alerts: 'Alerts',
+    alertsCount: (n: number) => `${n} alerts`,
+    none: 'No stops or stations nearby.',
+    noPosition: 'No position: open the map where you want to look.',
+    noAlerts: 'No service alerts.',
+    alertsFailed: 'Could not get the alerts.',
+    until: (date: string) => `until ${date}`,
+  },
   tabs: {
+    nearby: 'Transit',
     explore: 'Explore',
     go: 'Go',
     saved: 'Saved',

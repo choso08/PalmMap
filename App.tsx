@@ -148,6 +148,8 @@ import {
   vehicleTrip,
 } from './src/services/transit';
 import { LineSheet } from './src/components/LineSheet';
+import { NearbySheet } from './src/components/NearbySheet';
+import { AlertsSheet } from './src/components/AlertsSheet';
 import {
   buildGuide,
   guideArrived,
@@ -254,6 +256,11 @@ function PalmMap() {
   const [transitVisible, setTransitVisible] = useState(false);
   /** A bus tapped on the map, whose panel is open (see `shownVehicle`). */
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  /** The "Near you" and alerts screens (Moovit-style, author's request). */
+  const [nearbyVisible, setNearbyVisible] = useState(false);
+  const [alertsVisible, setAlertsVisible] = useState(false);
+  /** A stop opened from a list (Saved, Near you) that may be on no map list yet. */
+  const [pickedStop, setPickedStop] = useState<TransitStop | null>(null);
   /** A line chosen in the search — see `handleSelectLine`. */
   const [lineShown, setLineShown] = useState<{
     line: TransitLineInfo;
@@ -558,6 +565,22 @@ function PalmMap() {
     (userLocation
       ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
       : null);
+
+  /**
+   * "Near you": the GPS first (that is what the screen is for), else the map's
+   * middle — rounded to about 100 m, so the list is not asked again on every
+   * reading.
+   */
+  const nearbyKey = userLocation
+    ? `${userLocation.latitude.toFixed(3)},${userLocation.longitude.toFixed(3)}`
+    : mapCentre;
+  const nearbyOrigin = useMemo<Coordinates | null>(() => {
+    if (!nearbyKey) {
+      return null;
+    }
+    const [latitude, longitude] = nearbyKey.split(',').map(Number);
+    return { latitude, longitude };
+  }, [nearbyKey]);
 
   useEffect(() => {
     if (!isTransitMap(settings.mapType) || !perto) {
@@ -1973,7 +1996,9 @@ function PalmMap() {
     !lineShown &&
     !searchFocused;
 
-  const activeTab: Tab = savedVisible
+  const activeTab: Tab = nearbyVisible
+    ? 'nearby'
+    : savedVisible
     ? 'saved'
     : settingsVisible
       ? 'settings'
@@ -1982,7 +2007,9 @@ function PalmMap() {
         : 'explore';
 
   const handleTabPress = useCallback((tab: Tab) => {
-    if (tab === 'go') {
+    if (tab === 'nearby') {
+      setNearbyVisible(true);
+    } else if (tab === 'go') {
       setDirectionsVisible(true);
     } else if (tab === 'saved') {
       setSavedVisible(true);
@@ -2765,9 +2792,10 @@ function PalmMap() {
     // A favourite opened from the Saved screen may be on no list yet.
     const tapped =
       mapStops.find((s) => s.id === selectedStopId) ??
-      favouriteStops.find((s) => s.id === selectedStopId);
+      favouriteStops.find((s) => s.id === selectedStopId) ??
+      (pickedStop?.id === selectedStopId ? pickedStop : undefined);
     return tapped ? [tapped, ...transitStops] : transitStops;
-  }, [transitStops, mapStops, favouriteStops, selectedStopId]);
+  }, [transitStops, mapStops, favouriteStops, pickedStop, selectedStopId]);
 
   /** A tap on a stop opens its times straight away, without the clock button. */
   // A tapped stop or station opens the panel on that one alone (author's
@@ -3368,6 +3396,19 @@ function PalmMap() {
           setMeasurePoints([]);
         }}
       />
+
+      <NearbySheet
+        visible={nearbyVisible}
+        origin={nearbyOrigin}
+        onClose={() => setNearbyVisible(false)}
+        onOpenStop={(stop) => {
+          setPickedStop(stop);
+          mapRef.current?.recenter(stop.coordinates);
+          handleStopPress(stop.id);
+        }}
+        onOpenAlerts={() => setAlertsVisible(true)}
+      />
+      <AlertsSheet visible={alertsVisible} onClose={() => setAlertsVisible(false)} />
 
       <SavedSheet
         visible={savedVisible}

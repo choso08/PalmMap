@@ -6,7 +6,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 
-export type Tab = 'explore' | 'go' | 'saved' | 'settings';
+export type Tab = 'explore' | 'nearby' | 'go' | 'saved' | 'settings';
 
 /** The bar's own height, without the system navigation bar under it. */
 export const TAB_BAR_HEIGHT = 64;
@@ -20,6 +20,7 @@ interface Props {
 
 const TABS: { id: Tab; icon: string; activeIcon: string }[] = [
   { id: 'explore', icon: 'map-marker-outline', activeIcon: 'map-marker' },
+  { id: 'nearby', icon: 'bus-clock', activeIcon: 'bus-clock' },
   { id: 'go', icon: 'directions', activeIcon: 'directions' },
   { id: 'saved', icon: 'bookmark-outline', activeIcon: 'bookmark' },
   { id: 'settings', icon: 'cog-outline', activeIcon: 'cog' },
