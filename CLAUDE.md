@@ -122,8 +122,9 @@ environment cannot reach.
     **Probed 13 November:** Almada Forum has one door mapped, `entrance=main` on the east
     side; Garcia de Orta five (the two `emergency` ones are skipped).
   - **From the author's photos, 13 November:** the camera keeps the blue dot in the visible
-    part above the bottom panel (`bottomInset` on `MapView` → the `Camera`'s `padding`, also
-    in `recenter` and the route framing), as in Maps; on a transport trip the GPS button
+    part above the bottom panel (`bottomInset` on `MapView` → the `Camera`'s `padding` **only while following** — a
+    panel opening otherwise slid the map, e.g. on tapping a bus, author's report 17 November —
+    and passed explicitly by `recenter`, `frame` and the route framing), as in Maps; on a transport trip the GPS button
     always brings the camera back to the person (it used to toggle following off, which
     looked like nothing); the trip's footer is laid out like driving navigation — end left,
     time left in the middle, speaker on the right, no longer next to the end button; and in

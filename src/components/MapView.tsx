@@ -605,9 +605,16 @@ export function MapView({
   // Read by the camera moves without making them depend on the panel's height.
   const bottomInsetRef = useRef(bottomInset);
   bottomInsetRef.current = bottomInset;
+  // The panel's height counts only while the camera follows someone (the GPS,
+  // or navigation): then the dot belongs in the visible part. Otherwise a panel
+  // opening — a tapped bus's — changed the padding and slid the whole map under
+  // the finger (author's report, 17 November 2026: "when I tap a bus it takes
+  // me to where it is"). Explicit moves (`recenter`, `frame`, the route) pass
+  // the panel's height themselves.
+  const tracking = following || followUser;
   const viewPadding = useMemo(
-    () => ({ top: 0, right: 0, bottom: bottomInset, left: 0 }),
-    [bottomInset],
+    () => ({ top: 0, right: 0, bottom: tracking ? bottomInset : 0, left: 0 }),
+    [bottomInset, tracking],
   );
 
   useImperativeHandle(ref, () => ({
