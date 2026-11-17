@@ -1355,6 +1355,23 @@ def data_use():
     size("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions", "carris lisboa vp")
 
 
+def bus_models():
+    """How many live buses carry make, model, propulsion and the rest, and the values."""
+    from collections import Counter
+
+    _, _, body = get(CARRIS + "/vehicles")
+    fleet = json.loads(body)
+    now = time.time() * 1000
+    live = [v for v in fleet if v.get("timestamp") and now - v["timestamp"] < 120000]
+    print("live:", len(live), "of", len(fleet))
+    for field in ("make", "model", "propulsion", "emission_class", "wheelchair_accessible",
+                  "bikes_allowed", "capacity_total", "capacity_seated", "registration_date",
+                  "license_plate", "owner", "occupancy_status", "occupancy_estimated", "agency_id"):
+        values = Counter(str(v.get(field)) for v in live)
+        filled = sum(n for k, n in values.items() if k not in ("None", "", "0"))
+        print(f"{field}: {filled}/{len(live)} filled; top {values.most_common(8)}")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
