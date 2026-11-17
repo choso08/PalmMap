@@ -1372,6 +1372,63 @@ def bus_models():
         print(f"{field}: {filled}/{len(live)} filled; top {values.most_common(8)}")
 
 
+def pnoa():
+    """Spain's IGN aerial orthophotos (PNOA, latest per area): does the WMTS answer, which
+    layers and tile sets, which format, and what comes back outside Spain (Lisbon) and
+    for Portugal's DGT outside Portugal (Badajoz) — an opaque tile there would cover the
+    other country's imagery."""
+    import math
+    section("PNOA (IGN Spain)")
+
+    def tile(lat, lon, z):
+        n = 2 ** z
+        x = int((lon + 180) / 360 * n)
+        y = int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
+        return x, y
+
+    for base in ("https://www.ign.es/wmts/pnoa-ma", "https://www.ign.es/wmts/pnoa-ma-2025"):
+        st, ct, b = get(base + "?request=GetCapabilities&service=WMTS", 90)
+        print(base, "capabilities", st, ct, len(b))
+        if st == 200:
+            t = b.decode("utf-8", "replace")
+            print(" layers:", sorted(set(re.findall(r"<ows:Identifier>([^<]+)</ows:Identifier>", t)))[:40])
+            print(" formats:", sorted(set(re.findall(r"<Format>([^<]+)</Format>", t))))
+            print(" title/abstract/fees/constraints:",
+                  re.findall(r"<ows:(?:Fees|AccessConstraints)>([^<]*)<", t)[:4])
+    places = {"Madrid": (40.4168, -3.7038), "Badajoz": (38.8794, -6.9707),
+              "Lisboa": (38.7223, -9.1393), "Elvas (PT, border)": (38.8810, -7.1630),
+              "Tenerife": (28.4636, -16.2518), "Palma": (39.5696, 2.6502)}
+    for name, (lat, lon) in places.items():
+        for z in (14, 18):
+            x, y = tile(lat, lon, z)
+            for fmt in ("image/jpeg", "image/png"):
+                url = ("https://www.ign.es/wmts/pnoa-ma?request=GetTile&service=WMTS&version=1.0.0"
+                       f"&layer=OI.OrthoimageCoverage&style=default&tilematrixset=GoogleMapsCompatible"
+                       f"&tilematrix={z}&tilerow={y}&tilecol={x}&format={fmt}")
+                st, ct, b = get(url, 60)
+                print(f"PNOA {name} z{z} {fmt}: {st} {ct} {len(b)} bytes", b[:80] if st != 200 else "")
+    # DGT outside Portugal: what does it answer over Badajoz?
+    for name, (lat, lon) in (("Badajoz", (38.8794, -6.9707)), ("Elvas", (38.8810, -7.1630))):
+        z = 15
+        x, y = tile(lat, lon, z)
+        r = 6378137 * math.pi
+        size = 2 * r / 2 ** z
+        minx = -r + x * size; maxy = r - y * size
+        bbox = f"{minx},{maxy - size},{minx + size},{maxy}"
+        url = ("https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+               "&LAYERS=ortoSat2023-CorVerdadeira&STYLES=&CRS=EPSG:3857&BBOX=" + bbox +
+               "&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true")
+        st, ct, b = get(url, 60)
+        print(f"DGT png transparent {name}: {st} {ct} {len(b)} bytes")
+    st, ct, b = get("https://www.ign.es/web/ign/portal/licencias", 60)
+    if st == 200:
+        t = re.sub(r"<[^>]+>", " ", b.decode("utf-8", "replace"))
+        i = t.find("CC BY")
+        print("licence page:", " ".join(t[max(0, i - 400):i + 400].split()) if i >= 0 else "no CC BY text")
+    else:
+        print("licence page", st)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
