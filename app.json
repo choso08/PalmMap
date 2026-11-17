@@ -59,7 +59,13 @@
     },
     "plugins": [
       "@maplibre/maplibre-react-native",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#D9634A"
+        }
+      ],
       [
         "expo-location",
         {

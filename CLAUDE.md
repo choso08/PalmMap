@@ -168,6 +168,13 @@ environment cannot reach.
   channel), a second tap on the bell while the first is on its way does nothing (`busy`), a
   delivered reminder is never rescheduled (`at`), reminders whose bus has gone are dropped
   (`prune`), and a failure says so under the arrivals.
+  **Then, from the author's phone (7.0.44):** the bell took ages to light — it waited for
+  the channel, the permission and the scheduling, all native round trips; now it lights at
+  once and the scheduling follows, undone if it fails. The notification had no icon: a
+  white `palm-tree` glyph (`assets/notification-icon.png`, drawn by `generate-icons.py`)
+  with the accent colour, through `expo-notifications`' plugin options in `app.json`
+  (needs a full build). The reminder's key is the line and the timetable's minute at the
+  stop, so a bell set offline is the same bus once live arrivals come back.
 - **After 7.0.43** (author: "pull the other real-time library and the open-data things"; none
   seen on a phone): **Carris de Lisboa's buses and trams live** — GTFS-RT vehicle positions
   (`CARRIS_LISBOA_VEHICLES_URL`, Protobuf, ~10 KB for ~110 vehicles), decoded with

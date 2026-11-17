@@ -16,7 +16,10 @@ Everything is drawn at 4x and scaled down at the end, the simple way to get
 smooth edges without depending on anything else.
 """
 
-from PIL import Image, ImageDraw
+import json
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 SCALE = 4
 SIZE = 1024
@@ -356,6 +359,21 @@ def main() -> None:
         (fg_inset, fg_inset),
     )
     save(mono, "assets/android-icon-monochrome.png", SIZE)
+
+    # Notification icon: Android draws only its alpha, in white, in the status
+    # bar and the notification. Without one, expo-notifications uses the app
+    # icon, which Android turns into a plain square. The logo's thin waves and
+    # trunk vanish at 24 dp, so it is the bold `palm-tree` glyph of the icon
+    # font the app already ships (MaterialCommunityIcons).
+    vendor = Path(__file__).resolve().parent.parent / (
+        "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons"
+    )
+    code = json.loads((vendor / "glyphmaps/MaterialCommunityIcons.json").read_text())["palm-tree"]
+    font = ImageFont.truetype(str(vendor / "Fonts/MaterialCommunityIcons.ttf"), 384)
+    note = Image.new("RGBA", (384, 384), TRANSPARENT)
+    ImageDraw.Draw(note).text((192, 192), chr(code), font=font, fill=(255, 255, 255, 255), anchor="mm")
+    note.resize((96, 96), Image.LANCZOS).save("assets/notification-icon.png")
+    print("escrito assets/notification-icon.png")
 
     # Splash screen image: just the logo, no background.
     splash = Image.new("RGBA", (big, big), TRANSPARENT)

@@ -46,9 +46,13 @@ const listeners = new Set<() => void>();
 /** One bus at one stop: the stop, its pattern and its timetable time there. */
 export function reminderKey(
   stopId: string,
-  a: { patternId: string | null; scheduledText: string | null; line: string; time: string },
+  a: { scheduledText: string | null; line: string; time: string },
 ): string {
-  return `${stopId}|${a.patternId ?? a.line}|${a.scheduledText ?? a.time}`;
+  // The line and the timetable's minute at this stop: the same bus whether the
+  // list is live (`scheduledText` "08:12:00") or the stored one offline
+  // (`time` is then the timetable's "08:12"), and it does not move with the
+  // estimate.
+  return `${stopId}|${a.line}|${(a.scheduledText ?? a.time).slice(0, 5)}`;
 }
 
 let channelReady = false;
@@ -75,7 +79,7 @@ function firesAt(unix: number): number {
   return Math.max(Date.now() / 1000 + 5, unix - LEAD_S);
 }
 
-/** Keys with a schedule or cancel still on its way — a second tap waits for it. */
+/** Keys whose notification is being moved — a second move waits for it. */
 const busy = new Set<string>();
 
 /** Reminders whose bus has gone are dropped, so their bell goes dark. */
@@ -118,31 +122,46 @@ export async function toggleReminder(
   bus: { unix: number; line: string; destination: string },
   stopName: string,
 ): Promise<boolean> {
-  // A second tap while the first is on its way does nothing: two would
-  // schedule two notifications and lose one's id.
-  if (busy.has(key)) {
+  const old = reminders.get(key);
+  if (old) {
+    // Off at once; the cancel goes on behind. One still being scheduled
+    // (no id yet) is cancelled when its id arrives (below).
+    reminders.delete(key);
+    listeners.forEach((l) => l());
+    if (old.id) {
+      await Notifications.cancelScheduledNotificationAsync(old.id).catch(() => undefined);
+    }
     return true;
   }
-  busy.add(key);
-  try {
-    const old = reminders.get(key);
-    if (old) {
+  // **On at once** (author's report: the bell took ages to light): the channel,
+  // the permission and the scheduling are native round trips, done after the
+  // bell is lit, and undone if they fail.
+  const data = { unix: bus.unix, line: bus.line, stopName, destination: bus.destination };
+  const placeholder: Reminder = { id: '', at: firesAt(bus.unix), ...data };
+  reminders.set(key, placeholder);
+  listeners.forEach((l) => l());
+  const undo = () => {
+    if (reminders.get(key) === placeholder) {
       reminders.delete(key);
       listeners.forEach((l) => l());
-      await Notifications.cancelScheduledNotificationAsync(old.id).catch(() => undefined);
-      return true;
     }
+  };
+  try {
     if (!(await ready())) {
+      undo();
       return false;
     }
-    const data = { unix: bus.unix, line: bus.line, stopName, destination: bus.destination };
-    const at = firesAt(bus.unix);
     const id = await schedule(data);
-    reminders.set(key, { id, at, ...data });
-    listeners.forEach((l) => l());
+    if (reminders.get(key) === placeholder) {
+      reminders.set(key, { ...placeholder, id });
+    } else {
+      // Tapped off (or replaced) while it was being scheduled.
+      await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    }
     return true;
-  } finally {
-    busy.delete(key);
+  } catch (e) {
+    undo();
+    throw e;
   }
 }
 
@@ -164,19 +183,20 @@ export function updateReminders(
     const r = reminders.get(key);
     // Only a change of a minute or more is worth rescheduling; one already
     // delivered is never sent again; one being moved is left to finish.
-    if (!r || busy.has(key) || r.at <= now || Math.abs(r.unix - a.unix) < 60) {
+    if (!r || !r.id || busy.has(key) || r.at <= now || Math.abs(r.unix - a.unix) < 60) {
       continue;
     }
     busy.add(key);
-    const moved = { ...r, unix: a.unix };
+    const moved: Reminder = { ...r, unix: a.unix, at: firesAt(a.unix) };
+    reminders.set(key, moved);
     void Notifications.cancelScheduledNotificationAsync(r.id)
       .catch(() => undefined)
       .then(() => schedule(moved))
       .then((id) => {
-        if (reminders.has(key)) {
-          reminders.set(key, { ...moved, id, at: firesAt(moved.unix) });
+        if (reminders.get(key) === moved) {
+          reminders.set(key, { ...moved, id });
         } else {
-          // Cleared meanwhile.
+          // Cleared or set again meanwhile.
           void Notifications.cancelScheduledNotificationAsync(id);
         }
       })
