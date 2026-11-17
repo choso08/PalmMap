@@ -157,7 +157,12 @@ import {
   type GuideProgress,
   type TransitGuide,
 } from './src/services/transitGuide';
-import { LEAVE_NOW, planTransit, type TransitWhen } from './src/services/transitPlan';
+import {
+  applyTransitPrefs,
+  LEAVE_NOW,
+  planTransit,
+  type TransitWhen,
+} from './src/services/transitPlan';
 import { TransitGuidePanel } from './src/components/TransitGuidePanel';
 import { ConnectivityBanner } from './src/components/ConnectivityBanner';
 import { arrivalPoint, findEntrances } from './src/services/entrances';
@@ -390,8 +395,21 @@ function PalmMap() {
    * the map, it is a list of times. Mixing them would force everything that
    * reads the route to tell the two apart.
    */
-  const [transitTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
+  const [plannedTrips, setTransitTrips] = useState<TransitTrip[] | null>(null);
   const [transitTripIndex, setTransitTripIndex] = useState(0);
+  // The plan as the person prefers it (`applyTransitPrefs`): a preference
+  // reorders what was planned, it asks nothing again.
+  const shownTransit = useMemo(
+    () =>
+      plannedTrips
+        ? applyTransitPrefs(plannedTrips, settings.transitSort, settings.transitAvoid)
+        : null,
+    [plannedTrips, settings.transitSort, settings.transitAvoid],
+  );
+  const transitTrips = shownTransit?.trips ?? null;
+  useEffect(() => {
+    setTransitTripIndex(0);
+  }, [settings.transitSort, settings.transitAvoid]);
   /** Leave now, depart at, arrive by — reset to now with each new destination. */
   const [transitWhen, setTransitWhen] = useState<TransitWhen>(LEAVE_NOW);
   useEffect(() => {
@@ -3086,6 +3104,7 @@ function PalmMap() {
                 optionIndex={routeIndex}
                 onChooseOption={setRouteIndex}
                 transitTrips={transitTrips}
+                transitHidden={shownTransit?.hidden ?? 0}
                 transitTripIndex={transitTripIndex}
                 onChooseTransitTrip={setTransitTripIndex}
                 onStartTransit={handleStartTransit}

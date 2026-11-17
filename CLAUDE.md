@@ -172,6 +172,21 @@ environment cannot reach.
 
 - **Built in 7.0.43** (16 November): the bus panel's refresh, origin/destination and stop list,
   and the live buses' refresh interval in Settings (`vehiclesRefresh`).
+- **"As Moovit", four points** (author: "I want to imitate Moovit, it is so annoying with the
+  ads"; 17 November, none seen on a phone): a **Transit tab** (`NearbySheet`, tab `'nearby'`,
+  icon `bus-clock`) listing the stops (`nearbyStops`, `arrivalsAt`) and stations
+  (`departuresNear`) around the map's centre with the next passes per line, refreshed every
+  30 s; a **service alerts screen** (`AlertsSheet`, from that tab's button, with the count);
+  **trip preferences** in the route panel — Best / Less walking / Fewer changes and the
+  means to leave out (bus, metro incl. light rail and trams, train, boat), stored as
+  `transitSort` and `transitAvoid`, applied to the finished plan by `applyTransitPrefs`
+  (`transitPlan.ts`; walking compared in 100 m steps, ties by arrival; App keeps the raw
+  plan in `plannedTrips` and shows the result as `transitTrips`, so a preference asks
+  nothing again and an empty list says how many were hidden); and a **line's full
+  timetable at a stop** — "Full timetable" under a tapped line's journey
+  (`LineTimetable`, `stopTimetable` in `transit.ts`): seven day chips, the pattern's trips
+  that run that day (`valid_on`) at that stop sequence, hour by hour, the ones gone faded.
+  Same pattern answer as the journey, nothing new asked.
 - **Built in 7.0.44** (16 November): everything in "After 7.0.43" below, and tapping an
   alternative route on the map. **After 7.0.44**, from a code review: the reminder's channel
   is created **before** asking for the permission (Android 13+ shows no prompt without a
@@ -564,7 +579,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── MapView.tsx       # Map, business pins, route, destination, blue dot and cone
 │   │   ├── SearchBar.tsx     # Search bar (Nominatim, saved places, voice)
 │   │   ├── CategoryBar.tsx   # "Restaurants", "Pharmacies", … buttons
-│   │   ├── BottomTabs.tsx    # Explore / Go / Saved / Settings
+│   │   ├── BottomTabs.tsx    # Explore / Go / Transit / Saved / Settings
 │   │   ├── LayersSheet.tsx   # Map type, businesses, live buses, measuring tape
 │   │   ├── SavedSheet.tsx    # Saved places
 │   │   ├── DirectionsSheet.tsx # Any origin and destination
@@ -579,6 +594,9 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── VehicleSheet.tsx  # A tapped live bus: its way, stop, next stops, age
 │   │   ├── ServiceAlerts.tsx # Strikes, diversions, works on what is shown
 │   │   ├── LineSheet.tsx     # A searched line: directions, alerts, stops
+│   │   ├── LineTimetable.tsx # A line's whole-day timetable at a stop, per day
+│   │   ├── NearbySheet.tsx   # Transit tab: stops and stations around, next passes
+│   │   ├── AlertsSheet.tsx   # Every service alert
 │   │   ├── FavouriteStopRow.tsx # A favourite stop with its next buses (Saved)
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
@@ -734,6 +752,8 @@ in one place instead of spread through the code.
   | `showVehicles` | Show moving buses on the transport map |
   | `vehiclesRefresh` | How often they are asked for: 10, 20 (default), 30 or 60 s — author's request, November 2026; the line under it gives the data per hour (~150 KB compressed per ask) |
   | `mapsOnMobileData` | Refresh outdated country maps on mobile data too — off by default (Wi-Fi only, as before); author's request, November 2026 |
+  | `transitSort` | Transport options by earliest arrival, least walking or fewest changes — chosen in the route panel |
+  | `transitAvoid` | Means left out of transport options (bus, metro, train, boat) — chosen in the route panel |
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,

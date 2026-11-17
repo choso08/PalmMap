@@ -20,6 +20,7 @@ import { distanceMeters } from '../utils/geometry';
 import { isOnline } from './network';
 import { TRANSIT_WALK_MAX_M } from './config';
 import type { Coordinates } from '../types/geo';
+import type { TransitModeGroup, TransitSort } from '../settings';
 
 /**
  * Every public transport option from one point to another: the stored
@@ -310,4 +311,64 @@ async function mixedTrips(
     }
   }
   return [...byPair.values()].slice(0, 4);
+}
+
+/** Which of the person's groups a trip's mode belongs to. */
+export function modeGroup(kind: string): TransitModeGroup {
+  if (kind === 'subway' || kind === 'light_rail' || kind === 'tram') {
+    return 'metro';
+  }
+  if (kind === 'train' || kind === 'boat') {
+    return kind;
+  }
+  return 'bus';
+}
+
+/** Every vehicle's mode in a trip, the first and each change's. */
+function tripKinds(trip: TransitTrip): string[] {
+  const kinds = [trip.kind];
+  for (const c of changesOf(trip)) {
+    kinds.push(c.kind ?? kinds[kinds.length - 1]);
+  }
+  return kinds;
+}
+
+/** Metres on foot: to the first stop, at each change, from the last. */
+export function walkMetersOf(trip: TransitTrip): number {
+  return (
+    trip.from.meters +
+    changesOf(trip).reduce((sum, c) => sum + c.walkMeters, 0) +
+    trip.to.meters
+  );
+}
+
+/**
+ * The person's preferences over the planned options, as Moovit has them
+ * (author's request, November 2026): leave some means out, and order by least
+ * walking or fewest changes instead of earliest arrival. Applied to the
+ * finished plan, so changing a preference asks nothing again. Ties keep the
+ * earliest arrival first. `hidden` says how many were left out, so an empty
+ * list can say why.
+ */
+export function applyTransitPrefs(
+  trips: TransitTrip[],
+  sort: TransitSort,
+  avoid: TransitModeGroup[],
+): { trips: TransitTrip[]; hidden: number } {
+  const kept =
+    avoid.length === 0
+      ? trips
+      : trips.filter((trip) => !tripKinds(trip).some((k) => avoid.includes(modeGroup(k))));
+  const hidden = trips.length - kept.length;
+  if (sort === 'best') {
+    return { trips: kept, hidden };
+  }
+  const key = (trip: TransitTrip) =>
+    sort === 'walk' ? walkMetersOf(trip) : changesOf(trip).length;
+  // Walking is compared in 100 m steps: 40 m more is not worth a later trip.
+  const step = (trip: TransitTrip) => (sort === 'walk' ? Math.round(key(trip) / 100) : key(trip));
+  return {
+    trips: [...kept].sort((a, b) => step(a) - step(b) || a.reachAt - b.reachAt),
+    hidden,
+  };
 }

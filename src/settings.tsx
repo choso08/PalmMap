@@ -114,12 +114,30 @@ export interface Settings {
   /** Refresh outdated country maps on mobile data too, not only on Wi-Fi. */
   mapsOnMobileData: boolean;
   /**
+   * How transport options are ordered (author's request, November 2026, "as
+   * Moovit"): earliest arrival, least walking, or fewest changes.
+   */
+  transitSort: TransitSort;
+  /** Means of transport left out of the options (none by default). */
+  transitAvoid: TransitModeGroup[];
+  /**
    * Learn the person's pace from trips and count on it in the arrival time
    * (see `utils/eta.ts`). Off, the routing service's time as it comes —
    * and nothing is measured or stored (author's request, November 2026).
    */
   paceLearning: boolean;
 }
+
+export type TransitSort = 'best' | 'walk' | 'changes';
+export const TRANSIT_SORTS: TransitSort[] = ['best', 'walk', 'changes'];
+/** The groups the person can leave out: metro includes Metro Sul do Tejo. */
+export type TransitModeGroup = 'bus' | 'metro' | 'train' | 'boat';
+export const TRANSIT_MODE_GROUPS: { id: TransitModeGroup; icon: string }[] = [
+  { id: 'bus', icon: 'bus' },
+  { id: 'metro', icon: 'subway-variant' },
+  { id: 'train', icon: 'train' },
+  { id: 'boat', icon: 'ferry' },
+];
 
 export const DEFAULT_SETTINGS: Settings = {
   language: 'auto',
@@ -138,6 +156,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showVehicles: true,
   vehiclesRefresh: '20',
   mapsOnMobileData: false,
+  transitSort: 'best',
+  transitAvoid: [],
   paceLearning: true,
 };
 
@@ -287,6 +307,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             vehiclesRefresh: VEHICLES_REFRESH.some((r) => r.id === JSON.parse(stored).vehiclesRefresh)
               ? JSON.parse(stored).vehiclesRefresh
               : DEFAULT_SETTINGS.vehiclesRefresh,
+            transitSort: TRANSIT_SORTS.includes(JSON.parse(stored).transitSort)
+              ? JSON.parse(stored).transitSort
+              : DEFAULT_SETTINGS.transitSort,
+            transitAvoid: Array.isArray(JSON.parse(stored).transitAvoid)
+              ? (JSON.parse(stored).transitAvoid as string[]).filter((g): g is TransitModeGroup =>
+                  TRANSIT_MODE_GROUPS.some((m) => m.id === g),
+                )
+              : DEFAULT_SETTINGS.transitAvoid,
             bikeType: ['road', 'normal', 'mtb'].includes(JSON.parse(stored).bikeType)
               ? JSON.parse(stored).bikeType
               : DEFAULT_SETTINGS.bikeType,

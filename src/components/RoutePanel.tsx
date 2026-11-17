@@ -13,7 +13,7 @@ import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode } from '../settings';
+import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode, TRANSIT_MODE_GROUPS, TRANSIT_SORTS, useSettings } from '../settings';
 import type { BikeType } from '../services/valhalla';
 
 /** The bicycle choices; the names come from the language table. */
@@ -87,6 +87,8 @@ interface RoutePanelProps {
    * those are different things to say.
    */
   transitTrips: TransitTrip[] | null;
+  /** Options left out by the person's preferences (`transitAvoid`). */
+  transitHidden?: number;
   transitTripIndex: number;
   onChooseTransitTrip: (index: number) => void;
   /** Starts the chosen transport trip step by step, as Maps does. */
@@ -145,6 +147,7 @@ export function RoutePanel({
   onChooseOption,
   dragHandlers,
   transitTrips,
+  transitHidden = 0,
   transitTripIndex,
   onChooseTransitTrip,
   onStartTransit,
@@ -154,6 +157,7 @@ export function RoutePanel({
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
+  const { settings, update } = useSettings();
   const { height: windowHeight } = useWindowDimensions();
   const eta = useEta();
   const insets = useSafeAreaInsets();
@@ -319,6 +323,54 @@ export function RoutePanel({
         <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
       ) : null}
 
+      {/*
+        Trip preferences, as Moovit has them: what to put first, and which
+        means to leave out. They reorder the finished plan (`applyTransitPrefs`).
+      */}
+      {travelMode === 'transit' ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bikes}>
+          {TRANSIT_SORTS.map((id) => {
+            const ativo = id === settings.transitSort;
+            return (
+              <Pressable
+                key={id}
+                style={[styles.bike, ativo ? styles.bikeAtivo : null]}
+                onPress={() => update('transitSort', id)}
+              >
+                <Text style={[styles.bikeTexto, ativo ? styles.bikeTextoAtivo : null]}>
+                  {strings.route.transitSorts[id]}
+                </Text>
+              </Pressable>
+            );
+          })}
+          {TRANSIT_MODE_GROUPS.map((g) => {
+            const fora = settings.transitAvoid.includes(g.id);
+            return (
+              <Pressable
+                key={g.id}
+                style={[styles.bike, fora ? null : styles.bikeAtivo]}
+                accessibilityLabel={strings.route.transitModes[g.id]}
+                accessibilityState={{ selected: !fora }}
+                onPress={() =>
+                  update(
+                    'transitAvoid',
+                    fora
+                      ? settings.transitAvoid.filter((x) => x !== g.id)
+                      : [...settings.transitAvoid, g.id],
+                  )
+                }
+              >
+                <MaterialCommunityIcons
+                  name={g.icon as never}
+                  size={16}
+                  color={fora ? theme.textMuted : theme.accent}
+                />
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       {loading ? (
         <View style={styles.status}>
           <ActivityIndicator size="small" color={theme.accent} />
@@ -348,7 +400,11 @@ export function RoutePanel({
           nestedScrollEnabled
         >
           {transitTrips.length === 0 && !error ? (
-            <Text style={styles.avisoTexto}>{strings.route.noDirectTransit}</Text>
+            <Text style={styles.avisoTexto}>
+              {transitHidden > 0
+                ? strings.route.hiddenByPrefs(transitHidden)
+                : strings.route.noDirectTransit}
+            </Text>
           ) : null}
 
           {transitTrips.map((t, i) => {

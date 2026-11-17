@@ -417,6 +417,9 @@ export interface LineJourney {
    * the stop of the line nearest to it. Null with no destination.
    */
   alightIndex: number | null;
+  /** For the stop's whole-day timetable (`stopTimetable`); absent on a searched line. */
+  patternId?: string;
+  boardSequence?: number;
 }
 
 /**
@@ -574,7 +577,44 @@ export async function lineJourney(
     colour: pattern?.color && /^#[0-9a-f]{6}$/i.test(pattern.color) ? pattern.color : null,
     stops: alightIndex !== null ? journey.slice(0, alightIndex + 1) : journey,
     alightIndex,
+    patternId: arrival.patternId,
+    boardSequence,
   };
+}
+
+/** `YYYYMMDD` of a date, as `valid_on` writes it. */
+export function dayKeyOf(d: Date): string {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Every time a line passes a stop on a day, as Moovit's timetable (author's
+ * request, November 2026): the pattern's trips that run that day, their time
+ * at this stop, earliest first, in seconds from that day's midnight — past
+ * 24 h for the service after midnight, as GTFS writes it. The same pattern
+ * answer the journey already loaded, so nothing new is asked.
+ */
+export async function stopTimetable(
+  patternId: string,
+  boardSequence: number | undefined,
+  stopId: string,
+  dayKey: string,
+): Promise<number[]> {
+  const pattern = await loadPattern(patternId);
+  const times: number[] = [];
+  for (const tr of pattern?.trips ?? []) {
+    if (tr.valid_on && !tr.valid_on.includes(dayKey)) {
+      continue;
+    }
+    const here = (tr.schedule ?? []).find((x) =>
+      boardSequence !== undefined ? x.stop_sequence === boardSequence : x.stop_id === stopId,
+    );
+    const sec = secondsOf(here?.arrival_time);
+    if (sec !== null) {
+      times.push(sec);
+    }
+  }
+  return [...new Set(times)].sort((a, b) => a - b);
 }
 
 /**
@@ -852,8 +892,7 @@ function secondsToday(unix: number): number {
 
 /** `YYYYMMDD` of today, as `valid_on` writes it. */
 function todayKey(): string {
-  const d = new Date();
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return dayKeyOf(new Date());
 }
 
 /**

@@ -205,6 +205,10 @@ export const pt = {
     option: (n: number) => `Opção ${n}`,
     startsAway: (distance: string) => `O percurso começa a ${distance}, na estrada mais próxima.`,
     tollsNotAvoided: 'Não foi possível evitar as portagens.',
+    transitSorts: { best: 'Melhor', walk: 'Menos a pé', changes: 'Menos transbordos' },
+    transitModes: { bus: 'Autocarro', metro: 'Metro', train: 'Comboio', boat: 'Barco' },
+    hiddenByPrefs: (n: number) =>
+      n === 1 ? '1 opção escondida pelas preferências.' : `${n} opções escondidas pelas preferências.`,
     noDirectTransit: 'Não há ligação, nem com um transbordo.',
     bikeTypes: { road: 'Estrada', normal: 'Normal', mtb: 'BTT' },
     busStop: 'Paragem',
@@ -324,6 +328,9 @@ export const pt = {
     now: 'agora',
     inMinutes: (n: number) => `${n} min`,
     /** A line's journey from the stop, tapped in the arrivals list. */
+    fullTimetable: 'Horário completo',
+    noTimesThatDay: 'Não passa neste dia.',
+    timetableFailed: 'Não foi possível ler o horário.',
     loadingJourney: 'A ver o percurso…',
     journeyUnavailable: 'Não foi possível ver o percurso desta carreira.',
     /** A bus tapped on the map. */

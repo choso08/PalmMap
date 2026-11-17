@@ -39,6 +39,7 @@ import { formatDistance } from '../utils/format';
 import { useAppActive } from '../useAppActive';
 import type { Coordinates } from '../types/geo';
 import { LineJourney } from './LineJourney';
+import { LineTimetable } from './LineTimetable';
 import { ServiceAlerts } from './ServiceAlerts';
 import { useIsFavouriteStop } from '../services/favouriteStops';
 import { reminderKey, toggleReminder, updateReminders, useReminderKeys } from '../services/arrivalReminders';
@@ -493,11 +494,20 @@ export function TransitSheet({
                       })()}
                     </Pressable>
                     {open ? (
-                      <LineJourney
-                        journey={journey}
-                        loading={journeyLoading}
-                        error={journeyError}
-                      />
+                      <>
+                        <LineJourney
+                          journey={journey}
+                          loading={journeyLoading}
+                          error={journeyError}
+                        />
+                        {journey?.patternId ? (
+                          <LineTimetable
+                            patternId={journey.patternId}
+                            boardSequence={journey.boardSequence}
+                            stopId={stop.id}
+                          />
+                        ) : null}
+                      </>
                     ) : null}
                     </View>
                     );
