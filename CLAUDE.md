@@ -177,6 +177,7 @@ environment cannot reach.
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
   to the Moovit points and the timetable speed fixes below.
+- **Built in 7.0.48** (17 November): the favourites screen (Home, Work, favourite lines).
 - **After 7.0.48** (author: "do the other things", 17 November; none seen on a phone):
   a **time-to-go reminder** — a bell beside Start for a planned transport trip, shown when
   leaving is more than 3 min away, notifies `LEAVE_LEAD_S` (2 min) before one must leave
