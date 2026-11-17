@@ -29,6 +29,7 @@ import type {
 } from '../types/schedule';
 
 export type { ScheduleFeedInfo };
+import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 import { safeFileName } from '../utils/safeLink';
 
@@ -1197,15 +1198,8 @@ export function planScheduledTransfers(
     }
   }
 
-  // Earliest first, and each pair of lines once.
-  const byPair = new Map<string, TransitTrip>();
-  for (const trip of results.sort((a, b) => a.reachAt - b.reachAt)) {
-    const key = `${trip.line}>${trip.change?.line}`;
-    if (!byPair.has(key)) {
-      byPair.set(key, trip);
-    }
-  }
-  return [...byPair.values()].slice(0, limit);
+  // Earliest first: each pair of lines, then its next departures.
+  return optionsPerKey(results, (trip) => `${trip.line}>${trip.change?.line}`, limit);
 }
 
 // --- The timetable half of a bus + rail trip ------------------------------------

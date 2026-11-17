@@ -16,6 +16,7 @@ import {
   planBusTrips,
   type TransitTrip,
 } from './transit';
+import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 import { isOnline } from './network';
 import { TRANSIT_WALK_MAX_M } from './config';
@@ -302,15 +303,8 @@ async function mixedTrips(
     out.push(joined(reached.legs[half.point], half.trip, half.walkMeters));
   }
 
-  // The best per pair of lines.
-  const byPair = new Map<string, TransitTrip>();
-  for (const trip of out.sort((a, b) => a.reachAt - b.reachAt)) {
-    const key = [trip.line, ...changesOf(trip).map((c) => c.line)].join('>');
-    if (!byPair.has(key)) {
-      byPair.set(key, trip);
-    }
-  }
-  return [...byPair.values()].slice(0, 4);
+  // Each pair of lines, then its next departures.
+  return optionsPerKey(out, (trip) => [trip.line, ...changesOf(trip).map((c) => c.line)].join('>'), 4);
 }
 
 /**

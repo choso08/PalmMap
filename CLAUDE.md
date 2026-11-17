@@ -274,6 +274,13 @@ environment cannot reach.
     already downloaded (`downloadedUpdate`). The installer no longer opens from the
     background, which Android refuses — the notice does it. Permission asked when the
     download starts.
+- **A trip with changes lists its next departures** (author's report, 17 November: "some
+  changes give only one option"; not seen on a phone). Every planner kept each pair of lines
+  once, so Amarela → Azul was one card. Now `optionsPerKey` (`src/utils/tripOptions.ts`) keeps
+  each combination first, then up to `TRANSFER_DEPARTURES_PER_PAIR` (3) of its departures to
+  fill the list; two arriving at the same minute are one, the later departure kept. Used by
+  `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
+  `planBusTrips`. A direct line still appears once.
 - **Built in 7.0.49** (17 November): everything after 7.0.48 below — trail mode, the
   time-to-go and get-off notifications, the security fixes, the Lagoon palette, the
   update-downloaded notice, timetables v2, the kept stop list and Carris caches, the new scale

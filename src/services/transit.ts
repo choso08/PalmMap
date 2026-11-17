@@ -25,6 +25,7 @@ import type {
   CarrisShape,
   CarrisStop,
 } from '../types/transit';
+import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 
 /**
@@ -1979,18 +1980,15 @@ export async function planBusTrips(
     }
   }
 
-  // Arrives earliest first. A line (or pair of lines) appears only once: the
-  // same bus's next three passes are not three options, they are one.
-  const byLine = new Map<string, TransitTrip>();
-  for (const t of trips
-    .filter((trip) => beatsWalking(trip, origin, destination, now))
-    .sort((a, b) => a.reachAt - b.reachAt)) {
-    const id = t.change ? `${t.line}>${t.change.line}` : t.line;
-    if (!byLine.has(id)) {
-      byLine.set(id, t);
-    }
-  }
-  return [...byLine.values()].slice(0, limit);
+  // Arrives earliest first. A line appears only once — the same bus's next
+  // three passes are not three options, they are one — but a pair of lines
+  // keeps its next departures too (`optionsPerKey`).
+  return optionsPerKey(
+    trips.filter((trip) => beatsWalking(trip, origin, destination, now)),
+    (t) => (t.change ? `${t.line}>${t.change.line}` : t.line),
+    limit,
+    (t) => (t.change ? undefined : 1),
+  );
 }
 
 /**
