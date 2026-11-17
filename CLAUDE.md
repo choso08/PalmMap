@@ -205,6 +205,12 @@ environment cannot reach.
   - patterns (a day), shapes (a week) and the list of lines (a day) are kept on the phone
     (`keptOrAsked`, `Paths.cache/carris`, pruned after 14 days), as the stop list already is.
   The Settings line gives the most per hour ("less with the map still").
+- **Bus models: not available** (author asked, 17 November; `sondar: bus_models`). Carris
+  Metropolitana's `/vehicles` has `make`, `model`, `propulsion`, `emission_class`,
+  `capacity_*`, `license_plate`, `registration_date` and `wheelchair_accessible`, but all
+  947 live buses had them empty (`bikes_allowed` always false, `occupancy_status` always
+  `NO_DATA_AVAILABLE`). Only `agency_id` (41–44, the four contracted areas) is filled. Probe
+  again before building on any of these.
 - **Fares, probed 17 November** (`sondar: fares`): only some exist as data. Metro de
   Lisboa's GTFS has `fare_attributes` (1,90 €, the Carris/Metro ticket, same as its price
   page); Transtejo/Soflusa's (the old Mobility Database copy) one price per crossing (MT
