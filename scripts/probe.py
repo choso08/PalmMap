@@ -1278,6 +1278,83 @@ def fares():
             print("   ", text[max(0, i - 110): i + 20])
 
 
+def data_use():
+    """What the transport requests cost on the wire: compressed and raw sizes,
+    whether the server answers 304 to a repeat, filters that might shrink the
+    fleet list, and how often positions really change."""
+    import gzip
+
+    def fetch(url, extra=None):
+        headers = {"User-Agent": UA, "Accept-Encoding": "gzip"}
+        headers.update(extra or {})
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                body = r.read()
+                return r.status, dict(r.headers), body
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read()
+
+    def size(url, label=None):
+        st, h, body = fetch(url)
+        raw = gzip.decompress(body) if h.get("Content-Encoding") == "gzip" else body
+        print(f"{label or url}: {st} wire {len(body)/1024:.0f} KB, raw {len(raw)/1024:.0f} KB, "
+              f"enc={h.get('Content-Encoding')} etag={h.get('ETag')} lm={h.get('Last-Modified')} "
+              f"cc={h.get('Cache-Control')}")
+        return st, h, raw
+
+    section("Wire sizes")
+    st, h, raw = size(CARRIS + "/vehicles", "vehicles")
+    if h.get("ETag"):
+        st2, h2, b2 = fetch(CARRIS + "/vehicles", {"If-None-Match": h["ETag"]})
+        print("  repeat with If-None-Match:", st2, len(b2), "bytes")
+    try:
+        first = json.loads(raw)
+        print("  vehicles:", len(first), "fields:", sorted(first[0].keys()) if first else None)
+        now = time.time() * 1000
+        fresh = [v for v in first if v.get("timestamp") and now - v["timestamp"] < 120000]
+        print("  reported in the last 2 min:", len(fresh))
+        print("  a fresh one:", json.dumps(fresh[0])[:600] if fresh else None)
+    except Exception as e:  # noqa: BLE001
+        print("  parse failed", e)
+        first = []
+    for q in ("?agency_id=41", "?line_id=3601", "?lat=38.7&lon=-9.14&radius=2000",
+              "?bbox=-9.2,38.7,-9.1,38.75", "?fields=id,lat,lon"):
+        st, h, b = fetch(CARRIS + "/vehicles" + q)
+        print(f"  /vehicles{q}: {st} {len(b)/1024:.0f} KB wire")
+    for url in ("https://api.carrismetropolitana.pt/v2/vehicles/by_line/3601",
+                "https://api.carrismetropolitana.pt/v2/lines/3601/vehicles",
+                "https://go.tmlmobilidade.pt/hub/api/v1/vehicles",
+                "https://api.carrismetropolitana.pt/v2/gtfs/realtime/vehicle-positions",
+                "https://api.carrismetropolitana.pt/gtfs-rt"):
+        st, h, b = fetch(url)
+        print(f"  {url}: {st} {len(b)/1024:.0f} KB wire, {h.get('Content-Type')}")
+
+    time.sleep(10)
+    st, h, raw2 = fetch(CARRIS + "/vehicles")
+    try:
+        second = json.loads(gzip.decompress(raw2) if h.get("Content-Encoding") == "gzip" else raw2)
+        a = {v["id"]: (v.get("lat"), v.get("lon"), v.get("timestamp")) for v in first}
+        changed = sum(1 for v in second if a.get(v["id"]) != (v.get("lat"), v.get("lon"), v.get("timestamp")))
+        print(f"  10 s later: {changed} of {len(second)} changed")
+    except Exception as e:  # noqa: BLE001
+        print("  second parse failed", e)
+
+    size(CARRIS + "/stops", "stops")
+    size(CARRIS + "/lines", "lines")
+    size(CARRIS + "/alerts", "alerts")
+    size(CARRIS + "/arrivals/by_stop/010001", "arrivals one stop")
+    try:
+        pattern_id = json.loads(fetch(CARRIS + "/lines")[2] if False else size(CARRIS + "/lines", "lines again")[2])[0]["pattern_ids"][0]
+        _, _, praw = size(CARRIS + "/patterns/" + pattern_id, "one pattern")
+        shape = json.loads(praw)[0].get("shape_id") if praw[:1] == b"[" else json.loads(praw).get("shape_id")
+        if shape:
+            size(CARRIS + "/shapes/" + shape, "its shape")
+    except Exception as e:  # noqa: BLE001
+        print("pattern failed", e)
+    size("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions", "carris lisboa vp")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
