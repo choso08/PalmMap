@@ -10,6 +10,9 @@ on:
 
 permissions:
   contents: write
+  # To sign the build provenance (see "Prove where the APK came from").
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -115,13 +118,63 @@ jobs:
           echo "ANTERIOR=$ANTERIOR" >> "$GITHUB_ENV"
           cat MUDANCAS.md
 
+      - name: Name the APK
+        run: |
+          mv android/app/build/outputs/apk/release/app-release.apk PalmMap.apk
+          echo "APK_SHA256=$(sha256sum PalmMap.apk | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      # A signed statement, kept by GitHub, that this exact file (by its
+      # SHA-256) was built by this workflow from this commit of this repository
+      # (author's request, November 2026: "how do people know it has no virus?").
+      # Anyone can check it: `gh attestation verify PalmMap.apk -R <owner>/<repo>`.
+      # Nobody without write access to the repository can make one.
+      - name: Prove where the APK came from
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: PalmMap.apk
+
+      # Every new APK goes to VirusTotal (~70 antivirus engines) and the result
+      # goes in the release notes. It shows no known engine flags the file — not
+      # that it is clean; the source being public is what shows that. Needs the
+      # `VT_API_KEY` secret (a free VirusTotal account's key); without it this
+      # step says so and the build carries on. The public API allows 4 requests
+      # a minute, so the result is asked every 20 s, for at most 8 minutes.
+      - name: Scan the APK on VirusTotal
+        continue-on-error: true
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          if [ -z "$VT_API_KEY" ]; then
+            echo "No VT_API_KEY secret: no scan this time."
+            exit 0
+          fi
+          LINK="https://www.virustotal.com/gui/file/$APK_SHA256"
+          # Files over 32 MB need an upload address of their own.
+          UPLOAD=$(curl -sSf -H "x-apikey: $VT_API_KEY" \
+            https://www.virustotal.com/api/v3/files/upload_url | jq -r .data)
+          ANALYSIS=$(curl -sSf -H "x-apikey: $VT_API_KEY" -F "file=@PalmMap.apk" "$UPLOAD" \
+            | jq -r .data.id)
+          echo "Analysis $ANALYSIS"
+          RESULT=""
+          for _ in $(seq 1 24); do
+            sleep 20
+            RESULT=$(curl -sSf -H "x-apikey: $VT_API_KEY" \
+              "https://www.virustotal.com/api/v3/analyses/$ANALYSIS" || true)
+            [ "$(jq -r .data.attributes.status <<< "$RESULT")" = completed ] && break
+          done
+          if [ "$(jq -r .data.attributes.status <<< "$RESULT")" = completed ]; then
+            BAD=$(jq '.data.attributes.stats | .malicious + .suspicious' <<< "$RESULT")
+            ALL=$(jq '.data.attributes.stats | .malicious + .suspicious + .undetected + .harmless' <<< "$RESULT")
+            echo "VirusTotal: $BAD of $ALL engines flag it — $LINK" | tee VT.md
+          else
+            echo "VirusTotal: scan still running — $LINK" | tee VT.md
+          fi
+
       - name: Publish the APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mv android/app/build/outputs/apk/release/app-release.apk PalmMap.apk
           SIZE=$(du -h PalmMap.apk | cut -f1)
-          SHA=$(sha256sum PalmMap.apk | cut -c1-16)
           VERSAO=$(jq -r '.expo.version' app.json)
 
           {
@@ -135,12 +188,24 @@ jobs:
             echo "It is the full app: it installs over the previous one without losing"
             echo "settings, saved places or downloaded maps."
             echo
-            echo "Version $VERSAO · $SIZE · SHA-256 starts with \`$SHA\`"
+            echo "Version $VERSAO · $SIZE"
+            echo
+            echo "## Verify"
+            echo
+            echo "- SHA-256: \`$APK_SHA256\`"
+            echo "- Built by GitHub Actions from commit ${{ github.sha }} of this public repository:"
+            echo "  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Signed build provenance: \`gh attestation verify PalmMap.apk -R ${{ github.repository }}\`"
+            echo "  (${{ github.server_url }}/${{ github.repository }}/attestations)"
+            if [ -s VT.md ]; then
+              echo "- $(cat VT.md)"
+            fi
             if [ -n "$ANTERIOR" ]; then
               echo
               echo "Full changes: https://github.com/${{ github.repository }}/compare/$ANTERIOR...apk-${{ github.run_number }}"
             fi
           } > NOTAS.md
+          cat NOTAS.md
 
           gh release create "apk-${{ github.run_number }}" PalmMap.apk \
             --title "PalmMap $VERSAO" \

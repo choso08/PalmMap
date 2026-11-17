@@ -21,6 +21,18 @@ the browser or file manager that opens the file.
 
 The APK is built only for **arm64-v8a**, the processor of every current Android phone.
 
+### Is this APK really from here?
+
+Every APK is built by GitHub Actions from this public repository, never on someone's
+computer, and each Release says how to check it:
+
+- **SHA-256** of the file — compare with `sha256sum PalmMap.apk`.
+- **Signed build provenance**: `gh attestation verify PalmMap.apk -R choso08/PalmMap`
+  proves this exact file came from this repository's workflow, at the commit named.
+- **VirusTotal**: the link to the scan of that file by about seventy antivirus engines.
+
+None of this proves there is no fault in the code — the code is here for anyone to read.
+
 ## What it does
 
 **Map** — drawn, satellite imagery or the public transport network, in light or dark theme
