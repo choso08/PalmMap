@@ -1514,6 +1514,27 @@ def ortho_formats():
                 print(f"  {name} {place} {fmt}: {st} {ct} {len(b)}")
 
 
+def tls_chains():
+    """Which certificate chain each imagery server sends, and the root it ends on: an old
+    Android (11 and below) only trusts the roots it shipped with, so a server on a newer
+    root works on a recent phone and fails, silently, on an old one."""
+    import subprocess
+    section("TLS CHAINS")
+    for host in ("ortos.dgterritorio.gov.pt", "www.ign.es", "tiles.maps.eox.at",
+                 "tile.openstreetmap.org", "tiles.openfreemap.org"):
+        try:
+            out = subprocess.run(
+                ["openssl", "s_client", "-connect", f"{host}:443", "-servername", host, "-showcerts"],
+                input=b"", capture_output=True, timeout=30).stdout.decode("utf-8", "replace")
+        except Exception as e:  # noqa: BLE001
+            print(host, "FAILED", e)
+            continue
+        print(f"--- {host}")
+        for line in out.splitlines():
+            if re.match(r"\s*\d+ s:", line) or re.match(r"\s*i:", line) or "Verify return code" in line:
+                print("  ", line.strip())
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
