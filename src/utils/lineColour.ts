@@ -11,25 +11,55 @@
  *   service (`RideLeg.colour`, a pattern's or a line's) still wins.
  * - Carris de Lisboa: a deep blue for buses; its trams and lifts (`28E`, `51E`)
  *   orange, which no one else uses.
- * - Metro de Lisboa: its four lines by name; anything else its grey.
- * - CP green, Fertagus purple, Transtejo/Soflusa sky blue, Metro Sul do Tejo
- *   teal.
+ * - Metro de Lisboa and Transtejo/Soflusa: each line its own colour, from
+ *   their GTFS; Metro Sul do Tejo's three lines chosen apart from the metro's.
+ * - CP green, Fertagus purple.
  *
  * Ids are the stored timetables' (`ScheduleFeedInfo.id`); a live Carris
  * Metropolitana bus is `carris-metropolitana`, Carris de Lisboa's live
  * vehicles `carris-lisboa`.
  */
 
-/** Metro de Lisboa, by `route_short_name` (Am, Az, Vd, Vm) or long name. */
+/**
+ * Metro de Lisboa, by `route_short_name` (Am, Az, Vd, Vm) or long name — the
+ * `route_color` of its own GTFS (probed November 2026, `sondar: fares`).
+ */
 const METRO_LISBOA: Record<string, string> = {
-  am: '#F2B705',
-  amarela: '#F2B705',
-  az: '#4E84C4',
-  azul: '#4E84C4',
-  vd: '#00A99D',
-  verde: '#00A99D',
-  vm: '#E8364F',
-  vermelha: '#E8364F',
+  am: '#FFCC00',
+  amarela: '#FFCC00',
+  az: '#6699CC',
+  azul: '#6699CC',
+  vd: '#00CC99',
+  verde: '#00CC99',
+  vm: '#FF3366',
+  vermelha: '#FF3366',
+};
+
+/** Transtejo/Soflusa's five crossings: its GTFS's `route_color`. */
+const TRANSTEJO: Record<string, string> = {
+  mt: '#E6126C',
+  sx: '#009A9E',
+  ca: '#FAB900',
+  br: '#5185C4',
+  tf: '#ED7402',
+};
+
+/**
+ * Metro Sul do Tejo's three lines. Its timetable service gives no colours, so
+ * these are chosen to stay apart from Metro de Lisboa's four (author's
+ * report: one teal for all of it looked like the Verde line).
+ */
+const MTS: Record<string, string> = {
+  l1: '#7AB800',
+  l2: '#F39200',
+  l3: '#00A3E0',
+};
+
+/** Per operator, its lines' own colours, by short name. */
+const BY_LINE: Record<string, Record<string, string>> = {
+  metro: METRO_LISBOA,
+  ttsl: TRANSTEJO,
+  mst: MTS,
 };
 
 export const OPERATOR_COLOURS: Record<string, string> = {
@@ -39,7 +69,7 @@ export const OPERATOR_COLOURS: Record<string, string> = {
   cp: '#2E8B3E',
   fertagus: '#7B2D8E',
   ttsl: '#0096D6',
-  mst: '#00897B',
+  mst: '#7AB800',
 };
 
 /** Carris de Lisboa's trams and lifts: a number and an E. */
@@ -101,7 +131,7 @@ export function operatorColour(operator: string | undefined, fallback: string): 
 }
 
 /**
- * The line's colour: Metro de Lisboa's lines by name, Carris de Lisboa's
+ * The line's colour: a line's own (metro, ferries, MTS), Carris de Lisboa's
  * trams, then the operator's, then the mode's, then `fallback`.
  */
 export function lineColour(
@@ -111,11 +141,10 @@ export function lineColour(
   operator?: string,
 ): string {
   const op = operatorId(operator);
-  if (kind === 'subway' || op === 'metro') {
-    const metro = METRO_LISBOA[line.trim().toLowerCase()];
-    if (metro) {
-      return metro;
-    }
+  const name = line.trim().toLowerCase();
+  const own = (op && BY_LINE[op]?.[name]) || (kind === 'subway' ? METRO_LISBOA[name] : undefined);
+  if (own) {
+    return own;
   }
   if (op === 'carris-lisboa' && /^\d+E$/i.test(line.trim())) {
     return TRAM_COLOUR;

@@ -181,12 +181,21 @@ environment cannot reach.
   to the Moovit points and the timetable speed fixes below.
 - **Colours per operator** (author's request, 17 November; not seen on a phone):
   `OPERATOR_COLOURS` in `src/utils/lineColour.ts` — Carris Metropolitana yellow `#FFD100`,
-  Carris de Lisboa deep blue `#1E3A8A` (its trams and lifts, `\d+E`, orange), Metro de
-  Lisboa its four lines (grey otherwise), CP green, Fertagus purple, Transtejo/Soflusa sky
-  blue, Metro Sul do Tejo teal. Badges and timelines pass the operator (`tripOperator`,
+  Carris de Lisboa deep blue `#1E3A8A` (its trams and lifts, `\d+E`, orange), CP green,
+  Fertagus purple. **Each line its own** (`BY_LINE`) where known: Metro de Lisboa and
+  Transtejo/Soflusa from their GTFS `route_color` (probed, `sondar: fares`); Metro Sul do
+  Tejo's L1/L2/L3 lime, orange and cyan — its service has no colours, and one teal for all
+  of it looked like the metro's Verde line (author's report). The MTS station pin is lime too. Badges and timelines pass the operator (`tripOperator`,
   `rideOperator`, `RideLeg.operator`, `ScheduleDeparture.feedId`); a Carris Metropolitana
   line's own colour from the service still wins. The live buses on the map use the same two
   colours (`generate-poi-icons.py`, `VEHICLE_OPERATORS`; same list as `lineColour.ts`).
+- **Fares, probed 17 November** (`sondar: fares`): only some exist as data. Metro de
+  Lisboa's GTFS has `fare_attributes` (1,90 €, the Carris/Metro ticket, same as its price
+  page); Transtejo/Soflusa's (the old Mobility Database copy) one price per crossing (MT
+  3,25, SX 2,85, CA 1,60, BR 2,95, TF 1,50 — possibly out of date); TUB 1,55/2,00; MTS's
+  price page says 0,85 €. **None** in CP, Fertagus, Carris de Lisboa or Carris Metropolitana
+  (its `/fares` is 404; its and navegante's pages are drawn by JavaScript). The Carris
+  Metropolitana GTFS address on GitHub is 404 now; `api.carrismetropolitana.pt/gtfs` serves it.
 - **Transport loading, round two** (author, 17 November: "slow to load, above all the
   transport"; asked whether Rust would help — the answer was the file format first, measured):
   - **Timetables v2** (`<id>.v2.json`, `ScheduleFeedV2`): trips that share line, service,
