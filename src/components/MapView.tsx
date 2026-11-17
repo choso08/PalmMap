@@ -211,6 +211,8 @@ interface MapViewProps {
    * bottom panels — see `compassBottom`, in `App.tsx`.
    */
   compassBottom: number;
+  /** Where the scale bar goes, from the top; null hides it. */
+  scaleBarTop: number | null;
   /** Country maps stored on the phone, for use without a network. */
   offlineRegions: OfflineRegion[];
   /**
@@ -316,6 +318,8 @@ const NONE: never[] = [];
 /** Where the camera starts while the person's position is not yet known. */
 const DEFAULT_CENTER: [number, number] = [-9.1393, 38.7223]; // Lisboa
 const DEFAULT_ZOOM = 11;
+/** From this zoom the station pins show (the open one always does). */
+const STATIONS_MIN_ZOOM = 13;
 
 /**
  * Below this zoom the stored country no longer changes.
@@ -366,6 +370,7 @@ export function MapView({
   onStationPress,
   selectedStationId = null,
   compassBottom,
+  scaleBarTop,
   offlineRegions,
   labelsReady,
   ref,
@@ -969,6 +974,11 @@ export function MapView({
       // matching — and since the compass only shows with the map rotated, the
       // misalignment would go unnoticed.
       compassPosition={{ bottom: compassBottom, left: 16 }}
+      // A small scale, as in Maps (author's request). Android only places it
+      // top-left; `App.tsx` gives the height under the search and category
+      // bars, and none while navigating (the manoeuvre banner is there).
+      scaleBar={scaleBarTop !== null}
+      scaleBarPosition={{ top: scaleBarTop ?? 0, left: 16 }}
       onDidFinishLoadingMap={handleMapReady}
       onDidFailLoadingMap={handleFailure}
       onRegionDidChange={handleRegionDidChange}
@@ -1235,10 +1245,37 @@ export function MapView({
               'circle-stroke-color': theme.accent,
             }}
           />
+          {/*
+            Only from zoom {STATIONS_MIN_ZOOM}: zoomed out over a whole city, a
+            handful of pins in the middle of it looked like a fault (author's
+            photo). The open station shows at any zoom.
+          */}
           <Layer
             key="estacoes-icon"
             id="estacoes-icon"
             type="symbol"
+            minzoom={STATIONS_MIN_ZOOM}
+            filter={['!=', ['get', 'aberta'], 1]}
+            layout={{
+              'icon-image': ['concat', 'station-', ['get', 'tipo']],
+              'icon-size': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                11,
+                ['case', ['==', ['get', 'aberta'], 1], 1.1, 0.7],
+                16,
+                ['case', ['==', ['get', 'aberta'], 1], 1.4, 1.05],
+              ],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+          />
+          <Layer
+            key="estacoes-icon-aberta"
+            id="estacoes-icon-aberta"
+            type="symbol"
+            filter={['==', ['get', 'aberta'], 1]}
             layout={{
               'icon-image': ['concat', 'station-', ['get', 'tipo']],
               'icon-size': [
@@ -1259,7 +1296,7 @@ export function MapView({
               key="estacoes-label"
               id="estacoes-label"
               type="symbol"
-              minzoom={12}
+              minzoom={STATIONS_MIN_ZOOM + 1}
               layout={{
                 'text-field': ['get', 'nome'],
                 'text-font': ['Noto Sans Medium'],

@@ -150,7 +150,12 @@ environment cannot reach.
     number in a pill underneath (see 6-B-5).
   - **A tapped stop or station opens alone** — its panel shows only its passages; the clock
     button that opened the "stops nearby" list is gone.
-  - **Station pins** for train, metro, light rail and boat (`station-<kind>` images), tappable.
+  - **Station pins** for train, metro, light rail and boat (`station-<kind>` images), tappable;
+    **only from zoom `STATIONS_MIN_ZOOM` (13)** — zoomed out over a city, a few pins in the
+    middle looked like a fault (author's photo, 17 November); the open station shows at any zoom.
+  - **A scale bar**, as in Maps (author's request, 17 November): MapLibre's own (`scaleBar`),
+    which Android only places top-left — under the search and category bars
+    (`SCALE_BAR_TOP` in `App.tsx`), hidden while navigating.
   - **Business photos** in the card (`photos.ts`): OSM's `image`, `wikimedia_commons`,
     `wikidata` (P18) and `panoramax` tags, else a Panoramax street photo within 25 m. No keys.
   - **Carris de Lisboa timetables** generated and published (`horarios`); its timetable-only
