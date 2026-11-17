@@ -1,6 +1,6 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["expo.modules.palmmapvoice.VoiceInputModule"]
+    "modules": ["expo.modules.palmmapvoice.VoiceInputModule", "expo.modules.palmmapvoice.CompassModule"]
   }
 }

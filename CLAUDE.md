@@ -499,10 +499,15 @@ environment cannot reach.
   the app's own code in `trajetos`.
 - **"Satélite + bus" map type** (`satelliteTransit`, `isTransitMap`): the satellite underneath,
   with the live buses, Carris stops and arrivals button of the transport map on top.
-- **The compass cone is smoothed** (author's report, 17 November: "very buggy" on the Galaxy
-  A20e; not seen on a phone): `expo-location`'s heading is the raw accelerometer +
-  magnetometer sum, unfiltered, so `watchCompass` averages it as a direction
-  (`HEADING_SMOOTHING`, a third of each reading, about half a second).
+- **The compass cone has its own native compass** (author's report, 17 November: "very
+  buggy", on the Galaxy A20e and other phones; not seen on a phone, needs a full build):
+  `expo-location`'s heading is the raw accelerometer + magnetometer sum, unfiltered, read with
+  `getOrientation`, which goes wild with the phone upright. `CompassModule.kt`
+  (`modules/palmmap-voice`, `PalmMapCompass`) reads Android's fused `TYPE_ROTATION_VECTOR`,
+  else `TYPE_GEOMAGNETIC_ROTATION_VECTOR` (no gyroscope), else the raw pair low-passed; the
+  direction is the top edge plus the back (`R[1]-R[2]`, `R[4]-R[5]`), so flat, upright and
+  in between agree; true north from the last fix's declination. `watchCompass` prefers it,
+  falls back to `expo-location`, and averages either as a direction (`HEADING_SMOOTHING`).
 - **The compass cone keeps one size**: it was `icon-pitch-alignment: 'map'`, which drew it at
   its tile's size and made it grow and shrink against the dot with the zoom (author's report);
   now `'viewport'`.
@@ -822,7 +827,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
 ├── modules/
-│   └── palmmap-voice/      # Our only native code: the speech recogniser, safely (Kotlin)
+│   └── palmmap-voice/      # Our only native code: speech recogniser and compass (Kotlin)
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/

@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { requireOptionalNativeModule } from 'expo';
 
 import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
@@ -527,18 +528,31 @@ export async function getCurrentPosition(): Promise<Coordinates | null> {
   }
 }
 
+/** `modules/palmmap-voice`'s compass (CompassModule.kt). */
+interface PalmMapCompassModule {
+  start(latitude: number | null, longitude: number | null): boolean;
+  stop(): void;
+  addListener(
+    event: 'heading',
+    listener: (reading: { degrees: number; accuracy: number }) => void,
+  ): { remove(): void };
+}
+
+/** Which native compass watch is the current one. */
+let compassGeneration = 0;
+
 /** Smallest compass change worth redrawing the cone for. */
 const HEADING_MIN_CHANGE_DEG = 4;
 
 /**
  * How much of each new compass reading goes into the smoothed one (0–1).
  *
- * `expo-location` hands on the raw accelerometer + magnetometer sum, with no
- * filter: on cheap phones (a Galaxy A20e, author's report) the cone shook and
- * jumped tens of degrees standing still. Readings come about five a second, so
- * a third makes a time constant of about half a second.
+ * The cone shook and jumped on several phones (author's report, November
+ * 2026). Our native compass is already filtered and sends ~15 readings a
+ * second, so this only takes the last wobble off; `expo-location`'s raw
+ * heading, the fallback, comes ~5 a second and needs it more.
  */
-const HEADING_SMOOTHING = 0.3;
+const HEADING_SMOOTHING = 0.35;
 
 /**
  * The compass: which way the phone points, in degrees from north.
@@ -566,10 +580,7 @@ export async function watchCompass(onChange: (degrees: number) => void): Promise
     // The smoothed direction as a vector; null until the first reading.
     let sx: number | null = null;
     let sy = 0;
-    const subscription = await Location.watchHeadingAsync((reading) => {
-      // `trueHeading` is -1 until the phone knows where it is; magnetic north
-      // is a few degrees off in Portugal, which does not show on a cone.
-      const raw = reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading;
+    const take = (raw: number) => {
       if (!(raw >= 0)) {
         return;
       }
@@ -591,6 +602,34 @@ export async function watchCompass(onChange: (degrees: number) => void): Promise
         last = degrees;
         onChange(degrees);
       }
+    };
+
+    // Ours first: Android's fused rotation vector, steady with the phone
+    // upright (see CompassModule.kt). Missing only in an APK built before it.
+    const native = requireOptionalNativeModule<PalmMapCompassModule>('PalmMapCompass');
+    if (native) {
+      // One sensor for the whole app: a stop from an older watch must not end
+      // a newer one.
+      const mine = ++compassGeneration;
+      const halt = () => {
+        listener.remove();
+        if (mine === compassGeneration) {
+          native.stop();
+        }
+      };
+      const at = lastFix?.coordinates;
+      const listener = native.addListener('heading', (reading) => take(reading.degrees));
+      if (native.start(at?.latitude ?? null, at?.longitude ?? null)) {
+        return halt;
+      }
+      halt();
+      return () => undefined;
+    }
+
+    const subscription = await Location.watchHeadingAsync((reading) => {
+      // `trueHeading` is -1 until the phone knows where it is; magnetic north
+      // is a few degrees off in Portugal, which does not show on a cone.
+      take(reading.trueHeading >= 0 ? reading.trueHeading : reading.magHeading);
     });
     return () => subscription.remove();
   } catch {
