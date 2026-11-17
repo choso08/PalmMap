@@ -263,6 +263,10 @@ environment cannot reach.
     already downloaded (`downloadedUpdate`). The installer no longer opens from the
     background, which Android refuses — the notice does it. Permission asked when the
     download starts.
+- **Built in 7.0.49** (17 November): everything after 7.0.48 below — trail mode, the
+  time-to-go and get-off notifications, the security fixes, the Lagoon palette, the
+  update-downloaded notice, timetables v2, the kept stop list and Carris caches, the new scale
+  bar, colours per operator and line, and less data for live buses.
 - **Built in 7.0.48** (17 November): the favourites screen (Home, Work, favourite lines).
 - **After 7.0.48** (author: "do the other things", 17 November; none seen on a phone):
   a **time-to-go reminder** — a bell beside Start for a planned transport trip, shown when
