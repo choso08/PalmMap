@@ -686,15 +686,6 @@ the same. When touching `app.json`, touch only the `7.0`.
 The same number is the `versionCode`. Without a new number, Android refuses to install over
 a previous version.
 
-**How anyone can trust an APK** (author's question, 17 November 2026: "how do people know
-it has no virus?"). Each Release's notes give the **full SHA-256**, the run and commit it was
-built from, a **signed build provenance** (`actions/attest-build-provenance`; check with
-`gh attestation verify PalmMap.apk -R choso08/PalmMap`) and a **VirusTotal** scan
-(`VT_API_KEY` repository secret, a free account's key — without it the step says so and
-the build carries on; it waits up to 8 min for the result, else gives the link). The
-signing key is still React Native's public debug key — see the security review in "Where
-this stands"; the author has not chosen a key of our own yet.
-
 **No verification machinery in the Releases** (author's decision, 17 November 2026): a
 VirusTotal scan, signed build provenance and a "Verify" section were added and taken out the
 same day — the author found that, to someone wary, all of it reads as a reason to give up.
