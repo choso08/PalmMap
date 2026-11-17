@@ -175,6 +175,8 @@ environment cannot reach.
 - **Built in 7.0.45 and 7.0.46** (17 November): 7.0.46 carries everything up to the bell that
   lights at once and the notification icon. Not in it yet: the scale bar, station pins from
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
+- **Built in 7.0.47** (17 November): everything above, from the scale bar and station pins
+  to the Moovit points and the timetable speed fixes below.
 - **"The app takes ages to load"** (author, 17 November, after 7.0.46; not seen on a phone):
   the stored timetables were the suspects, measured with the real published files in Node
   (`schedules.ts` compiled, `expo-file-system` stubbed). Opening one built a per-trip index —
