@@ -246,13 +246,14 @@ environment cannot reach.
     `5e8f1606…`, up to 7.0.49 and whatever came before our key): `expo prebuild`'s template
     signs `release` with `debug.keystore`, which everyone has — anyone could sign an APK
     Android accepts as an update of PalmMap, and AhnLab flagged the APK as
-    `PUP/Android.Malct` (1 of 63 on VirusTotal, 17 November). **Now our own key** (author's
-    decision, 17 November): the author made it and put it in the repository's secrets
+    `PUP/Android.Malct` (1 of 63 on VirusTotal, 17 November). **Our own key, ready but not made yet** (author's
+    decision, 17 November): the author is to make it and put it in the repository's secrets
     `PALMMAP_KEYSTORE_BASE64` (the `.jks`, base64) and `PALMMAP_KEYSTORE_PASSWORD` (store and
     key, alias `palmmap`). `build-apk.yml` writes it to `$RUNNER_TEMP`, and
     `plugins/withReleaseSigning.js` (an Expo config plugin, only when `PALMMAP_KEYSTORE` is
-    set) gives `release` a signing config read from the environment. The build **stops**
-    without the secrets, and fails if the APK still says `CN=Android Debug`. When the
+    set) gives `release` a signing config read from the environment. **Until the secrets exist
+    the build signs with the debug key and warns** (the author asked to build before making
+    the key); with them, it fails if the APK still says `CN=Android Debug`. When the
     certificate differs from the previous Release's APK, the notes tell people to uninstall
     first — Android refuses an update with another key, and the old app's in-app updater
     just ends in "App not installed" (saved places and downloads are lost once). **Losing the

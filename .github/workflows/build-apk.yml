@@ -61,17 +61,17 @@ jobs:
       # PalmMap's own signing key (author's decision, November 2026), from the
       # repository's secrets: the keystore in base64 and its password. It used
       # to be React Native's public debug key, which anyone has — anyone could
-      # sign an APK Android would accept as an update of PalmMap. Without the
-      # secrets the build stops here: a debug-signed APK after this would not
-      # install over the ones signed with our key.
+      # sign an APK Android would accept as an update of PalmMap. Until the
+      # author adds the secrets (they asked to build without them, 17 November
+      # 2026), the build carries on with the debug key and says so.
       - name: Put the signing key in place
         env:
           KEYSTORE_BASE64: ${{ secrets.PALMMAP_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.PALMMAP_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::error::Missing the PALMMAP_KEYSTORE_BASE64 / PALMMAP_KEYSTORE_PASSWORD secrets."
-            exit 1
+            echo "::warning::No PALMMAP_KEYSTORE_* secrets: signed with the public debug key."
+            exit 0
           fi
           KS="$RUNNER_TEMP/palmmap.jks"
           echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
@@ -114,7 +114,9 @@ jobs:
           "$TOOLS/aapt2" dump badging "$APK" | grep -E "^package|sdkVersion|native-code"
           echo "--- signature ---"
           "$TOOLS/apksigner" verify --print-certs -v "$APK" | tee CERTS.txt
-          if grep -q "CN=Android Debug" CERTS.txt; then
+          # With our key in place, a debug-signed APK means the signing did not
+          # take: stop rather than publish one that will not update.
+          if [ -n "$PALMMAP_KEYSTORE" ] && grep -q "CN=Android Debug" CERTS.txt; then
             echo "::error::The APK is signed with the public debug key, not PalmMap's."
             exit 1
           fi
