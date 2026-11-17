@@ -26,16 +26,18 @@ function roundDistance(maxMetres: number): number {
 
 /**
  * The scale, as in Google Maps (author's report, November 2026: MapLibre's
- * own sat at the top under the search, always on, and Android only lets it
- * go top-left). This one sits low on the left, next to where the compass
- * shows, appears while zooming and fades out a moment after — when one is
- * judging a distance, and not in the way otherwise. Metric always, as the
- * speedometer.
+ * own sat at the top under the search, always on). This one appears only
+ * while zooming and fades out a moment after — when one is judging a
+ * distance, and not in the way otherwise. It sits top-left under the category
+ * chips, as Google Maps shows it: low on the left it followed the floating
+ * buttons' height, and with a bus's panel open it ended up floating in the
+ * middle of the map (author's photo, 7.0.49). Metric always, as the
+ * speedometer. A faint pill behind it keeps it readable on satellite.
  *
  * Its state lives here, not in the map: it changes on every camera frame.
  */
-export const ScaleBar = forwardRef<ScaleBarRef, { bottom: number; left: number }>(
-  function ScaleBar({ bottom, left }, ref) {
+export const ScaleBar = forwardRef<ScaleBarRef, { top: number; left: number }>(
+  function ScaleBar({ top, left }, ref) {
     const theme = useTheme();
     const units = useT().units;
     const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -87,7 +89,7 @@ export const ScaleBar = forwardRef<ScaleBarRef, { bottom: number; left: number }
       return null;
     }
     return (
-      <Animated.View pointerEvents="none" style={[styles.box, { bottom, left, opacity }]}>
+      <Animated.View pointerEvents="none" style={[styles.box, { top, left, opacity }]}>
         <Text style={styles.label}>
           {scale.metres < 1000
             ? formatDistance(scale.metres)
@@ -100,28 +102,36 @@ export const ScaleBar = forwardRef<ScaleBarRef, { bottom: number; left: number }
 );
 
 function makeStyles(theme: Theme) {
+  // The map's own text colours: dark on a light map, light on a dark one,
+  // with a halo of the other so it reads on satellite too.
+  const ink = theme.dark ? '#FFFFFF' : '#1F1F1F';
+  const halo = theme.dark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.9)';
   return StyleSheet.create({
+    // A faint pill: the line has no halo on Android (no shadows on a View).
     box: {
       position: 'absolute',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      backgroundColor: theme.surface,
-      elevation: 2,
+      paddingHorizontal: 6,
+      paddingTop: 2,
+      paddingBottom: 4,
+      borderRadius: 6,
+      backgroundColor: theme.dark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.7)',
     },
     label: {
       fontSize: 11,
-      fontWeight: '600',
-      color: theme.text,
-      marginBottom: 2,
+      fontWeight: '700',
+      color: ink,
+      marginBottom: 1,
+      textShadowColor: halo,
+      textShadowRadius: 3,
+      textShadowOffset: { width: 0, height: 0 },
     },
     // A bracket, as a ruler: the line with its two ends up.
     bar: {
       height: 5,
-      borderLeftWidth: 1.5,
-      borderRightWidth: 1.5,
-      borderBottomWidth: 1.5,
-      borderColor: theme.text,
+      borderLeftWidth: 2,
+      borderRightWidth: 2,
+      borderBottomWidth: 2,
+      borderColor: ink,
     },
   });
 }

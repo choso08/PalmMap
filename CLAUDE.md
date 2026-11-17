@@ -160,9 +160,11 @@ environment cannot reach.
     middle looked like a fault (author's photo, 17 November); the open station shows at any zoom.
   - **A scale bar**, as in Maps (author's request, 17 November). First MapLibre's own, which
     Android only places top-left; the author found it inconvenient, so it is now ours
-    (`ScaleBar.tsx`): low on the left beside the compass (`compassBottom`), shown while the
+    (`ScaleBar.tsx`): top-left under the category chips (`SCALE_BAR_TOP`), shown while the
     zoom changes (`onRegionIsChanging`, a drag alone does not bring it up) and fading out
-    2.5 s after, metric, 1/2/5 × 10ⁿ, hidden while navigating.
+    2.5 s after, metric, 1/2/5 × 10ⁿ, on a faint pill, hidden while navigating. In 7.0.49 it
+    sat low on the left at `compassBottom`, which follows the panels: with a bus's panel open
+    it floated mid-map (author's photo) — not tied to the floating buttons again.
   - **Business photos** in the card (`photos.ts`): OSM's `image`, `wikimedia_commons`,
     `wikidata` (P18) and `panoramax` tags, else a Panoramax street photo within 25 m. No keys.
   - **Carris de Lisboa timetables** generated and published (`horarios`); its timetable-only

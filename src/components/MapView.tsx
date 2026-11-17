@@ -228,8 +228,8 @@ interface MapViewProps {
    * bottom panels — see `compassBottom`, in `App.tsx`.
    */
   compassBottom: number;
-  /** Whether the scale may show while zooming (not while navigating). */
-  showScale: boolean;
+  /** Where the scale shows while zooming, from the top; null hides it (navigating). */
+  scaleTop: number | null;
   /** Country maps stored on the phone, for use without a network. */
   offlineRegions: OfflineRegion[];
   /**
@@ -387,7 +387,7 @@ export function MapView({
   onStationPress,
   selectedStationId = null,
   compassBottom,
-  showScale,
+  scaleTop,
   offlineRegions,
   labelsReady,
   ref,
@@ -1914,8 +1914,8 @@ export function MapView({
         </Marker>
       ) : null}
     </Map>
-    {/* Low on the left, beside where the compass appears (`ScaleBar`). */}
-    {showScale ? <ScaleBar ref={scaleRef} bottom={compassBottom + 4} left={64} /> : null}
+    {/* Top-left under the category chips, only while zooming (`ScaleBar`). */}
+    {scaleTop !== null ? <ScaleBar ref={scaleRef} top={scaleTop} left={18} /> : null}
     </>
   );
 }
