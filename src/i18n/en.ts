@@ -464,7 +464,7 @@ export const en: typeof pt = {
       normal: 'Normal',
       alta: 'High',
     },
-    satelliteHighHint: 'House by house, Portugal only. Uses more data.',
+    satelliteHighHint: 'House by house, in Portugal and Spain. Uses more data.',
 
     map: 'Map',
     trails: 'Marked trails',
@@ -568,6 +568,7 @@ export const en: typeof pt = {
     sentinel:
       'Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
     orthophotos: 'Aerial imagery © Direção-Geral do Território',
+    pnoa: 'PNOA courtesy of © Instituto Geográfico Nacional (CC BY 4.0 scne.es)',
   },
 
   hints: {

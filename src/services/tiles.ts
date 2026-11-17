@@ -215,6 +215,19 @@ const SATELLITE_STYLE = rasterStyle(
  * The name could not be read from here — the development environment cannot
  * reach this server. It came from the DGT's own documentation.
  */
+/**
+ * **JPEG where there is imagery, transparent PNG where there is none**
+ * (`image/vnd.jpeg-png8`, MapServer's; both services take it). Plain JPEG
+ * answers outside each country's coverage with an opaque square — **white** from
+ * the DGT over Spain and the sea, dark from the PNOA, and the PNOA even sends a
+ * blurry low-resolution picture over Portugal — so the two could not be stacked,
+ * and the DGT's white squares were already on the map along the border. Plain
+ * PNG fixes that at three to ten times the weight (Lisbon 255 KB against 107 KB;
+ * Badajoz 752 KB against 66 KB). This one weighs what the JPEG weighs over
+ * imagery and 139 bytes over nothing (probed, `sondar: ortho_formats`).
+ */
+const ORTHO_FORMAT = '&FORMAT=image/vnd.jpeg-png8&TRANSPARENT=true';
+
 const DGT_ORTOS =
   'https://ortos.dgterritorio.gov.pt/wms/ortosat2023' +
   '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
@@ -227,7 +240,23 @@ const DGT_ORTOS =
   //
   // This beats requesting one more zoom level: the same detail with a quarter
   // of the requests made to a public service.
-  '&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&TRANSPARENT=false';
+  '&WIDTH=512&HEIGHT=512' +
+  ORTHO_FORMAT;
+
+/**
+ * Spain's aerial orthophotos: the IGN's PNOA, "máxima actualidad" — the newest
+ * flight of each area, 15–25 cm per pixel, mainland, Balearics, Canaries, Ceuta
+ * and Melilla. CC BY 4.0 (`scne.es`), "no conditions apply" in the service's
+ * own capabilities (probed 17 November 2026, `sondar: pnoa`). Its WMTS sends
+ * only JPEG or PNG; the WMS below takes `ORTHO_FORMAT` too.
+ */
+const PNOA_ORTOS =
+  'https://www.ign.es/wms-inspire/pnoa-ma' +
+  '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
+  '&LAYERS=OI.OrthoimageCoverage&STYLES=' +
+  '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
+  '&WIDTH=512&HEIGHT=512' +
+  ORTHO_FORMAT;
 
 /**
  * Satellite with the orthophotos' detail wherever there are any.
@@ -249,15 +278,32 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       maxzoom: 14,
       attribution: t().attributions.sentinel,
     },
+    // Spain under Portugal: each is transparent where the other has imagery,
+    // so the order only matters where both do — the DGT's, for Portugal.
+    pnoa: {
+      type: 'raster',
+      tiles: [PNOA_ORTOS],
+      tileSize: 256,
+      maxzoom: 18,
+      // Mainland Spain, the Balearics, Ceuta and Melilla.
+      bounds: [-9.4, 35.1, 4.4, 43.9],
+      attribution: t().attributions.pnoa,
+    },
+    'pnoa-canarias': {
+      type: 'raster',
+      tiles: [PNOA_ORTOS],
+      tileSize: 256,
+      maxzoom: 18,
+      bounds: [-18.2, 27.6, -13.4, 29.5],
+      attribution: t().attributions.pnoa,
+    },
     ortos: {
       type: 'raster',
       tiles: [DGT_ORTOS],
       tileSize: 256,
       maxzoom: 18,
       // **Mainland Portugal only.** Without this MapLibre requested these images
-      // all over the world, and since the service answers with opaque JPEG —
-      // no transparency — what came back was a background rectangle over the
-      // satellite imagery, instead of nothing.
+      // all over the world — empty now (`ORTHO_FORMAT`), but each a request.
       bounds: [-9.6, 36.9, -6.1, 42.2],
       attribution: t().attributions.orthophotos,
     },
@@ -279,6 +325,20 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
     // Spreading the swap over a level solves it without costing **a single
     // extra request**: `minzoom` stays at 12, what changes is the opacity with
     // which what was already being requested is drawn.
+    {
+      id: 'pnoa',
+      type: 'raster',
+      source: 'pnoa',
+      minzoom: 12,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 1] },
+    },
+    {
+      id: 'pnoa-canarias',
+      type: 'raster',
+      source: 'pnoa-canarias',
+      minzoom: 12,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 1] },
+    },
     {
       id: 'ortos',
       type: 'raster',

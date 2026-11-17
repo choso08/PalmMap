@@ -502,7 +502,7 @@ export const pt = {
       normal: 'Normal',
       alta: 'Alta',
     },
-    satelliteHighHint: 'Casa a casa, só em Portugal. Gasta mais dados.',
+    satelliteHighHint: 'Casa a casa, em Portugal e Espanha. Gasta mais dados.',
 
     map: 'Mapa',
     trails: 'Trilhos marcados',
@@ -614,6 +614,7 @@ export const pt = {
     sentinel:
       'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2025)',
     orthophotos: 'Ortofotos © Direção-Geral do Território',
+    pnoa: 'PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0 scne.es)',
   },
 
   hints: {

@@ -289,6 +289,19 @@ environment cannot reach.
   fill the list; two arriving at the same minute are one, the later departure kept. Used by
   `planScheduledTransfers`, the bus ↔ rail joins in `transitPlan.ts` and the bus changes in
   `planBusTrips`. A direct line still appears once.
+- **Spain's aerial orthophotos in "High" satellite detail** (author's request, 17 November;
+  not seen on a phone): the IGN's PNOA "máxima actualidad" (`PNOA_ORTOS` in `tiles.ts`, the
+  WMS `www.ign.es/wms-inspire/pnoa-ma`, layer `OI.OrthoimageCoverage`), 15–25 cm, the newest
+  flight of each area; mainland, Balearics, Ceuta, Melilla and the Canaries (two sources,
+  `pnoa` and `pnoa-canarias`, for tight `bounds`). CC BY 4.0 `scne.es`, "no conditions" in its
+  capabilities; attribution `attributions.pnoa`. Under the DGT's layer, same fade from zoom 12.
+  **Both orthophoto services now ask `image/vnd.jpeg-png8`** (`ORTHO_FORMAT`): JPEG where there
+  is imagery, a 139-byte transparent PNG where there is none. Plain JPEG sent opaque squares
+  outside each country — **the DGT's were white, over Spain and the sea inside its bounds, on
+  the map already** — and the PNOA a blurry picture over Portugal; plain PNG is 3–10× heavier.
+  Probed with `sondar: pnoa`, `pnoa_blank` and `ortho_formats`. An Airbus 2025 image the
+  author had heard of is not open: Airbus sells it (OneAtlas); the DGT's 2023 one is Airbus
+  Pléiades Neo, bought by the State.
 - **Built in 7.0.51** (17 November): a tap on a bus, stop or station under a business pin
   opens the transit thing (`transitAt`), "Add stop" in the route panel, and the review fixes
   around it — still signed with the debug key.
@@ -940,7 +953,7 @@ in one place instead of spread through the code.
   | `showPlacesOnMap` | Show businesses on the map by themselves |
   | `voiceGuidance` | Read instructions aloud while navigating |
   | `mapType` | Drawn map, satellite, transport or satellite + bus — **remembered between sessions** |
-  | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal) — **high by default** since November 2026 (author's request; switched once on existing phones, `palmmap.satelliteAltaPorDefeito`) |
+  | `satelliteDetail` | Normal (Sentinel-2) or high (DGT orthophotos in Portugal, IGN's PNOA in Spain) — **high by default** since November 2026 (author's request; switched once on existing phones, `palmmap.satelliteAltaPorDefeito`) |
   | `speedCameraAlerts` | Warn about cameras on the route |
   | `speedLimitAlerts` | Warn when over the road's limit — **off by default** (author's request) |
   | `avoidTolls` | Ask for a toll-free route |
@@ -1114,6 +1127,9 @@ than promised, which is the right side to err on.
 - **Detail has a physical limit:** Sentinel-2 sees at 10 metres per pixel, about zoom 14.
   Hence `maxzoom: 14` — above it MapLibre enlarges what it has instead of requesting tiles
   that bring nothing more. Coast, forest, fields; not individual houses.
+- **"High" detail adds Spain's PNOA too** (IGN, CC BY 4.0, 15–25 cm aerial; see "Where this
+  stands"), and both are asked as `image/vnd.jpeg-png8` so each is transparent outside its
+  country.
 - **"High" detail adds the DGT orthophotos in Portugal** (`ortoSat2023-CorVerdadeira`, from
   `ortos.dgterritorio.gov.pt/wms/ortosat2023`): 2023 Pléiades-Neo satellite imagery, under a
   metre per pixel. **This is the sharpest open imagery there is.** The author compared it
