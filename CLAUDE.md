@@ -172,6 +172,9 @@ environment cannot reach.
 
 - **Built in 7.0.43** (16 November): the bus panel's refresh, origin/destination and stop list,
   and the live buses' refresh interval in Settings (`vehiclesRefresh`).
+- **Built in 7.0.45 and 7.0.46** (17 November): 7.0.46 carries everything up to the bell that
+  lights at once and the notification icon. Not in it yet: the scale bar, station pins from
+  zoom 13, the Data and storage group, the network recheck and the Moovit points below.
 - **"As Moovit", four points** (author: "I want to imitate Moovit, it is so annoying with the
   ads"; 17 November, none seen on a phone): a **Transit tab** (`NearbySheet`, tab `'nearby'`,
   icon `bus-clock`) listing the stops (`nearbyStops`, `arrivalsAt`) and stations
