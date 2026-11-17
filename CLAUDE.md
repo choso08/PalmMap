@@ -695,6 +695,12 @@ the build carries on; it waits up to 8 min for the result, else gives the link).
 signing key is still React Native's public debug key — see the security review in "Where
 this stands"; the author has not chosen a key of our own yet.
 
+**No verification machinery in the Releases** (author's decision, 17 November 2026): a
+VirusTotal scan, signed build provenance and a "Verify" section were added and taken out the
+same day — the author found that, to someone wary, all of it reads as a reason to give up.
+To reassure a person, the advice is: upload the APK to virustotal.com yourself, and look at
+the seven permissions the app asks for. Do not add it back unless asked.
+
 The workflow checks the APK before publishing it: archive integrity, identification
 (package, `minSdk`, architectures) and signing schemes. A broken file is caught at build
 time, not on the phone. **A failure installing `ndk;…` or other SDK components is Google's
