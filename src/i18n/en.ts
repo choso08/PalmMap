@@ -372,6 +372,10 @@ export const en: typeof pt = {
     title: 'Settings',
     general: 'General',
     transit: 'Transit',
+    dataUsage: 'Data and storage',
+    mapsOnMobileData: 'Update country maps on mobile data too',
+    storage: 'Storage',
+    storageUsed: (maps: number, timetables: number) => `Country maps ${maps} MB · timetables ${timetables} MB`,
 
     installUnfinished: 'The install did not finish',
     updateTitle: 'A new version is out',

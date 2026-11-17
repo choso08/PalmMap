@@ -111,6 +111,8 @@ export interface Settings {
    * every 20–30 s, so faster mostly repeats the same positions.
    */
   vehiclesRefresh: VehiclesRefresh;
+  /** Refresh outdated country maps on mobile data too, not only on Wi-Fi. */
+  mapsOnMobileData: boolean;
   /**
    * Learn the person's pace from trips and count on it in the arrival time
    * (see `utils/eta.ts`). Off, the routing service's time as it comes —
@@ -135,6 +137,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showSpeed: true,
   showVehicles: true,
   vehiclesRefresh: '20',
+  mapsOnMobileData: false,
   paceLearning: true,
 };
 

@@ -723,14 +723,17 @@ in one place instead of spread through the code.
   | `showSpeed` | Show the GPS speed |
   | `showVehicles` | Show moving buses on the transport map |
   | `vehiclesRefresh` | How often they are asked for: 10, 20 (default), 30 or 60 s — author's request, November 2026; the line under it gives the data per hour (~150 KB compressed per ask) |
+  | `mapsOnMobileData` | Refresh outdated country maps on mobile data too — off by default (Wi-Fi only, as before); author's request, November 2026 |
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
   show it in `SettingsSheet` **inside its group** **and add it to `show`** (the settings
   search; see below), with the group's name among its terms.
 - **The screen is in groups** (author's request, November 2026): General (language,
-  appearance, recent destinations), Map, Transit, country maps, Navigation, About (updates,
-  rating, credits). Each closed by default; the search opens those holding a match.
+  appearance, recent destinations), Map (businesses), Transit (timetables), country maps,
+  Navigation, **Data and storage** (live buses and their interval with the MB per hour,
+  satellite detail, `mapsOnMobileData`, and what the maps and timetables take up), About
+  (updates, rating, credits). Each closed by default; the search opens those holding a match.
 - **The map type is remembered between sessions**, at the author's request (November 2026):
   closing on satellite and reopening on the drawn map was the opposite of what they wanted.
   It was deliberately not stored before because of the live buses (1.1 MB every twenty
@@ -1554,7 +1557,9 @@ They end up in the same folder with an identification file next to them.
 #### Keeping maps up to date
 
 The workflow refreshes the published ones monthly, and the app refreshes the ones it has —
-**only on Wi-Fi**, a decision: mainland Portugal is 325 MB. Off Wi-Fi nothing downloads and
+**only on Wi-Fi**, a decision: mainland Portugal is 325 MB — unless `mapsOnMobileData` is on
+(Data and storage). `refreshOutdatedOnWifi` runs one at a time: the stored setting arriving
+at start-up runs it a second time. Off Wi-Fi nothing downloads and
 the maps screen **marks them outdated**; a tap then **refreshes instead of deleting**.
 
 **Without a date on one side, nothing is concluded** — a map generated before `gerado` existed

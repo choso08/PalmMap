@@ -410,6 +410,10 @@ export const pt = {
     title: 'Definições',
     general: 'Geral',
     transit: 'Transportes',
+    dataUsage: 'Dados e armazenamento',
+    mapsOnMobileData: 'Atualizar mapas de países também com dados móveis',
+    storage: 'Armazenamento',
+    storageUsed: (maps: number, timetables: number) => `Mapas de países ${maps} MB · horários ${timetables} MB`,
 
     updateTitle: 'Há uma versão nova',
     installUnfinished: 'A instalação não terminou',

@@ -496,10 +496,23 @@ export function outdatedRegions(published: OfflineRegion[]): OfflineRegion[] {
  * whoever did not ask for this does not need to know it went wrong, and next
  * time it tries again.
  */
-export async function refreshOutdatedOnWifi(): Promise<number> {
+let refreshing: Promise<number> | null = null;
+export function refreshOutdatedOnWifi(allowMobileData = false): Promise<number> {
+  // One at a time: the setting arriving from storage runs this again at start.
+  if (!refreshing) {
+    refreshing = refreshOutdated(allowMobileData).finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
+async function refreshOutdated(allowMobileData: boolean): Promise<number> {
   try {
     const state = await Network.getNetworkStateAsync();
-    if (state.type !== Network.NetworkStateType.WIFI || !state.isInternetReachable) {
+    // Mobile data only when the person said so (`mapsOnMobileData`).
+    const onWifi = state.type === Network.NetworkStateType.WIFI;
+    if ((!onWifi && !allowMobileData) || !state.isInternetReachable) {
       return 0;
     }
 

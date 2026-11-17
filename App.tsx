@@ -704,13 +704,13 @@ function PalmMap() {
    * see a spinner or an error. See `refreshOutdatedOnWifi`.
    */
   useEffect(() => {
-    void refreshOutdatedOnWifi().then((renovados) => {
+    void refreshOutdatedOnWifi(settings.mapsOnMobileData).then((renovados) => {
       if (renovados > 0) {
         // The map in use may have been replaced underfoot.
         setOfflineRegions(installedRegions());
       }
     });
-  }, []);
+  }, [settings.mapsOnMobileData]);
 
   const toggleFavourite = useCallback((place: Place) => {
     setFavourites((current) => {

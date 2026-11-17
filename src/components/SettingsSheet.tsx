@@ -22,6 +22,8 @@ import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
 import { Schedules } from './Schedules';
 import { Updates } from './Updates';
+import { usedBytes as offlineUsedBytes } from '../services/offlineMap';
+import { usedBytes as timetablesUsedBytes } from '../services/schedules';
 import type { UpdateInfo } from '../services/update';
 import {
   APPEARANCE_MODES,
@@ -151,6 +153,17 @@ export function SettingsSheet({
    * groups that hold a match — so nobody has to dig through the groups.
    */
   const [filter, setFilter] = useState('');
+  /** What the downloads take up, in MB, read when the screen opens. */
+  const storage = useMemo(
+    () =>
+      visible
+        ? {
+            maps: Math.round(offlineUsedBytes() / 1e6),
+            timetables: Math.round(timetablesUsedBytes() / 1e6),
+          }
+        : { maps: 0, timetables: 0 },
+    [visible],
+  );
   const show = useMemo(() => {
     const q = normalise(filter.trim());
     const nav = s.navigation;
@@ -163,9 +176,9 @@ export function SettingsSheet({
       language: has(s.general, s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
       time: has(nav, s.timeAdjustment, s.forgetPace, s.paceLearning),
       appearance: has(s.general, s.appearance, ...Object.values(s.appearanceModes)),
-      satellite: has(s.map, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
+      satellite: has(s.dataUsage, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
-      vehicles: has(s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
+      vehicles: has(s.dataUsage, s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.transit, s.schedules),
       voice: has(nav, s.voice),
@@ -174,6 +187,8 @@ export function SettingsSheet({
       tolls: has(nav, s.tolls, s.tollsHint),
       speed: has(nav, s.speed, s.speedNote),
       battery: has(nav, s.batterySaver, s.batterySaverHint),
+      mobileMaps: has(s.dataUsage, s.mapsOnMobileData),
+      storage: has(s.dataUsage, s.storage),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
       recents: has(s.general, s.recents, s.forgetRecents),
       updates: has(s.about, s.updates),
@@ -183,8 +198,9 @@ export function SettingsSheet({
       ...result,
       searching: q.length > 0 || onlyNavigation,
       general: result.language || result.appearance || result.recents,
-      mapSection: result.satellite || result.places,
-      transit: result.vehicles || result.schedules,
+      mapSection: result.places,
+      transit: result.schedules,
+      data: result.vehicles || result.satellite || result.mobileMaps || result.storage,
       aboutSection: result.updates || result.feedback || result.about,
       navigation:
         result.time ||
@@ -390,23 +406,6 @@ export function SettingsSheet({
 
           {show.mapSection ? (
             <Collapsible title={s.map} icon="map-outline" forceOpen={show.searching}>
-              {show.satellite ? (
-            <>
-              <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
-              <ChoiceRow
-                options={SATELLITE_DETAILS}
-                label={(id) => s.satelliteDetails[id]}
-                value={settings.satelliteDetail}
-                onChange={(id) => update('satelliteDetail', id)}
-                styles={styles}
-                theme={theme}
-              />
-              {settings.satelliteDetail === 'alta' ? (
-                <Text style={styles.note}>{s.satelliteHighHint}</Text>
-              ) : null}
-            </>
-          ) : null}
-
           {show.places ? (
             <>
               <View style={styles.switchRow}>
@@ -426,47 +425,6 @@ export function SettingsSheet({
 
           {show.transit ? (
             <Collapsible title={s.transit} icon="bus" forceOpen={show.searching}>
-              {show.vehicles ? (
-            <>
-              <View style={styles.switchRow}>
-                <View style={styles.switchText}>
-                  <Text style={styles.switchLabel}>{s.showVehicles}</Text>
-                  {/*
-                The cost has to be written. The service cannot be asked for just
-                the area in view — the whole fleet comes every time, by far the
-                heaviest request this app makes.
-              */}
-                  <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
-                </View>
-                <Switch
-                  value={settings.showVehicles}
-                  onValueChange={(next) => update('showVehicles', next)}
-                  trackColor={{ true: theme.accent, false: theme.border }}
-                />
-              </View>
-              {settings.showVehicles ? (
-                <>
-                  <Text style={styles.switchLabel}>{s.vehiclesRefresh}</Text>
-                  <ChoiceRow
-                    options={VEHICLES_REFRESH}
-                    label={(id) => s.vehiclesRefreshLabel(id)}
-                    value={settings.vehiclesRefresh}
-                    onChange={(id) => update('vehiclesRefresh', id)}
-                    styles={styles}
-                    theme={theme}
-                  />
-                  {/*
-                    What the choice costs, the transferred (compressed) size:
-                    ~150 KB per refresh, so an hour is 540 / seconds MB.
-                  */}
-                  <Text style={styles.switchHint}>
-                    {s.vehiclesRefreshCost(Math.round(540 / Number(settings.vehiclesRefresh)))}
-                  </Text>
-                </>
-              ) : null}
-            </>
-          ) : null}
-
           {show.schedules ? (
             <>
               <Text style={styles.sectionTitle}>{s.schedules}</Text>
@@ -624,6 +582,88 @@ export function SettingsSheet({
                       trackColor={{ true: theme.accent, false: theme.border }}
                     />
                   </View>
+                </>
+              ) : null}
+            </Collapsible>
+          ) : null}
+
+          {show.data ? (
+            <Collapsible title={s.dataUsage} icon="swap-vertical" forceOpen={show.searching}>
+              {show.vehicles ? (
+            <>
+              <View style={styles.switchRow}>
+                <View style={styles.switchText}>
+                  <Text style={styles.switchLabel}>{s.showVehicles}</Text>
+                  {/*
+                The cost has to be written. The service cannot be asked for just
+                the area in view — the whole fleet comes every time, by far the
+                heaviest request this app makes.
+              */}
+                  <Text style={styles.switchHint}>{s.showVehiclesCost}</Text>
+                </View>
+                <Switch
+                  value={settings.showVehicles}
+                  onValueChange={(next) => update('showVehicles', next)}
+                  trackColor={{ true: theme.accent, false: theme.border }}
+                />
+              </View>
+              {settings.showVehicles ? (
+                <>
+                  <Text style={styles.switchLabel}>{s.vehiclesRefresh}</Text>
+                  <ChoiceRow
+                    options={VEHICLES_REFRESH}
+                    label={(id) => s.vehiclesRefreshLabel(id)}
+                    value={settings.vehiclesRefresh}
+                    onChange={(id) => update('vehiclesRefresh', id)}
+                    styles={styles}
+                    theme={theme}
+                  />
+                  {/*
+                    What the choice costs, the transferred (compressed) size:
+                    ~150 KB per refresh, so an hour is 540 / seconds MB.
+                  */}
+                  <Text style={styles.switchHint}>
+                    {s.vehiclesRefreshCost(Math.round(540 / Number(settings.vehiclesRefresh)))}
+                  </Text>
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+              {show.satellite ? (
+            <>
+              <Text style={styles.sectionTitle}>{s.satelliteDetail}</Text>
+              <ChoiceRow
+                options={SATELLITE_DETAILS}
+                label={(id) => s.satelliteDetails[id]}
+                value={settings.satelliteDetail}
+                onChange={(id) => update('satelliteDetail', id)}
+                styles={styles}
+                theme={theme}
+              />
+              {settings.satelliteDetail === 'alta' ? (
+                <Text style={styles.note}>{s.satelliteHighHint}</Text>
+              ) : null}
+            </>
+          ) : null}
+
+              {show.mobileMaps ? (
+                <View style={styles.switchRow}>
+                  <View style={styles.switchText}>
+                    <Text style={styles.switchLabel}>{s.mapsOnMobileData}</Text>
+                  </View>
+                  <Switch
+                    value={settings.mapsOnMobileData}
+                    onValueChange={(next) => update('mapsOnMobileData', next)}
+                    trackColor={{ true: theme.accent, false: theme.border }}
+                  />
+                </View>
+              ) : null}
+
+              {show.storage ? (
+                <>
+                  <Text style={styles.sectionTitle}>{s.storage}</Text>
+                  <Text style={styles.note}>{s.storageUsed(storage.maps, storage.timetables)}</Text>
                 </>
               ) : null}
             </Collapsible>
