@@ -79,6 +79,10 @@ export interface Theme {
   overlay: string;
   /** Text of those messages. */
   onOverlay: string;
+  /** The scale bar: its ink, the halo round its text and its faint pill. */
+  scaleInk: string;
+  scaleHalo: string;
+  scalePill: string;
   /**
    * The colours of the speed-limit sign.
    *
@@ -115,6 +119,9 @@ export const light: Theme = {
   vehicle: '#2563EB',
   overlay: 'rgba(15, 23, 42, 0.82)',
   onOverlay: '#F8FAFC',
+  scaleInk: '#1F1F1F',
+  scaleHalo: 'rgba(255, 255, 255, 0.9)',
+  scalePill: 'rgba(255, 255, 255, 0.7)',
   signFace: '#FFFFFF',
   signEdge: '#D32F2F',
   signInk: '#111111',
@@ -145,6 +152,9 @@ export const dark: Theme = {
   vehicle: '#60A5FA',
   overlay: 'rgba(0, 0, 0, 0.82)',
   onOverlay: '#E6EDF3',
+  scaleInk: '#FFFFFF',
+  scaleHalo: 'rgba(0, 0, 0, 0.75)',
+  scalePill: 'rgba(0, 0, 0, 0.45)',
   signFace: '#FFFFFF',
   signEdge: '#D32F2F',
   signInk: '#111111',

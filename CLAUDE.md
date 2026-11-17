@@ -160,7 +160,7 @@ environment cannot reach.
     middle looked like a fault (author's photo, 17 November); the open station shows at any zoom.
   - **A scale bar**, as in Maps (author's request, 17 November). First MapLibre's own, which
     Android only places top-left; the author found it inconvenient, so it is now ours
-    (`ScaleBar.tsx`): top-left under the category chips (`SCALE_BAR_TOP`), shown while the
+    (`ScaleBar.tsx`): top-left under the category chips (measured, `chipsBottom` + `SCALE_BAR_GAP`; hidden on a transport trip too), shown while the
     zoom changes (`onRegionIsChanging`, a drag alone does not bring it up) and fading out
     2.5 s after, metric, 1/2/5 × 10ⁿ, on a faint pill, hidden while navigating. In 7.0.49 it
     sat low on the left at `compassBottom`, which follows the panels: with a bus's panel open
@@ -2040,6 +2040,9 @@ navigation bar. The elements on top of the map move away.
 - **The screens that open over the map close when pulled down by their header**
   (`useSwipeToClose`): layers, Saved, Transit, alerts, Directions, Settings and the steps list.
   They follow the finger and spring back short of `CLOSE_AT` (90 pt) unless flicked.
+  Those `Modal`s are `transparent` (their root has the background), so the gap a pull opens
+  shows the map, not a blank band; the pull is reset while rendering on reopening, not in an
+  effect, which ran after the first frame.
 - **`Reveal` uses `pointerEvents="box-none"`**, so taps reach the map under a shrunk panel.
 - The animation runs natively (`useNativeDriver`).
 

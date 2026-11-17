@@ -282,6 +282,8 @@ export function SettingsSheet({
     <Modal
       visible={visible}
       animationType="slide"
+      // See-through, so pulling the screen down (`useSwipeToClose`) shows the map.
+      transparent
       onRequestClose={onClose}
       // Without this, the top margin would depend on whether the screen draws
       // under the status bar, which varies. This way it always does, and our

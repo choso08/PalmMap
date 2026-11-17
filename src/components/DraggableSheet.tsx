@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   PanResponder,
+  type PanResponderGestureState,
   type GestureResponderHandlers,
   type StyleProp,
   type ViewStyle,
@@ -69,8 +70,9 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
     }
   }, [maxDown, translateY]);
 
-  const responder = useMemo(() => {
-    const settle = (target: number) => {
+  /** Springs the panel to `target` (0 open, `maxDown` shrunk) and rests there. */
+  const settle = useCallback(
+    (target: number) => {
       base.current = target;
       Animated.spring(translateY, {
         toValue: target,
@@ -78,8 +80,30 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
         speed: 18,
         bounciness: 2,
       }).start();
-    };
+    },
+    [translateY],
+  );
 
+  /**
+   * Where a drag let go of ends up. Speed wins over position: a firm flick down
+   * shrinks it even if the finger is only halfway, which is what a quick
+   * gesture means. Shared by the handle and the header.
+   */
+  const release = useCallback(
+    (gesture: PanResponderGestureState) => {
+      const at = Math.min(Math.max(base.current + gesture.dy, 0), maxDown);
+      if (gesture.vy > FLICK) {
+        settle(maxDown);
+      } else if (gesture.vy < -FLICK) {
+        settle(0);
+      } else {
+        settle(at > maxDown / 2 ? maxDown : 0);
+      }
+    },
+    [maxDown, settle],
+  );
+
+  const responder = useMemo(() => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 3,
@@ -94,22 +118,11 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
           settle(base.current > 0 ? 0 : maxDown);
           return;
         }
-
-        const at = Math.min(Math.max(base.current + gesture.dy, 0), maxDown);
-
-        // Speed wins over position: a firm flick down shrinks it even if the
-        // finger is only halfway, which is what a quick gesture means.
-        if (gesture.vy > FLICK) {
-          settle(maxDown);
-        } else if (gesture.vy < -FLICK) {
-          settle(0);
-        } else {
-          settle(at > maxDown / 2 ? maxDown : 0);
-        }
+        release(gesture);
       },
       onPanResponderTerminate: () => settle(base.current),
     });
-  }, [maxDown, translateY]);
+  }, [maxDown, translateY, settle, release]);
 
   /**
    * The same drag on the panel's header — title, badge and buttons — so the
@@ -128,29 +141,11 @@ export function DraggableSheet({ children, style, peek = 104 }: DraggableSheetPr
         onPanResponderMove: (_, gesture) => {
           translateY.setValue(Math.min(Math.max(base.current + gesture.dy, 0), maxDown));
         },
-        onPanResponderRelease: (_, gesture) => {
-          const at = Math.min(Math.max(base.current + gesture.dy, 0), maxDown);
-          const target =
-            gesture.vy > FLICK ? maxDown : gesture.vy < -FLICK ? 0 : at > maxDown / 2 ? maxDown : 0;
-          base.current = target;
-          Animated.spring(translateY, {
-            toValue: target,
-            useNativeDriver: true,
-            speed: 18,
-            bounciness: 2,
-          }).start();
-        },
+        onPanResponderRelease: (_, gesture) => release(gesture),
         onPanResponderTerminationRequest: () => false,
-        onPanResponderTerminate: () => {
-          Animated.spring(translateY, {
-            toValue: base.current,
-            useNativeDriver: true,
-            speed: 18,
-            bounciness: 2,
-          }).start();
-        },
+        onPanResponderTerminate: () => settle(base.current),
       }),
-    [maxDown, translateY],
+    [maxDown, translateY, settle, release],
   );
 
   return (

@@ -35,11 +35,10 @@ import { listenForUpdateNotice } from './src/services/updateNotice';
 /** When a new version was last looked for. See the effect that uses it. */
 const UPDATE_CHECK_KEY = 'palmmap.ultimaProcuraDeVersao';
 
-/**
- * The scale's distance from the top, under the safe area: search bar and
- * category chips, plus a gap — left of the layers button (`ScaleBar`).
- */
-const SCALE_BAR_TOP = 136;
+/** The gap between the category chips and the scale bar under them (`ScaleBar`). */
+const SCALE_BAR_GAP = 10;
+/** Where the scale goes before the chips have been measured: under the safe area. */
+const SCALE_BAR_TOP_GUESS = 136;
 
 /**
  * The version that was dismissed, so the notice does not come back.
@@ -377,6 +376,11 @@ function PalmMap() {
   const [savedVisible, setSavedVisible] = useState(false);
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
+  /**
+   * The category chips' bottom edge on screen, measured: the scale bar hangs
+   * under it. A larger font or display size makes the top column taller.
+   */
+  const [chipsBottom, setChipsBottom] = useState<number | null>(null);
   /**
    * Stops along the way, in the order they are passed.
    *
@@ -3065,8 +3069,15 @@ function PalmMap() {
         vehicles={vehicles}
         onVehiclePress={handleVehiclePress}
         selectedVehicleId={selectedVehicleId}
-        // Under the search bar and the category chips, as in Maps.
-        scaleTop={navigating ? null : insets.top + SCALE_BAR_TOP}
+        // Under the search bar and the category chips, as in Maps — and not
+        // when those are hidden (navigating, or a transport trip under way).
+        scaleTop={
+          navigating || guiding
+            ? null
+            : chipsBottom !== null
+              ? chipsBottom + SCALE_BAR_GAP
+              : insets.top + SCALE_BAR_TOP_GUESS
+        }
         compassBottom={compassBottom}
         offlineRegions={offlineRegions}
         labelsReady={labelsReady}
@@ -3094,7 +3105,15 @@ function PalmMap() {
 
         {searchFocused ? null : (
           <>
-            <CategoryBar selected={category} onSelect={setCategory} />
+            <View
+              onLayout={(e) => {
+                const { y, height } = e.nativeEvent.layout;
+                // The top column starts at the screen's top edge.
+                setChipsBottom(Math.round(y + height));
+              }}
+            >
+              <CategoryBar selected={category} onSelect={setCategory} />
+            </View>
 
             {/*
               The map layers button, under the search bar on the right, where

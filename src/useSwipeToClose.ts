@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Animated, PanResponder, type GestureResponderHandlers } from 'react-native';
 
 /** How far down, in points, a pull must go to close. */
@@ -26,12 +26,14 @@ export function useSwipeToClose(
   const close = useRef(onClose);
   close.current = onClose;
 
-  // Opened again: from where it belongs, not from where it was let go.
-  useEffect(() => {
-    if (visible) {
-      translateY.setValue(0);
-    }
-  }, [visible, translateY]);
+  // Opened again: from where it belongs, not from where it was let go. Done
+  // while rendering, before the screen's first frame — an effect runs after
+  // it, and the screen showed for a moment as low as it was let go.
+  const wasVisible = useRef(visible);
+  if (visible && !wasVisible.current) {
+    translateY.setValue(0);
+  }
+  wasVisible.current = visible;
 
   const responder = useMemo(
     () =>

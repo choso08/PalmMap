@@ -84,6 +84,8 @@ export function SavedSheet({
     <Modal
       visible={visible}
       animationType="slide"
+      // See-through, so pulling the screen down (`useSwipeToClose`) shows the map.
+      transparent
       onRequestClose={onClose}
       statusBarTranslucent
       navigationBarTranslucent

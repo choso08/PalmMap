@@ -104,8 +104,8 @@ export const ScaleBar = forwardRef<ScaleBarRef, { top: number; left: number }>(
 function makeStyles(theme: Theme) {
   // The map's own text colours: dark on a light map, light on a dark one,
   // with a halo of the other so it reads on satellite too.
-  const ink = theme.dark ? '#FFFFFF' : '#1F1F1F';
-  const halo = theme.dark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.9)';
+  const ink = theme.scaleInk;
+  const halo = theme.scaleHalo;
   return StyleSheet.create({
     // A faint pill: the line has no halo on Android (no shadows on a View).
     box: {
@@ -114,7 +114,7 @@ function makeStyles(theme: Theme) {
       paddingTop: 2,
       paddingBottom: 4,
       borderRadius: 6,
-      backgroundColor: theme.dark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.7)',
+      backgroundColor: theme.scalePill,
     },
     label: {
       fontSize: 11,
