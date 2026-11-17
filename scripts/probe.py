@@ -1475,6 +1475,45 @@ def pnoa_blank():
         print(f"PNOA Madrid {fmt}: {st} {ct} {len(b)}")
 
 
+def ortho_formats():
+    """Which image formats the DGT WMS and the IGN PNOA WMS offer, and what each weighs
+    over imagery and over the other country: a format that is JPEG where there is
+    imagery and transparent PNG where there is none would let both sit on the map
+    without blank squares and without PNG's weight."""
+    import math
+    section("ORTHOPHOTO FORMATS")
+    r = 6378137 * math.pi
+
+    def bbox(lat, lon, z):
+        n = 2 ** z
+        x = int((lon + 180) / 360 * n)
+        y = int((1 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2 * n)
+        size = 2 * r / n
+        minx = -r + x * size
+        maxy = r - y * size
+        return f"{minx},{maxy - size},{minx + size},{maxy}"
+
+    services = {
+        "DGT": ("https://ortos.dgterritorio.gov.pt/wms/ortosat2023", "ortoSat2023-CorVerdadeira"),
+        "PNOA": ("https://www.ign.es/wms-inspire/pnoa-ma", "OI.OrthoimageCoverage"),
+    }
+    for name, (base, layer) in services.items():
+        st, ct, b = get(base + "?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities", 90)
+        t = b.decode("utf-8", "replace") if st == 200 else ""
+        getmap = t[t.find("<GetMap>"):t.find("</GetMap>")] if "<GetMap>" in t else ""
+        print(name, "capabilities", st, "GetMap formats:", re.findall(r"<Format>([^<]+)</Format>", getmap))
+        print(name, "server hint:", re.findall(r"(MapServer|GeoServer|ArcGIS|QGIS)", t)[:3])
+        for place, (lat, lon) in (("Elvas PT", (38.8810, -7.1630)), ("Badajoz ES", (38.8794, -6.9707)),
+                                  ("Lisboa PT", (38.7223, -9.1393)), ("Sea", (39.0, -10.2))):
+            for fmt in ("image/jpeg", "image/png", "image/vnd.jpeg-png", "image/vnd.jpeg-png8",
+                        "image/png8", "image/png; mode=8bit"):
+                url = (f"{base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={layer}&STYLES="
+                       f"&CRS=EPSG:3857&BBOX={bbox(lat, lon, 15)}&WIDTH=512&HEIGHT=512"
+                       f"&FORMAT={urllib.parse.quote(fmt)}&TRANSPARENT=true")
+                st, ct, b = get(url, 60)
+                print(f"  {name} {place} {fmt}: {st} {ct} {len(b)}")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
