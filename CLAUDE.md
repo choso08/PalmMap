@@ -297,7 +297,7 @@ environment cannot reach.
   (`assets/certs/harica_tls_rsa_root_2021.crt`, SHA-256 `D9:5D:0E:8E:…:CB:7B:1D`, the one in
   Mozilla's store) **for that host only**, beside the system roots; release keeps cleartext
   off, the debug variant allows it (Metro). Checked with `expo prebuild` (files and manifest
-  attribute in place); not seen on a phone. The other imagery hosts end on old roots (ISRG
+  attribute in place); **confirmed on the A20e with 7.0.53** (author, 17 November: "it works"). The other imagery hosts end on old roots (ISRG
   X1, GlobalSign, Starfield, GTS via GlobalSign). **A service that works on a new phone and
   not an old one: probe its chain first.**
 - **"Report" on a place's card → an OpenStreetMap note** (author's request, 17 November: mark
