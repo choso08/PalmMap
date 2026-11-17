@@ -175,6 +175,19 @@ environment cannot reach.
 - **Built in 7.0.45 and 7.0.46** (17 November): 7.0.46 carries everything up to the bell that
   lights at once and the notification icon. Not in it yet: the scale bar, station pins from
   zoom 13, the Data and storage group, the network recheck and the Moovit points below.
+- **"The app takes ages to load"** (author, 17 November, after 7.0.46; not seen on a phone):
+  the stored timetables were the suspects, measured with the real published files in Node
+  (`schedules.ts` compiled, `expo-file-system` stubbed). Opening one built a per-trip index —
+  1.6 million objects for Carris de Lisboa, 7.8 million for Carris Metropolitana — taking 255
+  and 1086 ms in Node, many times that on a phone, all on the JavaScript thread. Now the
+  index is per pattern (`stationPatterns`, `patternTrips`) and a station's calls and a trip's
+  minutes are put together when first asked (`callsAt`, `tripMinutes`): 95 and 394 ms, the
+  rest being `JSON.parse`, **with every query's answer byte-identical** to before. The
+  transport map's stops and stations no longer open files they then skip (`loadedFeeds`
+  takes a filter on the identification — they used to parse Carris Metropolitana's 27 MB
+  online); `installedFeeds()` is kept until a download or removal (it re-read the folder on
+  each Carris de Lisboa bus, every refresh); and the live buses' numbers wait
+  `CARRIS_LISBOA_WARM_MS` (4 s) for that timetable instead of opening it on the first refresh.
 - **"As Moovit", four points** (author: "I want to imitate Moovit, it is so annoying with the
   ads"; 17 November, none seen on a phone): a **Transit tab** (`NearbySheet`, tab `'nearby'`,
   icon `bus-clock`) listing the stops (`nearbyStops`, `arrivalsAt`) and stations
@@ -2219,6 +2232,10 @@ Mistakes already made in this project, so they are not repeated.
 - **A library that hands a whole Android result to JavaScript can crash on extras it cannot
   convert** — natively, past every `try`. When another app's result is involved (Google's
   speech recogniser), read only the field needed, natively (`modules/palmmap-voice`).
+- **An index built object by object costs more than the file it indexes.** A timetable's
+  per-trip index was millions of small objects, four times `JSON.parse` itself. Index the
+  shared shape (the pattern) and expand on demand; and judge which files are needed before
+  reading them.
 - **`GeoJSONSource` turns an object `data` into text on every render.** Hand it a string
   built in a `useMemo`, and keep the lists it is built from stable — a `= []` default or a
   `.filter()` in the parent's JSX is a new array each time and undoes the memo.

@@ -98,7 +98,17 @@ export function isInstalled(info: ScheduleFeedInfo): boolean {
 }
 
 /** The timetables actually on the phone. Reads the folder, so it works without network. */
+/**
+ * The folder's list, kept until a timetable is downloaded or removed: it was
+ * read again (a folder listing and every identification file) on each
+ * question — once per Carris de Lisboa bus on every refresh.
+ */
+let installed: ScheduleFeedInfo[] | null = null;
+
 export function installedFeeds(): ScheduleFeedInfo[] {
+  if (installed) {
+    return installed;
+  }
   if (!FOLDER.exists) {
     return [];
   }
@@ -118,6 +128,7 @@ export function installedFeeds(): ScheduleFeedInfo[] {
       // app with no timetable at all.
     }
   }
+  installed = feeds;
   return feeds;
 }
 
@@ -170,6 +181,8 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
     await downloaded.move(destination);
     infoFile(info.id).write(JSON.stringify(info));
     cache.delete(info.id);
+    installed = null;
+    carrisLisboaWarming = false;
   } catch (error) {
     if (partial.exists) {
       partial.delete();
@@ -189,6 +202,8 @@ export function removeFeed(info: ScheduleFeedInfo): void {
     }
   }
   cache.delete(info.id);
+  installed = null;
+  carrisLisboaWarming = false;
 }
 
 /** How much the stored timetables take up, in total. */
@@ -214,40 +229,46 @@ export function usedBytes(): number {
 interface IndexedFeed {
   info: ScheduleFeedInfo;
   data: ScheduleFeed;
-  /** Each trip's times in absolute minutes, with the deltas already added up. */
+  /**
+   * Each trip's times in absolute minutes, filled in when a trip is first
+   * read — always through `tripMinutes`.
+   */
   minutes: number[][];
   /** Each service's days, as a set, so they need not be searched in a list. */
   days: Set<string>[];
-  /** Which trips each station appears in, and at which position of the route. */
-  byStation: Map<number, { trip: number; pos: number }[]>;
+  /**
+   * Which patterns call at each station, and at which position. Per pattern,
+   * not per trip: Carris Metropolitana has 243 000 trips but a few thousand
+   * patterns, and the per-trip index was 7.8 million objects built at once —
+   * seconds of a frozen phone (measured November 2026, the author: "the app
+   * takes ages to load"). The trips come from `patternTrips`; a station's
+   * calls are put together when it is first asked about (`callsAt`).
+   */
+  stationPatterns: Map<number, { pattern: number; pos: number }[]>;
+  /** The trips of each pattern, in trip order. */
+  patternTrips: number[][];
+  /** Stations already asked about, with their calls in trip order. */
+  calls: Map<number, { trip: number; pos: number }[]>;
 }
 
 const cache = new Map<string, IndexedFeed>();
 
 function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
-  const minutes: number[][] = [];
-  const byStation = new Map<number, { trip: number; pos: number }[]>();
-
+  const patternTrips: number[][] = data.patterns.map(() => []);
   data.trips.forEach((trip, i) => {
-    const pattern = data.patterns[trip.p] ?? [];
-
-    // The deltas go back to being absolute times. It is the inverse of the
-    // arithmetic the conversion script does, done once instead of on every
-    // question.
-    const times: number[] = [];
-    let running = 0;
-    for (const delta of trip.t) {
-      running += delta;
-      times.push(running);
+    patternTrips[trip.p]?.push(i);
+  });
+  const stationPatterns = new Map<number, { pattern: number; pos: number }[]>();
+  data.patterns.forEach((stations, pattern) => {
+    if (patternTrips[pattern].length === 0) {
+      return;
     }
-    minutes.push(times);
-
-    pattern.forEach((station, pos) => {
-      const list = byStation.get(station);
+    stations.forEach((station, pos) => {
+      const list = stationPatterns.get(station);
       if (list) {
-        list.push({ trip: i, pos });
+        list.push({ pattern, pos });
       } else {
-        byStation.set(station, [{ trip: i, pos }]);
+        stationPatterns.set(station, [{ pattern, pos }]);
       }
     });
   });
@@ -255,10 +276,47 @@ function index(info: ScheduleFeedInfo, data: ScheduleFeed): IndexedFeed {
   return {
     info,
     data,
-    minutes,
+    minutes: [],
     days: data.services.map((dates) => new Set(dates)),
-    byStation,
+    stationPatterns,
+    patternTrips,
+    calls: new Map(),
   };
+}
+
+/**
+ * A trip's times in absolute minutes. The file keeps deltas; they are added
+ * up the first time the trip is read, and kept.
+ */
+function tripMinutes(feed: IndexedFeed, trip: number): number[] {
+  let times = feed.minutes[trip];
+  if (!times) {
+    times = [];
+    let running = 0;
+    for (const delta of feed.data.trips[trip]?.t ?? []) {
+      running += delta;
+      times.push(running);
+    }
+    feed.minutes[trip] = times;
+  }
+  return times;
+}
+
+/** Every call at a station — which trip, at which position — in trip order. */
+function callsAt(feed: IndexedFeed, station: number): { trip: number; pos: number }[] {
+  let list = feed.calls.get(station);
+  if (!list) {
+    list = [];
+    for (const { pattern, pos } of feed.stationPatterns.get(station) ?? []) {
+      for (const trip of feed.patternTrips[pattern]) {
+        list.push({ trip, pos });
+      }
+    }
+    // The order the per-trip index had: by trip, then by position.
+    list.sort((a, b) => a.trip - b.trip || a.pos - b.pos);
+    feed.calls.set(station, list);
+  }
+  return list;
 }
 
 /**
@@ -294,10 +352,18 @@ export function loadFeed(info: ScheduleFeedInfo): IndexedFeed | null {
   }
 }
 
-/** All the stored timetables, already prepared. */
-function loadedFeeds(): IndexedFeed[] {
+/**
+ * The stored timetables, already prepared — only those `wanted` lets through,
+ * judged on the identification alone, so that a file that will be skipped is
+ * never read: the map's stops and stations skip Carris Metropolitana's 27 MB,
+ * and used to parse it all the same.
+ */
+function loadedFeeds(wanted?: (info: ScheduleFeedInfo) => boolean): IndexedFeed[] {
   const open: IndexedFeed[] = [];
   for (const info of installedFeeds()) {
+    if (wanted && !wanted(info)) {
+      continue;
+    }
     const feed = loadFeed(info);
     if (feed) {
       open.push(feed);
@@ -473,7 +539,7 @@ export function departuresNear(
   const days = candidateDays(now);
   const departures: ScheduleDeparture[] = [];
 
-  for (const feed of loadedFeeds()) {
+  for (const feed of loadedFeeds((info) => info.kind !== 'bus')) {
     // Bus timetables answer at their own stops (`departuresAtStop`): their
     // nearest stop to a metro station would put buses in the station's list.
     if (isExpired(feed.info, now) || feed.info.kind === 'bus') {
@@ -506,7 +572,9 @@ export function scheduledBusStops(
   withLive = false,
 ): TransitStation[] {
   const found: TransitStation[] = [];
-  for (const feed of loadedFeeds()) {
+  for (const feed of loadedFeeds(
+    (info) => info.kind === 'bus' && (info.naApp !== false || withLive),
+  )) {
     if (feed.info.kind !== 'bus' || isExpired(feed.info)) {
       continue;
     }
@@ -551,7 +619,7 @@ export function busDeparturesNear(
   now = new Date(),
 ): ScheduleDeparture[] {
   const out: ScheduleDeparture[] = [];
-  for (const feed of loadedFeeds()) {
+  for (const feed of loadedFeeds((info) => info.kind === 'bus')) {
     if (feed.info.kind !== 'bus' || isExpired(feed.info, now)) {
       continue;
     }
@@ -591,9 +659,9 @@ function departuresFrom(
   nowUnix: number,
 ): ScheduleDeparture[] {
   const departures: ScheduleDeparture[] = [];
-  for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+  for (const { trip, pos } of callsAt(feed, station)) {
     const scheduled = feed.data.trips[trip];
-    const minute = feed.minutes[trip]?.[pos];
+    const minute = tripMinutes(feed, trip)?.[pos];
     if (minute === undefined) {
       continue;
     }
@@ -683,7 +751,7 @@ export function planScheduledTrips(
     // not be the first, and the comparison is what decides.
     const candidates = new Map<number, number[]>();
     for (const station of departures.keys()) {
-      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+      for (const { trip, pos } of callsAt(feed, station)) {
         const list = candidates.get(trip);
         if (list) {
           list.push(pos);
@@ -696,7 +764,7 @@ export function planScheduledTrips(
     for (const [trip, boardings] of candidates) {
       const scheduled = feed.data.trips[trip];
       const pattern = feed.data.patterns[scheduled.p] ?? [];
-      const times = feed.minutes[trip] ?? [];
+      const times = tripMinutes(feed, trip) ?? [];
 
       for (const day of days) {
         if (!feed.days[scheduled.s]?.has(day)) {
@@ -827,10 +895,10 @@ function reachFrom(
     const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
     for (const [station, meters] of departures) {
       const walk = walkSeconds(meters);
-      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+      for (const { trip, pos } of callsAt(feed, station)) {
         const scheduled = feed.data.trips[trip];
         const pattern = feed.data.patterns[scheduled.p] ?? [];
-        const times = feed.minutes[trip] ?? [];
+        const times = tripMinutes(feed, trip) ?? [];
         if (pos >= pattern.length - 1) {
           continue;
         }
@@ -939,7 +1007,7 @@ export function planScheduledTransfers(
     }
     const byTrip = new Map<number, { pos: number; meters: number }[]>();
     for (const [station, meters] of arrivals) {
-      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+      for (const { trip, pos } of callsAt(feed, station)) {
         const list = byTrip.get(trip);
         if (list) {
           list.push({ pos, meters });
@@ -959,7 +1027,7 @@ export function planScheduledTransfers(
   const boardable: { feed: IndexedFeed; station: number; y: number; x: number }[] = [];
   for (const feed of ending.keys()) {
     feed.data.stops.forEach((stop, station) => {
-      if (feed.byStation.has(station)) {
+      if (feed.stationPatterns.has(station)) {
         boardable.push({ feed, station, y: stop.y, x: stop.x });
       }
     });
@@ -992,13 +1060,13 @@ export function planScheduledTransfers(
       const earliest = r.arrives + SCHEDULED_TRANSFER_MIN_S + walkSeconds(walkMeters);
       const byTrip = ending.get(b.feed)!;
 
-      for (const { trip, pos } of b.feed.byStation.get(b.station) ?? []) {
+      for (const { trip, pos } of callsAt(b.feed, b.station)) {
         const ends = byTrip.get(trip);
         if (!ends || routeKey(b.feed, trip) === r.route) {
           continue;
         }
         const scheduled = b.feed.data.trips[trip];
-        const times = b.feed.minutes[trip] ?? [];
+        const times = tripMinutes(b.feed, trip) ?? [];
         const pattern = b.feed.data.patterns[scheduled.p] ?? [];
         for (const day of days) {
           if (!b.feed.days[scheduled.s]?.has(day)) {
@@ -1093,7 +1161,7 @@ export function scheduledBoardingsTo(destination: Coordinates): {
     }
     const seen = new Set<number>();
     for (const station of stopsNear(feed, destination, TRANSIT_WALK_MAX_M).keys()) {
-      for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+      for (const { trip, pos } of callsAt(feed, station)) {
         const pattern = feed.data.patterns[feed.data.trips[trip].p] ?? [];
         for (let i = 0; i < pos; i += 1) {
           seen.add(pattern[i]);
@@ -1140,10 +1208,10 @@ export function scheduledOnward(
       endsByFeed.set(ref.feedId, ends);
     }
     let best: TransitTrip | null = null;
-    for (const { trip, pos } of feed.byStation.get(ref.station) ?? []) {
+    for (const { trip, pos } of callsAt(feed, ref.station)) {
       const scheduled = feed.data.trips[trip];
       const pattern = feed.data.patterns[scheduled.p] ?? [];
-      const times = feed.minutes[trip] ?? [];
+      const times = tripMinutes(feed, trip) ?? [];
       for (const day of days) {
         if (!feed.days[scheduled.s]?.has(day)) {
           continue;
@@ -1229,7 +1297,7 @@ export function scheduledRide(
     return [];
   }
   const pattern = feed.data.patterns[scheduled.p] ?? [];
-  const times = feed.minutes[ref.trip] ?? [];
+  const times = tripMinutes(feed, ref.trip) ?? [];
   const out: RideStop[] = [];
   for (let pos = ref.fromPos; pos <= ref.toPos && pos < pattern.length; pos += 1) {
     const stop = asStop(feed, pattern[pos], 0);
@@ -1370,8 +1438,8 @@ function callsByMinute(feed: IndexedFeed, station: number) {
   }
   let list = byStation.get(station);
   if (!list) {
-    list = (feed.byStation.get(station) ?? [])
-      .map(({ trip, pos }) => ({ trip, pos, min: feed.minutes[trip]?.[pos] ?? 0 }))
+    list = (callsAt(feed, station))
+      .map(({ trip, pos }) => ({ trip, pos, min: tripMinutes(feed, trip)?.[pos] ?? 0 }))
       .sort((a, b) => a.min - b.min);
     byStation.set(station, list);
   }
@@ -1604,7 +1672,7 @@ async function raptorOnce(
       const base = net.offset.get(b.feed)!;
       const scheduled = b.feed.data.trips[b.trip];
       const pattern = b.feed.data.patterns[scheduled.p] ?? [];
-      const times = b.feed.minutes[b.trip] ?? [];
+      const times = tripMinutes(b.feed, b.trip) ?? [];
       for (let p = b.pos + 1; p < pattern.length; p += 1) {
         const g = base + pattern[p];
         const arrives = at(b.day, times[p]);
@@ -1714,7 +1782,7 @@ function raptorJourney(
   };
   const arrivalOf = (ride: Ride) => {
     const base = ride.departs;
-    const times = ride.feed.minutes[ride.trip] ?? [];
+    const times = tripMinutes(ride.feed, ride.trip) ?? [];
     return base + (times[ride.alightPos] - times[ride.boardPos]) * 60;
   };
   const describe = (ride: Ride) => {
@@ -1780,13 +1848,38 @@ function carrisLisboaFeed(): IndexedFeed | null {
   return info ? loadFeed(info) : null;
 }
 
+let carrisLisboaWarming = false;
+
+/**
+ * The Carris de Lisboa timetable for the live buses' numbers, **only when
+ * already open**. Opening it is 5.5 MB read on the JavaScript thread; done on
+ * the first refresh of the live buses it froze the app right as it opened on
+ * the transport map. So the first asks get no number, the file is opened a
+ * few seconds later, and the next refresh has them.
+ */
+function carrisLisboaFeedIfOpen(): IndexedFeed | null {
+  const open = cache.get(CARRIS_LISBOA_FEED_ID);
+  if (open) {
+    return open;
+  }
+  if (!carrisLisboaWarming && installedFeeds().some((f) => f.id === CARRIS_LISBOA_FEED_ID)) {
+    carrisLisboaWarming = true;
+    // A broken file is not read again on every refresh: the flag stays set
+    // until a timetable is downloaded or removed.
+    setTimeout(() => void carrisLisboaFeed(), CARRIS_LISBOA_WARM_MS);
+  }
+  return null;
+}
+/** How long after the first live buses the timetable is opened. */
+const CARRIS_LISBOA_WARM_MS = 4000;
+
 /**
  * The public line number of a Carris de Lisboa route id (`172_1` → `735`), from
  * the stored timetable — the live feed only carries the route id. Null when the
  * timetable is not downloaded or is older than the ids (before November 2026).
  */
 export function carrisLisboaLine(routeId: string | null): string | null {
-  const feed = carrisLisboaFeed();
+  const feed = carrisLisboaFeedIfOpen();
   const i = routeId && feed?.data.routeIds ? feed.data.routeIds.indexOf(routeId) : -1;
   return i >= 0 ? feed?.data.routes[i]?.[0] || null : null;
 }
@@ -1836,12 +1929,12 @@ export function carrisLisboaTrip(vehicle: {
   const today = ymd(now);
   const yesterday = ymd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
   let best: { trip: number; pos: number; score: number } | null = null;
-  for (const { trip, pos } of feed.byStation.get(station) ?? []) {
+  for (const { trip, pos } of callsAt(feed, station)) {
     const data = feed.data.trips[trip];
     if (data.r !== route) {
       continue;
     }
-    const at = feed.minutes[trip][pos];
+    const at = tripMinutes(feed, trip)[pos];
     const days = feed.days[data.s];
     // Today's service, or yesterday's past midnight.
     const gap = days.has(today)
@@ -1866,7 +1959,7 @@ export function carrisLisboaTrip(vehicle: {
 
   const data = feed.data.trips[best.trip];
   const pattern = feed.data.patterns[data.p] ?? [];
-  const times = feed.minutes[best.trip];
+  const times = tripMinutes(feed, best.trip);
   const stops = pattern.map((s, k) => {
     const stop = feed.data.stops[s];
     return {
