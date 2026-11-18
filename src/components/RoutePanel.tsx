@@ -45,6 +45,14 @@ const MEIOS: Record<string, string> = {
 import { formatDistance, formatDuration, formatDurationShort } from '../utils/format';
 import type { ElevationProfile } from '../utils/elevation';
 import { ElevationProfileView } from './ElevationProfileView';
+import { sunsetOn } from '../utils/sun';
+
+/**
+ * Naismith's rule, as walkers use it: a minute more for every 10 m climbed.
+ * OSRM's walking time is for the flat; Valhalla's bicycle already slows on
+ * hills, so this is for walking only.
+ */
+const CLIMB_SECONDS_PER_M = 6;
 
 interface RoutePanelProps {
   /** The chosen walking or cycling route's height profile, when known. */
@@ -180,6 +188,35 @@ export function RoutePanel({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
+  // The climb, on foot (`CLIMB_SECONDS_PER_M`): only once the profile came,
+  // and only for the chosen route, whose profile it is.
+  const climbSeconds =
+    travelMode === 'walking' && elevation ? elevation.ascent * CLIMB_SECONDS_PER_M : 0;
+
+  // Walking or cycling into the dark: the sun sets on the way (worked out on
+  // the phone, `sunsetOn`). Not when it is already dark at the start.
+  const sunsetWarning = (() => {
+    if (!route || !destination || (travelMode !== 'walking' && travelMode !== 'cycling')) {
+      return null;
+    }
+    const now = Date.now();
+    const total =
+      eta(route.distanceMeters, route.durationSeconds) + (route.walkToCar?.seconds ?? 0) + climbSeconds;
+    const arrival = now + total * 1000;
+    const sunset = sunsetOn(
+      new Date(now),
+      destination.coordinates.latitude,
+      destination.coordinates.longitude,
+    );
+    if (!sunset || sunset.getTime() <= now || sunset.getTime() >= arrival) {
+      return null;
+    }
+    return strings.route.sunsetNote(
+      relogio(sunset.getTime() / 1000),
+      relogio(arrival / 1000),
+    );
+  })();
+
   /** The time to show on a mode chip, or `null` while it is not known. */
   const timeFor = (mode: TravelMode): string | null => {
     if (mode === travelMode) {
@@ -192,7 +229,7 @@ export function RoutePanel({
       }
       return route
         ? formatDurationShort(
-            eta(route.distanceMeters, route.durationSeconds) + (route.walkToCar?.seconds ?? 0),
+            eta(route.distanceMeters, route.durationSeconds) + (route.walkToCar?.seconds ?? 0) + climbSeconds,
           )
         : null;
     }
@@ -633,7 +670,9 @@ export function RoutePanel({
                   <View style={styles.caminhoTexto}>
                     <Text style={[styles.caminhoTempo, ativo ? styles.caminhoTempoAtivo : null]}>
                       {formatDuration(
-                        eta(op.distanceMeters, op.durationSeconds) + (op.walkToCar?.seconds ?? 0),
+                        eta(op.distanceMeters, op.durationSeconds) +
+                          (op.walkToCar?.seconds ?? 0) +
+                          (op === route ? climbSeconds : 0),
                       )}
                     </Text>
                     <Text style={styles.caminhoDetalhe} numberOfLines={1}>
@@ -660,6 +699,21 @@ export function RoutePanel({
           */}
           {elevation && (travelMode === 'walking' || travelMode === 'cycling') ? (
             <ElevationProfileView profile={elevation} />
+          ) : null}
+
+          {climbSeconds >= 60 && elevation ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons name="slope-uphill" size={16} color={theme.textMuted} />
+              <Text style={styles.avisoTexto}>
+                {strings.route.climbNote(formatDurationShort(climbSeconds), elevation.ascent)}
+              </Text>
+            </View>
+          ) : null}
+          {sunsetWarning ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons name="weather-sunset-down" size={16} color={theme.textMuted} />
+              <Text style={styles.avisoTexto}>{sunsetWarning}</Text>
+            </View>
           ) : null}
 
           {/* A car trip from the parked car: the walk is in the time above. */}

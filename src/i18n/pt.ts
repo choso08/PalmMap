@@ -239,6 +239,9 @@ export const pt = {
   },
 
   route: {
+    climbNote: (time: string, meters: number) => `Inclui ${time} pelas subidas (${meters} m).`,
+    sunsetNote: (sunset: string, arrival: string) =>
+      `O sol põe-se às ${sunset} e chega por volta das ${arrival}.`,
     ascent: (m: number) => `${m} m`,
     descent: (m: number) => `${m} m`,
     heightRange: (min: number, max: number) => `${min}–${max} m de altitude`,
