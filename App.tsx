@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
   AppState,
+  BackHandler,
   type LayoutChangeEvent,
   Linking,
   Pressable,
@@ -423,6 +424,8 @@ function PalmMap() {
   const [savedVisible, setSavedVisible] = useState(false);
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
+  /** Bumped to close the search from outside (the back button). */
+  const [searchBlurRequest, setSearchBlurRequest] = useState(0);
   /**
    * The search is choosing a stop on the way, not a new destination (the route
    * panel's "Add stop"). `stopSearchRequest` puts the cursor in the box.
@@ -1731,8 +1734,10 @@ function PalmMap() {
    * seen and Android ends up throttling the position updates — so sound alone is
    * not enough.
    */
+  // A transport trip under way too, as in Maps: the next stop is on screen.
+  const keepAwake = navigating || guiding;
   useEffect(() => {
-    if (!navigating) {
+    if (!keepAwake) {
       return;
     }
 
@@ -1740,7 +1745,7 @@ function PalmMap() {
     return () => {
       void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
     };
-  }, [navigating]);
+  }, [keepAwake]);
 
   /**
    * Fetches the speed cameras that sit on the route.
@@ -3179,6 +3184,66 @@ function PalmMap() {
   }, [route, navigating, settings.travelMode]);
   const routeProfile = elevation && elevation.route === route ? elevation.profile : null;
 
+  /**
+   * Android's back button closes what is on top, one thing at a time, as in
+   * Maps — it used to leave the app with a card or a route open, and the
+   * person came back to an app that seemed to have forgotten. The screens
+   * that are `Modal`s (Settings, Saved, layers…) take it themselves, through
+   * their `onRequestClose`. Only with nothing left open does Android get it
+   * (to leave the app). A ref, so the listener is added once and always sees
+   * the latest state.
+   */
+  const backRef = useRef<() => boolean>(() => false);
+  backRef.current = () => {
+    if (searchFocused) {
+      setSearchBlurRequest((n) => n + 1);
+      return true;
+    }
+    if (navigating) {
+      handleStopNavigation();
+      return true;
+    }
+    if (guiding) {
+      handleEndTransit();
+      return true;
+    }
+    if (selectedVehicleId) {
+      setSelectedVehicleId(null);
+      setSelectedStopId(null);
+      return true;
+    }
+    if (transitVisible) {
+      setTransitVisible(false);
+      setSelectedStopId(null);
+      setSelectedStationId(null);
+      setLineJourneyShown(null);
+      return true;
+    }
+    if (lineShown) {
+      closeLine();
+      return true;
+    }
+    if (selectedPlace || droppedPin) {
+      setSelectedPlace(null);
+      setDroppedPin(null);
+      return true;
+    }
+    if (destination) {
+      handleClearRoute();
+      return true;
+    }
+    if (measuring) {
+      setMeasuring(false);
+      setMeasurePoints([]);
+      return true;
+    }
+    return false;
+  };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => backRef.current());
+    return () => sub.remove();
+  }, []);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3296,6 +3361,15 @@ function PalmMap() {
           focusRequest={stopSearchRequest}
           placeholder={choosingStop && destination ? t().search.stopPlaceholder : undefined}
           onFocusChange={handleSearchFocusChange}
+          blurRequest={searchBlurRequest}
+          onGoToCar={() => {
+            const car = parkedCarNow();
+            if (car) {
+              update('travelMode', 'walking');
+              setRouteOrigin(null);
+              handleSearchSelect(parkedPlace(car.coordinates));
+            }
+          }}
           favourites={favourites}
           recents={recents}
           getBounds={getMapBounds}

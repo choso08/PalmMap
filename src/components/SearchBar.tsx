@@ -16,6 +16,8 @@ import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchLines, type TransitLineInfo } from '../services/transit';
 import { operatorColour, textOn } from '../utils/lineColour';
 import { isSamePlace } from '../services/favourites';
+import { useHomeWork } from '../services/homeWork';
+import { useParkedCar } from '../services/parkedCar';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
 import { listenOnce, voiceAvailable } from '../services/voiceInput';
@@ -59,6 +61,10 @@ interface SearchBarProps {
   recents: Place[];
   /** Each change puts the cursor in the box (the route panel's "Add stop"). */
   focusRequest?: number;
+  /** A new number closes the search (Android's back button, from `App`). */
+  blurRequest?: number;
+  /** The "Car" shortcut of the empty search: walk to the parked car. */
+  onGoToCar?: () => void;
   /** The box's hint instead of the usual one (choosing a stop). */
   placeholder?: string;
 }
@@ -78,6 +84,8 @@ export function SearchBar({
   favourites,
   recents,
   focusRequest,
+  blurRequest,
+  onGoToCar,
   placeholder,
   getBounds,
   updateAvailable = false,
@@ -92,6 +100,8 @@ export function SearchBar({
 
   /** True while the box is in use, to show the saved places. */
   const [focused, setFocusedState] = useState(false);
+  const homeWork = useHomeWork();
+  const parkedCar = useParkedCar();
   const setFocused = useCallback(
     (value: boolean) => {
       setFocusedState(value);
@@ -133,6 +143,16 @@ export function SearchBar({
     setLineResults([]);
     inputRef.current?.focus();
   }, [focusRequest]);
+
+  const lastBlurRequest = useRef(blurRequest);
+  useEffect(() => {
+    if (!blurRequest || blurRequest === lastBlurRequest.current) {
+      return;
+    }
+    lastBlurRequest.current = blurRequest;
+    setFocused(false);
+    Keyboard.dismiss();
+  }, [blurRequest, setFocused]);
   useEffect(() => {
     if (!onSelectLine || query === escolhidoLinha.current) {
       setLineResults([]);
@@ -375,6 +395,41 @@ export function SearchBar({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      {/*
+        The empty search starts with the places one goes to most, as in Maps:
+        Home, Work and the parked car, one tap each. Only those set.
+      */}
+      {parado && (homeWork.home || homeWork.work || (parkedCar && onGoToCar)) ? (
+        <View style={styles.shortcuts}>
+          {(['home', 'work'] as const).map((kind) => {
+            const place = homeWork[kind];
+            return place ? (
+              <Pressable key={kind} style={styles.shortcut} onPress={() => handleSelect(place)}>
+                <MaterialCommunityIcons
+                  name={kind === 'home' ? 'home' : 'briefcase'}
+                  size={16}
+                  color={theme.accent}
+                />
+                <Text style={styles.shortcutText}>{strings.saved[kind]}</Text>
+              </Pressable>
+            ) : null;
+          })}
+          {parkedCar && onGoToCar ? (
+            <Pressable
+              style={styles.shortcut}
+              onPress={() => {
+                setFocused(false);
+                Keyboard.dismiss();
+                onGoToCar();
+              }}
+            >
+              <MaterialCommunityIcons name="car" size={16} color={theme.accent} />
+              <Text style={styles.shortcutText}>{strings.parked.car}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       {list.length > 0 || linesShown.length > 0 ? (
         <FlatList
           style={[styles.results, focused && styles.resultsFocused]}
@@ -548,6 +603,29 @@ function makeStyles(theme: Theme) {
       // A border in the bar's colour cuts the dot out from the icon beneath.
       borderWidth: 1.5,
       borderColor: theme.surface,
+    },
+    shortcuts: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    shortcut: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    shortcutText: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: '500',
     },
     error: {
       paddingHorizontal: 14,
