@@ -26,7 +26,7 @@ import {
   type Ref,
 } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Animated, AppState, Easing, type NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import { Animated, AppState, Easing, type NativeSyntheticEvent, Pressable, StyleSheet, View } from 'react-native';
 
 import { useInternetReachable } from '../services/network';
 import { ScaleBar, type ScaleBarRef } from './ScaleBar';
@@ -137,6 +137,9 @@ interface MapViewProps {
   onTilePoiPress?: (place: Place) => void;
   /** Pin dropped with a long press, waiting to become the destination. */
   droppedPin: Coordinates | null;
+  /** Where the car is parked (`services/parkedCar.ts`), drawn as a car. */
+  parkedCar?: Coordinates | null;
+  onParkedCarPress?: () => void;
   /** Called on a long press anywhere on the map. */
   onDropPin: (coordinates: Coordinates) => void;
   /**
@@ -374,6 +377,8 @@ export function MapView({
   tilePois = false,
   onTilePoiPress,
   droppedPin,
+  parkedCar = null,
+  onParkedCarPress,
   onDropPin,
   onTapEmpty,
   following,
@@ -1275,7 +1280,8 @@ export function MapView({
         no explanation. Dashed, because that bit is up to whoever walks it — it
         is not a path anyone calculated.
       */}
-      {userLocation && route?.startsAt && route.startAwayMeters > 40 ? (
+      {/* Also the walk to the parked car, on a car trip that starts there. */}
+      {userLocation && route?.startsAt && (route.startAwayMeters > 40 || route.walkToCar) ? (
         <GeoJSONSource
           id="route-gap"
           data={{
@@ -2059,6 +2065,17 @@ export function MapView({
         </Marker>
       ) : null}
 
+      {/* The parked car; a tap opens its card. */}
+      {parkedCar ? (
+        <Marker id="parked-car" lngLat={[parkedCar.longitude, parkedCar.latitude]}>
+          <Pressable onPress={onParkedCarPress} hitSlop={10}>
+            <View style={[styles.parkedCar, { backgroundColor: theme.accent }]}>
+              <MaterialCommunityIcons name="car" size={16} color="#ffffff" />
+            </View>
+          </Pressable>
+        </Marker>
+      ) : null}
+
       {/*
         The red teardrop pin, as in the maps everyone knows: the place whose
         card is open, or the destination. It carries the business-kind icon
@@ -2270,6 +2287,15 @@ const styles = StyleSheet.create({
     top: 2,
     width: 30,
     height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parkedCar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },

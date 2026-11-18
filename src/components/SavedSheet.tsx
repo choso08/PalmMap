@@ -12,6 +12,7 @@ import type { TransitStop } from '../services/transit';
 import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
 import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import { forgetParkedCar, useParkedCar, type ParkedCar } from '../services/parkedCar';
 import type { TransitLineInfo } from '../services/transit';
 import { operatorColour, textOn } from '../utils/lineColour';
 
@@ -25,6 +26,10 @@ interface Props {
   onSelectStop: (stop: TransitStop) => void;
   /** A favourite line tapped: open it. */
   onSelectLine: (line: TransitLineInfo) => void;
+  /** Saves the car where the person is; absent without a position. */
+  onParkHere?: () => void;
+  /** The parked car tapped: walk to it. */
+  onGoToCar: (car: ParkedCar) => void;
 }
 
 /**
@@ -43,6 +48,8 @@ export function SavedSheet({
   onSelect,
   onSelectStop,
   onSelectLine,
+  onParkHere,
+  onGoToCar,
 }: Props) {
   const theme = useTheme();
   const strings = useT();
@@ -51,6 +58,7 @@ export function SavedSheet({
   const stops = useFavouriteStops();
   const lines = useFavouriteLines();
   const homeWork = useHomeWork();
+  const parked = useParkedCar();
   /**
    * Home or Work being chosen: the next place tapped in the lists below is
    * kept as it instead of becoming the destination.
@@ -139,6 +147,51 @@ export function SavedSheet({
             );
           })}
         </View>
+        {/*
+          Where the car was left (`services/parkedCar.ts`): a tap walks there;
+          with none, a tap saves where the person is.
+        */}
+        {parked || onParkHere ? (
+          <View style={styles.carRow}>
+            <Pressable
+              style={[styles.shortcut, styles.carMain]}
+              onPress={() => {
+                if (parked) {
+                  onClose();
+                  onGoToCar(parked);
+                } else {
+                  onParkHere?.();
+                }
+              }}
+            >
+              <View style={styles.icon}>
+                <MaterialCommunityIcons name="car" size={20} color={theme.accent} />
+              </View>
+              <View style={styles.texts}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {strings.parked.car}
+                </Text>
+                <Text style={styles.address} numberOfLines={1}>
+                  {parked
+                    ? strings.parked.parkedAgo(
+                        strings.parked.ago(Math.round((Date.now() - parked.at) / 60000)),
+                      )
+                    : strings.parked.saveHere}
+                </Text>
+              </View>
+            </Pressable>
+            {parked ? (
+              <Pressable
+                hitSlop={10}
+                onPress={forgetParkedCar}
+                accessibilityLabel={strings.parked.forget}
+                style={styles.carForget}
+              >
+                <MaterialCommunityIcons name="close" size={20} color={theme.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         {picking ? (
           <View style={styles.picking}>
             <Text style={styles.pickingText}>
@@ -336,6 +389,20 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     shortcutActive: {
       borderColor: theme.accent,
+    },
+    carRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    carMain: {
+      paddingRight: 44,
+    },
+    carForget: {
+      position: 'absolute',
+      right: 28,
+      padding: 4,
     },
     picking: {
       flexDirection: 'row',

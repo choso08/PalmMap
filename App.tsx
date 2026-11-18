@@ -94,7 +94,13 @@ import {
   PACE_MIN_METERS,
   PACE_MIN_MS,
   UPDATE_CHECK_INTERVAL_MS,
+  PARKED_WALK_MIN_M,
+  PARKED_WALK_MAX_M,
+  CAR_REACHED_M,
+  WALK_DETOUR,
+  WALK_SPEED_MS,
 } from './src/services/config';
+import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/services/parkedCar';
 import {
   cameraIcon,
   cameraLabel,
@@ -202,6 +208,46 @@ installCrashHandler();
 configureTileRequests();
 
 /** Settings have to wrap everything, because the theme comes from them. */
+/**
+ * The parked car to start a car trip from, when the person is away from it
+ * (`services/parkedCar.ts`): farther than `PARKED_WALK_MIN_M`, nearer than
+ * `PARKED_WALK_MAX_M`.
+ */
+function carStartFor(from: Coordinates, to: Coordinates): Coordinates | null {
+  const car = parkedCarNow();
+  if (!car) {
+    return null;
+  }
+  const away = distanceMeters(from, car.coordinates);
+  return away > PARKED_WALK_MIN_M &&
+    away < PARKED_WALK_MAX_M &&
+    // Going to the car itself is not a car trip from it.
+    distanceMeters(to, car.coordinates) > PARKED_WALK_MIN_M
+    ? car.coordinates
+    : null;
+}
+
+/** The parked car as a place, to walk to it or open its card. */
+const PARKED_PLACE_ID = -1;
+function parkedPlace(car: Coordinates): Place {
+  return { id: PARKED_PLACE_ID, name: t().parked.title, address: '', coordinates: car };
+}
+
+/** The walk to the car: OSRM's walking time, or the straight line when it fails. */
+async function walkToCarFrom(
+  from: Coordinates,
+  car: Coordinates,
+  isWanted: () => boolean,
+): Promise<{ meters: number; seconds: number }> {
+  try {
+    const walk = await getDuration(from, [], car, 'walking', isWanted);
+    return { meters: walk.distanceMeters, seconds: walk.durationSeconds };
+  } catch {
+    const meters = distanceMeters(from, car) * WALK_DETOUR;
+    return { meters, seconds: meters / WALK_SPEED_MS };
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -525,6 +571,13 @@ function PalmMap() {
   const [navigating, setNavigating] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [nextStep, setNextStep] = useState<RouteStep | null>(null);
+  /**
+   * Metres still to walk to the parked car on a car trip that starts there;
+   * `null` once reached or when there is no walk. See `Route.walkToCar`.
+   */
+  const [walkingToCar, setWalkingToCar] = useState<number | null>(null);
+  const carReached = useRef(false);
+  const parkedCar = useParkedCar();
   /** The manoeuvre after the next one, shown as "Then" when the two are close. */
   const [thenStep, setThenStep] = useState<RouteStep | null>(null);
   /** The camera has let go of the car during navigation (dragged, or overview). */
@@ -1287,16 +1340,25 @@ function PalmMap() {
         if (cancelled) {
           return;
         }
-        const result = await getRoutes(
-          origem,
-          waypoints.map((w) => w.coordinates),
-          alvo,
-          perfil,
-          settings.avoidTolls,
-          settings.bikeType,
-        );
+        // By car, away from the parked car: the drive starts at the car and
+        // the walk to it is added (author's request, November 2026). Only from
+        // the GPS — an origin typed in Directions is where the car is.
+        const car = perfil === 'driving' && !routeOrigin ? carStartFor(origem, alvo) : null;
+        const [result, walk] = await Promise.all([
+          getRoutes(
+            car ?? origem,
+            waypoints.map((w) => w.coordinates),
+            alvo,
+            perfil,
+            settings.avoidTolls,
+            settings.bikeType,
+          ),
+          car ? walkToCarFrom(origem, car, () => !cancelled) : Promise.resolve(null),
+        ]);
         if (!cancelled) {
-          setRouteOptions(result);
+          setRouteOptions(
+            car && walk ? result.map((r) => ({ ...r, walkToCar: { car, ...walk } })) : result,
+          );
           setRouteIndex(0);
           // The recents list is only touched when the route really comes out: a
           // destination that gave no route is no place at all.
@@ -1327,7 +1389,7 @@ function PalmMap() {
     // job, which has its own recalculation.
     // `online` too: going offline replans from the stored timetables, coming
     // back brings the live buses and a route that may have failed.
-  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen, online]);
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen, online, parkedCar]);
 
   /**
    * Each travel mode's time, for the route panel buttons ("car 12 min · walk
@@ -1353,7 +1415,7 @@ function PalmMap() {
   useEffect(() => {
     setModeTimes({});
     setChipTrips(undefined);
-  }, [destination, routeOrigin, waypoints, settings.bikeType]);
+  }, [destination, routeOrigin, waypoints, settings.bikeType, parkedCar]);
   const shownModeTimes = useMemo(() => {
     if (chipTrips === undefined) {
       return modeTimes;
@@ -1385,13 +1447,21 @@ function PalmMap() {
       if (mode === settings.travelMode) {
         continue;
       }
+      // By car, from the parked car with the walk to it added (see the route).
+      const car =
+        mode === 'driving' && !routeOrigin ? carStartFor(origem, destination.coordinates) : null;
       (mode === 'driving'
         ? Promise.resolve(destination.coordinates)
         : arrivalPoint(destination, origem)
       )
-        .then((alvo) =>
-          getDuration(origem, via, alvo, mode, () => !cancelled, settings.bikeType),
-        )
+        .then(async (alvo) => {
+          const time = await getDuration(car ?? origem, via, alvo, mode, () => !cancelled, settings.bikeType);
+          if (!car) {
+            return time;
+          }
+          const walk = await walkToCarFrom(origem, car, () => !cancelled);
+          return { ...time, durationSeconds: time.durationSeconds + walk.seconds };
+        })
         .then((result) => {
           if (!cancelled) {
             setModeTimes((prev) => ({ ...prev, [mode]: result }));
@@ -1421,7 +1491,7 @@ function PalmMap() {
     };
     // With the chosen mode in the dependencies: on switching, the one left
     // needs its time. The others come from the service cache, with no request.
-  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen, online]);
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen, online, parkedCar]);
 
   /**
    * Looks for businesses to show on the map.
@@ -1748,12 +1818,31 @@ function PalmMap() {
             route.coordinates.length - 1,
           );
 
+          // A trip that starts at the parked car: first the walk to it. Off the
+          // route is not off the route then, and the pace is not measured on
+          // foot. Reached, the car is being driven: forget where it was.
+          const toCar = route.walkToCar && !carReached.current
+            ? distanceMeters(position, route.walkToCar.car)
+            : null;
+          if (toCar !== null && toCar <= CAR_REACHED_M) {
+            carReached.current = true;
+            forgetParkedCar();
+          }
+          const aPe = toCar !== null && toCar > CAR_REACHED_M ? toCar * WALK_DETOUR : null;
+          setWalkingToCar((atual) =>
+            atual === null && aPe === null ? atual : aPe === null ? null : Math.round(aPe),
+          );
+
           // Chegada.
           if (remainingMeters < ARRIVAL_METERS) {
             // The voice speaks **after** navigation closes, not before: leaving
             // navigation undoes this effect, and its cleanup calls `stopSpeaking` —
             // which cut "you have arrived" off in the middle of the first syllable.
             const dizer = settings.voiceGuidance;
+            // Arrived by car: that is where it is parked now.
+            if (settings.travelMode === 'driving') {
+              parkCar(position);
+            }
             setNavigating(false);
             if (dizer) {
               setTimeout(() => speak(t().navigation.arrived), 250);
@@ -1768,7 +1857,9 @@ function PalmMap() {
           // margin, standing at a traffic light was enough for the app to think it
           // had left the route and recalculate out of nowhere.
           const margem = OFF_ROUTE_METERS + Math.min(accuracyMeters, 100);
-          if (offRouteMeters > margem) {
+          if (aPe !== null) {
+            offRouteStrikes.current = 0;
+          } else if (offRouteMeters > margem) {
             offRouteStrikes.current += 1;
           } else {
             offRouteStrikes.current = 0;
@@ -1898,9 +1989,12 @@ function PalmMap() {
               ? assumedTotal * (coveredMeters / route.distanceMeters)
               : 0;
 
-          // With learning off (Settings), nothing is measured nor kept.
+          // With learning off (Settings), nothing is measured nor kept; nor
+          // while walking to the parked car.
           if (!settings.paceLearning) {
             // Nothing.
+          } else if (aPe !== null) {
+            paceStart.current = null;
           } else if (!paceStart.current) {
             paceStart.current = {
               atMs: Date.now(),
@@ -1960,16 +2054,16 @@ function PalmMap() {
               });
           }
           setRemaining({
-            meters: remainingMeters,
+            meters: remainingMeters + (aPe ?? 0),
             seconds:
-              route.distanceMeters > 0
+              (route.distanceMeters > 0
                 ? route.durationSeconds * (remainingMeters / route.distanceMeters)
-                : 0,
+                : 0) + (aPe !== null ? aPe / WALK_SPEED_MS : 0),
           });
 
           // Spoken announcements, once per manoeuvre and distance. Manoeuvres that
           // need no decision are left out — see `worthAnnouncing`.
-          if (settings.voiceGuidance && step?.announce) {
+          if (settings.voiceGuidance && step?.announce && aPe === null) {
             for (const threshold of ANNOUNCE_AT_METERS) {
               const key = `${ahead}|${threshold}`;
               if (toStep <= threshold && !announced.current.has(key)) {
@@ -2203,6 +2297,23 @@ function PalmMap() {
     setSelectedPlace(null);
     setStepsVisible(false);
     setProgressIndex(0);
+    carReached.current = false;
+    // Setting off by car next to the parked car: it is being driven.
+    const aqui0 = userLocationRef.current;
+    const parked = parkedCarNow();
+    if (
+      settings.travelMode === 'driving' &&
+      parked &&
+      aqui0 &&
+      !route?.walkToCar &&
+      distanceMeters(aqui0, parked.coordinates) <= PARKED_WALK_MIN_M
+    ) {
+      forgetParkedCar();
+    }
+    const walk0 = route?.walkToCar && aqui0
+      ? distanceMeters(aqui0, route.walkToCar.car) * WALK_DETOUR
+      : null;
+    setWalkingToCar(walk0 !== null && walk0 > CAR_REACHED_M ? Math.round(walk0) : null);
 
     // What is left is worked out now, with the position at hand. Without this
     // the panel started at zero and only corrected itself on the first GPS
@@ -2215,11 +2326,11 @@ function PalmMap() {
       const faltam = distanceAlong(route.coordinates, inicio, route.coordinates.length - 1);
 
       setRemaining({
-        meters: faltam,
+        meters: faltam + (route.walkToCar?.meters ?? 0),
         seconds:
-          route.distanceMeters > 0
+          (route.distanceMeters > 0
             ? route.durationSeconds * (faltam / route.distanceMeters)
-            : route.durationSeconds,
+            : route.durationSeconds) + (route.walkToCar?.seconds ?? 0),
       });
     }
 
@@ -2227,7 +2338,9 @@ function PalmMap() {
     // spoke 400 m before the first manoeuvre: on a long road it stayed silent
     // for kilometres, and the start looked like the voice had not come on.
     const primeiro = route?.steps[0];
-    if (settings.voiceGuidance && primeiro?.instruction) {
+    if (settings.voiceGuidance && walk0 !== null && walk0 > CAR_REACHED_M) {
+      speak(t().parked.walkVoice(formatDistanceSpoken(Math.round(walk0))));
+    } else if (settings.voiceGuidance && primeiro?.instruction) {
       const aqui = userLocationRef.current;
       speak(
         `${primeiro.instruction}.`,
@@ -2237,7 +2350,7 @@ function PalmMap() {
 
     setNavCameraFree(false);
     setNavigating(true);
-  }, [route, settings.voiceGuidance]);
+  }, [route, settings.voiceGuidance, settings.travelMode]);
 
   // The engine is woken when a destination is chosen, so it is ready by the
   // time "Start" is pressed (`warmUpVoice`).
@@ -2272,6 +2385,7 @@ function PalmMap() {
 
   const handleStopNavigation = useCallback(() => {
     setNavigating(false);
+    setWalkingToCar(null);
     setNextStep(null);
     setThenStep(null);
     setRoadLimit(null);
@@ -3040,6 +3154,21 @@ function PalmMap() {
   }, []);
 
   // See the note by the panels, further down.
+  /** The navigation banner while walking to the parked car. */
+  const walkToCarStep = useMemo<RouteStep | null>(
+    () =>
+      route?.walkToCar
+        ? {
+            instruction: strings.parked.walkToCar,
+            icon: 'walk',
+            distanceMeters: route.walkToCar.meters,
+            location: route.walkToCar.car,
+            announce: false,
+          }
+        : null,
+    [route, strings],
+  );
+
   const lastPlace = useLastValue(selectedPlace);
   const lastDestination = useLastValue(destination);
 
@@ -3067,6 +3196,17 @@ function PalmMap() {
         }
         onTilePoiPress={handleTilePoiPress}
         droppedPin={droppedPin}
+        parkedCar={parkedCar?.coordinates ?? null}
+        onParkedCarPress={() => {
+          if (parkedCar) {
+            setSelectedPlace({
+              ...parkedPlace(parkedCar.coordinates),
+              address: strings.parked.parkedAgo(
+                strings.parked.ago(Math.round((Date.now() - parkedCar.at) / 60000)),
+              ),
+            });
+          }
+        }}
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}
         following={navigating}
@@ -3406,8 +3546,8 @@ function PalmMap() {
 
       {navigating ? (
         <NavigationPanel
-          step={nextStep}
-          thenStep={thenStep}
+          step={walkingToCar !== null ? walkToCarStep : nextStep}
+          thenStep={walkingToCar !== null ? nextStep : thenStep}
           roadLimit={settings.speedLimitAlerts ? roadLimit : null}
           cameraFree={navCameraFree}
           onRecenter={handleLocatePress}
@@ -3417,7 +3557,7 @@ function PalmMap() {
             mapRef.current?.overview();
             setNavCameraFree(true);
           }}
-          distanceToStep={distanceToStep}
+          distanceToStep={walkingToCar ?? distanceToStep}
           remainingMeters={remaining.meters}
           remainingSeconds={remaining.seconds}
           pace={livePace}
@@ -3633,6 +3773,22 @@ function PalmMap() {
           handleStopPress(stop.id);
         }}
         onSelectLine={handleSelectLine}
+        onParkHere={
+          hasLocation
+            ? () => {
+                const aqui = userLocationRef.current;
+                if (aqui) {
+                  parkCar(aqui);
+                }
+              }
+            : undefined
+        }
+        onGoToCar={(car) => {
+          // To the car is on foot.
+          update('travelMode', 'walking');
+          setRouteOrigin(null);
+          handleSearchSelect(parkedPlace(car.coordinates));
+        }}
       />
 
       <DirectionsSheet

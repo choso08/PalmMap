@@ -108,6 +108,12 @@ export interface Route {
   startAwayMeters: number;
   /** Where the route really starts, already snapped to the road. */
   startsAt: Coordinates | null;
+  /**
+   * A car trip that starts at the parked car (`services/parkedCar.ts`): the
+   * walk from the person to it, added to the time shown. The route itself
+   * (`coordinates`, `durationSeconds`) is the drive only.
+   */
+  walkToCar?: { car: Coordinates; meters: number; seconds: number };
   /** The main roads, to tell alternatives apart ("A2, IC20"). Empty when unknown. */
   via: string;
   /**

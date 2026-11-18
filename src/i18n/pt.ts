@@ -86,6 +86,25 @@ export const pt = {
     tools: 'Ferramentas',
     measure: 'Medir distância ou área',
   },
+  parked: {
+    car: 'Carro',
+    title: 'O seu carro',
+    saveHere: 'Guardar onde estou',
+    ago: (minutes: number) =>
+      minutes < 1
+        ? 'agora'
+        : minutes < 60
+          ? `há ${minutes} min`
+          : minutes < 1440
+            ? `há ${Math.round(minutes / 60)} h`
+            : `há ${Math.round(minutes / 1440)} dias`,
+    parkedAgo: (ago: string) => `Estacionado ${ago}`,
+    forget: 'Esquecer o carro',
+    walkToCar: 'Ande até ao carro',
+    walkVoice: (distance: string) => `Ande até ao carro, a ${distance}.`,
+    includesWalk: (time: string, distance: string) =>
+      `Inclui ${time} a pé até ao carro (${distance}).`,
+  },
   saved: {
     home: 'Casa',
     work: 'Trabalho',

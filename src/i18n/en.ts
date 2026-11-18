@@ -68,6 +68,25 @@ export const en: typeof pt = {
     tools: 'Tools',
     measure: 'Measure distance or area',
   },
+  parked: {
+    car: 'Car',
+    title: 'Your car',
+    saveHere: 'Save where I am',
+    ago: (minutes: number) =>
+      minutes < 1
+        ? 'just now'
+        : minutes < 60
+          ? `${minutes} min ago`
+          : minutes < 1440
+            ? `${Math.round(minutes / 60)} h ago`
+            : `${Math.round(minutes / 1440)} days ago`,
+    parkedAgo: (ago: string) => `Parked ${ago}`,
+    forget: 'Forget the car',
+    walkToCar: 'Walk to the car',
+    walkVoice: (distance: string) => `Walk to the car, ${distance} away.`,
+    includesWalk: (time: string, distance: string) =>
+      `Includes ${time} walking to the car (${distance}).`,
+  },
   saved: {
     home: 'Home',
     work: 'Work',

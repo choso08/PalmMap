@@ -745,3 +745,14 @@ export const PANORAMAX_URL = 'https://api.panoramax.xyz/api';
 export const PHOTO_WIDTH = 640;
 /** How near a street-level picture must be to stand in for a place's own photo. */
 export const PHOTO_NEARBY_M = 25;
+
+/**
+ * The parked car (`services/parkedCar.ts`). Farther than `PARKED_WALK_MIN_M`
+ * from it, a car trip starts at the car and the walk is added; past
+ * `PARKED_WALK_MAX_M` (straight line) the person is clearly somewhere else and
+ * the car is left out. Within `CAR_REACHED_M`, on foot towards it, it counts as
+ * reached and is forgotten: it is being driven.
+ */
+export const PARKED_WALK_MIN_M = 80;
+export const PARKED_WALK_MAX_M = 10000;
+export const CAR_REACHED_M = 35;

@@ -185,7 +185,11 @@ export function RoutePanel({
           ? formatDurationShort(first.reachAt - Math.max(first.leaveAt, Date.now() / 1000))
           : null;
       }
-      return route ? formatDurationShort(eta(route.distanceMeters, route.durationSeconds)) : null;
+      return route
+        ? formatDurationShort(
+            eta(route.distanceMeters, route.durationSeconds) + (route.walkToCar?.seconds ?? 0),
+          )
+        : null;
     }
     const known = modeTimes[mode];
     if (mode === 'transit') {
@@ -623,7 +627,9 @@ export function RoutePanel({
                 >
                   <View style={styles.caminhoTexto}>
                     <Text style={[styles.caminhoTempo, ativo ? styles.caminhoTempoAtivo : null]}>
-                      {formatDuration(eta(op.distanceMeters, op.durationSeconds))}
+                      {formatDuration(
+                        eta(op.distanceMeters, op.durationSeconds) + (op.walkToCar?.seconds ?? 0),
+                      )}
                     </Text>
                     <Text style={styles.caminhoDetalhe} numberOfLines={1}>
                       {[formatDistance(op.distanceMeters), op.via ? strings.route.via(op.via) : '']
@@ -647,6 +653,18 @@ export function RoutePanel({
             sometimes on the other side of a fence. Better to say so than leave
             the person staring at a gap between them and the line.
           */}
+          {/* A car trip from the parked car: the walk is in the time above. */}
+          {route.walkToCar ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons name="walk" size={16} color={theme.textMuted} />
+              <Text style={styles.avisoTexto}>
+                {strings.parked.includesWalk(
+                  formatDurationShort(route.walkToCar.seconds),
+                  formatDistance(route.walkToCar.meters),
+                )}
+              </Text>
+            </View>
+          ) : null}
           {route.startAwayMeters > 40 ? (
             <View style={styles.aviso}>
               <MaterialCommunityIcons

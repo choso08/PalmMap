@@ -47,5 +47,8 @@ export function savedStore<T>(key: string, empty: T, clean: (raw: unknown) => T)
     return now;
   };
 
-  return { update, useValue };
+  /** The value as it stands now (the empty one until storage is read). */
+  const current = (): T => value;
+
+  return { update, useValue, current, load };
 }
