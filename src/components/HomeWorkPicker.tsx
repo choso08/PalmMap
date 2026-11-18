@@ -15,6 +15,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import { getBestPosition } from '../services/location';
 import { addressAt, searchPlaces } from '../services/nominatim';
 import { SupersededError } from '../services/rateLimit';
 import { useT, useTheme } from '../settings';
@@ -74,7 +75,14 @@ export function HomeWorkPicker({
 
   // A fresh screen each time it opens.
   const [openFor, setOpenFor] = useState<HomeWorkKind | null>(null);
+  /**
+   * Bumped on opening, closing and choosing: a "current location" lookup that
+   * finishes after any of them saves nothing (review, November 2026 — it
+   * overwrote a place chosen meanwhile, and closed the next picker).
+   */
+  const session = useRef(0);
   if (openFor !== kind) {
+    session.current += 1;
     setOpenFor(kind);
     setQuery('');
     setResults([]);
@@ -117,26 +125,46 @@ export function HomeWorkPicker({
   }, [query, getBounds, strings]);
 
   const choose = (place: Place) => {
+    session.current += 1;
     if (kind) {
       setHomeWork(kind, place);
     }
     onClose();
   };
 
-  const useHere = () => {
+  const useCurrentLocation = () => {
     if (!here || !kind || locating) {
       return;
     }
+    const mine = session.current;
+    const forKind = kind;
     setLocating(true);
-    const fallback: Place = {
-      id: -Date.now(),
-      name: strings.saved[kind],
-      address: '',
-      coordinates: here,
-    };
-    void addressAt(here)
-      .catch(() => null)
-      .then((found) => choose(found ?? fallback));
+    void (async () => {
+      // Where one is **now**: the stored reading only if recent, else a new
+      // one — the stored one may be from before the app was in the
+      // background, somewhere else (`getBestPosition`).
+      const position = await getBestPosition().catch(() => null);
+      if (mine !== session.current) {
+        return;
+      }
+      if (!position) {
+        setLocating(false);
+        setError(strings.errors.locationUnavailable);
+        return;
+      }
+      const found = await addressAt(position).catch(() => null);
+      if (mine !== session.current || forKind !== kind) {
+        return;
+      }
+      choose(
+        found ?? {
+          id: -Date.now(),
+          name: strings.saved[forKind],
+          address: '',
+          coordinates: position,
+        },
+      );
+    })();
   };
 
   // Typed text first filters what is on the phone, at once.
@@ -216,7 +244,7 @@ export function HomeWorkPicker({
           ListHeaderComponent={
             <View>
               {here ? (
-                <Pressable style={styles.row} onPress={useHere} disabled={locating}>
+                <Pressable style={styles.row} onPress={useCurrentLocation} disabled={locating}>
                   <View style={styles.icon}>
                     {locating ? (
                       <ActivityIndicator size="small" color={theme.accent} />

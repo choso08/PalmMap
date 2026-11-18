@@ -71,9 +71,17 @@ async function allowed(): Promise<boolean> {
   }
 }
 
+/**
+ * Bumped by `clearNavNotices`: a notice still on its way (it waits for the
+ * permission check) is not posted after the clearing — a sticky one would
+ * have stayed in the shade after the trip.
+ */
+let generation = 0;
+
 /** The quiet one: replaced in place. */
 export async function showInstruction(title: string, body: string): Promise<void> {
-  if (!(await allowed())) {
+  const mine = generation;
+  if (!(await allowed()) || mine !== generation) {
     return;
   }
   await Notifications.scheduleNotificationAsync({
@@ -81,11 +89,16 @@ export async function showInstruction(title: string, body: string): Promise<void
     content: { title, body, sticky: true, autoDismiss: false },
     trigger: { channelId: QUIET },
   }).catch(() => undefined);
+  if (mine !== generation) {
+    // Cleared while it was being posted.
+    void Notifications.dismissNotificationAsync(INSTRUCTION_ID).catch(() => undefined);
+  }
 }
 
 /** The loud one, for a manoeuvre close ahead. */
 export async function alertManeuver(title: string, body: string): Promise<void> {
-  if (!(await allowed())) {
+  const mine = generation;
+  if (!(await allowed()) || mine !== generation) {
     return;
   }
   await Notifications.scheduleNotificationAsync({
@@ -101,6 +114,7 @@ export function clearApproach(): void {
 
 /** Back on screen, or the trip over: both go. */
 export function clearNavNotices(): void {
+  generation += 1;
   void Notifications.dismissNotificationAsync(INSTRUCTION_ID).catch(() => undefined);
   clearApproach();
 }

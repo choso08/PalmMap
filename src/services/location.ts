@@ -140,6 +140,16 @@ function keep(position: Location.LocationObject): Coordinates {
  * that depends on it can be left stuck waiting — neither the start-up nor the
  * button.
  */
+/** Whether the last reading is recent enough to centre on (`POSITION_FRESH_MS`). */
+export function lastFixIsFresh(): boolean {
+  return lastFix !== null && Date.now() - lastFix.at < POSITION_FRESH_MS;
+}
+
+/** A new reading, given up after `POSITION_TIMEOUT_MS` (`null` then). */
+export function getFreshPositionWithin(): Promise<Coordinates | null> {
+  return withTimeout(getFreshPosition().catch(() => null));
+}
+
 function withTimeout(reading: Promise<Coordinates | null>): Promise<Coordinates | null> {
   return Promise.race([
     reading,
@@ -433,13 +443,8 @@ export async function watchPositionIdle(
  * is, even if old. A map at the old spot is bad; a button that does not respond
  * is worse, and without network the GPS can take minutes to wake up.
  */
-/** Whether the last reading is recent enough to centre on (`POSITION_FRESH_MS`). */
-export function lastFixIsFresh(): boolean {
-  return lastFix !== null && Date.now() - lastFix.at < POSITION_FRESH_MS;
-}
-
 export async function getBestPosition(): Promise<Coordinates | null> {
-  if (lastFix && Date.now() - lastFix.at < POSITION_FRESH_MS) {
+  if (lastFixIsFresh() && lastFix) {
     return lastFix.coordinates;
   }
 

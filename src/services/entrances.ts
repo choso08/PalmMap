@@ -73,11 +73,6 @@ export async function findEntrances(point: Coordinates): Promise<Entrance[]> {
   return remote.length > 0 ? remote : localEntrances(point);
 }
 
-/** Whether Overpass was already asked about this place (its answer kept). */
-function remoteKnown(point: Coordinates): boolean {
-  return known.has(keyOf(point));
-}
-
 /**
  * A house or a street, not a business or a big building: its point is
  * already the door, and asking Overpass for doors only delays the route.
@@ -168,13 +163,10 @@ export async function arrivalPoint(place: Place, from: Coordinates): Promise<Coo
   if (place.id < 0 || isPlainAddress(place)) {
     return place.coordinates;
   }
-  // The country's own doors answer at once, with no request: use them when
-  // there are some, and Overpass only where the file has none.
-  const local = localEntrances(place.coordinates);
-  const known = remoteKnown(place.coordinates);
-  if (!known && local.length > 0) {
-    return bestEntrance(local, from)?.coordinates ?? place.coordinates;
-  }
+  // The country file's doors are not used first, online: they are every door
+  // within 150 m whatever building it is on, and the nearest to the origin
+  // could be a neighbour's (review, November 2026). Overpass knows whose door
+  // it is; the file stays the offline answer and the fallback when it is slow.
   const entrances = await Promise.race([
     findEntrances(place.coordinates),
     // Too slow: the country's doors, when downloaded, or none.

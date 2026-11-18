@@ -132,6 +132,7 @@ import {
   getBestPosition,
   getCurrentPosition,
   getFreshPosition,
+  getFreshPositionWithin,
   lastFixIsFresh,
   requestPermission,
   watchPosition,
@@ -142,7 +143,7 @@ import {
   installedRegions,
   type OfflineRegion,
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
-import { addressAt, reverseGeocode, searchPlaces } from './src/services/nominatim';
+import { addressAt, addressOf, reverseGeocode, searchPlaces } from './src/services/nominatim';
 import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
 import { openStatus, parseOpeningHours } from './src/utils/openingHours';
@@ -300,6 +301,12 @@ function rememberView(bounds: Bounds, zoom: number): void {
     void AsyncStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ center, zoom })).catch(() => undefined);
   }, 1000);
 }
+
+/** Arriving counts near the end only once this little of the route is left. */
+const ARRIVAL_NEAR_M = 300;
+
+/** A transport trip closes this long after arriving. */
+const GUIDE_END_AFTER_MS = 4000;
 
 /** The panels that open from the bottom, in the order they rank when opened together. */
 type BottomPanel = 'measure' | 'guide' | 'route' | 'place' | 'line' | 'stop' | 'vehicle';
@@ -481,6 +488,14 @@ function PalmMap() {
   const [homeWorkFor, setHomeWorkFor] = useState<HomeWorkKind | null>(null);
   const [pinHomeWork, setPinHomeWork] = useState<HomeWorkKind | null>(null);
   const [pinSaving, setPinSaving] = useState(false);
+  /** Bumped when the pin mode starts or ends: a lookup finishing later saves nothing. */
+  const pinSession = useRef(0);
+  const [pinSessionFor, setPinSessionFor] = useState<HomeWorkKind | null>(null);
+  if (pinSessionFor !== pinHomeWork) {
+    pinSession.current += 1;
+    setPinSessionFor(pinHomeWork);
+    setPinSaving(false);
+  }
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
   /** Where the map was left last time (`rememberView`). */
@@ -592,6 +607,10 @@ function PalmMap() {
   const [guiding, setGuiding] = useState(false);
   const [guide, setGuide] = useState<TransitGuide | null>(null);
   const [guideStep, setGuideStep] = useState<GuideProgress>({ leg: 0, stop: 0 });
+  const guideStepRef = useRef(guideStep);
+  guideStepRef.current = guideStep;
+  /** The last reading's place along the ride (`GuideProgress.along`), see the GPS watcher. */
+  const guideAlong = useRef<{ along?: number; alongLeg?: number }>({});
   const guideRef = useRef<TransitGuide | null>(null);
   guideRef.current = guide;
   /** What the voice already said on this trip, so nothing is said twice. */
@@ -659,23 +678,40 @@ function PalmMap() {
   const followHoldRef = useRef(false);
   const followUserRef = useRef(followUser);
   followUserRef.current = followUser;
+  const holdToken = useRef(0);
+  const releaseFollowHold = useCallback(() => {
+    holdToken.current += 1;
+    followHoldRef.current = false;
+    setFollowHold(false);
+  }, []);
   const holdFollowUntilFresh = useCallback(() => {
+    const token = ++holdToken.current;
     followHoldRef.current = true;
     setFollowHold(true);
-    void getFreshPosition()
-      .catch(() => null)
-      .then((posicao) => {
-        if (posicao) {
-          userLocationRef.current = posicao;
-          setUserLocation(posicao);
-          mapRef.current?.recenter(posicao);
-        }
-        // A beat for the native layer to take the same fix before following.
-        setTimeout(() => {
-          followHoldRef.current = false;
-          setFollowHold(false);
-        }, posicao ? 700 : 0);
-      });
+    // With a deadline: indoors or underground a reading may never come, and
+    // the camera would never follow (review, November 2026).
+    void getFreshPositionWithin().then((position) => {
+      if (token !== holdToken.current) {
+        return;
+      }
+      // Only if following is still wanted: in the meantime the person may have
+      // turned it off or chosen a destination.
+      if (position && followUserRef.current) {
+        userLocationRef.current = position;
+        setUserLocation(position);
+        mapRef.current?.recenter(position);
+      }
+      // A beat for the native layer to take the same fix before following.
+      setTimeout(
+        () => {
+          if (token === holdToken.current) {
+            followHoldRef.current = false;
+            setFollowHold(false);
+          }
+        },
+        position ? 700 : 0,
+      );
+    });
   }, []);
   /** When the GPS button was last tapped, to recognise a double tap. */
   const lastLocateTap = useRef(0);
@@ -1229,10 +1265,18 @@ function PalmMap() {
         setHasLocation(true);
         const current = guideRef.current;
         if (current) {
-          setGuideStep((before) => {
-            const next = guideProgress(current, before, position);
-            return next.leg === before.leg && next.stop === before.stop ? before : next;
-          });
+          // The place along the line is kept apart (`guideAlong`): it changes at
+          // every reading, while the step shown only when a stop or leg is
+          // passed — kept in the state, it was thrown away with the
+          // unchanged step, and a ride never moved on.
+          const before = { ...guideStepRef.current, ...guideAlong.current };
+          const next = guideProgress(current, before, position);
+          guideAlong.current = { along: next.along, alongLeg: next.alongLeg };
+          if (next.leg !== before.leg || next.stop !== before.stop) {
+            const step = { leg: next.leg, stop: next.stop };
+            guideStepRef.current = step;
+            setGuideStep(step);
+          }
         }
       }),
       2000,
@@ -1365,6 +1409,7 @@ function PalmMap() {
     // Asked now, on the tap: "get off at the next stop" is also a notification.
     void prepareTripNotices();
     guideSaid.current.clear();
+    guideAlong.current = {};
     setGuideStep({ leg: 0, stop: 0 });
     setSelectedPlace(null);
     setFollowUser(true);
@@ -1398,8 +1443,35 @@ function PalmMap() {
     stopSpeaking();
   }, []);
 
+  /*
+    Arriving ends a transport trip too, as navigation does (author's report,
+    November 2026: "I reach the destination and it does not end"): a few
+    seconds for "you have arrived" to be said and seen, then the trip closes
+    and the destination's card opens.
+  */
+  useEffect(() => {
+    if (!guiding || !guideDone) {
+      return;
+    }
+    const arrivedAt = destination;
+    const timer = setTimeout(() => {
+      setGuiding(false);
+      setGuide(null);
+      setDestination(null);
+      setRouteOrigin(null);
+      setWaypoints([]);
+      if (arrivedAt) {
+        setSelectedPlace(arrivedAt);
+      }
+    }, GUIDE_END_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [guiding, guideDone, destination]);
+
+  /** A route asked and not answered yet (see the chip times). */
+  const routePending = useRef(false);
   // Calculates the route when there is an origin and a destination.
   useEffect(() => {
+    routePending.current = false;
     // While navigating the position changes every second. Recalculating here
     // would send one request a second to OSRM — the navigation engine
     // recalculates, and only when really off the route.
@@ -1425,6 +1497,9 @@ function PalmMap() {
     }
 
     let cancelled = false;
+    // Also in a ref: the chip times' effect runs in this same commit, before
+    // `routeLoading` is rendered true, and must already see the route coming.
+    routePending.current = true;
     setRouteLoading(true);
     setRouteError(null);
 
@@ -1451,6 +1526,7 @@ function PalmMap() {
           setTransitTrips(plan.trips);
           setTransitTripIndex(0);
           setRouteError(plan.error);
+          routePending.current = false;
           setRouteLoading(false);
           if (plan.trips.length > 0) {
             void rememberRecent(destination).then(setRecents);
@@ -1508,6 +1584,7 @@ function PalmMap() {
         }
       } finally {
         if (!cancelled) {
+          routePending.current = false;
           setRouteLoading(false);
         }
       }
@@ -1573,7 +1650,7 @@ function PalmMap() {
     // it. Started in the same moment as the route, they are dropped from the
     // queue unsent when `routeLoading` turns on (`isWanted`), and asked again
     // when it turns off.
-    if (navigating || !destination || routeLoading) {
+    if (navigating || !destination || routeLoading || routePending.current) {
       return;
     }
     const origem = routeOrigin?.coordinates ?? userLocationRef.current;
@@ -1975,8 +2052,22 @@ function PalmMap() {
             atual === null && aPe === null ? atual : aPe === null ? null : Math.round(aPe),
           );
 
-          // Chegada.
-          if (remainingMeters < ARRIVAL_METERS) {
+          // Arrival (author's report, November 2026: "I reach the destination and
+          // it does not end"). Not only along the route's line: OSRM ends it on
+          // the road, the place may sit back from it, one parks a few metres
+          // short, and indoors the GPS errs by tens of metres. Also near the
+          // route's end or the place itself, once less than `ARRIVAL_NEAR_M`
+          // is left (a round trip starts at its end), and not while walking to
+          // the parked car.
+          const reach =
+            ARRIVAL_METERS +
+            Math.min(accuracyMeters, 30) +
+            (settings.travelMode === 'driving' ? 25 : 0);
+          const nearEnd =
+            remainingMeters < ARRIVAL_NEAR_M &&
+            (distanceMeters(position, route.coordinates[route.coordinates.length - 1]) < reach ||
+              (destination !== null && distanceMeters(position, destination.coordinates) < reach));
+          if (aPe === null && (remainingMeters < ARRIVAL_METERS || nearEnd)) {
             // The voice speaks **after** navigation closes, not before: leaving
             // navigation undoes this effect, and its cleanup calls `stopSpeaking` —
             // which cut "you have arrived" off in the middle of the first syllable.
@@ -2376,21 +2467,29 @@ function PalmMap() {
     newest shows; closing it brings back the one underneath, as going back.
     Panels opening in the same moment rank by `PANEL_RANK` (later wins).
   */
-  const panelOpen: Record<BottomPanel, boolean> = {
-    measure: measuring,
-    guide: guiding,
-    route: !navigating && !guiding && !!destination,
-    place: !navigating && !!selectedPlace,
-    line: !!lineShown,
-    stop: transitVisible,
-    vehicle: !!selectedVehicleId,
+  // What each open panel shows, `null` when closed. A new subject in a panel
+  // already open (another place, stop, bus, destination) brings it to the top
+  // again: it was opened just now, as far as the person is concerned.
+  const placeKey = (p: Place | null) =>
+    p ? `${p.id}|${p.coordinates.latitude},${p.coordinates.longitude}` : null;
+  const panelSubject: Record<BottomPanel, unknown> = {
+    measure: measuring ? true : null,
+    guide: guiding ? true : null,
+    route: !navigating && !guiding ? placeKey(destination) : null,
+    // Not over a transport trip: its Directions would change the destination
+    // under the trip.
+    place: !navigating && !guiding ? placeKey(selectedPlace) : null,
+    line: lineShown ?? null,
+    stop: transitVisible ? selectedStopId ?? selectedStationId ?? true : null,
+    vehicle: selectedVehicleId ?? null,
   };
-  const openedAt = useRef<Partial<Record<BottomPanel, number>>>({});
+  const openedAt = useRef<Partial<Record<BottomPanel, { n: number; subject: unknown }>>>({});
   const openCounter = useRef(0);
   for (const kind of PANEL_RANK) {
-    if (panelOpen[kind]) {
-      if (openedAt.current[kind] === undefined) {
-        openedAt.current[kind] = ++openCounter.current;
+    const subject = panelSubject[kind];
+    if (subject !== null) {
+      if (openedAt.current[kind]?.subject !== subject) {
+        openedAt.current[kind] = { n: ++openCounter.current, subject };
       }
     } else {
       delete openedAt.current[kind];
@@ -2398,8 +2497,8 @@ function PalmMap() {
   }
   let topPanel: BottomPanel | null = null;
   for (const kind of PANEL_RANK) {
-    const at = openedAt.current[kind];
-    if (at !== undefined && (topPanel === null || at > (openedAt.current[topPanel] ?? 0))) {
+    const at = openedAt.current[kind]?.n;
+    if (at !== undefined && (topPanel === null || at > (openedAt.current[topPanel]?.n ?? 0))) {
       topPanel = kind;
     }
   }
@@ -2663,13 +2762,16 @@ function PalmMap() {
         mapRef.current?.followAgain();
       } else {
         setFollowUser(true);
-        holdFollowUntilFresh();
+        if (!lastFixIsFresh()) {
+          holdFollowUntilFresh();
+        }
       }
       return;
     }
 
     if (followUser) {
       setFollowUser(false);
+      releaseFollowHold();
       return;
     }
 
@@ -2825,24 +2927,14 @@ function PalmMap() {
       // and the pin came out as "Bento Barbearias", with its icon and phone.
       // Only the address is kept, as Maps does: the street and number as the
       // title, the rest under it.
-      const parts = (found.address ?? '')
-        .split(',')
-        .map((part) => part.trim())
-        .filter(Boolean);
-      if (parts.length > 1 && found.name && parts[0] === found.name) {
-        parts.shift();
-      }
-      let title = parts.shift() ?? '';
-      if (/^\d+[A-Za-z]?$/.test(title) && parts.length > 0) {
-        title = `${parts.shift()} ${title}`;
-      }
+      const { title, rest } = addressOf(found);
       // Only replaced if the person is still looking at this same pin.
       setSelectedPlace((current) =>
         current?.id === fallback.id
           ? {
               ...fallback,
               name: title || fallback.name,
-              address: parts.join(', ') || fallback.address,
+              address: rest || fallback.address,
             }
           : current,
       );
@@ -3242,13 +3334,22 @@ function PalmMap() {
       return null;
     }
     if (navigating && walkingToCar === null && route) {
-      const s = snapToLine(route.coordinates, userLocation);
+      // Only around where navigation placed the person (`progressIndex`, the
+      // windowed `locateOnRoute`): not a scan of the whole route each second,
+      // and never the other pass of a road ridden there and back.
+      const s = snapToLine(
+        route.coordinates.slice(Math.max(0, progressIndex - 2), progressIndex + 3),
+        userLocation,
+      );
       const limit = settings.travelMode === 'walking' ? 20 : 40;
       return s && s.meters <= limit && s.meters > 1 ? s.point : null;
     }
     if (guiding && guidePaths) {
       let best: { point: Coordinates; meters: number } | null = null;
-      for (const path of guidePaths) {
+      // The step under way only: riding, the first walk's pavement beside the
+      // bus line is not where one is.
+      const current = guidePaths[guideStep.leg];
+      for (const path of current ? [current] : []) {
         const s = snapToLine(path.coordinates, userLocation);
         if (s && s.meters <= (path.walk ? 20 : 60) && (!best || s.meters < best.meters)) {
           best = s;
@@ -3257,7 +3358,7 @@ function PalmMap() {
       return best && best.meters > 1 ? best.point : null;
     }
     return null;
-  }, [userLocation, navigating, walkingToCar, route, settings.travelMode, guiding, guidePaths]);
+  }, [userLocation, navigating, walkingToCar, route, progressIndex, settings.travelMode, guiding, guidePaths, guideStep.leg]);
 
   const mapTransitStops = useMemo(() => {
     if (shownGuide) {
@@ -3504,6 +3605,10 @@ function PalmMap() {
       case 'route':
         handleClearRoute();
         return true;
+      case 'measure':
+        setMeasuring(false);
+        setMeasurePoints([]);
+        return true;
       default:
         break;
     }
@@ -3736,28 +3841,38 @@ function PalmMap() {
     both go.
   */
   const shownStep = walkingToCar !== null ? walkToCarStep : nextStep;
+  // The same distance the banner shows: to the car while walking to it.
+  const shownMetres = walkingToCar ?? distanceToStep;
   const noticeMetres =
-    distanceToStep >= 1000
-      ? Math.round(distanceToStep / 100) * 100
-      : distanceToStep >= 200
-        ? Math.round(distanceToStep / 50) * 50
-        : Math.round(distanceToStep / 10) * 10;
+    shownMetres >= 1000
+      ? Math.round(shownMetres / 100) * 100
+      : shownMetres >= 200
+        ? Math.round(shownMetres / 50) * 50
+        : Math.round(shownMetres / 10) * 10;
   const approachedStep = useRef<RouteStep | null>(null);
+  /** Whether a notice is up, so nothing is dismissed for nothing at every step. */
+  const noticesUp = useRef(false);
   useEffect(() => {
     if (!navigating || appActive || !settings.notifyDirections || !shownStep) {
-      clearNavNotices();
+      if (noticesUp.current) {
+        clearNavNotices();
+        noticesUp.current = false;
+      }
       approachedStep.current = null;
       return;
     }
+    noticesUp.current = true;
     void showInstruction(formatDistance(noticeMetres), shownStep.instruction);
     const near =
       settings.travelMode === 'driving' ? 250 : settings.travelMode === 'cycling' ? 120 : 50;
-    if (approachedStep.current !== shownStep) {
+    if (approachedStep.current !== null && approachedStep.current !== shownStep) {
+      // The manoeuvre it warned about is passed.
       clearApproach();
-      if (shownStep.announce && noticeMetres <= near) {
-        approachedStep.current = shownStep;
-        void alertManeuver(shownStep.instruction, formatDistance(noticeMetres));
-      }
+      approachedStep.current = null;
+    }
+    if (approachedStep.current === null && shownStep.announce && noticeMetres <= near) {
+      approachedStep.current = shownStep;
+      void alertManeuver(shownStep.instruction, formatDistance(noticeMetres));
     }
   }, [navigating, appActive, settings.notifyDirections, settings.travelMode, shownStep, noticeMetres]);
   useEffect(() => clearNavNotices, []);
@@ -4178,7 +4293,11 @@ function PalmMap() {
                 guide={guide}
                 progress={guideStep}
                 arrived={guideDone}
-                onChooseStep={(leg) => setGuideStep({ leg, stop: 0 })}
+                onChooseStep={(leg) => {
+                  guideAlong.current = {};
+                  guideStepRef.current = { leg, stop: 0 };
+                  setGuideStep({ leg, stop: 0 });
+                }}
                 onEnd={handleEndTransit}
                 voiceOn={settings.voiceGuidance}
                 onToggleVoice={toggleVoice}
@@ -4457,9 +4576,13 @@ function PalmMap() {
                     longitude: (b.east + b.west) / 2,
                   };
                   setPinSaving(true);
+                  const mine = pinSession.current;
                   void addressAt(centre)
                     .catch(() => null)
                     .then((found) => {
+                      if (mine !== pinSession.current) {
+                        return;
+                      }
                       setHomeWork(
                         kind,
                         found ?? {

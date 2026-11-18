@@ -47,6 +47,9 @@ const schedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
  */
 const inFlight = new Map<string, { request: Promise<Place[]>; interested: (() => boolean)[] }>();
 
+/** A house number on its own: "26", "26A", "26-A", "12-14", "26/28", "7 B". */
+const HOUSE_NUMBER = /^\d+[A-Za-z]?(?:[-/ ]\d*[A-Za-z]?)?$/;
+
 /**
  * The short name of a result. An address has no name, and the first part of
  * `display_name` is then the house number alone — the card said "26" (author's
@@ -58,7 +61,7 @@ function shortName(raw: NominatimSearchResult): string {
     return raw.name;
   }
   const parts = raw.display_name.split(',').map((part) => part.trim());
-  if (parts.length > 1 && /^\d+[A-Za-z]?(?:[-/ ]\d*[A-Za-z]?)?$/.test(parts[0])) {
+  if (parts.length > 1 && HOUSE_NUMBER.test(parts[0])) {
     return `${parts[1]} ${parts[0]}`;
   }
   return parts[0];
@@ -381,21 +384,37 @@ export async function addressAt(coordinates: Coordinates): Promise<Place | null>
   if (!found) {
     return null;
   }
+  const { title, rest } = addressOf(found);
+  return {
+    id: -Date.now(),
+    name: title || found.name,
+    address: rest,
+    coordinates,
+  };
+}
+
+/**
+ * A reverse answer as an address: the street and number as the title, the
+ * rest after it — the business or building there left out. Shared by the
+ * dropped pin and Home/Work.
+ */
+export function addressOf(found: Place): { title: string; rest: string } {
   const parts = (found.address ?? '')
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
-  if (parts.length > 1 && found.name && parts[0] === found.name) {
+  // The first part is the business's or building's own name: dropped. Not
+  // when the answer is the street or the place itself — then the name is the
+  // street, and dropping it named Home after the neighbourhood (review,
+  // November 2026).
+  const isAddress =
+    found.kindKey === 'highway' || found.kindKey === 'place' || found.kindKey === 'boundary';
+  if (parts.length > 1 && found.name && parts[0] === found.name && !isAddress) {
     parts.shift();
   }
   let title = parts.shift() ?? '';
-  if (/^\d+[A-Za-z]?$/.test(title) && parts.length > 0) {
+  if (HOUSE_NUMBER.test(title) && parts.length > 0) {
     title = `${parts.shift()} ${title}`;
   }
-  return {
-    id: -Date.now(),
-    name: title || found.name,
-    address: parts.join(', '),
-    coordinates,
-  };
+  return { title, rest: parts.join(', ') };
 }

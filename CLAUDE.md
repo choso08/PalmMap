@@ -346,9 +346,29 @@ environment cannot reach.
   it: `arrivalPoint` waited up to 3 s for Overpass's doors on every walk, bike and transport
   route, and the other modes' chip times went into OSRM's one-a-second queue ahead of the
   route. Now a plain address (`isPlainAddress`: `place`, `highway`, a house-type `building`)
-  skips the doors; the country file's doors are used at once when it has some; the Overpass
-  wait is `ENTRANCE_WAIT_MS` 1.2 s; and the chip times wait for `routeLoading` to end — those
-  started in the same render are dropped from the queue unsent (`isWanted`).
+  skips the doors; the Overpass wait is `ENTRANCE_WAIT_MS` 1.2 s; and the chip times wait for
+  the route (`routeLoading`, and `routePending`, a ref set in the same commit) — those started
+  before are dropped from the queue unsent (`isWanted`). **Online, the country file's doors are
+  not used first**: they are every door within 150 m, whoever's building — tried and undone
+  after a review (a café's walk ended at a metro entrance or a neighbour's door).
+- **Review of the 18 November work, and arriving** (author: "I reach the destination and it
+  does not end"; not seen on a phone): a transport trip now **ends by itself** 4 s after
+  arriving (`GUIDE_END_AFTER_MS`) and opens the destination's card; navigation also arrives
+  within `ARRIVAL_METERS` + the GPS accuracy (+25 m by car) of the route's end or the place,
+  once under `ARRIVAL_NEAR_M` (300 m) is left — OSRM ends the line on the road, and one parks
+  short. The trip's place along the ride lives in a ref (`guideAlong`): kept in the step
+  state, it was thrown away with every unchanged step and a ride never moved on (start at
+  the stop, a change at one stop, a tapped step). It moves by 5 m or more at a time, so a
+  crawling bus adds up. Stops are placed along the line from the stop before
+  (`stopPositions`). Also: a new subject in an open panel (place, stop, bus, destination)
+  brings it to the top (`panelSubject`); no place card over a transport trip; back closes
+  the tape; the follow hold has a deadline (`getFreshPositionWithin`) and only recentres if
+  following is still on; a height profile shared by two runs goes out while either wants it;
+  `addressOf` (shared by the dropped pin and Home/Work) keeps the street when the reverse
+  answer is the street, and reads "26-A" as a number; "Use current location" asks
+  `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
+  car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
+  the trip's current leg only.
 - **One bottom panel at a time, the newest** (author's report, 18 November: two panels open at
   once; not seen on a phone). Each panel decided alone — the stop's (`transitVisible`), the
   bus's and the measuring tape's showed over a place card or the route. `topPanel` in

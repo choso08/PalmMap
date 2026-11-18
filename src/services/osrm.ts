@@ -273,19 +273,29 @@ export async function getRoutes(
 }
 
 /** Profiles already asked for, per route object: switching back asks nothing. */
-const elevationCache = new WeakMap<Route, Promise<ElevationProfile | null>>();
+const elevationCache = new WeakMap<
+  Route,
+  { asked: Promise<ElevationProfile | null>; interested: (() => boolean)[] }
+>();
 
 /**
  * The height profile of a route (walking and cycling), from FOSSGIS's
  * Valhalla `/height`, through the same one-a-second queue as the routes —
  * same organisation, same terms. About a hundred samples whatever the length.
  * `null` when it fails: the panel just shows no profile.
+ *
+ * A request still queued is shared, and goes out while **anyone** still wants
+ * it: keeping only the first caller's interest, a re-run that cancelled it got
+ * a request that would never leave, and the profile never came (review,
+ * November 2026).
  */
 export function routeElevation(route: Route, isWanted?: () => boolean): Promise<ElevationProfile | null> {
   const known = elevationCache.get(route);
   if (known) {
-    return known;
+    known.interested.push(isWanted ?? (() => true));
+    return known.asked;
   }
+  const interested: (() => boolean)[] = [isWanted ?? (() => true)];
   const step = Math.min(500, Math.max(20, route.distanceMeters / 100));
   // At most ~400 points, so the address stays a few kilobytes: a long route
   // has thousands, and the line is resampled on their side anyway.
@@ -293,12 +303,12 @@ export function routeElevation(route: Route, isWanted?: () => boolean): Promise<
   const line = route.coordinates.filter(
     (_, i) => i % every === 0 || i === route.coordinates.length - 1,
   );
-  const asked = valhallaHeights(line, step, schedule, isWanted)
+  const asked = valhallaHeights(line, step, schedule, () => interested.some((wanted) => wanted()))
     .then(summariseHeights)
     .catch(() => {
       elevationCache.delete(route);
       return null;
     });
-  elevationCache.set(route, asked);
+  elevationCache.set(route, { asked, interested });
   return asked;
 }

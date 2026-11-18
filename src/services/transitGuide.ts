@@ -279,8 +279,6 @@ export interface GuideProgress {
 /** Close enough to a walk's end, a stop or the destination to call it reached. */
 export const GUIDE_REACHED_M = 40;
 
-/** On a ride, how near a stop the phone must be to count it as passed. */
-
 /** A stop counts as passed once this close to it along the line, or beyond. */
 const GUIDE_STOP_AHEAD_M = 30;
 
@@ -294,7 +292,9 @@ function stopPositions(ride: RideLeg): number[] {
     known = ride.stops.map((s) => {
       // In order: on a line that passes a place twice (a loop), a stop is the
       // pass after the one before it.
-      const at = alongLine(ride.path, s.coordinates)?.along ?? floor;
+      // Searched only from the stop before onwards: on a shape that goes out
+      // and back along one road, the nearest pass may be the wrong one.
+      const at = alongLine(ride.path, s.coordinates, { from: floor, to: Infinity })?.along ?? floor;
       floor = Math.max(floor, at);
       return floor;
     });
@@ -398,7 +398,19 @@ export function guideProgress(
     }
     break;
   }
-  return here && rideAt >= 0 ? { leg, stop, along: here.along, alongLeg: rideAt } : { leg, stop };
+  // The place kept for the next reading moves only by `GUIDE_FORWARD_M` or more
+  // (either way) while on the line: a bus crawling in a queue adds up its
+  // metres instead of looking still at every reading, and GPS jitter off the
+  // line is not taken for movement.
+  const anchor =
+    here === null
+      ? undefined
+      : before === undefined
+        ? here.along
+        : here.meters <= GUIDE_ON_PATH_M && Math.abs(here.along - before) >= GUIDE_FORWARD_M
+          ? here.along
+          : before;
+  return anchor !== undefined && rideAt >= 0 ? { leg, stop, along: anchor, alongLeg: rideAt } : { leg, stop };
 }
 
 /** Whether the trip is over: the last step done, or at the destination. */
