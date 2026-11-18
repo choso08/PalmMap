@@ -4,7 +4,7 @@ import { Animated, Modal, Pressable, SectionList, StyleSheet, Text, View } from 
 import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { useT, useTheme } from '../settings';
+import { useSettings, useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Place } from '../types/geo';
 import { useFavouriteStops } from '../services/favouriteStops';
@@ -67,6 +67,7 @@ export function SavedSheet({
   const lines = useFavouriteLines();
   const homeWork = useHomeWork();
   const parked = useParkedCar();
+  const { settings } = useSettings();
   const [noticeOff, setNoticeOff] = useState(false);
   const clockOf = (ms: number) => {
     const d = new Date(ms);
@@ -224,7 +225,9 @@ export function SavedSheet({
                 key={min}
                 style={styles.paidChip}
                 onPress={() => {
-                  void setParkingPaidUntil(Date.now() + min * 60000).then((ok) => setNoticeOff(!ok));
+                  void setParkingPaidUntil(Date.now() + min * 60000, settings.notifyParking).then((ok) =>
+                    setNoticeOff(!ok),
+                  );
                 }}
               >
                 <Text style={styles.paidChipText}>

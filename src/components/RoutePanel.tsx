@@ -198,7 +198,12 @@ export function RoutePanel({
   // Walking or cycling into the dark: the sun sets on the way (worked out on
   // the phone, `sunsetOn`). Not when it is already dark at the start.
   const sunsetWarning = (() => {
-    if (!route || !destination || (travelMode !== 'walking' && travelMode !== 'cycling')) {
+    if (
+      !current.routeHints ||
+      !route ||
+      !destination ||
+      (travelMode !== 'walking' && travelMode !== 'cycling')
+    ) {
       return null;
     }
     const now = Date.now();

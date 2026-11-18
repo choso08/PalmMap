@@ -495,6 +495,12 @@ export const pt = {
   },
 
   settings: {
+    notifications: 'Notificações',
+    notifyGetOff: 'Sair na próxima paragem',
+    notifyParking: 'Fim do estacionamento pago',
+    notifyUpdates: 'Nova versão descarregada',
+    suggestOnOpen: 'Sugerir viagem ao abrir',
+    routeHints: 'Avisos de chuva e pôr do sol',
     climbPace: (secondsPer10m: number) => `Subidas ${secondsPer10m} s/10 m`,
     searchPlaceholder: 'Procurar nas definições',
     searchNothing: 'Nenhuma definição com esse nome.',

@@ -125,6 +125,21 @@ export interface Settings {
    * (author's request, November 2026).
    */
   vehiclesIdleSlowdown: boolean;
+  /**
+   * The Notifications group (author's request, November 2026: "don't make the
+   * app annoying"): what the app may say by itself. The bells a person taps
+   * (a bus's arrival, time to leave) are asked for, so they have no switch.
+   */
+  /** "Get off at the next stop" as a notification on a transport trip. */
+  notifyGetOff: boolean;
+  /** The parking timer's notice before the paid time ends. */
+  notifyParking: boolean;
+  /** "Update downloaded — Install" when a download finishes. */
+  notifyUpdates: boolean;
+  /** The card suggesting a trip on opening the app. */
+  suggestOnOpen: boolean;
+  /** Rain at the destination and sunset on the way, in the route panel. */
+  routeHints: boolean;
   /** Refresh outdated country maps on mobile data too, not only on Wi-Fi. */
   mapsOnMobileData: boolean;
   /**
@@ -171,6 +186,11 @@ export const DEFAULT_SETTINGS: Settings = {
   trails: 'off',
   vehiclesRefresh: '20',
   vehiclesIdleSlowdown: false,
+  notifyGetOff: true,
+  notifyParking: true,
+  notifyUpdates: true,
+  suggestOnOpen: true,
+  routeHints: true,
   mapsOnMobileData: false,
   transitSort: 'best',
   transitAvoid: [],

@@ -68,14 +68,17 @@ function dropNotice(): void {
  * it. Resolves `false` when notifications are not allowed — the time is kept
  * anyway, shown on the car.
  */
-export async function setParkingPaidUntil(until: number | null): Promise<boolean> {
+export async function setParkingPaidUntil(
+  until: number | null,
+  notify = true,
+): Promise<boolean> {
   const car = store.current();
   if (!car) {
     return false;
   }
   dropNotice();
   store.update((now) => (now ? { coordinates: now.coordinates, at: now.at, paidUntil: until ?? undefined } : now));
-  if (until === null) {
+  if (until === null || !notify) {
     return true;
   }
   const at = Math.max(Date.now() + 5000, until - PARKING_NOTICE_LEAD_MS);

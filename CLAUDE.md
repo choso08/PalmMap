@@ -328,23 +328,26 @@ environment cannot reach.
   and the clever features below.
 - **"Clever" features** (author: "I'd like to say the app has very clever features", then
   "do them all", 18 November; none seen on a phone):
-  - **Walking time counts the climbs** — Naismith's rule, a minute per 10 m up
-    (`CLIMB_SECONDS_PER_M`, `RoutePanel.tsx`), from the height profile, with "Includes N min
-    for the climbs". Walking only: Valhalla's bicycle already slows on hills. The chip times of
-    other modes and the navigation's remaining time do not include it.
+  - **Walking time counts the climbs, at the person's own pace up hills** (author: "of
+    course, it learns from how you walk up and down"): Naismith's minute per 10 m
+    (`NAISMITH_SECONDS_PER_M`, `utils/eta.ts`) until learnt, then the learnt `walking-climb`
+    (seconds per metre climbed, a `PaceKey` that is not a factor; shown in Settings as
+    "Climbs N s/10 m"). Learnt on a walk climbing at least `CLIMB_LEARN_MIN_M` (30 m): the time
+    beyond the flat pace already learnt, over the metres climbed so far (the climb assumed
+    spread evenly along the route), clamped 2–30 s/m (`clampClimbRate`), blended like any
+    pace; such a walk then teaches the flat pace nothing (it would count the hills twice).
+    Walking only: Valhalla's bicycle already slows on hills. The chip times of other modes and
+    the navigation's remaining time do not include it.
   - **Sunset warning** on walking and cycling routes that set off before sunset and arrive
     after it (`utils/sun.ts`, the sunrise equation as `suncalc` writes it, checked: Lisbon
     17:23 UTC on 18 November, 21:05 summer time on 21 June).
   - **"Open now"** chip first in the category row while a category is on (`openNowOnly`,
     `shownPlaces`): only places whose OSM hours say open now; unknown hours are left out.
-  - **Last connection tonight** by transport, from 20:00 to 03:00 (`lastConnectionTonight`
-    in `schedules.ts`): RAPTOR on the stored timetables, the departure time halved down to a
-    quarter of an hour (about ten runs), then walked forward; none when a connection runs
-    within `ALL_NIGHT_MARGIN_S` of 03:00 (night buses). **Checked against the published
-    files** (stubbed `expo-file-system`): Oriente → Sintra 01:08; Cais do Sodré → Cascais
-    21:10 — **CP's GTFS has the night trains ending at Caxias**, nothing on to Cascais, so
-    the planner finds no Cascais train after that (data, not a fault; probably the line's
-    works); Baixa-Chiado → Odivelas none (the 206 runs at 04:30). 35–750 ms in Node.
+  - **Last connection tonight: removed** at the author's request the same day ("maybe
+    take the last transport out"). What was learnt doing it stays true: **CP's GTFS has the
+    night trains from Cais do Sodré ending at Caxias** (nothing on to Cascais after 21:10 on
+    18 November, probably the line's works), so the planner finds no evening Cascais train —
+    data, not a fault.
   - **Suggestion on opening** (`tripHabits.ts`, key `palmmap.viagensFeitas`, last 200
     trips started — navigation or transport): the destination most often started within
     1 km of here, same kind of day, within 75 min of now, at least twice; else Work on a
@@ -356,6 +359,14 @@ environment cannot reach.
     Credited in Settings (CC BY 4.0). Probed (`sondar: open_meteo`, `met_no`): Open-Meteo
     timed out twice from GitHub's runners, then answered; MET Norway (`api.met.no`) also
     works with no key and is the fallback to reach for if Open-Meteo misbehaves.
+  - **Notifications group in Settings** (author: "don't make the app annoying; a new
+    Notifications category with sensible defaults"): `notifyGetOff` (get off at the next
+    stop), `notifyParking` (the parking timer's notice), `notifyUpdates` (update
+    downloaded — no permission asked either when off), `suggestOnOpen` (the opening card)
+    and `routeHints` (rain and sunset notes) — all on by default. The bells a person taps
+    (a bus's arrival, time to leave) have no switch: they were asked for. A suggestion
+    waved away is not offered again that day (`palmmap.sugestaoDispensada`). The Settings
+    text is 1673 characters with these names — names, not explanations.
   - **Parking timer** on the Saved screen's car: paid for 30 min / 1 h / 2 h / 3 h, a
     notice 10 min before (`setParkingPaidUntil`, `scheduleNotice` in `arrivalReminders.ts`).
 - **"As seamless as possible"** (author's challenge, 18 November; not seen on a phone):
@@ -1107,6 +1118,7 @@ in one place instead of spread through the code.
   | `mapsOnMobileData` | Refresh outdated country maps on mobile data too — off by default (Wi-Fi only, as before); author's request, November 2026 |
   | `transitSort` | Transport options by earliest arrival, least walking or fewest changes — chosen in the route panel |
   | `transitAvoid` | Means left out of transport options (bus, metro, train, boat) — chosen in the route panel |
+  | `notifyGetOff`, `notifyParking`, `notifyUpdates`, `suggestOnOpen`, `routeHints` | The Notifications group — see "Clever features" in "Where this stands"; all on by default |
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,

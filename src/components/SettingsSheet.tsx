@@ -192,6 +192,14 @@ export function SettingsSheet({
       speed: has(nav, s.speed, s.speedNote),
       battery: has(nav, s.batterySaver, s.batterySaverHint),
       mobileMaps: has(s.dataUsage, s.mapsOnMobileData),
+      notices: has(
+        s.notifications,
+        s.notifyGetOff,
+        s.notifyParking,
+        s.notifyUpdates,
+        s.suggestOnOpen,
+        s.routeHints,
+      ),
       storage: has(s.dataUsage, s.storage),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
       donate: DONATE_URL !== '' && has(s.about, s.donate, s.donateHint),
@@ -206,6 +214,7 @@ export function SettingsSheet({
       mapSection: result.places || result.trails,
       transit: result.schedules,
       data: result.vehicles || result.satellite || result.mobileMaps || result.storage,
+      noticesSection: result.notices,
       aboutSection: result.updates || result.feedback || result.donate || result.about,
       navigation:
         result.time ||
@@ -611,6 +620,31 @@ export function SettingsSheet({
                   </View>
                 </>
               ) : null}
+            </Collapsible>
+          ) : null}
+
+          {show.noticesSection ? (
+            <Collapsible title={s.notifications} icon="bell-outline" forceOpen={show.searching}>
+              {(
+                [
+                  ['notifyGetOff', s.notifyGetOff],
+                  ['notifyParking', s.notifyParking],
+                  ['notifyUpdates', s.notifyUpdates],
+                  ['suggestOnOpen', s.suggestOnOpen],
+                  ['routeHints', s.routeHints],
+                ] as const
+              ).map(([key, label]) => (
+                <View key={key} style={styles.switchRow}>
+                  <View style={styles.switchText}>
+                    <Text style={styles.switchLabel}>{label}</Text>
+                  </View>
+                  <Switch
+                    value={settings[key]}
+                    onValueChange={(next) => update(key, next)}
+                    trackColor={{ true: theme.accent, false: theme.border }}
+                  />
+                </View>
+              ))}
             </Collapsible>
           ) : null}
 

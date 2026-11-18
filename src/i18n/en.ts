@@ -457,6 +457,12 @@ export const en: typeof pt = {
   },
 
   settings: {
+    notifications: 'Notifications',
+    notifyGetOff: 'Get off at the next stop',
+    notifyParking: 'Paid parking ending',
+    notifyUpdates: 'New version downloaded',
+    suggestOnOpen: 'Suggest a trip on opening',
+    routeHints: 'Rain and sunset notes',
     climbPace: (secondsPer10m: number) => `Climbs ${secondsPer10m} s/10 m`,
     searchPlaceholder: 'Search settings',
     searchNothing: 'No setting by that name.',

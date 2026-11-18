@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { t } from './i18n';
+import { useSettings } from './settings';
 import { downloadUpdate, installUpdate, type UpdateInfo } from './services/update';
 import { notifyUpdateReady, prepareUpdateNotice } from './services/updateNotice';
 
@@ -18,6 +19,10 @@ import { notifyUpdateReady, prepareUpdateNotice } from './services/updateNotice'
  * by more than one component already live.
  */
 export function useUpdateDownload() {
+  // "New version downloaded" can be switched off (Settings → Notifications).
+  const { settings } = useSettings();
+  const noticesOn = useRef(settings.notifyUpdates);
+  noticesOn.current = settings.notifyUpdates;
   const [progress, setProgress] = useState<number | null>(null);
   /** The APK already downloaded, waiting to be installed. */
   const [ready, setReady] = useState<File | null>(null);
@@ -41,14 +46,18 @@ export function useUpdateDownload() {
     setProgress(0);
     setError(null);
     // Asked now, while the person is tapping: the notice at the end needs it.
-    void prepareUpdateNotice();
+    if (noticesOn.current) {
+      void prepareUpdateNotice();
+    }
     try {
       const file = await downloadUpdate(info, setProgress);
       setReady(file);
       // The notice with its Install button: the way back to the installer
       // when the app went to the background meanwhile, or the installer was
       // closed (`updateNotice.ts`).
-      void notifyUpdateReady(info);
+      if (noticesOn.current) {
+        void notifyUpdateReady(info);
+      }
       // The installer opens right after: whoever pressed "update" does not
       // want to press another button. If they close the installer without
       // installing, the button stays there to open it again. Not from the

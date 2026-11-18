@@ -261,6 +261,8 @@ async function walkToCarFrom(
  * answered (`lastView` on `MapView`). Written at most every few seconds.
  */
 const LAST_VIEW_KEY = 'palmmap.ultimaVista';
+/** The day the opening suggestion was waved away: not again that day. */
+const SUGGESTION_DISMISSED_KEY = 'palmmap.sugestaoDispensada';
 // Not in the first seconds: the map opens on Lisbon before the GPS or the
 // stored view move it, and writing that would forget where it really was.
 let lastViewWritten = Date.now() + 3000;
@@ -1245,9 +1247,12 @@ function PalmMap() {
     const key = `sair-${guideStep.leg}`;
     if (guideStep.stop > 0 && last - guideStep.stop === 1 && !guideNotified.current.has(key)) {
       guideNotified.current.add(key);
+      if (!settings.notifyGetOff) {
+        return;
+      }
       void notifyNow(t().transit.getOffTitle, t().guide.getOffNextVoice(step.stops[last].name));
     }
-  }, [guide, guideStep, guideDone]);
+  }, [guide, guideStep, guideDone, settings.notifyGetOff]);
 
   const previewTrip =
     !guiding && settings.travelMode === 'transit' && destination
@@ -3417,13 +3422,29 @@ function PalmMap() {
   const suggestionTried = useRef(false);
   useEffect(() => {
     const here = userLocationRef.current;
-    if (suggestionTried.current || !hasLocation || !here || destination || navigating || guiding) {
+    if (
+      suggestionTried.current ||
+      !settings.suggestOnOpen ||
+      !hasLocation ||
+      !here ||
+      destination ||
+      navigating ||
+      guiding
+    ) {
       return;
     }
     suggestionTried.current = true;
     let cancelled = false;
     // Both stores read from the phone first: the first render has them empty.
-    void Promise.all([loadTripHabits(), loadHomeWork()]).then(() => {
+    // A suggestion waved away is not offered again that day.
+    void Promise.all([
+      loadTripHabits(),
+      loadHomeWork(),
+      AsyncStorage.getItem(SUGGESTION_DISMISSED_KEY).catch(() => null),
+    ]).then(([, , dismissed]) => {
+      if (dismissed === new Date().toDateString()) {
+        return;
+      }
       const found = suggestTrip(here, homeWorkNow());
       if (cancelled || !found) {
         return;
@@ -3443,13 +3464,13 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-  }, [hasLocation, destination, navigating, guiding, settings.travelMode, settings.bikeType]);
-  // Anything chosen meanwhile takes its place.
+  }, [hasLocation, destination, navigating, guiding, settings.travelMode, settings.bikeType, settings.suggestOnOpen]);
+  // Anything chosen meanwhile takes its place; switched off, it goes.
   useEffect(() => {
-    if (destination || navigating || guiding) {
+    if (destination || navigating || guiding || !settings.suggestOnOpen) {
       setSuggestion(null);
     }
-  }, [destination, navigating, guiding]);
+  }, [destination, navigating, guiding, settings.suggestOnOpen]);
 
   /**
    * Rain at the destination around the arrival (`weather.ts`, Open-Meteo):
@@ -3471,7 +3492,8 @@ function PalmMap() {
     return seconds === null ? null : Math.floor((now + seconds) / 3600) * 3600;
   })();
   useEffect(() => {
-    if (!destination || navigating || arrivalHour === null || !online) {
+    if (!destination || navigating || arrivalHour === null || !online || !settings.routeHints) {
+      setRainAhead(null);
       return;
     }
     let cancelled = false;
@@ -3486,7 +3508,7 @@ function PalmMap() {
     return () => {
       cancelled = true;
     };
-  }, [destination, navigating, arrivalHour, online]);
+  }, [destination, navigating, arrivalHour, online, settings.routeHints]);
 
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
@@ -3673,7 +3695,12 @@ function PalmMap() {
               setRouteOrigin(null);
               handleSearchSelect(place);
             }}
-            onDismiss={() => setSuggestion(null)}
+            onDismiss={() => {
+              setSuggestion(null);
+              void AsyncStorage.setItem(SUGGESTION_DISMISSED_KEY, new Date().toDateString()).catch(
+                () => undefined,
+              );
+            }}
           />
         ) : null}
 
