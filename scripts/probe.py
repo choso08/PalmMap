@@ -1649,6 +1649,24 @@ def open_meteo():
     print("unixtime:", st, body[:600].decode("utf-8", "replace"))
 
 
+def met_no():
+    """MET Norway's locationforecast (free, CC BY 4.0, asks for an identifying User-Agent)."""
+    section("MET NORWAY")
+    for url in ("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=38.80&lon=-9.38",
+                "https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=38.80&lon=-9.38"):
+        st, ct, body = get(url, timeout=30)
+        print(url.rsplit('/', 1)[1][:9], st, ct, len(body), "B")
+        try:
+            data = json.loads(body)
+            ts = data["properties"]["timeseries"]
+            print("first:", json.dumps(ts[0])[:900])
+            print("count:", len(ts), "last time:", ts[-1]["time"])
+        except Exception as e:  # noqa: BLE001
+            print(body[:300], e)
+    st, ct, body = get("https://api.open-meteo.com/v1/forecast?latitude=38.80&longitude=-9.38&hourly=precipitation&forecast_hours=3", timeout=20)
+    print("open-meteo again:", st, body[:200])
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
