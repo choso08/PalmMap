@@ -814,6 +814,42 @@ def search400():
         time.sleep(1.5)
 
 
+def granja26():
+    """The author's "Rua da granja 26": does Nominatim/Photon find house numbers here?"""
+    section("GRANJA 26")
+    import urllib.parse as up
+    base = "https://nominatim.openstreetmap.org/search?"
+    for q, extra in (
+        ("Rua da granja 26", dict(viewbox="-9.30,38.72,-9.05,38.55", bounded=0)),
+        ("Rua da granja 26", {}),
+        ("Rua da Granja", dict(countrycodes="pt", limit=20)),
+        ("Rua da Granja 26, Almada", {}),
+        ("Rua da Granja 26, Seixal", {}),
+    ):
+        params = dict(q=q, format="jsonv2", limit=8, addressdetails=1,
+                      **{"accept-language": "pt-PT"}, **extra)
+        t0 = time.time()
+        st, ct, body = get(base + up.urlencode(params), timeout=30)
+        print(f"\nnominatim {q!r} {extra} -> {st} in {time.time()-t0:.1f}s")
+        try:
+            for r in json.loads(body):
+                a = r.get("address", {})
+                print("  ", r.get("addresstype"), "|", r.get("display_name", "")[:110], "| nº", a.get("house_number"))
+        except Exception:  # noqa: BLE001
+            print("  ", body[:300])
+        time.sleep(1.5)
+    for extra in ("", "&lat=38.66&lon=-9.17"):
+        st, ct, body = get("https://photon.komoot.io/api/?q=" + up.quote("Rua da granja 26") + "&limit=8" + extra, timeout=30)
+        print(f"\nphoton{extra} -> {st}")
+        try:
+            for f in json.loads(body)["features"]:
+                pr = f["properties"]
+                print("  ", pr.get("type"), "|", pr.get("name"), pr.get("street"), pr.get("housenumber"), "|", pr.get("city"), pr.get("postcode"))
+        except Exception:  # noqa: BLE001
+            print("  ", body[:300])
+        time.sleep(1.5)
+
+
 def shapes():
     """A Carris pattern's fields (is there a shape_id?) and the shape service."""
     section("SHAPES")
