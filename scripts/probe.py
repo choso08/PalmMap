@@ -822,9 +822,9 @@ def granja26():
     for q, extra in (
         ("Rua da granja 26", dict(viewbox="-9.30,38.72,-9.05,38.55", bounded=0)),
         ("Rua da granja 26", {}),
-        ("Rua da Granja", dict(countrycodes="pt", limit=20)),
-        ("Rua da Granja 26, Almada", {}),
-        ("Rua da Granja 26, Seixal", {}),
+        ("Rua da Granja 999", {}),
+        ("Rua da Granja 7", dict(viewbox="-9.30,38.72,-9.05,38.55", bounded=0)),
+        ("Rua da Granja 7, Almada", {}),
     ):
         params = dict(q=q, format="jsonv2", limit=8, addressdetails=1,
                       **{"accept-language": "pt-PT"}, **extra)
@@ -839,7 +839,7 @@ def granja26():
             print("  ", body[:300])
         time.sleep(1.5)
     for extra in ("", "&lat=38.66&lon=-9.17"):
-        st, ct, body = get("https://photon.komoot.io/api/?q=" + up.quote("Rua da granja 26") + "&limit=8" + extra, timeout=30)
+        st, ct, body = get("https://photon.komoot.io/api/?q=" + up.quote("Rua da granja 7") + "&limit=8" + extra, timeout=30)
         print(f"\nphoton{extra} -> {st}")
         try:
             for f in json.loads(body)["features"]:
