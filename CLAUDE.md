@@ -321,6 +321,16 @@ environment cannot reach.
   cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
   `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
   spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
+- **"As seamless as possible"** (author's challenge, 18 November; not seen on a phone):
+  - **Android's back button closes what is on top**, one thing at a time (`backRef` +
+    `BackHandler` in `App.tsx`): the search, navigation, a transport trip, a bus, a stop, a
+    line, a place's card or dropped pin, the route, the measuring tape — only then does
+    Android leave the app. There was no handler at all: back with a card or a route open
+    left the app. `Modal` screens keep handling it through `onRequestClose`. The search is
+    closed from outside with `blurRequest` on `SearchBar`.
+  - **The empty search starts with Home, Work and Car** chips (only those set), as in Maps.
+  - **The screen stays on during a transport trip** too, not only while driving
+    (`keepAwake`).
 - **Where I parked** (author's request, 18 November; not seen on a phone):
   `services/parkedCar.ts` (key `palmmap.carroEstacionado`) keeps where the car was left —
   saved from the Saved screen ("Car": a tap saves where one is, or walks there; ✕ forgets
