@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+import { cancelNotice, scheduleNotice } from './arrivalReminders';
 import { savedStore } from './savedStore';
 import type { Coordinates } from '../types/geo';
 
@@ -16,7 +18,14 @@ export interface ParkedCar {
   coordinates: Coordinates;
   /** When it was saved, in ms since 1970. */
   at: number;
+  /** Paid parking until (ms since 1970), with a notice before it ends. */
+  paidUntil?: number;
+  /** The scheduled notice's id, to move or cancel it. */
+  noticeId?: string;
 }
+
+/** How long before the paid time ends the notice comes. */
+export const PARKING_NOTICE_LEAD_MS = 10 * 60 * 1000;
 
 const isParked = (p: unknown): p is ParkedCar => {
   const c = (p as ParkedCar | null)?.coordinates;
@@ -37,9 +46,47 @@ export const parkedCarNow = store.current;
 export const loadParkedCar = store.load;
 
 export function parkCar(coordinates: Coordinates): void {
+  dropNotice();
   store.update(() => ({ coordinates, at: Date.now() }));
 }
 
 export function forgetParkedCar(): void {
+  dropNotice();
   store.update(() => null);
+}
+
+function dropNotice(): void {
+  const id = store.current()?.noticeId;
+  if (id) {
+    void cancelNotice(id);
+  }
+}
+
+/**
+ * The parking timer (author's request, November 2026): paid until `until`
+ * (ms), with a notification `PARKING_NOTICE_LEAD_MS` before; `null` clears
+ * it. Resolves `false` when notifications are not allowed — the time is kept
+ * anyway, shown on the car.
+ */
+export async function setParkingPaidUntil(until: number | null): Promise<boolean> {
+  const car = store.current();
+  if (!car) {
+    return false;
+  }
+  dropNotice();
+  store.update((now) => (now ? { coordinates: now.coordinates, at: now.at, paidUntil: until ?? undefined } : now));
+  if (until === null) {
+    return true;
+  }
+  const at = Math.max(Date.now() + 5000, until - PARKING_NOTICE_LEAD_MS);
+  const d = new Date(until);
+  const clock = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const id = await scheduleNotice(new Date(at), t().parked.noticeTitle, t().parked.noticeBody(clock)).catch(
+    () => null,
+  );
+  if (!id) {
+    return false;
+  }
+  store.update((now) => (now && now.paidUntil === until ? { ...now, noticeId: id } : now));
+  return true;
 }

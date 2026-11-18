@@ -87,6 +87,11 @@ export const pt = {
     measure: 'Medir distância ou área',
   },
   parked: {
+    paidUntil: (clock: string) => `Pago até às ${clock}`,
+    paidFor: 'Pago por',
+    noticeTitle: 'O estacionamento está a acabar',
+    noticeBody: (clock: string) => `O tempo pago acaba às ${clock}.`,
+    noticeOff: 'Sem notificações: o aviso não vem.',
     car: 'Carro',
     title: 'O seu carro',
     saveHere: 'Guardar onde estou',

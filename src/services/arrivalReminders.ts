@@ -328,3 +328,22 @@ export async function notifyNow(title: string, body: string): Promise<void> {
     // A missed notice never stops the trip.
   }
 }
+
+/**
+ * A notification at a given time, for the app's other reminders (the parking
+ * timer). Asks for the permission the first time, like the bell. `null` when
+ * notifications are not allowed.
+ */
+export async function scheduleNotice(at: Date, title: string, body: string): Promise<string | null> {
+  if (!(await ready().catch(() => false))) {
+    return null;
+  }
+  return Notifications.scheduleNotificationAsync({
+    content: { title, body },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: CHANNEL },
+  });
+}
+
+export async function cancelNotice(id: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+}

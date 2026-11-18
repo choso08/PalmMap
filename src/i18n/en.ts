@@ -69,6 +69,11 @@ export const en: typeof pt = {
     measure: 'Measure distance or area',
   },
   parked: {
+    paidUntil: (clock: string) => `Paid until ${clock}`,
+    paidFor: 'Paid for',
+    noticeTitle: 'Your parking is running out',
+    noticeBody: (clock: string) => `The paid time ends at ${clock}.`,
+    noticeOff: 'Notifications are off: no reminder will come.',
     car: 'Car',
     title: 'Your car',
     saveHere: 'Save where I am',

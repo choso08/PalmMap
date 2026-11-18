@@ -12,7 +12,15 @@ import type { TransitStop } from '../services/transit';
 import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
 import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
-import { forgetParkedCar, useParkedCar, type ParkedCar } from '../services/parkedCar';
+import {
+  forgetParkedCar,
+  setParkingPaidUntil,
+  useParkedCar,
+  type ParkedCar,
+} from '../services/parkedCar';
+
+/** The parking timer's choices, in minutes from now. */
+const PAID_FOR_MIN = [30, 60, 120, 180];
 import type { TransitLineInfo } from '../services/transit';
 import { operatorColour, textOn } from '../utils/lineColour';
 
@@ -59,6 +67,12 @@ export function SavedSheet({
   const lines = useFavouriteLines();
   const homeWork = useHomeWork();
   const parked = useParkedCar();
+  const [noticeOff, setNoticeOff] = useState(false);
+  const clockOf = (ms: number) => {
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+  const paidLeft = parked?.paidUntil && parked.paidUntil > Date.now() ? parked.paidUntil : null;
   /**
    * Home or Work being chosen: the next place tapped in the lists below is
    * kept as it instead of becoming the destination.
@@ -173,9 +187,14 @@ export function SavedSheet({
                 </Text>
                 <Text style={styles.address} numberOfLines={1}>
                   {parked
-                    ? strings.parked.parkedAgo(
-                        strings.parked.ago(Math.round((Date.now() - parked.at) / 60000)),
-                      )
+                    ? [
+                        strings.parked.parkedAgo(
+                          strings.parked.ago(Math.round((Date.now() - parked.at) / 60000)),
+                        ),
+                        paidLeft ? strings.parked.paidUntil(clockOf(paidLeft)) : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
                     : strings.parked.saveHere}
                 </Text>
               </View>
@@ -192,6 +211,42 @@ export function SavedSheet({
             ) : null}
           </View>
         ) : null}
+        {/*
+          The parking timer: paid for 30 min to 3 h from now, a notice ten
+          minutes before it ends (`setParkingPaidUntil`). A tap on the chosen
+          one clears it.
+        */}
+        {parked ? (
+          <View style={styles.paidRow}>
+            <Text style={styles.paidLabel}>{strings.parked.paidFor}</Text>
+            {PAID_FOR_MIN.map((min) => (
+              <Pressable
+                key={min}
+                style={styles.paidChip}
+                onPress={() => {
+                  void setParkingPaidUntil(Date.now() + min * 60000).then((ok) => setNoticeOff(!ok));
+                }}
+              >
+                <Text style={styles.paidChipText}>
+                  {min < 60 ? `${min} min` : `${min / 60} h`}
+                </Text>
+              </Pressable>
+            ))}
+            {paidLeft ? (
+              <Pressable
+                hitSlop={8}
+                onPress={() => {
+                  setNoticeOff(false);
+                  void setParkingPaidUntil(null);
+                }}
+                accessibilityLabel={strings.saved.clear}
+              >
+                <MaterialCommunityIcons name="timer-off-outline" size={20} color={theme.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+        {parked && noticeOff ? <Text style={styles.paidNote}>{strings.parked.noticeOff}</Text> : null}
         {picking ? (
           <View style={styles.picking}>
             <Text style={styles.pickingText}>
@@ -389,6 +444,36 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     },
     shortcutActive: {
       borderColor: theme.accent,
+    },
+    paidRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+    },
+    paidLabel: {
+      color: theme.textMuted,
+      fontSize: 13,
+    },
+    paidChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    paidChipText: {
+      color: theme.text,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    paidNote: {
+      color: theme.textMuted,
+      fontSize: 12,
+      paddingHorizontal: 16,
+      paddingTop: 4,
     },
     carRow: {
       flexDirection: 'row',
