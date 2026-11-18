@@ -341,6 +341,14 @@ environment cannot reach.
   coming back or ending. Setting `notifyDirections` (Notifications group, on); the permission
   is asked on Start (`prepareNavNotices`). `expo-location`'s own service notification cannot
   be changed after starting (restarting it in the background is refused), hence ours beside it.
+- **The blue dot on the line being travelled** (author's photo, 18 November: on the bus by
+  Almada Forum the dot sat beside the road — "I'm a perfectionist"; not seen on a phone):
+  `snappedLocation` in `App.tsx` projects the GPS onto the route while navigating (within
+  40 m, 20 on foot) and onto the trip's paths on a transport trip (60 m on a ride, 20 on a
+  walk), with `snapToLine` (`geometry.ts`, onto segments, not vertices). `MapView` then draws
+  the dot and cone from its own `user-snapped` source and leaves the native `UserLocation`
+  layers mounted but see-through, so following and the camera are untouched. Farther than
+  that, the dot is where the GPS says.
 - **Setting Home and Work, as Google** (author, 18 November: "setting home is very
   impractical, copy Google"; not seen on a phone): `HomeWorkPicker.tsx`, a screen of its own
   with the address search focused (Nominatim's rules, as the main bar), "Use current location",

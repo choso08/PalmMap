@@ -216,6 +216,12 @@ interface MapViewProps {
    * stop to stop). Null when no trip is being followed.
    */
   guidePaths?: readonly { coordinates: Coordinates[]; walk: boolean }[] | null;
+  /**
+   * Where to draw the blue dot instead of the GPS's own point: on the road or
+   * line being travelled, when the GPS is a few metres beside it (App's
+   * `snappedLocation`), as Maps does. Null: the GPS point as it comes.
+   */
+  snappedLocation?: Coordinates | null;
   /** Called on a tap on a stop pin. */
   onStopPress?: (stopId: string) => void;
   /** Tapping a train, metro, light-rail or boat station opens its departures. */
@@ -285,7 +291,13 @@ export interface MapViewRef {
  * heading), and the sensor is only read while the app is on screen: nobody
  * looks at the cone in a pocket.
  */
-function HeadingCone() {
+function HeadingCone({
+  source = 'mlrn-user-location',
+  id = 'user-heading-cone',
+}: {
+  source?: string;
+  id?: string;
+}) {
   const [heading, setHeading] = useState<number | null>(null);
 
   useEffect(() => {
@@ -327,8 +339,8 @@ function HeadingCone() {
   return (
     <Layer
       type="symbol"
-      id="user-heading-cone"
-      source="mlrn-user-location"
+      id={id}
+      source={source}
       layout={{
         'icon-image': 'heading-cone',
         'icon-rotate': heading,
@@ -402,6 +414,7 @@ export function MapView({
   selectedStopId = null,
   journeyLine = null,
   guidePaths = null,
+  snappedLocation = null,
   transitStations = NONE,
   vehicles = NONE,
   onVehiclePress,
@@ -918,6 +931,22 @@ export function MapView({
    * does **not** drop following. The library is the one that knows the
    * difference.
    */
+  // The snapped dot as memoized text (see the note on `GeoJSONSource` above).
+  const snappedJson = useMemo(
+    () =>
+      snappedLocation
+        ? JSON.stringify({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'Point',
+              coordinates: [snappedLocation.longitude, snappedLocation.latitude],
+            },
+          })
+        : '',
+    [snappedLocation],
+  );
+
   const handleTrackChange = useCallback(
     (event: NativeSyntheticEvent<TrackUserLocationChangeEvent>) => {
       if (!event.nativeEvent.trackUserLocation) {
@@ -1281,7 +1310,12 @@ export function MapView({
       */}
       {userLocation ? (
         <UserLocation>
-          {!following ? <HeadingCone key="user-heading-cone" /> : null}
+          {!following && !snappedLocation ? <HeadingCone key="user-heading-cone" /> : null}
+          {/*
+            Kept, see-through, while the dot is drawn on the line instead
+            (`snappedLocation`): the native location layer stays as it is, so
+            nothing about following or the camera changes.
+          */}
           <Layer
             type="circle"
             key="user-dot-white"
@@ -1291,6 +1325,7 @@ export function MapView({
               'circle-radius': 9,
               'circle-color': '#FFFFFF',
               'circle-pitch-alignment': 'map',
+              'circle-opacity': snappedLocation ? 0 : 1,
             }}
           />
           <Layer
@@ -1302,9 +1337,37 @@ export function MapView({
               'circle-radius': 6.5,
               'circle-color': '#1A73E8',
               'circle-pitch-alignment': 'map',
+              'circle-opacity': snappedLocation ? 0 : 1,
             }}
           />
         </UserLocation>
+      ) : null}
+      {userLocation && snappedLocation ? (
+        <GeoJSONSource id="user-snapped" data={snappedJson}>
+          {!following ? (
+            <HeadingCone key="user-snapped-cone" id="user-snapped-cone" source="user-snapped" />
+          ) : null}
+          <Layer
+            type="circle"
+            key="user-snapped-white"
+            id="user-snapped-white"
+            paint={{
+              'circle-radius': 9,
+              'circle-color': '#FFFFFF',
+              'circle-pitch-alignment': 'map',
+            }}
+          />
+          <Layer
+            type="circle"
+            key="user-snapped-blue"
+            id="user-snapped-blue"
+            paint={{
+              'circle-radius': 6.5,
+              'circle-color': '#1A73E8',
+              'circle-pitch-alignment': 'map',
+            }}
+          />
+        </GeoJSONSource>
       ) : null}
 
       {/*

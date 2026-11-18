@@ -217,7 +217,7 @@ import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/g
 import type { SearchCategory } from './src/utils/categories';
 import { formatDistance, formatDistanceSpoken, formatDurationShort } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
-import { distanceAlong, distanceMeters, locateOnRoute, nearestIndex } from './src/utils/geometry';
+import { distanceAlong, distanceMeters, locateOnRoute, nearestIndex, snapToLine } from './src/utils/geometry';
 import { namesArePortuguese, speak, stopSpeaking, warmUpVoice } from './src/utils/voice';
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 import { useAppActive } from './src/useAppActive';
@@ -3153,6 +3153,36 @@ function PalmMap() {
         : null,
     [shownGuide],
   );
+  /*
+    The blue dot on the road or line being travelled, as Maps (author's photo,
+    November 2026: on the bus by Almada Forum the dot sat beside the road, and
+    "I'm a perfectionist"). Only when the GPS is within a few metres of it —
+    farther, the person really is somewhere else, and the dot says so. A ride
+    allows more (a bus shape is drawn down the middle of a wide road, and GPS in
+    a bus is poor) than a walk or a car route.
+  */
+  const snappedLocation = useMemo(() => {
+    if (!userLocation) {
+      return null;
+    }
+    if (navigating && walkingToCar === null && route) {
+      const s = snapToLine(route.coordinates, userLocation);
+      const limit = settings.travelMode === 'walking' ? 20 : 40;
+      return s && s.meters <= limit && s.meters > 1 ? s.point : null;
+    }
+    if (guiding && guidePaths) {
+      let best: { point: Coordinates; meters: number } | null = null;
+      for (const path of guidePaths) {
+        const s = snapToLine(path.coordinates, userLocation);
+        if (s && s.meters <= (path.walk ? 20 : 60) && (!best || s.meters < best.meters)) {
+          best = s;
+        }
+      }
+      return best && best.meters > 1 ? best.point : null;
+    }
+    return null;
+  }, [userLocation, navigating, walkingToCar, route, settings.travelMode, guiding, guidePaths]);
+
   const mapTransitStops = useMemo(() => {
     if (shownGuide) {
       // Every stop the trip rides through, as Maps marks them.
@@ -3711,6 +3741,7 @@ function PalmMap() {
         transitStops={mapTransitStops}
         journeyLine={journeyLine}
         guidePaths={guidePaths}
+        snappedLocation={snappedLocation}
         selectedStopId={selectedStopId}
         onStopPress={handleStopPress}
         onStationPress={handleStationPress}

@@ -249,3 +249,57 @@ export function boundsOf(points: Coordinates[]): Bounds {
 
   return { south, west, north, east };
 }
+
+/**
+ * The point of a line nearest to a position, on its segments (not only its
+ * vertices), and how far it is. For drawing the blue dot on the road being
+ * travelled, as Maps does — a bus shape has a vertex every hundred metres, and
+ * the nearest vertex alone would make the dot jump along it.
+ *
+ * Flat metres around the position: exact enough at a few tens of metres.
+ */
+export function snapToLine(
+  line: readonly Coordinates[],
+  position: Coordinates,
+): { point: Coordinates; meters: number } | null {
+  if (line.length === 0) {
+    return null;
+  }
+  const kx = 111320 * Math.cos((position.latitude * Math.PI) / 180);
+  const ky = 110540;
+  const toXY = (c: Coordinates) => [
+    (c.longitude - position.longitude) * kx,
+    (c.latitude - position.latitude) * ky,
+  ];
+  let best: { x: number; y: number; d2: number } | null = null;
+  let [ax, ay] = toXY(line[0]);
+  if (line.length === 1) {
+    best = { x: ax, y: ay, d2: ax * ax + ay * ay };
+  }
+  for (let i = 1; i < line.length; i += 1) {
+    const [bx, by] = toXY(line[i]);
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    // The position is the origin: project it onto the segment.
+    const t = len2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const x = ax + t * dx;
+    const y = ay + t * dy;
+    const d2 = x * x + y * y;
+    if (!best || d2 < best.d2) {
+      best = { x, y, d2 };
+    }
+    ax = bx;
+    ay = by;
+  }
+  if (!best) {
+    return null;
+  }
+  return {
+    point: {
+      latitude: position.latitude + best.y / ky,
+      longitude: position.longitude + best.x / kx,
+    },
+    meters: Math.sqrt(best.d2),
+  };
+}
