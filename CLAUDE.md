@@ -331,6 +331,8 @@ environment cannot reach.
   - **The empty search starts with Home, Work and Car** chips (only those set), as in Maps.
   - **The screen stays on during a transport trip** too, not only while driving
     (`keepAwake`).
+  - **Arriving ends the trip**: the route is cleared and the destination's card opens
+    (hours, phone), as in Maps — the route used to stay with "Start", as if about to leave.
 - **Where I parked** (author's request, 18 November; not seen on a phone):
   `services/parkedCar.ts` (key `palmmap.carroEstacionado`) keeps where the car was left —
   saved from the Saved screen ("Car": a tap saves where one is, or walks there; ✕ forgets

@@ -1851,6 +1851,14 @@ function PalmMap() {
               parkCar(position);
             }
             setNavigating(false);
+            // The trip is over, as in Maps: no route left waiting with "Start",
+            // and the place's card (hours, phone) where one arrived.
+            setDestination(null);
+            setRouteOrigin(null);
+            setWaypoints([]);
+            setRoute(null);
+            setRouteError(null);
+            setSelectedPlace(destination);
             if (dizer) {
               setTimeout(() => speak(t().navigation.arrived), 250);
             }
