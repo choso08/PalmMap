@@ -2131,3 +2131,59 @@ export interface VehicleTripLike {
   shape: Coordinates[];
   exactTrip: boolean;
 }
+
+/**
+ * The last connection tonight from the stored timetables (author's request,
+ * November 2026: "the last metro home leaves at 0:52"): the latest trip that
+ * still leaves before `LAST_SERVICE_END_H` tomorrow morning.
+ *
+ * A search by halves on the departure time — each step is one RAPTOR run, so
+ * about ten for a night — then a short walk forward from the one found,
+ * since the halving stops a quarter of an hour short. Live buses are not in
+ * it: this is the timetable. `null` when nothing runs tonight.
+ */
+const LAST_SERVICE_END_H = 5;
+export async function lastConnectionTonight(
+  origin: Coordinates,
+  destination: Coordinates,
+  fromUnix: number,
+): Promise<TransitTrip | null> {
+  const start = new Date(fromUnix * 1000);
+  const end = new Date(start);
+  if (start.getHours() >= LAST_SERVICE_END_H) {
+    end.setDate(end.getDate() + 1);
+  }
+  end.setHours(LAST_SERVICE_END_H, 0, 0, 0);
+  const endUnix = end.getTime() / 1000;
+  const nextFrom = async (t: number): Promise<TransitTrip | null> => {
+    const trips = await planScheduledRaptor(origin, destination, t, 1);
+    const first = trips
+      .filter((x) => x.departsAt >= t && x.departsAt < endUnix)
+      .sort((a, b) => a.departsAt - b.departsAt)[0];
+    return first ?? null;
+  };
+  let lo = fromUnix;
+  let hi = endUnix;
+  let best = await nextFrom(lo);
+  if (!best) {
+    return null;
+  }
+  while (hi - lo > 15 * 60) {
+    const mid = Math.round((lo + hi) / 2);
+    const found = await nextFrom(mid);
+    if (found) {
+      lo = mid;
+      best = found;
+    } else {
+      hi = mid;
+    }
+  }
+  for (let guard = 0; guard < 6; guard += 1) {
+    const later = await nextFrom(best.departsAt + 60);
+    if (!later) {
+      break;
+    }
+    best = later;
+  }
+  return best;
+}

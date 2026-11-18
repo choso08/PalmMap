@@ -338,6 +338,8 @@ export const en: typeof pt = {
   },
 
   transit: {
+    lastTonight: (clock: string, line: string) =>
+      `Last connection tonight: leave at ${clock} (${line}), by the timetable.`,
     title: 'Transport near you',
     subtitle: 'Carris Metropolitana · Lisbon area',
     searching: 'Looking for stops…',

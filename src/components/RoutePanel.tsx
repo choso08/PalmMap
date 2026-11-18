@@ -55,6 +55,8 @@ import { sunsetOn } from '../utils/sun';
 const CLIMB_SECONDS_PER_M = 6;
 
 interface RoutePanelProps {
+  /** At night, the last connection by the stored timetables (`lastConnectionTonight`). */
+  lastConnection?: TransitTrip | null;
   /** The chosen walking or cycling route's height profile, when known. */
   elevation?: ElevationProfile | null;
   /**
@@ -175,6 +177,7 @@ export function RoutePanel({
   transitGuide,
   onChangeTransitWhen,
   elevation = null,
+  lastConnection = null,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
@@ -645,6 +648,14 @@ export function RoutePanel({
             </View>
           )}
           {leaveNote ? <Text style={styles.avisoTexto}>{leaveNote}</Text> : null}
+          {lastConnection ? (
+            <View style={styles.aviso}>
+              <MaterialCommunityIcons name="weather-night" size={16} color={theme.textMuted} />
+              <Text style={styles.avisoTexto}>
+                {strings.transit.lastTonight(relogio(lastConnection.leaveAt), lastConnection.line)}
+              </Text>
+            </View>
+          ) : null}
         </>
       ) : null}
 

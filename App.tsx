@@ -137,6 +137,7 @@ import {
 } from './src/services/overpass';
 import {
   ensureFeedsFor,
+  lastConnectionTonight,
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
@@ -3417,6 +3418,38 @@ function PalmMap() {
     }
   }, [destination, navigating, guiding]);
 
+  /**
+   * At night, by transport: the last connection tonight from the stored
+   * timetables (`lastConnectionTonight`), worked out in the background — about
+   * ten planning runs — once per destination. From 20:00 to 03:00 only.
+   */
+  const [lastTonight, setLastTonight] = useState<{ destination: Place; trip: TransitTrip } | null>(null);
+  useEffect(() => {
+    const hour = new Date().getHours();
+    const origem = routeOrigin?.coordinates ?? userLocationRef.current;
+    if (
+      !destination ||
+      navigating ||
+      settings.travelMode !== 'transit' ||
+      !origem ||
+      (hour < 20 && hour >= 3)
+    ) {
+      return;
+    }
+    let cancelled = false;
+    const target = destination;
+    void lastConnectionTonight(origem, target.coordinates, Date.now() / 1000)
+      .then((trip) => {
+        if (!cancelled && trip) {
+          setLastTonight({ destination: target, trip });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, routeOrigin, navigating, settings.travelMode, hasLocation]);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3685,6 +3718,9 @@ function PalmMap() {
                 destination={lastDestination}
                 route={route}
                 elevation={routeProfile}
+                lastConnection={
+                  lastTonight && lastTonight.destination === destination ? lastTonight.trip : null
+                }
                 loading={routeLoading}
                 error={routeError}
                 onClear={handleClearRoute}

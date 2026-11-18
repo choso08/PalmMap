@@ -372,6 +372,8 @@ export const pt = {
   },
 
   transit: {
+    lastTonight: (clock: string, line: string) =>
+      `Última ligação hoje: sai às ${clock} (${line}), pelos horários.`,
     title: 'Transportes perto de si',
     subtitle: 'Carris Metropolitana · área de Lisboa',
     searching: 'A procurar paragens…',
