@@ -239,6 +239,9 @@ export const pt = {
   },
 
   route: {
+    ascent: (m: number) => `${m} m`,
+    descent: (m: number) => `${m} m`,
+    heightRange: (min: number, max: number) => `${min}–${max} m de altitude`,
     addStop: 'Adicionar paragem',
     calculating: 'A calcular o percurso…',
     start: 'Iniciar',

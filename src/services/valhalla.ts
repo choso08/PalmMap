@@ -3,7 +3,12 @@ import axios from 'axios';
 import { REQUEST_TIMEOUT_MS, USER_AGENT, VALHALLA_URL } from './config';
 import type { Coordinates, Route, RouteStep } from '../types/geo';
 import type { OsrmManeuver } from '../types/osrm';
-import type { ValhallaManeuver, ValhallaRouteResponse, ValhallaTrip } from '../types/valhalla';
+import type {
+  ValhallaHeightResponse,
+  ValhallaManeuver,
+  ValhallaRouteResponse,
+  ValhallaTrip,
+} from '../types/valhalla';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
 import { distanceMeters } from '../utils/geometry';
 
@@ -216,4 +221,57 @@ export async function valhallaBikeDuration(
     throw new Error('no trip');
   }
   return { distanceMeters: summary.length * 1000, durationSeconds: summary.time };
+}
+
+/** Encodes a line in the polyline format with six decimals (Valhalla's). */
+function encodePolyline6(points: Coordinates[]): string {
+  let out = '';
+  let lastLat = 0;
+  let lastLon = 0;
+  const put = (value: number) => {
+    let v = value < 0 ? ~(value << 1) : value << 1;
+    while (v >= 0x20) {
+      out += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+      v >>= 5;
+    }
+    out += String.fromCharCode(v + 63);
+  };
+  for (const p of points) {
+    const lat = Math.round(p.latitude * 1e6);
+    const lon = Math.round(p.longitude * 1e6);
+    put(lat - lastLat);
+    put(lon - lastLon);
+    lastLat = lat;
+    lastLon = lon;
+  }
+  return out;
+}
+
+/**
+ * The height along a line, from Valhalla's `/height` (probed November 2026:
+ * `range: true` gives `[metres along, height]` pairs, one per
+ * `resample_distance`; a height may be `null` where there is no data).
+ */
+export async function valhallaHeights(
+  line: Coordinates[],
+  stepMeters: number,
+  schedule: Schedule,
+  isWanted?: () => boolean,
+): Promise<[number, number][]> {
+  const response = await schedule(
+    () =>
+      client.get<ValhallaHeightResponse>(`${VALHALLA_URL}/height`, {
+        params: {
+          json: JSON.stringify({
+            range: true,
+            resample_distance: Math.round(stepMeters),
+            encoded_polyline: encodePolyline6(line),
+          }),
+        },
+      }),
+    isWanted,
+  );
+  return (response.data.range_height ?? []).filter(
+    (p): p is [number, number] => Array.isArray(p) && typeof p[1] === 'number',
+  );
 }

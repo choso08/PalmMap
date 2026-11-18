@@ -32,3 +32,8 @@ export interface ValhallaError {
   error_code?: number;
   error?: string;
 }
+
+/** `/height` with `range: true`: `[metres along, height or null]` pairs. */
+export interface ValhallaHeightResponse {
+  range_height?: [number, number | null][];
+}

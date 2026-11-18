@@ -219,6 +219,9 @@ export const en: typeof pt = {
   },
 
   route: {
+    ascent: (m: number) => `${m} m`,
+    descent: (m: number) => `${m} m`,
+    heightRange: (min: number, max: number) => `${min}–${max} m elevation`,
     addStop: 'Add stop',
     calculating: 'Working out the route…',
     start: 'Start',

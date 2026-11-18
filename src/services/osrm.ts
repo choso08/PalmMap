@@ -15,7 +15,8 @@ import type { Coordinates, Route, RouteStep } from '../types/geo';
 import type { OsrmRouteResponse, OsrmStep } from '../types/osrm';
 import { distanceMeters } from '../utils/geometry';
 import { describeManeuver, maneuverIcon } from '../utils/maneuvers';
-import { type BikeType, valhallaBikeDuration, valhallaBikeRoutes } from './valhalla';
+import { type BikeType, valhallaBikeDuration, valhallaBikeRoutes, valhallaHeights } from './valhalla';
+import { type ElevationProfile, summariseHeights } from '../utils/elevation';
 
 const client = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
@@ -269,4 +270,35 @@ export async function getRoutes(
     // panel tell the truth instead of promising what it did not do.
     avoidedTolls: Boolean(params.exclude),
   }));
+}
+
+/** Profiles already asked for, per route object: switching back asks nothing. */
+const elevationCache = new WeakMap<Route, Promise<ElevationProfile | null>>();
+
+/**
+ * The height profile of a route (walking and cycling), from FOSSGIS's
+ * Valhalla `/height`, through the same one-a-second queue as the routes —
+ * same organisation, same terms. About a hundred samples whatever the length.
+ * `null` when it fails: the panel just shows no profile.
+ */
+export function routeElevation(route: Route, isWanted?: () => boolean): Promise<ElevationProfile | null> {
+  const known = elevationCache.get(route);
+  if (known) {
+    return known;
+  }
+  const step = Math.min(500, Math.max(20, route.distanceMeters / 100));
+  // At most ~400 points, so the address stays a few kilobytes: a long route
+  // has thousands, and the line is resampled on their side anyway.
+  const every = Math.max(1, Math.ceil(route.coordinates.length / 400));
+  const line = route.coordinates.filter(
+    (_, i) => i % every === 0 || i === route.coordinates.length - 1,
+  );
+  const asked = valhallaHeights(line, step, schedule, isWanted)
+    .then(summariseHeights)
+    .catch(() => {
+      elevationCache.delete(route);
+      return null;
+    });
+  elevationCache.set(route, asked);
+  return asked;
 }

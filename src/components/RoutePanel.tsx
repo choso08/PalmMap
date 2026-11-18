@@ -43,8 +43,12 @@ const MEIOS: Record<string, string> = {
   boat: 'ferry',
 };
 import { formatDistance, formatDuration, formatDurationShort } from '../utils/format';
+import type { ElevationProfile } from '../utils/elevation';
+import { ElevationProfileView } from './ElevationProfileView';
 
 interface RoutePanelProps {
+  /** The chosen walking or cycling route's height profile, when known. */
+  elevation?: ElevationProfile | null;
   /**
    * The gestures of the handle at the top, so the panel can be shrunk.
    *
@@ -162,6 +166,7 @@ export function RoutePanel({
   transitWhen,
   transitGuide,
   onChangeTransitWhen,
+  elevation = null,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
@@ -653,6 +658,10 @@ export function RoutePanel({
             sometimes on the other side of a fence. Better to say so than leave
             the person staring at a gap between them and the line.
           */}
+          {elevation && (travelMode === 'walking' || travelMode === 'cycling') ? (
+            <ElevationProfileView profile={elevation} />
+          ) : null}
+
           {/* A car trip from the parked car: the walk is in the time above. */}
           {route.walkToCar ? (
             <View style={styles.aviso}>

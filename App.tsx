@@ -124,7 +124,8 @@ import {
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
 import { reverseGeocode, searchPlaces } from './src/services/nominatim';
 import { parseGeoLink } from './src/utils/geoLink';
-import { RouteError, getDuration, getRoutes } from './src/services/osrm';
+import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
+import type { ElevationProfile } from './src/utils/elevation';
 import {
   placeDetails,
   searchCategoryInBounds,
@@ -459,6 +460,7 @@ function PalmMap() {
   const [routeOptions, setRouteOptions] = useState<Route[]>([]);
   const [routeIndex, setRouteIndex] = useState(0);
   const route = routeOptions[routeIndex] ?? null;
+
   const setRoute = useCallback((novo: Route | null) => {
     setRouteOptions(novo ? [novo] : []);
     setRouteIndex(0);
@@ -3154,6 +3156,29 @@ function PalmMap() {
   }, []);
 
   // See the note by the panels, further down.
+  /**
+   * The chosen walking or cycling route's climb (`routeElevation`), asked once
+   * per route; kept with the route it belongs to, so a stale one never shows.
+   */
+  const [elevation, setElevation] = useState<{ route: Route; profile: ElevationProfile } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!route || navigating || (settings.travelMode !== 'walking' && settings.travelMode !== 'cycling')) {
+      return;
+    }
+    let cancelled = false;
+    void routeElevation(route, () => !cancelled).then((profile) => {
+      if (!cancelled && profile) {
+        setElevation({ route, profile });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route, navigating, settings.travelMode]);
+  const routeProfile = elevation && elevation.route === route ? elevation.profile : null;
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3385,6 +3410,7 @@ function PalmMap() {
                 onOpenDirections={() => setDirectionsVisible(true)}
                 destination={lastDestination}
                 route={route}
+                elevation={routeProfile}
                 loading={routeLoading}
                 error={routeError}
                 onClear={handleClearRoute}
