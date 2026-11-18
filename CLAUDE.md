@@ -342,8 +342,10 @@ environment cannot reach.
     beyond the flat pace already learnt, over the metres climbed so far (the climb assumed
     spread evenly along the route), clamped 2–30 s/m (`clampClimbRate`), blended like any
     pace; such a walk then teaches the flat pace nothing (it would count the hills twice).
-    Walking only: Valhalla's bicycle already slows on hills. The chip times of other modes and
-    the navigation's remaining time do not include it.
+    Walking only: Valhalla's bicycle already slows on hills. Every walking alternative's
+    profile is asked (cached per route, OSRM's queue), so each option's time counts its climb
+    and "Fastest" compares them only once all are known; navigation's remaining time counts
+    the climbs still ahead. The chip times of other modes do not include it.
   - **Sunset warning** on walking and cycling routes that set off before sunset and arrive
     after it (`utils/sun.ts`, the sunrise equation as `suncalc` writes it, checked: Lisbon
     17:23 UTC on 18 November, 21:05 summer time on 21 June).

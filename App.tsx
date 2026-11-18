@@ -3284,27 +3284,39 @@ function PalmMap() {
 
   // See the note by the panels, further down.
   /**
-   * The chosen walking or cycling route's climb (`routeElevation`), asked once
-   * per route; kept with the route it belongs to, so a stale one never shows.
+   * Each walking or cycling option's climb (`routeElevation`), asked once per
+   * route — the chosen one first — and kept by the route it belongs to, so a
+   * stale one never shows. Every option's, not only the chosen one's: on foot
+   * the climb is part of each time, and "Fastest" must compare like with like.
    */
-  const [elevation, setElevation] = useState<{ route: Route; profile: ElevationProfile } | null>(
-    null,
+  const [elevations, setElevations] = useState<ReadonlyMap<Route, ElevationProfile>>(
+    () => new Map(),
   );
   useEffect(() => {
     if (!route || navigating || (settings.travelMode !== 'walking' && settings.travelMode !== 'cycling')) {
       return;
     }
     let cancelled = false;
-    void routeElevation(route, () => !cancelled).then((profile) => {
-      if (!cancelled && profile) {
-        setElevation({ route, profile });
-      }
-    });
+    // Cycling shows only the chosen route's profile (Valhalla's bike already
+    // slows on hills): the others' would be requests for nothing.
+    const asked =
+      settings.travelMode === 'walking' ? [route, ...routeOptions.filter((r) => r !== route)] : [route];
+    for (const r of asked) {
+      void routeElevation(r, () => !cancelled).then((profile) => {
+        if (!cancelled && profile) {
+          setElevations((known) => {
+            const next = new Map([...known].filter(([k]) => asked.includes(k)));
+            next.set(r, profile);
+            return next;
+          });
+        }
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [route, navigating, settings.travelMode]);
-  const routeProfile = elevation && elevation.route === route ? elevation.profile : null;
+  }, [route, routeOptions, navigating, settings.travelMode]);
+  const routeProfile = route ? elevations.get(route) ?? null : null;
   routeProfileRef.current = routeProfile;
 
   /**
@@ -3833,6 +3845,7 @@ function PalmMap() {
                 destination={lastDestination}
                 route={route}
                 elevation={routeProfile}
+                optionElevations={elevations}
                 rain={rainAhead && rainAhead.destination === destination ? rainAhead.rain : null}
                 loading={routeLoading}
                 error={routeError}

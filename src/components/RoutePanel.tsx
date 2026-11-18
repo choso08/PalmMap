@@ -54,6 +54,8 @@ interface RoutePanelProps {
   rain?: RainAt | null;
   /** The chosen walking or cycling route's height profile, when known. */
   elevation?: ElevationProfile | null;
+  /** Each option's climb, once known — so every option's time counts it alike. */
+  optionElevations?: ReadonlyMap<Route, ElevationProfile>;
   /**
    * The gestures of the handle at the top, so the panel can be shrunk.
    *
@@ -172,6 +174,7 @@ export function RoutePanel({
   transitGuide,
   onChangeTransitWhen,
   elevation = null,
+  optionElevations,
   rain = null,
 }: RoutePanelProps) {
   const theme = useTheme();
@@ -194,6 +197,15 @@ export function RoutePanel({
   // and only for the chosen route, whose profile it is.
   const climbRate = pace['walking-climb'] ?? NAISMITH_SECONDS_PER_M;
   const climbSeconds = travelMode === 'walking' && elevation ? elevation.ascent * climbRate : 0;
+  const climbOf = (op: Route): number => {
+    if (travelMode !== 'walking') {
+      return 0;
+    }
+    const profile = op === route ? elevation : optionElevations?.get(op);
+    return profile ? profile.ascent * climbRate : 0;
+  };
+  const optionSeconds = (op: Route): number =>
+    eta(op.distanceMeters, op.durationSeconds) + (op.walkToCar?.seconds ?? 0) + climbOf(op);
 
   // Walking or cycling into the dark: the sun sets on the way (worked out on
   // the phone, `sunsetOn`). Not when it is already dark at the start.
@@ -251,12 +263,15 @@ export function RoutePanel({
   };
 
   // The fastest alternative gets the tag, whatever OSRM's order.
+  // On foot only once every option's climb is known: a flat time beside a
+  // climbed one would crown the wrong way.
+  const allClimbsKnown =
+    travelMode !== 'walking' ||
+    options.every((op) => (op === route ? elevation : optionElevations?.get(op)) != null);
+  const rankSeconds = (op: Route): number =>
+    allClimbsKnown ? optionSeconds(op) : optionSeconds(op) - climbOf(op);
   const fastest = options.reduce(
-    (best, op, i) =>
-      eta(op.distanceMeters, op.durationSeconds) <
-      eta(options[best].distanceMeters, options[best].durationSeconds)
-        ? i
-        : best,
+    (best, op, i) => (rankSeconds(op) < rankSeconds(options[best]) ? i : best),
     0,
   );
 
@@ -685,11 +700,7 @@ export function RoutePanel({
                 >
                   <View style={styles.caminhoTexto}>
                     <Text style={[styles.caminhoTempo, ativo ? styles.caminhoTempoAtivo : null]}>
-                      {formatDuration(
-                        eta(op.distanceMeters, op.durationSeconds) +
-                          (op.walkToCar?.seconds ?? 0) +
-                          (op === route ? climbSeconds : 0),
-                      )}
+                      {formatDuration(optionSeconds(op))}
                     </Text>
                     <Text style={styles.caminhoDetalhe} numberOfLines={1}>
                       {[formatDistance(op.distanceMeters), op.via ? strings.route.via(op.via) : '']
