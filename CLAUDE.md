@@ -345,6 +345,12 @@ environment cannot reach.
     1 km of here, same kind of day, within 75 min of now, at least twice; else Work on a
     weekday morning at Home, Home on a weekday evening at Work. A card under the search
     (`SuggestionCard`) with the time; once per session.
+  - **Rain at the destination** around the arrival (`weather.ts`, Open-Meteo): one
+    request per destination and arrival hour, kept 30 min per place rounded to ~1 km;
+    warned from 50 % or 0.5 mm in that hour, for every travel mode, in the route panel.
+    Credited in Settings (CC BY 4.0). Probed (`sondar: open_meteo`, `met_no`): Open-Meteo
+    timed out twice from GitHub's runners, then answered; MET Norway (`api.met.no`) also
+    works with no key and is the fallback to reach for if Open-Meteo misbehaves.
   - **Parking timer** on the Saved screen's car: paid for 30 min / 1 h / 2 h / 3 h, a
     notice 10 min before (`setParkingPaidUntil`, `scheduleNotice` in `arrivalReminders.ts`).
 - **"As seamless as possible"** (author's challenge, 18 November; not seen on a phone):
@@ -978,6 +984,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── favourites.ts     # Saved places
 │   │   ├── parkedCar.ts      # Where the car was left, and its parking timer
 │   │   ├── tripHabits.ts     # Trips started, for the suggestion on opening
+│   │   ├── weather.ts        # Rain at the destination (Open-Meteo)
 │   │   └── recents.ts        # Recent destinations
 │   ├── types/                # TypeScript types
 │   │   ├── geo.ts            # Types the app uses (Coordinates, Place, Route, Lane)
@@ -2437,6 +2444,12 @@ The heaviest of the services: each query makes the server walk OpenStreetMap's d
   no retries, no bulk. The `User-Agent` goes with it. Notes are public; no name, e-mail or
   account goes in them.
 - **Never probe it by sending** — a test note is a real note someone has to close.
+
+### Open-Meteo — rain at the destination
+
+- Free for non-commercial use, no key, CC BY 4.0: the credit is in Settings → About and stays.
+- One small request per destination and arrival hour, cached 30 min; only the place rounded to
+  two decimals (~1 km) goes out. Nothing is asked in the background.
 
 ### Protomaps — offline maps
 

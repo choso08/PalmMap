@@ -763,6 +763,15 @@ export function SettingsSheet({
                 <Text style={styles.creditName}>Overpass</Text>
                 <Text style={styles.creditRole}>{s.credits.overpass}</Text>
               </View>
+
+              {/* CC BY 4.0: the forecast's attribution is a condition of use. */}
+              <Pressable
+                style={styles.creditRow}
+                onPress={() => void Linking.openURL('https://open-meteo.com/').catch(() => undefined)}
+              >
+                <Text style={styles.creditName}>Open-Meteo</Text>
+                <Text style={styles.creditRole}>{s.credits.weather}</Text>
+              </Pressable>
             </>
           ) : null}
             </Collapsible>

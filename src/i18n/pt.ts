@@ -248,6 +248,10 @@ export const pt = {
   },
 
   route: {
+    rainNote: (clock: string, percent: number | null) =>
+      percent !== null
+        ? `Chuva provável no destino por volta das ${clock} (${percent}%).`
+        : `Chuva prevista no destino por volta das ${clock}.`,
     climbNote: (time: string, meters: number) => `Inclui ${time} pelas subidas (${meters} m).`,
     sunsetNote: (sunset: string, arrival: string) =>
       `O sol põe-se às ${sunset} e chega por volta das ${arrival}.`,
@@ -605,6 +609,7 @@ export const pt = {
 
     about: 'Acerca',
     credits: {
+      weather: 'previsão da chuva',
       osm: 'dados do mapa, pesquisa e tiles',
       overpass: 'negócios e pontos de interesse',
       osrm: 'cálculo dos percursos',

@@ -756,3 +756,13 @@ export const PHOTO_NEARBY_M = 25;
 export const PARKED_WALK_MIN_M = 80;
 export const PARKED_WALK_MAX_M = 10000;
 export const CAR_REACHED_M = 35;
+
+/**
+ * Open-Meteo, for "rain at the destination" (author's request, November
+ * 2026): free for non-commercial use, no key, CC BY 4.0 — credited in
+ * Settings. Probed: `hourly=precipitation_probability,precipitation`,
+ * `timeformat=unixtime`.
+ */
+export const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
+/** A forecast is kept this long per place (rounded to ~1 km). */
+export const WEATHER_CACHE_MS = 30 * 60 * 1000;

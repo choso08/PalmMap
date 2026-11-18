@@ -46,6 +46,7 @@ import { formatDistance, formatDuration, formatDurationShort } from '../utils/fo
 import type { ElevationProfile } from '../utils/elevation';
 import { ElevationProfileView } from './ElevationProfileView';
 import { sunsetOn } from '../utils/sun';
+import type { RainAt } from '../services/weather';
 
 /**
  * Naismith's rule, as walkers use it: a minute more for every 10 m climbed.
@@ -55,6 +56,8 @@ import { sunsetOn } from '../utils/sun';
 const CLIMB_SECONDS_PER_M = 6;
 
 interface RoutePanelProps {
+  /** Rain likely at the destination around the arrival (`weather.ts`). */
+  rain?: RainAt | null;
   /** At night, the last connection by the stored timetables (`lastConnectionTonight`). */
   lastConnection?: TransitTrip | null;
   /** The chosen walking or cycling route's height profile, when known. */
@@ -178,6 +181,7 @@ export function RoutePanel({
   onChangeTransitWhen,
   elevation = null,
   lastConnection = null,
+  rain = null,
 }: RoutePanelProps) {
   const theme = useTheme();
   const strings = useT();
@@ -657,6 +661,15 @@ export function RoutePanel({
             </View>
           ) : null}
         </>
+      ) : null}
+
+      {rain ? (
+        <View style={styles.aviso}>
+          <MaterialCommunityIcons name="weather-pouring" size={16} color={theme.textMuted} />
+          <Text style={styles.avisoTexto}>
+            {strings.route.rainNote(relogio(rain.hour), rain.probability)}
+          </Text>
+        </View>
       ) : null}
 
       {route ? (

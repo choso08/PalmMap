@@ -228,6 +228,10 @@ export const en: typeof pt = {
   },
 
   route: {
+    rainNote: (clock: string, percent: number | null) =>
+      percent !== null
+        ? `Rain likely at the destination around ${clock} (${percent}%).`
+        : `Rain forecast at the destination around ${clock}.`,
     climbNote: (time: string, meters: number) => `Includes ${time} for the climbs (${meters} m).`,
     sunsetNote: (sunset: string, arrival: string) =>
       `The sun sets at ${sunset}; you arrive around ${arrival}.`,
@@ -567,6 +571,7 @@ export const en: typeof pt = {
 
     about: 'About',
     credits: {
+      weather: 'rain forecast',
       osm: 'map data, search and tiles',
       overpass: 'businesses and points of interest',
       osrm: 'route calculation',

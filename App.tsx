@@ -102,6 +102,7 @@ import {
   WALK_SPEED_MS,
 } from './src/services/config';
 import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/services/parkedCar';
+import { rainAround, type RainAt } from './src/services/weather';
 import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
 import { homeWorkNow, loadHomeWork } from './src/services/homeWork';
 import { SuggestionCard } from './src/components/SuggestionCard';
@@ -3450,6 +3451,43 @@ function PalmMap() {
     };
   }, [destination, routeOrigin, navigating, settings.travelMode, hasLocation]);
 
+  /**
+   * Rain at the destination around the arrival (`weather.ts`, Open-Meteo):
+   * asked once the trip's time is known — the route's, or the first transport
+   * option's — and again only for another destination or a later arrival hour.
+   */
+  const [rainAhead, setRainAhead] = useState<{ destination: Place; rain: RainAt } | null>(null);
+  const arrivalHour = (() => {
+    const now = Date.now() / 1000;
+    const trip = transitTrips?.[transitTripIndex];
+    const seconds =
+      settings.travelMode === 'transit'
+        ? trip
+          ? trip.reachAt - now
+          : null
+        : route
+          ? route.durationSeconds + (route.walkToCar?.seconds ?? 0)
+          : null;
+    return seconds === null ? null : Math.floor((now + seconds) / 3600) * 3600;
+  })();
+  useEffect(() => {
+    if (!destination || navigating || arrivalHour === null || !online) {
+      return;
+    }
+    let cancelled = false;
+    const target = destination;
+    void rainAround(target.coordinates, arrivalHour + 1800)
+      .then((rain) => {
+        if (!cancelled) {
+          setRainAhead(rain ? { destination: target, rain } : null);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, navigating, arrivalHour, online]);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3718,6 +3756,7 @@ function PalmMap() {
                 destination={lastDestination}
                 route={route}
                 elevation={routeProfile}
+                rain={rainAhead && rainAhead.destination === destination ? rainAhead.rain : null}
                 lastConnection={
                   lastTonight && lastTonight.destination === destination ? lastTonight.trip : null
                 }
