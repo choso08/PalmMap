@@ -301,6 +301,10 @@ function rememberView(bounds: Bounds, zoom: number): void {
   }, 1000);
 }
 
+/** The panels that open from the bottom, in the order they rank when opened together. */
+type BottomPanel = 'measure' | 'guide' | 'route' | 'place' | 'line' | 'stop' | 'vehicle';
+const PANEL_RANK: readonly BottomPanel[] = ['measure', 'guide', 'route', 'place', 'line', 'stop', 'vehicle'];
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -2358,19 +2362,43 @@ function PalmMap() {
    * The fixed value stays as the floor, for the instant before the first
    * measurement.
    */
-  const shownPanel = guiding
-    ? 'guide'
-    : selectedVehicleId
-      ? 'vehicle'
-      : lineShown && !transitVisible
-      ? 'line'
-      : selectedPlace
-      ? 'place'
-      : destination
-        ? 'route'
-        : measuring
-          ? 'measure'
-          : null;
+  /*
+    **One bottom panel at a time: the one opened last** (author's report,
+    November 2026: two panels open at once). Each panel used to decide alone —
+    the stop's, the bus's and the measuring tape's showed over whatever else
+    was open. Now each open panel gets a number when it opens, and only the
+    newest shows; closing it brings back the one underneath, as going back.
+    Panels opening in the same moment rank by `PANEL_RANK` (later wins).
+  */
+  const panelOpen: Record<BottomPanel, boolean> = {
+    measure: measuring,
+    guide: guiding,
+    route: !navigating && !guiding && !!destination,
+    place: !navigating && !!selectedPlace,
+    line: !!lineShown,
+    stop: transitVisible,
+    vehicle: !!selectedVehicleId,
+  };
+  const openedAt = useRef<Partial<Record<BottomPanel, number>>>({});
+  const openCounter = useRef(0);
+  for (const kind of PANEL_RANK) {
+    if (panelOpen[kind]) {
+      if (openedAt.current[kind] === undefined) {
+        openedAt.current[kind] = ++openCounter.current;
+      }
+    } else {
+      delete openedAt.current[kind];
+    }
+  }
+  let topPanel: BottomPanel | null = null;
+  for (const kind of PANEL_RANK) {
+    const at = openedAt.current[kind];
+    if (at !== undefined && (topPanel === null || at > (openedAt.current[topPanel] ?? 0))) {
+      topPanel = kind;
+    }
+  }
+  // The stop's panel is not measured (it keeps no floating buttons above it).
+  const shownPanel = topPanel === 'stop' ? null : topPanel;
   const raisedBottom = Math.max(
     insets.bottom + 260,
     (shownPanel ? panelHeights[shownPanel] : 0) + 12,
@@ -3444,33 +3472,37 @@ function PalmMap() {
       handleStopNavigation();
       return true;
     }
-    if (guiding) {
-      handleEndTransit();
-      return true;
+    // The panel on screen first — the one opened last (`topPanel`) — and the
+    // one underneath at the next press.
+    switch (topPanel) {
+      case 'guide':
+        handleEndTransit();
+        return true;
+      case 'vehicle':
+        setSelectedVehicleId(null);
+        setSelectedStopId(null);
+        return true;
+      case 'stop':
+        setTransitVisible(false);
+        setSelectedStopId(null);
+        setSelectedStationId(null);
+        setLineJourneyShown(null);
+        return true;
+      case 'line':
+        closeLine();
+        return true;
+      case 'place':
+        setSelectedPlace(null);
+        setDroppedPin(null);
+        return true;
+      case 'route':
+        handleClearRoute();
+        return true;
+      default:
+        break;
     }
-    if (selectedVehicleId) {
-      setSelectedVehicleId(null);
-      setSelectedStopId(null);
-      return true;
-    }
-    if (transitVisible) {
-      setTransitVisible(false);
-      setSelectedStopId(null);
-      setSelectedStationId(null);
-      setLineJourneyShown(null);
-      return true;
-    }
-    if (lineShown) {
-      closeLine();
-      return true;
-    }
-    if (selectedPlace || droppedPin) {
-      setSelectedPlace(null);
+    if (droppedPin) {
       setDroppedPin(null);
-      return true;
-    }
-    if (destination) {
-      handleClearRoute();
       return true;
     }
     if (measuring) {
@@ -3943,7 +3975,7 @@ function PalmMap() {
       {lastPlace ? (
         <Reveal
           style={styles.bottom}
-          visible={!navigating && !guiding && !!selectedPlace}
+          visible={topPanel === 'place'}
           onLayout={measurePanel('place')}
         >
           <DraggableSheet>
@@ -3971,7 +4003,7 @@ function PalmMap() {
       {lastDestination ? (
         <Reveal
           style={styles.bottom}
-          visible={!navigating && !guiding && !selectedPlace && !!destination}
+          visible={topPanel === 'route'}
           onLayout={measurePanel('route')}
         >
           <DraggableSheet>
@@ -4034,7 +4066,7 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {measuring ? (
+      {measuring && topPanel === 'measure' ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('measure')}>
           <DraggableSheet>
             {(drag, dragHeader) => (
@@ -4130,7 +4162,7 @@ function PalmMap() {
         <SpeedBadge kmh={speedKmh} bottom={compassBottom + 52} />
       ) : null}
 
-      {guiding ? (
+      {guiding && topPanel === 'guide' ? (
         <View style={styles.bottom} onLayout={measurePanel('guide')}>
           <DraggableSheet>
             {(drag, dragHeader) => (
@@ -4232,7 +4264,7 @@ function PalmMap() {
         thirty-second timer that updates the minutes has to stop, and unmounting is
         the surest way to guarantee it.
       */}
-      {transitVisible ? (
+      {transitVisible && topPanel === 'stop' ? (
         <Reveal style={styles.bottom}>
           <DraggableSheet>
             {(drag, dragHeader) => (
@@ -4263,7 +4295,7 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {lineShown && !selectedVehicleId && !transitVisible ? (
+      {lineShown && topPanel === 'line' ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('line')}>
           <DraggableSheet>
             {(drag, dragHeader) => (
@@ -4291,7 +4323,7 @@ function PalmMap() {
         </Reveal>
       ) : null}
 
-      {selectedVehicleId && shownVehicle ? (
+      {selectedVehicleId && shownVehicle && topPanel === 'vehicle' ? (
         <Reveal style={styles.bottom} onLayout={measurePanel('vehicle')}>
           <DraggableSheet>
             {(drag, dragHeader) => (

@@ -341,6 +341,12 @@ environment cannot reach.
   coming back or ending. Setting `notifyDirections` (Notifications group, on); the permission
   is asked on Start (`prepareNavNotices`). `expo-location`'s own service notification cannot
   be changed after starting (restarting it in the background is refused), hence ours beside it.
+- **One bottom panel at a time, the newest** (author's report, 18 November: two panels open at
+  once; not seen on a phone). Each panel decided alone — the stop's (`transitVisible`), the
+  bus's and the measuring tape's showed over a place card or the route. `topPanel` in
+  `App.tsx`: each open panel gets a number when it opens (`openedAt`), the newest shows, ties
+  in the same render go by `PANEL_RANK`; closing it brings back the one underneath. `shownPanel`
+  (camera padding, floating buttons) follows it, and the back button closes `topPanel` first.
 - **A transport trip moves on only riding forward** (author's report, 18 November: "get off
   at the next stop" came while on a bus the opposite way — getting off would have left them
   far from where they were going; not seen on a phone). `guideProgress` took the furthest stop
