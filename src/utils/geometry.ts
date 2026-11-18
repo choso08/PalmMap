@@ -303,3 +303,50 @@ export function snapToLine(
     meters: Math.sqrt(best.d2),
   };
 }
+
+/**
+ * How far along a line the point nearest to a position is, in metres from its
+ * start, and how far the position is from the line. Two readings in a row say
+ * which way one is moving along it — the transport trip uses this so a bus
+ * the other way, passing the same stops, does not count as progress.
+ */
+export function alongLine(
+  line: readonly Coordinates[],
+  position: Coordinates,
+  /**
+   * Only segments within these metres along the line: around the last
+   * reading, so a line that passes a place twice (a loop) keeps the pass
+   * being ridden.
+   */
+  window?: { from: number; to: number },
+): { along: number; meters: number } | null {
+  if (line.length < 2) {
+    return null;
+  }
+  const kx = 111320 * Math.cos((position.latitude * Math.PI) / 180);
+  const ky = 110540;
+  let walked = 0;
+  let best: { along: number; d2: number } | null = null;
+  let ax = (line[0].longitude - position.longitude) * kx;
+  let ay = (line[0].latitude - position.latitude) * ky;
+  for (let i = 1; i < line.length; i += 1) {
+    const bx = (line[i].longitude - position.longitude) * kx;
+    const by = (line[i].latitude - position.latitude) * ky;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const x = ax + t * dx;
+    const y = ay + t * dy;
+    const d2 = x * x + y * y;
+    const len = Math.sqrt(len2);
+    const inWindow = !window || (walked + len >= window.from && walked <= window.to);
+    if (inWindow && (!best || d2 < best.d2)) {
+      best = { along: walked + t * len, d2 };
+    }
+    walked += len;
+    ax = bx;
+    ay = by;
+  }
+  return best ? { along: best.along, meters: Math.sqrt(best.d2) } : null;
+}

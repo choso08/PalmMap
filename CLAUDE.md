@@ -341,6 +341,22 @@ environment cannot reach.
   coming back or ending. Setting `notifyDirections` (Notifications group, on); the permission
   is asked on Start (`prepareNavNotices`). `expo-location`'s own service notification cannot
   be changed after starting (restarting it in the background is refused), hence ours beside it.
+- **A transport trip moves on only riding forward** (author's report, 18 November: "get off
+  at the next stop" came while on a bus the opposite way — getting off would have left them
+  far from where they were going; not seen on a phone). `guideProgress` took the furthest stop
+  within 80 m, in any order. Now each reading is placed along the ride's path (`alongLine`,
+  around the last reading's place first, so a loop keeps its pass) and the trip moves on only
+  when on the path (80 m) and at least 5 m further along than the last reading; stops count as
+  passed by their own place along the path (`stopPositions`, `lastStopBehind`), so a reading
+  missed in a pocket is caught up and a bus the other way moves nothing. `GuideProgress`
+  carries `along`/`alongLeg` for this.
+- **Following waits for a fresh fix** (author's report, 18 November: after switching apps and
+  turning following on, the map went to an old position first): the camera's following uses
+  the native location layer, whose first answer on coming back is Android's last known
+  position. `holdFollowUntilFresh` (`App.tsx`) lets the camera go (`followHold`), centres on
+  `getFreshPosition`, and ties it again 0.7 s later; on coming back to the app while
+  following, and on turning following on when the last fix is old (`lastFixIsFresh`). The
+  "following dropped" event the release causes is ignored (`followHoldRef`).
 - **The blue dot on the line being travelled** (author's photo, 18 November: on the bus by
   Almada Forum the dot sat beside the road — "I'm a perfectionist"; not seen on a phone):
   `snappedLocation` in `App.tsx` projects the GPS onto the route while navigating (within

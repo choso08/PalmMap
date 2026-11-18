@@ -132,6 +132,7 @@ import {
   getBestPosition,
   getCurrentPosition,
   getFreshPosition,
+  lastFixIsFresh,
   requestPermission,
   watchPosition,
   watchPositionIdle,
@@ -640,6 +641,38 @@ function PalmMap() {
    * `handleLocatePress`.
    */
   const [followUser, setFollowUser] = useState(false);
+  /**
+   * Following held back until a fresh fix arrives (author's report, November
+   * 2026: after switching apps and turning following on, the map went to an
+   * old position first and only then to the right one). The camera's own
+   * following uses the native location layer, whose first answer on coming
+   * back is Android's last known position — wherever the person was before.
+   * So the camera is let go, taken to a fresh fix of ours, and only then tied
+   * to the position again. A ref too: letting go reports "following
+   * dropped", which must not switch the button off.
+   */
+  const [followHold, setFollowHold] = useState(false);
+  const followHoldRef = useRef(false);
+  const followUserRef = useRef(followUser);
+  followUserRef.current = followUser;
+  const holdFollowUntilFresh = useCallback(() => {
+    followHoldRef.current = true;
+    setFollowHold(true);
+    void getFreshPosition()
+      .catch(() => null)
+      .then((posicao) => {
+        if (posicao) {
+          userLocationRef.current = posicao;
+          setUserLocation(posicao);
+          mapRef.current?.recenter(posicao);
+        }
+        // A beat for the native layer to take the same fix before following.
+        setTimeout(() => {
+          followHoldRef.current = false;
+          setFollowHold(false);
+        }, posicao ? 700 : 0);
+      });
+  }, []);
   /** When the GPS button was last tapped, to recognise a double tap. */
   const lastLocateTap = useRef(0);
 
@@ -1088,6 +1121,10 @@ function PalmMap() {
       if (estado !== 'active') {
         return;
       }
+      if (followUserRef.current) {
+        holdFollowUntilFresh();
+        return;
+      }
       void getFreshPosition().then((posicao) => {
         if (posicao) {
           userLocationRef.current = posicao;
@@ -1097,7 +1134,7 @@ function PalmMap() {
     });
 
     return () => subscription.remove();
-  }, [navigating]);
+  }, [navigating, holdFollowUntilFresh]);
 
   /**
    * Outside navigation, keep following the position slowly, so the blue dot
@@ -2592,6 +2629,7 @@ function PalmMap() {
         mapRef.current?.followAgain();
       } else {
         setFollowUser(true);
+        holdFollowUntilFresh();
       }
       return;
     }
@@ -2603,6 +2641,10 @@ function PalmMap() {
 
     if (duplo) {
       setFollowUser(true);
+      // Only when the last fix is old: a recent one is already where one is.
+      if (!lastFixIsFresh()) {
+        holdFollowUntilFresh();
+      }
       return;
     }
 
@@ -2623,7 +2665,7 @@ function PalmMap() {
       setUserLocation(posicao);
       mapRef.current?.recenter(posicao);
     })();
-  }, [navigating, followUser, guiding]);
+  }, [navigating, followUser, guiding, holdFollowUntilFresh]);
 
   /**
    * Choosing a destination turns following off.
@@ -3724,8 +3766,11 @@ function PalmMap() {
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}
         following={navigating}
-        followUser={followUser}
+        followUser={followUser && !followHold}
         onFollowUserChange={(seguir) => {
+          if (!seguir && followHoldRef.current) {
+            return;
+          }
           setFollowUser(seguir);
           if (!seguir && navigating) {
             setNavCameraFree(true);

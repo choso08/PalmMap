@@ -433,6 +433,11 @@ export async function watchPositionIdle(
  * is, even if old. A map at the old spot is bad; a button that does not respond
  * is worse, and without network the GPS can take minutes to wake up.
  */
+/** Whether the last reading is recent enough to centre on (`POSITION_FRESH_MS`). */
+export function lastFixIsFresh(): boolean {
+  return lastFix !== null && Date.now() - lastFix.at < POSITION_FRESH_MS;
+}
+
 export async function getBestPosition(): Promise<Coordinates | null> {
   if (lastFix && Date.now() - lastFix.at < POSITION_FRESH_MS) {
     return lastFix.coordinates;

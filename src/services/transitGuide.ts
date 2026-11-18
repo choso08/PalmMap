@@ -11,7 +11,7 @@ import {
   type TransitTrip,
 } from './transit';
 import type { Coordinates } from '../types/geo';
-import { distanceMeters } from '../utils/geometry';
+import { alongLine, distanceMeters } from '../utils/geometry';
 import { rideOperator } from '../utils/lineColour';
 
 /**
@@ -267,13 +267,59 @@ export interface GuideProgress {
   leg: number;
   /** On a ride: the index of the last stop passed (0 at boarding). */
   stop: number;
+  /**
+   * The last reading's place along a ride's path (`alongLine`), and which leg
+   * it was measured on — the next reading compared with it says whether one
+   * is moving forward along the line or the other way.
+   */
+  along?: number;
+  alongLeg?: number;
 }
 
 /** Close enough to a walk's end, a stop or the destination to call it reached. */
 export const GUIDE_REACHED_M = 40;
 
 /** On a ride, how near a stop the phone must be to count it as passed. */
-const GUIDE_STOP_M = 80;
+
+/** A stop counts as passed once this close to it along the line, or beyond. */
+const GUIDE_STOP_AHEAD_M = 30;
+
+/** Each ride's stops as metres along its path, worked out once. */
+const stopsAlong = new WeakMap<RideLeg, number[]>();
+
+function stopPositions(ride: RideLeg): number[] {
+  let known = stopsAlong.get(ride);
+  if (!known) {
+    let floor = 0;
+    known = ride.stops.map((s) => {
+      // In order: on a line that passes a place twice (a loop), a stop is the
+      // pass after the one before it.
+      const at = alongLine(ride.path, s.coordinates)?.along ?? floor;
+      floor = Math.max(floor, at);
+      return floor;
+    });
+    stopsAlong.set(ride, known);
+  }
+  return known;
+}
+
+/** The last stop at or behind a place along the ride, or -1. */
+function lastStopBehind(ride: RideLeg, along: number): number {
+  const at = stopPositions(ride);
+  let k = -1;
+  for (let i = 0; i < at.length; i += 1) {
+    if (at[i] <= along + GUIDE_STOP_AHEAD_M) {
+      k = i;
+    }
+  }
+  return k;
+}
+
+/** On a ride, how far from its path the phone can be and still be on it. */
+const GUIDE_ON_PATH_M = 80;
+
+/** Forward along the path since the last reading, to count as riding it. */
+const GUIDE_FORWARD_M = 5;
 
 /**
  * Moves the progress on with a GPS reading. **Only forward**: a reading
@@ -286,6 +332,33 @@ export function guideProgress(
   position: Coordinates,
 ): GuideProgress {
   let { leg, stop } = current;
+  // Which ride's path this reading is measured on: the one under way, or the
+  // next one while walking to it.
+  const rideAt = guide.legs[leg]?.type === 'ride' ? leg : guide.legs[leg + 1]?.type === 'ride' ? leg + 1 : -1;
+  const ride = rideAt >= 0 ? (guide.legs[rideAt] as RideLeg) : null;
+  const before = current.alongLeg === rideAt ? current.along : undefined;
+  // Around the last reading first (a loop passes a place twice), the whole
+  // line when nothing there is near.
+  const windowed =
+    ride && before !== undefined
+      ? alongLine(ride.path, position, { from: before - 300, to: before + 3000 })
+      : null;
+  const here = ride
+    ? windowed && windowed.meters <= GUIDE_ON_PATH_M
+      ? windowed
+      : alongLine(ride.path, position)
+    : null;
+  // **Riding forward**: on the line, and further along it than the last
+  // reading. A bus the other way passes the same stops (author's report,
+  // November 2026: "get off at the next stop" while going the opposite way —
+  // getting off there would have left them far from where they were going),
+  // and so does a walk beside the line; neither moves the trip on.
+  const forward =
+    here !== null &&
+    here.meters <= GUIDE_ON_PATH_M &&
+    before !== undefined &&
+    here.along - before >= GUIDE_FORWARD_M;
+
   // Several steps can pass in one reading (a change at the very same stop).
   for (let guard = 0; guard < 6 && leg < guide.legs.length; guard += 1) {
     const step = guide.legs[leg];
@@ -296,11 +369,12 @@ export function guideProgress(
         continue;
       }
       // Already on the way past the walk (the bus came while the GPS was
-      // asleep): near a later stop of the next ride counts as boarding.
+      // asleep): riding forward past the next ride's first stop counts as
+      // boarding.
       const next = guide.legs[leg + 1];
-      if (next?.type === 'ride') {
-        const passed = passedStop(next.stops, position, 1);
-        if (passed !== null) {
+      if (next?.type === 'ride' && forward && here && rideAt === leg + 1) {
+        const passed = lastStopBehind(next, here.along);
+        if (passed >= 1) {
           leg += 1;
           stop = passed;
           continue;
@@ -308,9 +382,14 @@ export function guideProgress(
       }
       break;
     }
-    const passed = passedStop(step.stops, position, stop);
-    if (passed !== null && passed > stop) {
-      stop = passed;
+    // Stops are passed by where one is along the line, riding forward only —
+    // so a reading missed in a pocket is caught up, and a bus the other way
+    // moves nothing.
+    if (forward && here && rideAt === leg) {
+      const passed = lastStopBehind(step, here.along);
+      if (passed > stop) {
+        stop = passed;
+      }
     }
     if (stop >= step.stops.length - 1) {
       leg += 1;
@@ -319,18 +398,7 @@ export function guideProgress(
     }
     break;
   }
-  return { leg, stop };
-}
-
-/** The furthest stop from `from` on that is within `GUIDE_STOP_M`, or null. */
-function passedStop(stops: RideStop[], position: Coordinates, from: number): number | null {
-  let found: number | null = null;
-  for (let i = Math.max(0, from); i < stops.length; i += 1) {
-    if (distanceMeters(position, stops[i].coordinates) <= GUIDE_STOP_M) {
-      found = i;
-    }
-  }
-  return found;
+  return here && rideAt >= 0 ? { leg, stop, along: here.along, alongLeg: rideAt } : { leg, stop };
 }
 
 /** Whether the trip is over: the last step done, or at the destination. */
