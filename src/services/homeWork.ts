@@ -19,6 +19,8 @@ const store = savedStore<HomeWork>('palmmap.casaTrabalho', { home: null, work: n
 });
 
 export const useHomeWork = store.useValue;
+export const loadHomeWork = store.load;
+export const homeWorkNow = store.current;
 
 /** Sets or clears one of the two. */
 export function setHomeWork(kind: HomeWorkKind, place: Place | null): void {

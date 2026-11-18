@@ -68,6 +68,9 @@ export const en: typeof pt = {
     tools: 'Tools',
     measure: 'Measure distance or area',
   },
+  suggestion: {
+    goingTo: (name: string) => `Going to ${name}?`,
+  },
   parked: {
     paidUntil: (clock: string) => `Paid until ${clock}`,
     paidFor: 'Paid for',

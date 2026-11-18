@@ -86,6 +86,9 @@ export const pt = {
     tools: 'Ferramentas',
     measure: 'Medir distância ou área',
   },
+  suggestion: {
+    goingTo: (name: string) => `Vai para ${name}?`,
+  },
   parked: {
     paidUntil: (clock: string) => `Pago até às ${clock}`,
     paidFor: 'Pago por',

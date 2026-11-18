@@ -102,6 +102,9 @@ import {
   WALK_SPEED_MS,
 } from './src/services/config';
 import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/services/parkedCar';
+import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
+import { homeWorkNow, loadHomeWork } from './src/services/homeWork';
+import { SuggestionCard } from './src/components/SuggestionCard';
 import {
   cameraIcon,
   cameraLabel,
@@ -195,7 +198,7 @@ import { t } from './src/i18n';
 import type { Theme } from './src/theme';
 import type { Bounds, Coordinates, Place, Route, RouteStep } from './src/types/geo';
 import type { SearchCategory } from './src/utils/categories';
-import { formatDistance, formatDistanceSpoken } from './src/utils/format';
+import { formatDistance, formatDistanceSpoken, formatDurationShort } from './src/utils/format';
 import { clampPace, modelSeconds } from './src/utils/eta';
 import { distanceAlong, distanceMeters, locateOnRoute, nearestIndex } from './src/utils/geometry';
 import { namesArePortuguese, speak, stopSpeaking, warmUpVoice } from './src/utils/voice';
@@ -1272,6 +1275,7 @@ function PalmMap() {
     if (!trip || !destination || !origem) {
       return;
     }
+    recordTrip(origem, destination);
     warmUpVoice();
     // Asked now, on the tap: "get off at the next stop" is also a notification.
     void prepareTripNotices();
@@ -2353,6 +2357,9 @@ function PalmMap() {
     setStepsVisible(false);
     setProgressIndex(0);
     carReached.current = false;
+    if (destination && userLocationRef.current) {
+      recordTrip(userLocationRef.current, destination);
+    }
     // Setting off by car next to the parked car: it is being driven.
     const aqui0 = userLocationRef.current;
     const parked = parkedCarNow();
@@ -2405,7 +2412,7 @@ function PalmMap() {
 
     setNavCameraFree(false);
     setNavigating(true);
-  }, [route, settings.voiceGuidance, settings.travelMode]);
+  }, [route, settings.voiceGuidance, settings.travelMode, destination]);
 
   // The engine is woken when a destination is chosen, so it is ready by the
   // time "Start" is pressed (`warmUpVoice`).
@@ -3366,6 +3373,50 @@ function PalmMap() {
     });
   }, [places, category, openNowOnly]);
 
+  /**
+   * The suggestion on opening (`tripHabits.ts`): worked out once, with the
+   * first position, while nothing is open; gone for the session once tapped,
+   * dismissed, or once anything else is chosen.
+   */
+  const [suggestion, setSuggestion] = useState<TripSuggestion | null>(null);
+  const [suggestionTime, setSuggestionTime] = useState<string | null>(null);
+  const suggestionTried = useRef(false);
+  useEffect(() => {
+    const here = userLocationRef.current;
+    if (suggestionTried.current || !hasLocation || !here || destination || navigating || guiding) {
+      return;
+    }
+    suggestionTried.current = true;
+    let cancelled = false;
+    // Both stores read from the phone first: the first render has them empty.
+    void Promise.all([loadTripHabits(), loadHomeWork()]).then(() => {
+      const found = suggestTrip(here, homeWorkNow());
+      if (cancelled || !found) {
+        return;
+      }
+      setSuggestion(found);
+      const mode = osrmProfile(settings.travelMode);
+      if (mode) {
+        void getDuration(here, [], found.place.coordinates, mode, () => !cancelled, settings.bikeType)
+          .then((t) => {
+            if (!cancelled) {
+              setSuggestionTime(formatDurationShort(t.durationSeconds));
+            }
+          })
+          .catch(() => undefined);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLocation, destination, navigating, guiding, settings.travelMode, settings.bikeType]);
+  // Anything chosen meanwhile takes its place.
+  useEffect(() => {
+    if (destination || navigating || guiding) {
+      setSuggestion(null);
+    }
+  }, [destination, navigating, guiding]);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3539,6 +3590,21 @@ function PalmMap() {
         )}
 
         {searchFocused ? null : <ConnectivityBanner />}
+
+        {suggestion && !searchFocused && !shownPanel ? (
+          <SuggestionCard
+            name={suggestion.place.name}
+            kind={suggestion.kind}
+            time={suggestionTime}
+            onGo={() => {
+              const place = suggestion.place;
+              setSuggestion(null);
+              setRouteOrigin(null);
+              handleSearchSelect(place);
+            }}
+            onDismiss={() => setSuggestion(null)}
+          />
+        ) : null}
 
         {locationDenied ? (
           <Text style={styles.notice}>
