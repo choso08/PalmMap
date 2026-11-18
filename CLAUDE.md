@@ -341,6 +341,14 @@ environment cannot reach.
   coming back or ending. Setting `notifyDirections` (Notifications group, on); the permission
   is asked on Start (`prepareNavNotices`). `expo-location`'s own service notification cannot
   be changed after starting (restarting it in the background is refused), hence ours beside it.
+- **The route comes out faster after choosing a place** (author's report, 18 November: about
+  5 s from tapping an address to the route; not seen on a phone). Two waits were in front of
+  it: `arrivalPoint` waited up to 3 s for Overpass's doors on every walk, bike and transport
+  route, and the other modes' chip times went into OSRM's one-a-second queue ahead of the
+  route. Now a plain address (`isPlainAddress`: `place`, `highway`, a house-type `building`)
+  skips the doors; the country file's doors are used at once when it has some; the Overpass
+  wait is `ENTRANCE_WAIT_MS` 1.2 s; and the chip times wait for `routeLoading` to end — those
+  started in the same render are dropped from the queue unsent (`isWanted`).
 - **One bottom panel at a time, the newest** (author's report, 18 November: two panels open at
   once; not seen on a phone). Each panel decided alone — the stop's (`transitVisible`), the
   bus's and the measuring tape's showed over a place card or the route. `topPanel` in

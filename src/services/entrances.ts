@@ -73,6 +73,36 @@ export async function findEntrances(point: Coordinates): Promise<Entrance[]> {
   return remote.length > 0 ? remote : localEntrances(point);
 }
 
+/** Whether Overpass was already asked about this place (its answer kept). */
+function remoteKnown(point: Coordinates): boolean {
+  return known.has(keyOf(point));
+}
+
+/**
+ * A house or a street, not a business or a big building: its point is
+ * already the door, and asking Overpass for doors only delays the route.
+ */
+function isPlainAddress(place: Place): boolean {
+  if (!place.kindKey) {
+    return false;
+  }
+  if (place.kindKey === 'place' || place.kindKey === 'highway' || place.kindKey === 'boundary') {
+    return true;
+  }
+  return place.kindKey === 'building' && PLAIN_BUILDINGS.has(place.kindValue ?? '');
+}
+
+const PLAIN_BUILDINGS = new Set([
+  'house',
+  'residential',
+  'yes',
+  'apartments',
+  'detached',
+  'semidetached_house',
+  'terrace',
+  'garage',
+]);
+
 function remoteEntrances(point: Coordinates): Promise<Entrance[]> {
   const key = keyOf(point);
   const kept = known.get(key);
@@ -135,8 +165,15 @@ export function bestEntrance(entrances: Entrance[], from: Coordinates): Entrance
  * (negative ids) are exact points the person chose and are left alone.
  */
 export async function arrivalPoint(place: Place, from: Coordinates): Promise<Coordinates> {
-  if (place.id < 0) {
+  if (place.id < 0 || isPlainAddress(place)) {
     return place.coordinates;
+  }
+  // The country's own doors answer at once, with no request: use them when
+  // there are some, and Overpass only where the file has none.
+  const local = localEntrances(place.coordinates);
+  const known = remoteKnown(place.coordinates);
+  if (!known && local.length > 0) {
+    return bestEntrance(local, from)?.coordinates ?? place.coordinates;
   }
   const entrances = await Promise.race([
     findEntrances(place.coordinates),

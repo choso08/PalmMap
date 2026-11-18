@@ -1567,7 +1567,13 @@ function PalmMap() {
     };
   }, [modeTimes, chipTrips, settings.transitSort, settings.transitAvoid]);
   useEffect(() => {
-    if (navigating || !destination) {
+    // **The route first** (author's report, November 2026: ~5 s after choosing
+    // an address before the route showed). These requests share OSRM's
+    // one-a-second queue, and went out ahead of the route; now they wait for
+    // it. Started in the same moment as the route, they are dropped from the
+    // queue unsent when `routeLoading` turns on (`isWanted`), and asked again
+    // when it turns off.
+    if (navigating || !destination || routeLoading) {
       return;
     }
     const origem = routeOrigin?.coordinates ?? userLocationRef.current;
@@ -1624,7 +1630,7 @@ function PalmMap() {
     };
     // With the chosen mode in the dependencies: on switching, the one left
     // needs its time. The others come from the service cache, with no request.
-  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen, online, parkedCar]);
+  }, [destination, routeOrigin, waypoints, hasLocation, navigating, settings.travelMode, settings.bikeType, transitWhen, online, parkedCar, routeLoading]);
 
   /**
    * Looks for businesses to show on the map.

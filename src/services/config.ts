@@ -709,7 +709,10 @@ export const OSM_NOTE_TIMEOUT_MS = 20000;
  * going to the place's own point. Usually already known: the lookup starts when
  * the destination is chosen.
  */
-export const ENTRANCE_WAIT_MS = 3000;
+// 1.2 s, not 3 (author's report, November 2026: a route took about 5 s to come
+// out after choosing an address): Overpass is often slow, and the wait was
+// paid on every walk, bike and transport route.
+export const ENTRANCE_WAIT_MS = 1200;
 
 /** A build's Release page, with its whole changelog: `apk-<build>`. */
 export const RELEASE_PAGE_URL = (build: number) =>
