@@ -321,6 +321,11 @@ environment cannot reach.
   cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
   `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
   spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
+- **Built in 7.0.55** (18 November): the parked car and walk to it, the height profile, the
+  idle-slowdown setting (off), the business pins on "Satellite + bus", the native compass
+  (7.0.54), the back button, the search shortcuts, the screen on during a transport trip and
+  arriving ending the trip. Not in it: the card's travel time, opening where the map was left
+  and the clever features below.
 - **"Clever" features** (author: "I'd like to say the app has very clever features", then
   "do them all", 18 November; none seen on a phone):
   - **Walking time counts the climbs** — Naismith's rule, a minute per 10 m up
