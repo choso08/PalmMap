@@ -1615,6 +1615,28 @@ def valhalla_height():
         print(text[:800], e)
 
 
+def cp_realtime2():
+    """Why the IP service answers 403: the request's shape, or where it comes from."""
+    section("IP / CP REAL TIME, ROUND 2")
+    base = "https://www.infraestruturasdeportugal.pt/negocios-e-servicos/estacao-nome/Oriente"
+    variants = {
+        "ours + json": {"User-Agent": UA, "Accept": "application/json"},
+        "browser-like": {"User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36",
+                         "Accept": "application/json, text/plain, */*", "Accept-Language": "pt-PT,pt;q=0.9",
+                         "Referer": "https://www.infraestruturasdeportugal.pt/negocios-e-servicos/partidas-e-chegadas"},
+    }
+    for name, headers in variants.items():
+        for url in (base, "https://www.infraestruturasdeportugal.pt/", "https://www.cp.pt/passageiros/pt"):
+            req = urllib.request.Request(url, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    print(f"{name:14} {url} -> {r.status} {r.headers.get('Server')} {len(r.read())} B")
+            except urllib.error.HTTPError as e:
+                print(f"{name:14} {url} -> {e.code} server={e.headers.get('Server')} cf={e.headers.get('cf-ray')} {e.read()[:200]!r}")
+            except Exception as e:  # noqa: BLE001
+                print(f"{name:14} {url} -> {e}")
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
