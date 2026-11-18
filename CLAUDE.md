@@ -174,6 +174,12 @@ environment cannot reach.
     it floated mid-map (author's photo) — not tied to the floating buttons again.
   - **Business photos** in the card (`photos.ts`): OSM's `image`, `wikimedia_commons`,
     `wikidata` (P18) and `panoramax` tags, else a Panoramax street photo within 25 m. No keys.
+    **Coverage measured 18 November** (`sondar: photo_coverage`, 40 random businesses from
+    central Lisbon and Almada in `portugal.pois`): 2 have a photo tag in OSM, 1 a Panoramax
+    picture within 25 m — so most cards have no photo, and that is the data, not a fault.
+    Wikimedia Commons' geosearch finds files near 21 of 40, but they are of anything nearby
+    (a racing helmet by a bank, a girl by the bar association): **not used**, a wrong photo
+    is worse than none. Mapillary would cover far more but needs a token in the APK.
   - **Carris de Lisboa timetables** generated and published (`horarios`); its timetable-only
     bus stops show on the transport map (`scheduledBusStops`, kind `'bus'`, ids
     `sched:<feed>:<index>`) and open with `departuresAtStop`. Carris Metropolitana stays out
