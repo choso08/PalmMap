@@ -126,6 +126,7 @@ import {
 import { reverseGeocode, searchPlaces } from './src/services/nominatim';
 import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
+import { openStatus, parseOpeningHours } from './src/utils/openingHours';
 import type { ElevationProfile } from './src/utils/elevation';
 import {
   placeDetails,
@@ -3344,6 +3345,27 @@ function PalmMap() {
     // The place by its id: the card's details arriving later is the same place.
   }, [selectedPlace?.id, navigating, settings.travelMode, settings.bikeType, hasLocation, parkedCar]);
 
+  /**
+   * "Open now" on a category search: only the places whose OpenStreetMap
+   * hours say they are open at this minute. Unknown hours are left out, as
+   * in Maps — "open" is a promise.
+   */
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const shownPlaces = useMemo(() => {
+    if (!category || !openNowOnly) {
+      return places;
+    }
+    const now = new Date();
+    return places.filter((p) => {
+      const week = parseOpeningHours(p.details?.openingHours);
+      if (!week) {
+        return false;
+      }
+      const status = openStatus(week, now);
+      return status.kind === 'open' || status.kind === 'always';
+    });
+  }, [places, category, openNowOnly]);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3371,7 +3393,7 @@ function PalmMap() {
         destination={destination?.coordinates ?? null}
         pinned={selectedPlace ?? destination}
         route={route}
-        places={places}
+        places={shownPlaces}
         onViewportChange={handleViewportChange}
         onPlacePress={handlePlacePress}
         tilePois={
@@ -3486,7 +3508,17 @@ function PalmMap() {
                 setChipsBottom(Math.round(y + height));
               }}
             >
-              <CategoryBar selected={category} onSelect={setCategory} />
+              <CategoryBar
+                selected={category}
+                onSelect={(next) => {
+                  setCategory(next);
+                  if (!next) {
+                    setOpenNowOnly(false);
+                  }
+                }}
+                openNow={openNowOnly}
+                onToggleOpenNow={() => setOpenNowOnly((now) => !now)}
+              />
             </View>
 
             {/*

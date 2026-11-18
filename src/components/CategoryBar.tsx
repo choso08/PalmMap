@@ -11,13 +11,16 @@ interface CategoryBarProps {
   selected: SearchCategory | null;
   onSelect: (category: SearchCategory | null) => void;
   disabled?: boolean;
+  /** "Open now": only places whose hours say they are open (with a category on). */
+  openNow?: boolean;
+  onToggleOpenNow?: () => void;
 }
 
 /**
  * Row of buttons to look for businesses by kind — "Restaurants", "Pharmacies"…
  * Tapping the active one again turns the search off.
  */
-export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) {
+export function CategoryBar({ selected, onSelect, disabled, openNow, onToggleOpenNow }: CategoryBarProps) {
   const theme = useTheme();
   const strings = useT();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -29,6 +32,20 @@ export function CategoryBar({ selected, onSelect, disabled }: CategoryBarProps) 
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      {selected && onToggleOpenNow ? (
+        <Pressable
+          style={[styles.chip, openNow && styles.chipActive]}
+          onPress={onToggleOpenNow}
+          accessibilityState={{ selected: !!openNow }}
+        >
+          <MaterialCommunityIcons
+            name="clock-check-outline"
+            size={16}
+            color={openNow ? theme.onAccent : theme.textMuted}
+          />
+          <Text style={[styles.label, openNow && styles.labelActive]}>{strings.categories.openNow}</Text>
+        </Pressable>
+      ) : null}
       {SEARCH_CATEGORIES.map((category) => {
         const active = selected?.id === category.id;
 

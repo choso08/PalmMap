@@ -135,6 +135,7 @@ export const en: typeof pt = {
   },
 
   categories: {
+    openNow: 'Open now',
     restaurants: 'Restaurants',
     cafes: 'Cafés',
     pharmacies: 'Pharmacies',

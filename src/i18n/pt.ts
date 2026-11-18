@@ -154,6 +154,7 @@ export const pt = {
 
   /** The category buttons, and the name of what is found at each pin. */
   categories: {
+    openNow: 'Aberto agora',
     restaurants: 'Restaurantes',
     cafes: 'Cafés',
     pharmacies: 'Farmácias',
