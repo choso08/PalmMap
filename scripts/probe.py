@@ -1667,6 +1667,73 @@ def met_no():
     print("open-meteo again:", st, body[:200])
 
 
+def photo_coverage():
+    """How many real businesses would get a photo, per source (author: "no business photo yet")."""
+    section("PHOTO COVERAGE")
+    import random
+    url = "https://github.com/choso08/PalmMap/releases/download/mapas/portugal.pois"
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    data = urllib.request.urlopen(req, timeout=120).read()
+    n = int(data[:10])
+    header = json.loads(data[10:10 + n])
+    base = 10 + n
+    g = header["grid"]
+    places = []
+    for lon0, lat0, lon1, lat1 in ((-9.16, 38.70, -9.12, 38.73), (-9.17, 38.67, -9.14, 38.69)):
+        for ix in range(math.floor(lon0 / g), math.floor(lon1 / g) + 1):
+            for iy in range(math.floor(lat0 / g), math.floor(lat1 / g) + 1):
+                cell = header["cells"].get(f"{ix},{iy}")
+                if cell:
+                    places += json.loads(data[base + cell[0]: base + cell[0] + cell[1]])
+    random.seed(7)
+    sample = random.sample(places, min(40, len(places)))
+    print(len(places), "businesses in central Lisbon + Almada; sampling", len(sample))
+    hits = {"panoramax25": 0, "panoramax60": 0, "commons30": 0, "commons60": 0, "osmtags": 0}
+    for r in sample:
+        lon, lat, name = r[0], r[1], r[2]
+        d = 0.0006
+        dl = d / math.cos(math.radians(lat))
+        st, _, body = get(f"https://api.panoramax.xyz/api/search?bbox={lon-dl:.6f},{lat-d:.6f},{lon+dl:.6f},{lat+d:.6f}&limit=50", timeout=30)
+        best = None
+        try:
+            for f in json.loads(body).get("features", []):
+                plon, plat = f["geometry"]["coordinates"][:2]
+                dist = math.hypot((plon - lon) * 111320 * math.cos(math.radians(lat)), (plat - lat) * 110540)
+                best = dist if best is None else min(best, dist)
+        except Exception:  # noqa: BLE001
+            pass
+        if best is not None and best <= 25:
+            hits["panoramax25"] += 1
+        if best is not None and best <= 60:
+            hits["panoramax60"] += 1
+        st2, _, body2 = get("https://commons.wikimedia.org/w/api.php?action=query&list=geosearch&format=json"
+                            f"&gscoord={lat}|{lon}&gsradius=60&gsnamespace=6&gslimit=20", timeout=30)
+        near = []
+        try:
+            near = json.loads(body2)["query"]["geosearch"]
+        except Exception:  # noqa: BLE001
+            pass
+        if any(x.get("dist", 99) <= 30 for x in near):
+            hits["commons30"] += 1
+        if near:
+            hits["commons60"] += 1
+        osm = r[8] if len(r) > 8 else None
+        tagged = False
+        if osm:
+            kind = {"n": "node", "w": "way", "r": "relation"}[osm[0]]
+            st3, _, body3 = get(f"https://api.openstreetmap.org/api/0.6/{kind}/{osm[1:]}.json", timeout=30)
+            try:
+                tags = json.loads(body3)["elements"][0].get("tags", {})
+                tagged = any(k in tags for k in ("image", "wikimedia_commons", "wikidata", "panoramax"))
+            except Exception:  # noqa: BLE001
+                pass
+        if tagged:
+            hits["osmtags"] += 1
+        print(f"  {name[:30]:30} panoramax {best and round(best)} m · commons {[ (x['title'][5:40], round(x['dist'])) for x in near[:2]]} · osm photo tag {tagged}")
+        time.sleep(0.3)
+    print("HITS of", len(sample), hits)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
