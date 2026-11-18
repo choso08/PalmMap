@@ -130,6 +130,8 @@ export interface Settings {
    * app annoying"): what the app may say by itself. The bells a person taps
    * (a bus's arrival, time to leave) are asked for, so they have no switch.
    */
+  /** The next manoeuvre in the notification shade while navigating with the app hidden. */
+  notifyDirections: boolean;
   /** "Get off at the next stop" as a notification on a transport trip. */
   notifyGetOff: boolean;
   /** The parking timer's notice before the paid time ends. */
@@ -186,6 +188,7 @@ export const DEFAULT_SETTINGS: Settings = {
   trails: 'off',
   vehiclesRefresh: '20',
   vehiclesIdleSlowdown: false,
+  notifyDirections: true,
   notifyGetOff: true,
   notifyParking: true,
   notifyUpdates: true,

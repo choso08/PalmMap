@@ -112,6 +112,13 @@ import {
   type HomeWorkKind,
 } from './src/services/homeWork';
 import { HomeWorkPicker } from './src/components/HomeWorkPicker';
+import {
+  alertManeuver,
+  clearApproach,
+  clearNavNotices,
+  prepareNavNotices,
+  showInstruction,
+} from './src/services/navNotice';
 import { SuggestionCard } from './src/components/SuggestionCard';
 import {
   cameraIcon,
@@ -2491,7 +2498,18 @@ function PalmMap() {
 
     setNavCameraFree(false);
     setNavigating(true);
-  }, [route, settings.voiceGuidance, settings.travelMode, destination, settings.suggestOnOpen]);
+    if (settings.notifyDirections) {
+      void prepareNavNotices();
+    }
+  }, [
+    route,
+    settings.voiceGuidance,
+    settings.travelMode,
+    destination,
+    settings.suggestOnOpen,
+    settings.notifyDirections,
+  ]);
+
 
   // The engine is woken when a destination is chosen, so it is ready by the
   // time "Start" is pressed (`warmUpVoice`).
@@ -3599,6 +3617,40 @@ function PalmMap() {
         : null,
     [route, strings],
   );
+
+  /*
+    Turn-by-turn in the notification shade while the app is not on screen
+    (`services/navNotice.ts`), as Maps: the next manoeuvre and how far, updated
+    as the distance changes in steps (so not every second), and a heads-up
+    once per manoeuvre when it is close. Back on screen, or the trip over,
+    both go.
+  */
+  const shownStep = walkingToCar !== null ? walkToCarStep : nextStep;
+  const noticeMetres =
+    distanceToStep >= 1000
+      ? Math.round(distanceToStep / 100) * 100
+      : distanceToStep >= 200
+        ? Math.round(distanceToStep / 50) * 50
+        : Math.round(distanceToStep / 10) * 10;
+  const approachedStep = useRef<RouteStep | null>(null);
+  useEffect(() => {
+    if (!navigating || appActive || !settings.notifyDirections || !shownStep) {
+      clearNavNotices();
+      approachedStep.current = null;
+      return;
+    }
+    void showInstruction(formatDistance(noticeMetres), shownStep.instruction);
+    const near =
+      settings.travelMode === 'driving' ? 250 : settings.travelMode === 'cycling' ? 120 : 50;
+    if (approachedStep.current !== shownStep) {
+      clearApproach();
+      if (shownStep.announce && noticeMetres <= near) {
+        approachedStep.current = shownStep;
+        void alertManeuver(shownStep.instruction, formatDistance(noticeMetres));
+      }
+    }
+  }, [navigating, appActive, settings.notifyDirections, settings.travelMode, shownStep, noticeMetres]);
+  useEffect(() => clearNavNotices, []);
 
   const lastPlace = useLastValue(selectedPlace);
   const lastDestination = useLastValue(destination);

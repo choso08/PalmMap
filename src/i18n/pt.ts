@@ -378,6 +378,8 @@ export const pt = {
     cameraAheadLimit: (label: string, distance: string, limit: number) =>
       `Atenção: ${label} a ${distance}, limite ${limit}.`,
     /** The notification of the service that keeps navigation alive in the background. */
+    noticeChannel: 'Indicações',
+    alertChannel: 'Manobra próxima',
     serviceTitle: 'PalmMap a navegar',
     serviceBody: 'A seguir o percurso, mesmo com o ecrã apagado.',
     speedLimit: (kmh: number) => `${kmh}`,
@@ -507,6 +509,7 @@ export const pt = {
   settings: {
     forgetTrips: (n: number) => `Esquecer as viagens aprendidas (${n})`,
     notifications: 'Notificações',
+    notifyDirections: 'Indicações com a app em segundo plano',
     notifyGetOff: 'Sair na próxima paragem',
     notifyParking: 'Fim do estacionamento pago',
     notifyUpdates: 'Nova versão descarregada',

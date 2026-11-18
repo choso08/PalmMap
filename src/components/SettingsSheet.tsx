@@ -196,6 +196,7 @@ export function SettingsSheet({
       mobileMaps: has(s.dataUsage, s.mapsOnMobileData),
       notices: has(
         s.notifications,
+        s.notifyDirections,
         s.notifyGetOff,
         s.notifyParking,
         s.notifyUpdates,
@@ -630,6 +631,7 @@ export function SettingsSheet({
             <Collapsible title={s.notifications} icon="bell-outline" forceOpen={show.searching}>
               {(
                 [
+                  ['notifyDirections', s.notifyDirections],
                   ['notifyGetOff', s.notifyGetOff],
                   ['notifyParking', s.notifyParking],
                   ['notifyUpdates', s.notifyUpdates],

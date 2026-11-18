@@ -332,6 +332,15 @@ environment cannot reach.
   (7.0.54), the back button, the search shortcuts, the screen on during a transport trip and
   arriving ending the trip. Not in it: the card's travel time, opening where the map was left
   and the clever features below.
+- **Directions by notification with the app in the background** (author, 18 November; not
+  seen on a phone): `services/navNotice.ts` — a quiet notification (channel `navegacao`, low
+  importance, sticky) with the next manoeuvre and its distance, replaced in place as the
+  distance changes by steps (10 m under 200, 50 m to 1 km, then 100 m), and a heads-up with a
+  buzz (channel `navegacao-aviso`) once per announced manoeuvre within 250 m by car, 120 by
+  bike, 50 on foot. Only while navigating with the app off screen (`appActive`); cleared on
+  coming back or ending. Setting `notifyDirections` (Notifications group, on); the permission
+  is asked on Start (`prepareNavNotices`). `expo-location`'s own service notification cannot
+  be changed after starting (restarting it in the background is refused), hence ours beside it.
 - **Setting Home and Work, as Google** (author, 18 November: "setting home is very
   impractical, copy Google"; not seen on a phone): `HomeWorkPicker.tsx`, a screen of its own
   with the address search focused (Nominatim's rules, as the main bar), "Use current location",

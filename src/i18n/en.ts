@@ -345,6 +345,8 @@ export const en: typeof pt = {
     cameraAhead: (label: string, distance: string) => `Heads up: ${label} in ${distance}.`,
     cameraAheadLimit: (label: string, distance: string, limit: number) =>
       `Heads up: ${label} in ${distance}, limit ${limit}.`,
+    noticeChannel: 'Directions',
+    alertChannel: 'Manoeuvre ahead',
     serviceTitle: 'PalmMap navigating',
     serviceBody: 'Following the route, even with the screen off.',
     speedLimit: (kmh: number) => `${kmh}`,
@@ -469,6 +471,7 @@ export const en: typeof pt = {
   settings: {
     forgetTrips: (n: number) => `Forget the learnt trips (${n})`,
     notifications: 'Notifications',
+    notifyDirections: 'Directions with the app in the background',
     notifyGetOff: 'Get off at the next stop',
     notifyParking: 'Paid parking ending',
     notifyUpdates: 'New version downloaded',
