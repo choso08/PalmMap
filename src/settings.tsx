@@ -121,7 +121,7 @@ export interface Settings {
   vehiclesRefresh: VehiclesRefresh;
   /**
    * Ask for the buses a third as often while the map is left untouched
-   * (`VEHICLES_IDLE_MS`) — on by default; off, the chosen interval always
+   * (`VEHICLES_IDLE_MS`) — off by default (author's choice); off, the chosen interval always
    * (author's request, November 2026).
    */
   vehiclesIdleSlowdown: boolean;
@@ -170,7 +170,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showVehicles: true,
   trails: 'off',
   vehiclesRefresh: '20',
-  vehiclesIdleSlowdown: true,
+  vehiclesIdleSlowdown: false,
   mapsOnMobileData: false,
   transitSort: 'best',
   transitAvoid: [],

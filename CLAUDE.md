@@ -1016,7 +1016,7 @@ in one place instead of spread through the code.
   | `showVehicles` | Show moving buses on the transport map |
 | `trails` | Marked trails over the map: off, walking, cycling or BTT (Waymarked Trails) |
   | `vehiclesRefresh` | How often they are asked for: 10, 20 (default), 30 or 60 s — author's request, November 2026; the line under it gives the data per hour (~150 KB compressed per ask) |
-  | `vehiclesIdleSlowdown` | Ask for the buses a third as often (at most once a minute) with the map untouched for 90 s — on by default; off, the chosen interval always (author's request, 18 November 2026) |
+  | `vehiclesIdleSlowdown` | Ask for the buses a third as often (at most once a minute) with the map untouched for 90 s — **off by default** (author's request, 18 November 2026): the chosen interval always |
   | `mapsOnMobileData` | Refresh outdated country maps on mobile data too — off by default (Wi-Fi only, as before); author's request, November 2026 |
   | `transitSort` | Transport options by earliest arrival, least walking or fewest changes — chosen in the route panel |
   | `transitAvoid` | Means left out of transport options (bus, metro, train, boat) — chosen in the route panel |
