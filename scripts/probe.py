@@ -1696,6 +1696,8 @@ def photo_coverage():
         dl = d / math.cos(math.radians(lat))
         st, _, body = get(f"https://api.panoramax.xyz/api/search?bbox={lon-dl:.6f},{lat-d:.6f},{lon+dl:.6f},{lat+d:.6f}&limit=50", timeout=30)
         best = None
+        if r is sample[0]:
+            print("  panoramax status", st, body[:300])
         try:
             for f in json.loads(body).get("features", []):
                 plon, plat = f["geometry"]["coordinates"][:2]
@@ -1721,8 +1723,12 @@ def photo_coverage():
         osm = r[8] if len(r) > 8 else None
         tagged = False
         if osm:
-            kind = {"n": "node", "w": "way", "r": "relation"}[osm[0]]
-            st3, _, body3 = get(f"https://api.openstreetmap.org/api/0.6/{kind}/{osm[1:]}.json", timeout=30)
+            num = int(osm[1:])
+            if osm[0] == "a":  # osmium area: 2 × way id, or 2 × relation id + 1
+                kind, num = ("way", num // 2) if num % 2 == 0 else ("relation", num // 2)
+            else:
+                kind = {"n": "node", "w": "way", "r": "relation"}[osm[0]]
+            st3, _, body3 = get(f"https://api.openstreetmap.org/api/0.6/{kind}/{num}.json", timeout=30)
             try:
                 tags = json.loads(body3)["elements"][0].get("tags", {})
                 tagged = any(k in tags for k in ("image", "wikimedia_commons", "wikidata", "panoramax"))
