@@ -37,6 +37,12 @@ const store = savedStore<StartedTrip[]>('palmmap.viagensFeitas', [], (raw) =>
 );
 
 export const loadTripHabits = store.load;
+export const useTripHabits = store.useValue;
+
+/** Forgets every trip learnt (Settings → Notifications). */
+export function forgetTripHabits(): void {
+  store.update(() => []);
+}
 
 const weekdayOf = (d: Date) => (d.getDay() + 6) % 7;
 const isWeekend = (weekday: number) => weekday >= 5;

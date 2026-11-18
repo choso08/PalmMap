@@ -143,6 +143,7 @@ export const en: typeof pt = {
   },
 
   categories: {
+    noneOpen: 'Nothing open right now here.',
     openNow: 'Open now',
     restaurants: 'Restaurants',
     cafes: 'Cafés',
@@ -457,6 +458,7 @@ export const en: typeof pt = {
   },
 
   settings: {
+    forgetTrips: (n: number) => `Forget the learnt trips (${n})`,
     notifications: 'Notifications',
     notifyGetOff: 'Get off at the next stop',
     notifyParking: 'Paid parking ending',

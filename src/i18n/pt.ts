@@ -162,6 +162,7 @@ export const pt = {
 
   /** The category buttons, and the name of what is found at each pin. */
   categories: {
+    noneOpen: 'Nada aberto agora aqui.',
     openNow: 'Aberto agora',
     restaurants: 'Restaurantes',
     cafes: 'Cafés',
@@ -495,6 +496,7 @@ export const pt = {
   },
 
   settings: {
+    forgetTrips: (n: number) => `Esquecer as viagens aprendidas (${n})`,
     notifications: 'Notificações',
     notifyGetOff: 'Sair na próxima paragem',
     notifyParking: 'Fim do estacionamento pago',

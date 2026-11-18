@@ -55,7 +55,15 @@ export function forgetParkedCar(): void {
   store.update(() => null);
 }
 
+/**
+ * Each timer change gets a number: a notice whose scheduling comes back after
+ * a newer change (another chip, the car forgotten or parked again) is
+ * cancelled at once instead of being lost uncancellable.
+ */
+let noticeGeneration = 0;
+
 function dropNotice(): void {
+  noticeGeneration += 1;
   const id = store.current()?.noticeId;
   if (id) {
     void cancelNotice(id);
@@ -84,11 +92,16 @@ export async function setParkingPaidUntil(
   const at = Math.max(Date.now() + 5000, until - PARKING_NOTICE_LEAD_MS);
   const d = new Date(until);
   const clock = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const mine = noticeGeneration;
   const id = await scheduleNotice(new Date(at), t().parked.noticeTitle, t().parked.noticeBody(clock)).catch(
     () => null,
   );
   if (!id) {
     return false;
+  }
+  if (mine !== noticeGeneration) {
+    void cancelNotice(id);
+    return true;
   }
   store.update((now) => (now && now.paidUntil === until ? { ...now, noticeId: id } : now));
   return true;

@@ -132,7 +132,7 @@ import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
 import { openStatus, parseOpeningHours } from './src/utils/openingHours';
 import type { ElevationProfile } from './src/utils/elevation';
-import { CLIMB_LEARN_MIN_M, clampClimbRate } from './src/utils/eta';
+import { CLIMB_LEARN_MIN_M, NAISMITH_SECONDS_PER_M, clampClimbRate } from './src/utils/eta';
 import {
   placeDetails,
   searchCategoryInBounds,
@@ -190,6 +190,7 @@ import {
   type PaceKey,
   osrmProfile,
   useLearnedPace,
+  useEta,
   useSettings,
   useT,
   useTheme,
@@ -265,18 +266,24 @@ const LAST_VIEW_KEY = 'palmmap.ultimaVista';
 const SUGGESTION_DISMISSED_KEY = 'palmmap.sugestaoDispensada';
 // Not in the first seconds: the map opens on Lisbon before the GPS or the
 // stored view move it, and writing that would forget where it really was.
-let lastViewWritten = Date.now() + 3000;
+// Written where the map comes to rest: a second after the last move.
+const VIEW_WRITE_FROM = Date.now() + 5000;
+let viewTimer: ReturnType<typeof setTimeout> | null = null;
 function rememberView(bounds: Bounds, zoom: number): void {
-  const now = Date.now();
-  if (now - lastViewWritten < 5000) {
+  if (Date.now() < VIEW_WRITE_FROM) {
     return;
   }
-  lastViewWritten = now;
-  const center = {
-    latitude: (bounds.north + bounds.south) / 2,
-    longitude: (bounds.east + bounds.west) / 2,
-  };
-  void AsyncStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ center, zoom })).catch(() => undefined);
+  if (viewTimer) {
+    clearTimeout(viewTimer);
+  }
+  viewTimer = setTimeout(() => {
+    viewTimer = null;
+    const center = {
+      latitude: (bounds.north + bounds.south) / 2,
+      longitude: (bounds.east + bounds.west) / 2,
+    };
+    void AsyncStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ center, zoom })).catch(() => undefined);
+  }, 1000);
 }
 
 export default function App() {
@@ -1292,7 +1299,9 @@ function PalmMap() {
     if (!trip || !destination || !origem) {
       return;
     }
-    recordTrip(origem, destination);
+    if (settings.suggestOnOpen) {
+      recordTrip(origem, destination);
+    }
     warmUpVoice();
     // Asked now, on the tap: "get off at the next stop" is also a notification.
     void prepareTripNotices();
@@ -2096,15 +2105,24 @@ function PalmMap() {
                 settings.travelMode === 'walking' && perfil && route.distanceMeters > 0
                   ? perfil.ascent * (andados / route.distanceMeters)
                   : 0;
+              const key = paceKeyFor(settings.travelMode, settings.bikeType);
               if (perfil && perfil.ascent >= CLIMB_LEARN_MIN_M && subido >= 15) {
-                const plano = previstos * (learntPaceRef.current.walking ?? 1);
-                climbToLearn.current = clampClimbRate((elapsedMs / 1000 - plano) / subido);
-                paceToLearn.current = null;
-              } else {
+                // Both are learnt from the same walk: the flat pace with the
+                // climb it expected taken out, and the climb with the flat
+                // pace taken out — a fast walker in a hilly city still teaches
+                // the flat pace, and a time under the flat estimate teaches the
+                // climb nothing.
+                const plano = learntPaceRef.current.walking ?? 1;
+                const subidaAgora = learntPaceRef.current['walking-climb'] ?? NAISMITH_SECONDS_PER_M;
+                const elapsed = elapsedMs / 1000;
                 paceToLearn.current = {
-                  key: paceKeyFor(settings.travelMode, settings.bikeType),
-                  factor: medido,
+                  key,
+                  factor: clampPace(elapsed / (previstos + (subido * subidaAgora) / plano), settings.travelMode),
                 };
+                const resto = elapsed - previstos * plano;
+                climbToLearn.current = resto > 0 ? clampClimbRate(resto / subido) : null;
+              } else {
+                paceToLearn.current = { key, factor: medido };
               }
             }
           }
@@ -2144,12 +2162,23 @@ function PalmMap() {
                 limitsBusy.current = false;
               });
           }
+          // On foot, the climbs still ahead (the same share the route
+          // panel promised, spread along the route).
+          const perfilAqui = routeProfileRef.current;
+          const subidaFalta =
+            settings.travelMode === 'walking' && perfilAqui && route.distanceMeters > 0
+              ? perfilAqui.ascent *
+                (learntPaceRef.current['walking-climb'] ?? NAISMITH_SECONDS_PER_M) *
+                (remainingMeters / route.distanceMeters)
+              : 0;
           setRemaining({
             meters: remainingMeters + (aPe ?? 0),
             seconds:
               (route.distanceMeters > 0
                 ? route.durationSeconds * (remainingMeters / route.distanceMeters)
-                : 0) + (aPe !== null ? aPe / WALK_SPEED_MS : 0),
+                : 0) +
+              (aPe !== null ? aPe / WALK_SPEED_MS : 0) +
+              subidaFalta,
           });
 
           // Spoken announcements, once per manoeuvre and distance. Manoeuvres that
@@ -2395,7 +2424,7 @@ function PalmMap() {
     setStepsVisible(false);
     setProgressIndex(0);
     carReached.current = false;
-    if (destination && userLocationRef.current) {
+    if (destination && userLocationRef.current && settings.suggestOnOpen) {
       recordTrip(userLocationRef.current, destination);
     }
     // Setting off by car next to the parked car: it is being driven.
@@ -2450,7 +2479,7 @@ function PalmMap() {
 
     setNavCameraFree(false);
     setNavigating(true);
-  }, [route, settings.voiceGuidance, settings.travelMode, destination]);
+  }, [route, settings.voiceGuidance, settings.travelMode, destination, settings.suggestOnOpen]);
 
   // The engine is woken when a destination is chosen, so it is ready by the
   // time "Start" is pressed (`warmUpVoice`).
@@ -3357,10 +3386,9 @@ function PalmMap() {
   useEffect(() => {
     const mode = osrmProfile(settings.travelMode);
     const from = userLocationRef.current;
-    if (!selectedPlace || navigating || !mode || !from) {
-      return;
-    }
-    if (distanceMeters(from, selectedPlace.coordinates) < 30) {
+    if (!selectedPlace || navigating || !mode || !from || distanceMeters(from, selectedPlace.coordinates) < 30) {
+      // Not this time: no older one (another mode's) left on the button.
+      setCardTime(null);
       return;
     }
     let cancelled = false;
@@ -3397,10 +3425,20 @@ function PalmMap() {
    * in Maps — "open" is a promise.
    */
   const [openNowOnly, setOpenNowOnly] = useState(false);
+  // Read again every minute while on: a shop closing at 19:00 goes at 19:00.
+  const [openNowTick, setOpenNowTick] = useState(0);
+  useEffect(() => {
+    if (!openNowOnly || !category) {
+      return;
+    }
+    const timer = setInterval(() => setOpenNowTick((n) => n + 1), 60000);
+    return () => clearInterval(timer);
+  }, [openNowOnly, category]);
   const shownPlaces = useMemo(() => {
     if (!category || !openNowOnly) {
       return places;
     }
+    void openNowTick;
     const now = new Date();
     return places.filter((p) => {
       const week = parseOpeningHours(p.details?.openingHours);
@@ -3410,7 +3448,7 @@ function PalmMap() {
       const status = openStatus(week, now);
       return status.kind === 'open' || status.kind === 'always';
     });
-  }, [places, category, openNowOnly]);
+  }, [places, category, openNowOnly, openNowTick]);
 
   /**
    * The suggestion on opening (`tripHabits.ts`): worked out once, with the
@@ -3418,6 +3456,7 @@ function PalmMap() {
    * dismissed, or once anything else is chosen.
    */
   const [suggestion, setSuggestion] = useState<TripSuggestion | null>(null);
+  const etaFor = useEta();
   const [suggestionTime, setSuggestionTime] = useState<string | null>(null);
   const suggestionTried = useRef(false);
   useEffect(() => {
@@ -3433,7 +3472,6 @@ function PalmMap() {
     ) {
       return;
     }
-    suggestionTried.current = true;
     let cancelled = false;
     // Both stores read from the phone first: the first render has them empty.
     // A suggestion waved away is not offered again that day.
@@ -3445,20 +3483,29 @@ function PalmMap() {
       if (dismissed === new Date().toDateString()) {
         return;
       }
+      if (cancelled) {
+        return;
+      }
+      // Tried only once the work really ran: a change while loading (the
+      // stored settings arriving) tries again instead of losing it.
+      suggestionTried.current = true;
       const found = suggestTrip(here, homeWorkNow());
-      if (cancelled || !found) {
+      if (!found) {
         return;
       }
       setSuggestion(found);
       const mode = osrmProfile(settings.travelMode);
       if (mode) {
-        void getDuration(here, [], found.place.coordinates, mode, () => !cancelled, settings.bikeType)
-          .then((t) => {
-            if (!cancelled) {
-              setSuggestionTime(formatDurationShort(t.durationSeconds));
-            }
-          })
-          .catch(() => undefined);
+        // The same time the route will show: learnt pace, bike model, and
+        // by car the walk to the parked car.
+        const car = mode === 'driving' ? carStartFor(here, found.place.coordinates) : null;
+        void (async () => {
+          const t = await getDuration(car ?? here, [], found.place.coordinates, mode, undefined, settings.bikeType);
+          const walk = car ? await walkToCarFrom(here, car, () => true) : null;
+          setSuggestionTime(
+            formatDurationShort(etaFor(t.distanceMeters, t.durationSeconds, null, mode) + (walk?.seconds ?? 0)),
+          );
+        })().catch(() => undefined);
       }
     });
     return () => {
@@ -3711,6 +3758,9 @@ function PalmMap() {
         ) : null}
 
         {placesError ? <Text style={styles.notice}>{placesError}</Text> : null}
+        {!placesError && openNowOnly && category && places.length > 0 && shownPlaces.length === 0 ? (
+          <Text style={styles.notice}>{strings.categories.noneOpen}</Text>
+        ) : null}
 
         <Reveal
           visible={

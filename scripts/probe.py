@@ -9,6 +9,7 @@ Prints what is needed to fix things against real data instead of guesses:
 - Metro Sul do Tejo stations, as the Carris API lists them.
 - Which satellite / orthophoto editions exist (EOX, DGT).
 """
+import math
 import re
 import urllib.parse
 import json

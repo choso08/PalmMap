@@ -20,7 +20,7 @@ import {
 } from './i18n';
 import type { BikeType } from './services/valhalla';
 import { type Theme, themeFor } from './theme';
-import { blendPace, modelSeconds } from './utils/eta';
+import { blendPace, modelSeconds, NAISMITH_SECONDS_PER_M } from './utils/eta';
 
 /**
  * The app's settings: kept on the phone and available to the whole app
@@ -409,8 +409,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const learnPace = useCallback((key: PaceKey, measured: number) => {
     setPace((current) => {
       // A bike type with nothing of its own yet starts from the old shared value.
+      // The climbing pace starts from Naismith's, so one odd walk moves it a
+      // third of the way instead of replacing it.
       const before =
-        current[key] ?? (key.startsWith('cycling-') ? current.cycling : undefined);
+        current[key] ??
+        (key.startsWith('cycling-')
+          ? current.cycling
+          : key === 'walking-climb'
+            ? NAISMITH_SECONDS_PER_M
+            : undefined);
       const next = { ...current, [key]: blendPace(before, measured) };
       void AsyncStorage.setItem(PACE_KEY, JSON.stringify(next)).catch(() => undefined);
       return next;

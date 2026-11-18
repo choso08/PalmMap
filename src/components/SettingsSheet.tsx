@@ -1,3 +1,4 @@
+import { forgetTripHabits, useTripHabits } from '../services/tripHabits';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo } from 'react';
 import { useState } from 'react';
@@ -140,6 +141,7 @@ export function SettingsSheet({
   const strings = useT();
   const s = strings.settings;
   const { pace, forgetPace } = useLearnedPace();
+  const learntTrips = useTripHabits();
   const language = useLanguage();
   /** The recents were just forgotten: the button gives way to a line saying so
    * for a few seconds — otherwise the tap looked like it did nothing. */
@@ -199,6 +201,7 @@ export function SettingsSheet({
         s.notifyUpdates,
         s.suggestOnOpen,
         s.routeHints,
+        s.forgetTrips(0),
       ),
       storage: has(s.dataUsage, s.storage),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
@@ -645,6 +648,16 @@ export function SettingsSheet({
                   />
                 </View>
               ))}
+              {/*
+                What the suggestion learnt — where from, where to, when — seen
+                and cleared here, like the learnt pace: nothing kept in silence.
+              */}
+              {learntTrips.length > 0 ? (
+                <Pressable style={styles.forgetRow} onPress={forgetTripHabits}>
+                  <MaterialCommunityIcons name="history" size={19} color={theme.danger} />
+                  <Text style={styles.clearText}>{s.forgetTrips(learntTrips.length)}</Text>
+                </Pressable>
+              ) : null}
             </Collapsible>
           ) : null}
 
