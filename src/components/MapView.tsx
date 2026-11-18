@@ -1179,6 +1179,11 @@ export function MapView({
                 ['all', ['in', ['get', 'class'], ['literal', ['suburb', 'quarter', 'neighbourhood']]], ['>=', ['zoom'], 13]],
               ]}
               layout={{
+                // Place names never push a business icon off the map. This
+                // source mounts when the map type changes, so it often lands
+                // above the pins — and the layer above is placed first. Without
+                // this a neighbourhood's name hid the shops around it.
+                'text-ignore-placement': true,
                 // The language's name first, then the Latin one: the bundled
                 // glyphs only cover Latin-1, so Arabic or Greek names would
                 // come out blank.

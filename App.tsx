@@ -3056,7 +3056,11 @@ function PalmMap() {
           settings.showPlacesOnMap &&
           !category &&
           !localPoisHere &&
-          !isTransitMap(settings.mapType)
+          // The plain transport map is about stops; "satellite + bus" is the
+          // satellite with buses on it, and keeps the satellite's pins (a
+          // friend's report, November 2026: without a downloaded country they
+          // came and went with it, and were gone on "satellite + bus").
+          settings.mapType !== 'transit'
         }
         onTilePoiPress={handleTilePoiPress}
         droppedPin={droppedPin}

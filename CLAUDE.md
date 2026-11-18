@@ -320,6 +320,12 @@ environment cannot reach.
   cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
   `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
   spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
+- **Business pins on "Satellite + bus"** (a friend's report, 18 November: they come and go;
+  not seen on a phone): the tile pins (`tilePois`) were off on every transport map type, so
+  without a downloaded country "Satellite + bus" had none — only the plain transport map is
+  left without them now. And the satellite's place names (`sat-place-labels`) take
+  `text-ignore-placement`: that source mounts when the map type changes, lands above the
+  pins, is placed first, and a neighbourhood's name hid the business icons around it.
 - **Spain's aerial orthophotos in "High" satellite detail** (author's request, 17 November;
   not seen on a phone): the IGN's PNOA "máxima actualidad" (`PNOA_ORTOS` in `tiles.ts`, the
   WMS `www.ign.es/wms-inspire/pnoa-ma`, layer `OI.OrthoimageCoverage`), 15–25 cm, the newest
