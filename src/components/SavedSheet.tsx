@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Animated, Modal, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { useFavouriteStops } from '../services/favouriteStops';
 import type { TransitStop } from '../services/transit';
 import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
-import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import { useHomeWork, type HomeWorkKind } from '../services/homeWork';
 import {
   forgetParkedCar,
   setParkingPaidUntil,
@@ -38,6 +38,8 @@ interface Props {
   onParkHere?: () => void;
   /** The parked car tapped: walk to it. */
   onGoToCar: (car: ParkedCar) => void;
+  /** Home or Work to set or change: opens `HomeWorkPicker`. */
+  onSetHomeWork: (kind: HomeWorkKind) => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function SavedSheet({
   onSelectLine,
   onParkHere,
   onGoToCar,
+  onSetHomeWork,
 }: Props) {
   const theme = useTheme();
   const strings = useT();
@@ -74,17 +77,6 @@ export function SavedSheet({
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
   const paidLeft = parked?.paidUntil && parked.paidUntil > Date.now() ? parked.paidUntil : null;
-  /**
-   * Home or Work being chosen: the next place tapped in the lists below is
-   * kept as it instead of becoming the destination.
-   */
-  const [picking, setPicking] = useState<HomeWorkKind | null>(null);
-  useEffect(() => {
-    if (!visible) {
-      setPicking(null);
-    }
-  }, [visible]);
-  const canPick = favourites.length + recents.length > 0;
 
   const go = (place: Place) => {
     onClose();
@@ -122,25 +114,19 @@ export function SavedSheet({
         </View>
 
         {/*
-          Home and Work, as Moovit and Maps: a tap goes there; empty, a tap
-          asks which place it is; a long press chooses another or clears it.
+          Home and Work, as Maps: a tap goes there; empty, a tap opens the
+          screen that sets it (`HomeWorkPicker`); the pencil, or a long press,
+          changes or removes it.
         */}
         <View style={styles.shortcuts}>
           {(['home', 'work'] as const).map((kind) => {
             const place = homeWork[kind];
-            const active = picking === kind;
             return (
               <Pressable
                 key={kind}
-                style={[styles.shortcut, active && styles.shortcutActive]}
-                onPress={() => {
-                  if (place && !active) {
-                    go(place);
-                  } else {
-                    setPicking(active ? null : kind);
-                  }
-                }}
-                onLongPress={() => setPicking(kind)}
+                style={styles.shortcut}
+                onPress={() => (place ? go(place) : onSetHomeWork(kind))}
+                onLongPress={() => onSetHomeWork(kind)}
                 accessibilityHint={place ? strings.saved.changeHint : undefined}
               >
                 <View style={styles.icon}>
@@ -158,6 +144,15 @@ export function SavedSheet({
                     {place ? place.name : strings.saved.set}
                   </Text>
                 </View>
+                {place ? (
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() => onSetHomeWork(kind)}
+                    accessibilityLabel={strings.saved.change}
+                  >
+                    <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textMuted} />
+                  </Pressable>
+                ) : null}
               </Pressable>
             );
           })}
@@ -250,27 +245,6 @@ export function SavedSheet({
           </View>
         ) : null}
         {parked && noticeOff ? <Text style={styles.paidNote}>{strings.parked.noticeOff}</Text> : null}
-        {picking ? (
-          <View style={styles.picking}>
-            <Text style={styles.pickingText}>
-              {canPick ? strings.saved.pickFor(strings.saved[picking]) : strings.saved.pickNone}
-            </Text>
-            {homeWork[picking] ? (
-              <Pressable
-                hitSlop={8}
-                onPress={() => {
-                  setHomeWork(picking, null);
-                  setPicking(null);
-                }}
-              >
-                <Text style={styles.pickingAction}>{strings.saved.clear}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable hitSlop={8} onPress={() => setPicking(null)}>
-              <Text style={styles.pickingAction}>{strings.common.cancel}</Text>
-            </Pressable>
-          </View>
-        ) : null}
 
         {sections.length === 0 && stops.length === 0 && lines.length === 0 ? (
           <Text style={styles.empty}>{strings.saved.empty}</Text>
@@ -336,14 +310,7 @@ export function SavedSheet({
             renderItem={({ item, section }) => (
               <Pressable
                 style={styles.row}
-                onPress={() => {
-                  if (picking) {
-                    setHomeWork(picking, item);
-                    setPicking(null);
-                  } else {
-                    go(item);
-                  }
-                }}
+                onPress={() => go(item)}
               >
                 <View style={styles.icon}>
                   <MaterialCommunityIcons
@@ -445,9 +412,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderWidth: 1,
       borderColor: theme.border,
     },
-    shortcutActive: {
-      borderColor: theme.accent,
-    },
     paidRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -491,26 +455,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       position: 'absolute',
       right: 28,
       padding: 4,
-    },
-    picking: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      marginHorizontal: 16,
-      marginTop: 10,
-      padding: 10,
-      borderRadius: 10,
-      backgroundColor: theme.surfaceMuted,
-    },
-    pickingText: {
-      flex: 1,
-      fontSize: 13,
-      color: theme.text,
-    },
-    pickingAction: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.accent,
     },
     lineBadge: {
       minWidth: 46,

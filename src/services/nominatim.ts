@@ -47,6 +47,23 @@ const schedule = createRateLimiter(NOMINATIM_MIN_INTERVAL_MS);
  */
 const inFlight = new Map<string, { request: Promise<Place[]>; interested: (() => boolean)[] }>();
 
+/**
+ * The short name of a result. An address has no name, and the first part of
+ * `display_name` is then the house number alone — the card said "26" (author's
+ * photo, November 2026). Street and number go together, as Maps writes them:
+ * "Rua da Granja 26".
+ */
+function shortName(raw: NominatimSearchResult): string {
+  if (raw.name) {
+    return raw.name;
+  }
+  const parts = raw.display_name.split(',').map((part) => part.trim());
+  if (parts.length > 1 && /^\d+[A-Za-z]?(?:[-/ ]\d*[A-Za-z]?)?$/.test(parts[0])) {
+    return `${parts[1]} ${parts[0]}`;
+  }
+  return parts[0];
+}
+
 /** Converts a Nominatim result into the format the app uses. */
 function toPlace(raw: NominatimSearchResult): Place {
   const extra = raw.extratags ?? {};
@@ -54,7 +71,7 @@ function toPlace(raw: NominatimSearchResult): Place {
   return {
     id: raw.place_id,
     // Not every result carries `name`; in that case the start of the address is used.
-    name: raw.name || raw.display_name.split(',')[0],
+    name: shortName(raw),
     address: raw.display_name,
     coordinates: {
       latitude: Number(raw.lat),
@@ -350,4 +367,35 @@ export async function reverseGeocode(coordinates: Coordinates): Promise<Place | 
   } catch {
     return null;
   }
+}
+
+/**
+ * The address at a point, as a place of its own: the street and number as the
+ * name, the rest as the address — never the business that happens to be there
+ * (Nominatim's reverse answers with the nearest object). For Home and Work
+ * set from the GPS or the map, as the dropped pin does it. `null` when
+ * Nominatim cannot say.
+ */
+export async function addressAt(coordinates: Coordinates): Promise<Place | null> {
+  const found = await reverseGeocode(coordinates);
+  if (!found) {
+    return null;
+  }
+  const parts = (found.address ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length > 1 && found.name && parts[0] === found.name) {
+    parts.shift();
+  }
+  let title = parts.shift() ?? '';
+  if (/^\d+[A-Za-z]?$/.test(title) && parts.length > 0) {
+    title = `${parts.shift()} ${title}`;
+  }
+  return {
+    id: -Date.now(),
+    name: title || found.name,
+    address: parts.join(', '),
+    coordinates,
+  };
 }

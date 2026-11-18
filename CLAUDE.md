@@ -332,6 +332,19 @@ environment cannot reach.
   (7.0.54), the back button, the search shortcuts, the screen on during a transport trip and
   arriving ending the trip. Not in it: the card's travel time, opening where the map was left
   and the clever features below.
+- **Setting Home and Work, as Google** (author, 18 November: "setting home is very
+  impractical, copy Google"; not seen on a phone): `HomeWorkPicker.tsx`, a screen of its own
+  with the address search focused (Nominatim's rules, as the main bar), "Use current location",
+  "Choose on map", "Remove", and the saved and recent places below. "Choose on map" closes it
+  and puts a fixed pin in the middle of the map with a bar ("Set home here" / Cancel; back
+  cancels too); the place is the map's centre, named by `addressAt` (`nominatim.ts`: street
+  and number, never the business there). Opened from the Saved screen (empty tile, pencil or
+  long press) and from the empty search, whose chips now show "Home · Set" when unset. The old
+  "tap a place in the list below" mode is gone. **An address result is "Rua da Granja 26",
+  not "26"** (author's photo): Nominatim gives an address no `name`, and the first part of
+  `display_name` is the number alone (`shortName`). Probed with `sondar: granja26`: house
+  numbers are found where OSM has them (Granja 7 and 26); a missing number gives the street;
+  once the app's exact request took 15 s and got a 503, and Photon then answered.
 - **"Clever" features** (author: "I'd like to say the app has very clever features", then
   "do them all", 18 November; none seen on a phone):
   - **Walking time counts the climbs, at the person's own pace up hills** (author: "of

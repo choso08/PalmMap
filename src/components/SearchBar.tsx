@@ -16,7 +16,7 @@ import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchLines, type TransitLineInfo } from '../services/transit';
 import { operatorColour, textOn } from '../utils/lineColour';
 import { isSamePlace } from '../services/favourites';
-import { useHomeWork } from '../services/homeWork';
+import { useHomeWork, type HomeWorkKind } from '../services/homeWork';
 import { useParkedCar } from '../services/parkedCar';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
@@ -65,6 +65,8 @@ interface SearchBarProps {
   blurRequest?: number;
   /** The "Car" shortcut of the empty search: walk to the parked car. */
   onGoToCar?: () => void;
+  /** Home or Work not set yet, tapped in the empty search: set it. */
+  onSetHomeWork?: (kind: HomeWorkKind) => void;
   /** The box's hint instead of the usual one (choosing a stop). */
   placeholder?: string;
 }
@@ -86,6 +88,7 @@ export function SearchBar({
   focusRequest,
   blurRequest,
   onGoToCar,
+  onSetHomeWork,
   placeholder,
   getBounds,
   updateAvailable = false,
@@ -399,18 +402,43 @@ export function SearchBar({
         The empty search starts with the places one goes to most, as in Maps:
         Home, Work and the parked car, one tap each. Only those set.
       */}
-      {parado && (homeWork.home || homeWork.work || (parkedCar && onGoToCar)) ? (
+      {parado && (homeWork.home || homeWork.work || onSetHomeWork || (parkedCar && onGoToCar)) ? (
         <View style={styles.shortcuts}>
           {(['home', 'work'] as const).map((kind) => {
             const place = homeWork[kind];
-            return place ? (
-              <Pressable key={kind} style={styles.shortcut} onPress={() => handleSelect(place)}>
+            // Not set yet: the chip says so and sets it, as Maps' "Home · Set
+            // location".
+            return place || onSetHomeWork ? (
+              <Pressable
+                key={kind}
+                style={styles.shortcut}
+                onPress={() => {
+                  if (place) {
+                    handleSelect(place);
+                  } else {
+                    setFocused(false);
+                    Keyboard.dismiss();
+                    onSetHomeWork?.(kind);
+                  }
+                }}
+                onLongPress={
+                  onSetHomeWork
+                    ? () => {
+                        setFocused(false);
+                        Keyboard.dismiss();
+                        onSetHomeWork(kind);
+                      }
+                    : undefined
+                }
+              >
                 <MaterialCommunityIcons
                   name={kind === 'home' ? 'home' : 'briefcase'}
                   size={16}
                   color={theme.accent}
                 />
-                <Text style={styles.shortcutText}>{strings.saved[kind]}</Text>
+                <Text style={styles.shortcutText}>
+                  {place ? strings.saved[kind] : `${strings.saved[kind]} · ${strings.saved.set}`}
+                </Text>
               </Pressable>
             ) : null;
           })}

@@ -9,6 +9,7 @@ import {
   BackHandler,
   type LayoutChangeEvent,
   Linking,
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -104,7 +105,13 @@ import {
 import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/services/parkedCar';
 import { rainAround, type RainAt } from './src/services/weather';
 import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
-import { homeWorkNow, loadHomeWork } from './src/services/homeWork';
+import {
+  homeWorkNow,
+  loadHomeWork,
+  setHomeWork,
+  type HomeWorkKind,
+} from './src/services/homeWork';
+import { HomeWorkPicker } from './src/components/HomeWorkPicker';
 import { SuggestionCard } from './src/components/SuggestionCard';
 import {
   cameraIcon,
@@ -127,7 +134,7 @@ import {
   installedRegions,
   type OfflineRegion,
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
-import { reverseGeocode, searchPlaces } from './src/services/nominatim';
+import { addressAt, reverseGeocode, searchPlaces } from './src/services/nominatim';
 import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
 import { openStatus, parseOpeningHours } from './src/utils/openingHours';
@@ -458,6 +465,10 @@ function PalmMap() {
   const [directionsVisible, setDirectionsVisible] = useState(false);
   const [layersVisible, setLayersVisible] = useState(false);
   const [savedVisible, setSavedVisible] = useState(false);
+  /** Home or Work being set (`HomeWorkPicker`), and being placed on the map. */
+  const [homeWorkFor, setHomeWorkFor] = useState<HomeWorkKind | null>(null);
+  const [pinHomeWork, setPinHomeWork] = useState<HomeWorkKind | null>(null);
+  const [pinSaving, setPinSaving] = useState(false);
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
   /** Where the map was left last time (`rememberView`). */
@@ -2352,6 +2363,7 @@ function PalmMap() {
    * where it would be, and so does navigation.
    */
   const tabsVisible =
+    !pinHomeWork &&
     !navigating &&
     !guiding &&
     !selectedPlace &&
@@ -3330,6 +3342,10 @@ function PalmMap() {
    */
   const backRef = useRef<() => boolean>(() => false);
   backRef.current = () => {
+    if (pinHomeWork) {
+      setPinHomeWork(null);
+      return true;
+    }
     if (searchFocused) {
       setSearchBlurRequest((n) => n + 1);
       return true;
@@ -3688,6 +3704,7 @@ function PalmMap() {
           placeholder={choosingStop && destination ? t().search.stopPlaceholder : undefined}
           onFocusChange={handleSearchFocusChange}
           blurRequest={searchBlurRequest}
+          onSetHomeWork={setHomeWorkFor}
           onGoToCar={() => {
             const car = parkedCarNow();
             if (car) {
@@ -4221,7 +4238,91 @@ function PalmMap() {
       />
       <AlertsSheet visible={alertsVisible} onClose={() => setAlertsVisible(false)} />
 
+      <HomeWorkPicker
+        kind={homeWorkFor}
+        favourites={favourites}
+        recents={recents}
+        getBounds={getMapBounds}
+        here={hasLocation ? userLocationRef.current : null}
+        onClose={() => setHomeWorkFor(null)}
+        onChooseOnMap={(kind) => {
+          setHomeWorkFor(null);
+          setSavedVisible(false);
+          setSearchBlurRequest((n) => n + 1);
+          setPinHomeWork(kind);
+          // Start where it is now, else where the person is.
+          const start = homeWorkNow()[kind]?.coordinates ?? userLocationRef.current;
+          if (start) {
+            mapRef.current?.recenter(start);
+          }
+        }}
+      />
+
+      {/*
+        "Choose on map", as Maps: the pin stays in the middle and the map moves
+        under it; the bar below sets the place where the pin points.
+      */}
+      {pinHomeWork ? (
+        <>
+          <View style={styles.centrePin} pointerEvents="none">
+            <MaterialCommunityIcons
+              name={pinHomeWork === 'work' ? 'briefcase' : 'home-map-marker'}
+              size={44}
+              color={theme.destination}
+            />
+          </View>
+          <View style={[styles.pinBar, { paddingBottom: 16 + insets.bottom }]}>
+            <Text style={styles.pinHint}>{strings.saved.pinHint}</Text>
+            <View style={styles.pinButtons}>
+              <Pressable style={styles.pinCancel} onPress={() => setPinHomeWork(null)}>
+                <Text style={styles.pinCancelText}>{strings.common.cancel}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.pinConfirm}
+                disabled={pinSaving}
+                onPress={() => {
+                  const b = viewport.current?.bounds;
+                  const kind = pinHomeWork;
+                  if (!b || !kind) {
+                    return;
+                  }
+                  const centre = {
+                    latitude: (b.north + b.south) / 2,
+                    longitude: (b.east + b.west) / 2,
+                  };
+                  setPinSaving(true);
+                  void addressAt(centre)
+                    .catch(() => null)
+                    .then((found) => {
+                      setHomeWork(
+                        kind,
+                        found ?? {
+                          id: -Date.now(),
+                          name: t().saved[kind],
+                          address: '',
+                          coordinates: centre,
+                        },
+                      );
+                      setPinSaving(false);
+                      setPinHomeWork(null);
+                    });
+                }}
+              >
+                {pinSaving ? (
+                  <ActivityIndicator size="small" color={theme.onAccent} />
+                ) : (
+                  <Text style={styles.pinConfirmText}>
+                    {pinHomeWork === 'work' ? strings.saved.setWorkHere : strings.saved.setHomeHere}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </>
+      ) : null}
+
       <SavedSheet
+        onSetHomeWork={setHomeWorkFor}
         visible={savedVisible}
         favourites={favourites}
         recents={recents}
@@ -4417,5 +4518,49 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     locateFollowing: {
       backgroundColor: theme.accent,
     },
+    // "Choose on map": the icon's tip on the map's centre.
+    centrePin: {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      marginLeft: -22,
+      marginTop: -44,
+    },
+    pinBar: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingTop: 16,
+      paddingHorizontal: 16,
+      gap: 12,
+      backgroundColor: theme.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      elevation: 12,
+      shadowColor: '#000',
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: -2 },
+    },
+    pinHint: { color: theme.textMuted, fontSize: 14, textAlign: 'center' },
+    pinButtons: { flexDirection: 'row', gap: 10 },
+    pinCancel: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 13,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    pinCancelText: { color: theme.text, fontSize: 15, fontWeight: '600' },
+    pinConfirm: {
+      flex: 2,
+      alignItems: 'center',
+      paddingVertical: 13,
+      borderRadius: 24,
+      backgroundColor: theme.accent,
+    },
+    pinConfirmText: { color: theme.onAccent, fontSize: 15, fontWeight: '600' },
   });
 }
