@@ -182,7 +182,7 @@ export function SettingsSheet({
       satellite: has(s.dataUsage, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
       trails: has(s.map, s.trails, ...Object.values(s.trailsModes)),
-      vehicles: has(s.dataUsage, s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh),
+      vehicles: has(s.dataUsage, s.transit, s.showVehicles, s.showVehiclesCost, s.vehiclesRefresh, s.vehiclesIdleSlowdown),
       offline: has(s.offlineMaps, s.offlineMapsNote, s.requestMap),
       schedules: has(s.transit, s.schedules),
       voice: has(nav, s.voice),
@@ -650,6 +650,16 @@ export function SettingsSheet({
                   <Text style={styles.switchHint}>
                     {s.vehiclesRefreshCost(Math.round(540 / Number(settings.vehiclesRefresh)))}
                   </Text>
+                  <View style={styles.switchRow}>
+                    <View style={styles.switchText}>
+                      <Text style={styles.switchLabel}>{s.vehiclesIdleSlowdown}</Text>
+                    </View>
+                    <Switch
+                      value={settings.vehiclesIdleSlowdown}
+                      onValueChange={(next) => update('vehiclesIdleSlowdown', next)}
+                      trackColor={{ true: theme.accent, false: theme.border }}
+                    />
+                  </View>
                 </>
               ) : null}
             </>

@@ -493,6 +493,7 @@ export const en: typeof pt = {
     vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
     vehiclesRefreshCost: (perHourMb: number) =>
       `Up to ≈ ${perHourMb} MB an hour, less with the map still.`,
+    vehiclesIdleSlowdown: '3× less with the map still',
 
     tryAgain: 'Try again.',
 

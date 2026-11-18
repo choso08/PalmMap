@@ -755,7 +755,9 @@ function PalmMap() {
       // map, or a bus's panel open, brings the chosen pace back at once.
       const base = Number(settings.vehiclesRefresh) * 1000;
       const idle =
-        Date.now() - lastMapMove.current > VEHICLES_IDLE_MS && !selectedVehicleRef.current;
+        settings.vehiclesIdleSlowdown &&
+        Date.now() - lastMapMove.current > VEHICLES_IDLE_MS &&
+        !selectedVehicleRef.current;
       timer = setTimeout(() => void carregar(), idle ? Math.max(base, Math.min(base * 3, 60000)) : base);
     };
 
@@ -771,6 +773,7 @@ function PalmMap() {
     settings.mapType,
     settings.showVehicles,
     settings.vehiclesRefresh,
+    settings.vehiclesIdleSlowdown,
     vehicleZoomOk,
     appActive,
     online,

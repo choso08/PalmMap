@@ -531,6 +531,7 @@ export const pt = {
     vehiclesRefreshLabel: (s: string) => (s === '60' ? '1 min' : `${s} s`),
     vehiclesRefreshCost: (perHourMb: number) =>
       `Até ≈ ${perHourMb} MB por hora, menos com o mapa parado.`,
+    vehiclesIdleSlowdown: '3× menos com o mapa parado',
 
     tryAgain: 'Tente novamente.',
 

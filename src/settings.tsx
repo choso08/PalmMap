@@ -119,6 +119,12 @@ export interface Settings {
    * every 20–30 s, so faster mostly repeats the same positions.
    */
   vehiclesRefresh: VehiclesRefresh;
+  /**
+   * Ask for the buses a third as often while the map is left untouched
+   * (`VEHICLES_IDLE_MS`) — on by default; off, the chosen interval always
+   * (author's request, November 2026).
+   */
+  vehiclesIdleSlowdown: boolean;
   /** Refresh outdated country maps on mobile data too, not only on Wi-Fi. */
   mapsOnMobileData: boolean;
   /**
@@ -164,6 +170,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showVehicles: true,
   trails: 'off',
   vehiclesRefresh: '20',
+  vehiclesIdleSlowdown: true,
   mapsOnMobileData: false,
   transitSort: 'best',
   transitAvoid: [],
