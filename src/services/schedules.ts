@@ -2142,7 +2142,13 @@ export interface VehicleTripLike {
  * since the halving stops a quarter of an hour short. Live buses are not in
  * it: this is the timetable. `null` when nothing runs tonight.
  */
-const LAST_SERVICE_END_H = 5;
+const LAST_SERVICE_END_H = 3;
+/**
+ * A connection this close to `LAST_SERVICE_END_H` means service runs through
+ * the night (Carris de Lisboa's night buses): there is no "last" to warn of.
+ * Probed against the real files: Baixa-Chiado → Odivelas had a 206 at 04:30.
+ */
+const ALL_NIGHT_MARGIN_S = 45 * 60;
 export async function lastConnectionTonight(
   origin: Coordinates,
   destination: Coordinates,
@@ -2185,5 +2191,5 @@ export async function lastConnectionTonight(
     }
     best = later;
   }
-  return best;
+  return endUnix - best.departsAt < ALL_NIGHT_MARGIN_S ? null : best;
 }
