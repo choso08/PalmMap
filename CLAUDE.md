@@ -321,6 +321,33 @@ environment cannot reach.
   cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
   `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
   spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
+- **Where I parked** (author's request, 18 November; not seen on a phone):
+  `services/parkedCar.ts` (key `palmmap.carroEstacionado`) keeps where the car was left —
+  saved from the Saved screen ("Car": a tap saves where one is, or walks there; ✕ forgets
+  it) and by itself when a car navigation arrives. Drawn as a car on the map (`parkedCar`
+  on `MapView`); a tap opens its card. **Car trips start at the car** when the person is
+  farther than `PARKED_WALK_MIN_M` (80 m) and nearer than `PARKED_WALK_MAX_M` (10 km), the
+  origin is the GPS and the destination is not the car (`carStartFor`): the drive is asked
+  from the car, the walk to it from OSRM's walking server (`walkToCarFrom`, straight line
+  × `WALK_DETOUR` if it fails), and the walk goes on the route as `Route.walkToCar` — added
+  to the car chip, the route list and "Includes N min walking to the car", drawn dotted.
+  Navigation walks first ("Walk to the car", the drive's first manoeuvre as "then", no
+  off-route recalculation, no announcements, no pace measured), then drives; within
+  `CAR_REACHED_M` (35 m) the car counts as reached and is forgotten. Setting off by car
+  next to it forgets it too.
+- **Height profile on walking and cycling routes** (author's request, 18 November; not
+  seen on a phone): `routeElevation` (`osrm.ts`, OSRM's queue — FOSSGIS rules) asks
+  Valhalla's `/height` with the route as `encoded_polyline` (at most ~400 points),
+  `range: true` and `resample_distance` of a hundredth of the route (20–500 m); probed
+  with `sondar: valhalla_height` (`range_height: [[metres, height], …]`). `summariseHeights`
+  (`utils/elevation.ts`) counts climbs past `NOISE_M` (3 m) only; `ElevationProfileView`
+  shows up/down, the range and 48 columns.
+- **CP delays: not done** (author's request, 18 November). Infraestruturas de Portugal's
+  circulation service (`/negocios-e-servicos/estacao-nome`, `partidas-chegadas`,
+  `horarios-ncombio`) answers **403 to an honest client** and 200 only to a request that
+  passes for a browser (`sondar: cp_realtime`, `cp_realtime2`) — it is their site's
+  internal endpoint, not an open service, and dressing the app up as a browser is not done.
+  The Mobility Database lists no Portuguese GTFS-RT. Trains stay timetable-only.
 - **Business pins on "Satellite + bus"** (a friend's report, 18 November: they come and go;
   not seen on a phone): the tile pins (`tilePois`) were off on every transport map type, so
   without a downloaded country "Satellite + bus" had none — only the plain transport map is
@@ -903,6 +930,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later
 │   │   ├── favourites.ts     # Saved places
+│   │   ├── parkedCar.ts      # Where the car was left
 │   │   └── recents.ts        # Recent destinations
 │   ├── types/                # TypeScript types
 │   │   ├── geo.ts            # Types the app uses (Coordinates, Place, Route, Lane)
