@@ -321,6 +321,32 @@ environment cannot reach.
   cities from 5, towns 9, villages 12, neighbourhoods 13. Names are `name:<language>`, then
   `name:latin`, then `name` — the bundled glyphs are Latin-1 only. Checked against the style
   spec (a `zoom` inside `case` is refused: `text-anchor`/`text-offset` use a top-level `step`).
+- **"Clever" features** (author: "I'd like to say the app has very clever features", then
+  "do them all", 18 November; none seen on a phone):
+  - **Walking time counts the climbs** — Naismith's rule, a minute per 10 m up
+    (`CLIMB_SECONDS_PER_M`, `RoutePanel.tsx`), from the height profile, with "Includes N min
+    for the climbs". Walking only: Valhalla's bicycle already slows on hills. The chip times of
+    other modes and the navigation's remaining time do not include it.
+  - **Sunset warning** on walking and cycling routes that set off before sunset and arrive
+    after it (`utils/sun.ts`, the sunrise equation as `suncalc` writes it, checked: Lisbon
+    17:23 UTC on 18 November, 21:05 summer time on 21 June).
+  - **"Open now"** chip first in the category row while a category is on (`openNowOnly`,
+    `shownPlaces`): only places whose OSM hours say open now; unknown hours are left out.
+  - **Last connection tonight** by transport, from 20:00 to 03:00 (`lastConnectionTonight`
+    in `schedules.ts`): RAPTOR on the stored timetables, the departure time halved down to a
+    quarter of an hour (about ten runs), then walked forward; none when a connection runs
+    within `ALL_NIGHT_MARGIN_S` of 03:00 (night buses). **Checked against the published
+    files** (stubbed `expo-file-system`): Oriente → Sintra 01:08; Cais do Sodré → Cascais
+    21:10 — **CP's GTFS has the night trains ending at Caxias**, nothing on to Cascais, so
+    the planner finds no Cascais train after that (data, not a fault; probably the line's
+    works); Baixa-Chiado → Odivelas none (the 206 runs at 04:30). 35–750 ms in Node.
+  - **Suggestion on opening** (`tripHabits.ts`, key `palmmap.viagensFeitas`, last 200
+    trips started — navigation or transport): the destination most often started within
+    1 km of here, same kind of day, within 75 min of now, at least twice; else Work on a
+    weekday morning at Home, Home on a weekday evening at Work. A card under the search
+    (`SuggestionCard`) with the time; once per session.
+  - **Parking timer** on the Saved screen's car: paid for 30 min / 1 h / 2 h / 3 h, a
+    notice 10 min before (`setParkingPaidUntil`, `scheduleNotice` in `arrivalReminders.ts`).
 - **"As seamless as possible"** (author's challenge, 18 November; not seen on a phone):
   - **Android's back button closes what is on top**, one thing at a time (`backRef` +
     `BackHandler` in `App.tsx`): the search, navigation, a transport trip, a bus, a stop, a
@@ -950,7 +976,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later
 │   │   ├── favourites.ts     # Saved places
-│   │   ├── parkedCar.ts      # Where the car was left
+│   │   ├── parkedCar.ts      # Where the car was left, and its parking timer
+│   │   ├── tripHabits.ts     # Trips started, for the suggestion on opening
 │   │   └── recents.ts        # Recent destinations
 │   ├── types/                # TypeScript types
 │   │   ├── geo.ts            # Types the app uses (Coordinates, Place, Route, Lane)
