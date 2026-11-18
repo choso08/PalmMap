@@ -250,6 +250,27 @@ async function walkToCarFrom(
   }
 }
 
+/**
+ * Where the map was left, to open there next time while the GPS has not
+ * answered (`lastView` on `MapView`). Written at most every few seconds.
+ */
+const LAST_VIEW_KEY = 'palmmap.ultimaVista';
+// Not in the first seconds: the map opens on Lisbon before the GPS or the
+// stored view move it, and writing that would forget where it really was.
+let lastViewWritten = Date.now() + 3000;
+function rememberView(bounds: Bounds, zoom: number): void {
+  const now = Date.now();
+  if (now - lastViewWritten < 5000) {
+    return;
+  }
+  lastViewWritten = now;
+  const center = {
+    latitude: (bounds.north + bounds.south) / 2,
+    longitude: (bounds.east + bounds.west) / 2,
+  };
+  void AsyncStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ center, zoom })).catch(() => undefined);
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -424,6 +445,23 @@ function PalmMap() {
   const [savedVisible, setSavedVisible] = useState(false);
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
+  /** Where the map was left last time (`rememberView`). */
+  const [lastView, setLastView] = useState<{ center: Coordinates; zoom: number } | null>(null);
+  useEffect(() => {
+    void AsyncStorage.getItem(LAST_VIEW_KEY)
+      .then((raw) => {
+        const v = raw ? (JSON.parse(raw) as { center?: Coordinates; zoom?: number }) : null;
+        if (
+          v &&
+          typeof v.center?.latitude === 'number' &&
+          typeof v.center?.longitude === 'number' &&
+          typeof v.zoom === 'number'
+        ) {
+          setLastView({ center: v.center, zoom: v.zoom });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
   /** Bumped to close the search from outside (the back button). */
   const [searchBlurRequest, setSearchBlurRequest] = useState(0);
   /**
@@ -1598,6 +1636,7 @@ function PalmMap() {
   const handleViewportChange = useCallback(
     (bounds: Bounds, zoom: number) => {
       viewport.current = { bounds, zoom };
+      rememberView(bounds, zoom);
 
       // Only the boolean, and only when it crosses over: setting the same value
       // redraws nothing, but it is worth making clear that is what is relied on.
@@ -3252,6 +3291,59 @@ function PalmMap() {
     return () => sub.remove();
   }, []);
 
+  /**
+   * How long to the open card's place in the chosen travel mode, for its
+   * directions button ("🚗 12 min"), as Maps does: one light OSRM request when
+   * the card opens (`getDuration`, the same queue and session cache as the
+   * mode chips). Not for transport, whose planning is heavy, nor while
+   * navigating.
+   */
+  const [cardTime, setCardTime] = useState<{
+    placeId: number;
+    time: {
+      mode: 'driving' | 'walking' | 'cycling';
+      distanceMeters: number;
+      seconds: number;
+      extraSeconds: number;
+    };
+  } | null>(null);
+  useEffect(() => {
+    const mode = osrmProfile(settings.travelMode);
+    const from = userLocationRef.current;
+    if (!selectedPlace || navigating || !mode || !from) {
+      return;
+    }
+    if (distanceMeters(from, selectedPlace.coordinates) < 30) {
+      return;
+    }
+    let cancelled = false;
+    const place = selectedPlace;
+    const car = mode === 'driving' ? carStartFor(from, place.coordinates) : null;
+    void (async () => {
+      try {
+        const time = await getDuration(car ?? from, [], place.coordinates, mode, () => !cancelled, settings.bikeType);
+        const walk = car ? await walkToCarFrom(from, car, () => !cancelled) : null;
+        if (!cancelled) {
+          setCardTime({
+            placeId: place.id,
+            time: {
+              mode,
+              distanceMeters: time.distanceMeters,
+              seconds: time.durationSeconds,
+              extraSeconds: walk?.seconds ?? 0,
+            },
+          });
+        }
+      } catch {
+        // No time: the button says "Directions", as before.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // The place by its id: the card's details arriving later is the same place.
+  }, [selectedPlace?.id, navigating, settings.travelMode, settings.bikeType, hasLocation, parkedCar]);
+
   /** The navigation banner while walking to the parked car. */
   const walkToCarStep = useMemo<RouteStep | null>(
     () =>
@@ -3295,6 +3387,7 @@ function PalmMap() {
         onTilePoiPress={handleTilePoiPress}
         droppedPin={droppedPin}
         parkedCar={parkedCar?.coordinates ?? null}
+        lastView={lastView}
         onParkedCarPress={() => {
           if (parkedCar) {
             setSelectedPlace({
@@ -3460,6 +3553,7 @@ function PalmMap() {
                 favourite={isFavourite(lastPlace)}
                 onToggleFavourite={() => toggleFavourite(lastPlace)}
                 onRoute={handleRouteToSelected}
+                travelTime={cardTime && cardTime.placeId === lastPlace.id ? cardTime.time : null}
                 onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
                 onClose={() => {
                   setSelectedPlace(null);

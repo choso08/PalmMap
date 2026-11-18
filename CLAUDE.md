@@ -331,6 +331,14 @@ environment cannot reach.
   - **The empty search starts with Home, Work and Car** chips (only those set), as in Maps.
   - **The screen stays on during a transport trip** too, not only while driving
     (`keepAwake`).
+  - **A place's card shows how long to get there** on its directions button ("🚗 12 min",
+    the chosen mode's icon), as Maps: one `getDuration` when the card opens (`cardTime` in
+    `App.tsx`, same queue and session cache as the mode chips; with the parked car, its
+    walk added). Not for transport (its planning is heavy) nor while navigating.
+  - **The map opens where it was left** while the GPS has not answered, or with location
+    off (`palmmap.ultimaVista`, written at most every 5 s from `handleViewportChange`, not
+    in the first seconds; `lastView` on `MapView`, used once at opening and never over a
+    position, destination or route). It opened on Lisbon.
   - **Arriving ends the trip**: the route is cleared and the destination's card opens
     (hours, phone), as in Maps — the route used to stay with "Start", as if about to leave.
 - **Where I parked** (author's request, 18 November; not seen on a phone):

@@ -7,10 +7,10 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 
 import { PHOTO_HEADERS, placePhotos, type PlacePhoto } from '../services/photos';
 import { ReportPlace } from './ReportPlace';
-import { useTheme, useT } from '../settings';
+import { useEta, useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates, Place } from '../types/geo';
-import { formatDistance } from '../utils/format';
+import { formatDistance, formatDurationShort } from '../utils/format';
 import { distanceMeters } from '../utils/geometry';
 import { telLink, webLink } from '../utils/safeLink';
 import {
@@ -20,6 +20,8 @@ import {
   weekdayOf,
   type WeeklyHours,
 } from '../utils/openingHours';
+
+const MODE_ICON = { driving: 'car', walking: 'walk', cycling: 'bike' } as const;
 
 interface PlaceSheetProps {
   /**
@@ -35,6 +37,18 @@ interface PlaceSheetProps {
   favourite: boolean;
   onToggleFavourite: () => void;
   onRoute: () => void;
+  /**
+   * How long to get there in the chosen travel mode, as Maps puts on the
+   * directions button; `null` while unknown (the button then says
+   * "Directions").
+   */
+  travelTime?: {
+    mode: 'driving' | 'walking' | 'cycling';
+    distanceMeters: number;
+    seconds: number;
+    /** Extra seconds not paced: the walk to the parked car. */
+    extraSeconds: number;
+  } | null;
   /**
    * Add this place as a stop on the existing route. Only offered when there is
    * already a destination — before that there is no route to add a stop to.
@@ -61,6 +75,7 @@ export function PlaceSheet({
   favourite,
   onToggleFavourite,
   onRoute,
+  travelTime = null,
   onAddStop,
   onClose,
   dragHandlers,
@@ -68,6 +83,7 @@ export function PlaceSheet({
 }: PlaceSheetProps) {
   const theme = useTheme();
   const strings = useT();
+  const eta = useEta();
   const s = strings.place;
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
@@ -162,7 +178,18 @@ export function PlaceSheet({
 
   type Action = { key: string; icon: string; label: string; onPress: () => void; primary?: boolean };
   const actions: Action[] = [
-    { key: 'route', icon: 'directions', label: s.route, onPress: onRoute, primary: true },
+    {
+      key: 'route',
+      icon: travelTime ? MODE_ICON[travelTime.mode] : 'directions',
+      label: travelTime
+        ? formatDurationShort(
+            eta(travelTime.distanceMeters, travelTime.seconds, null, travelTime.mode) +
+              travelTime.extraSeconds,
+          )
+        : s.route,
+      onPress: onRoute,
+      primary: true,
+    },
     ...(phone
       ? [{ key: 'call', icon: 'phone', label: s.call, onPress: () => void Linking.openURL(tel as string) }]
       : []),

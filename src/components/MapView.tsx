@@ -137,6 +137,11 @@ interface MapViewProps {
   onTilePoiPress?: (place: Place) => void;
   /** Pin dropped with a long press, waiting to become the destination. */
   droppedPin: Coordinates | null;
+  /**
+   * Where the map was last left (`App`, stored), to open there instead of
+   * Lisbon while the GPS has not answered — or ever, with location off.
+   */
+  lastView?: { center: Coordinates; zoom: number } | null;
   /** Where the car is parked (`services/parkedCar.ts`), drawn as a car. */
   parkedCar?: Coordinates | null;
   onParkedCarPress?: () => void;
@@ -379,6 +384,7 @@ export function MapView({
   droppedPin,
   parkedCar = null,
   onParkedCarPress,
+  lastView = null,
   onDropPin,
   onTapEmpty,
   following,
@@ -783,8 +789,39 @@ export function MapView({
     openAt.current = null;
     if (pendente) {
       openOn(pendente);
+    } else if (pendingView.current) {
+      const v = pendingView.current;
+      cameraRef.current?.flyTo({
+        center: [v.center.longitude, v.center.latitude],
+        zoom: v.zoom,
+        duration: 0,
+      });
     }
+    pendingView.current = null;
   }, [openOn]);
+
+  // The last view, until the GPS answers: only at opening, only once, and
+  // never over a position, a destination or a route.
+  const pendingView = useRef<{ center: Coordinates; zoom: number } | null>(null);
+  const usedLastView = useRef(false);
+  useEffect(() => {
+    if (!lastView || usedLastView.current) {
+      return;
+    }
+    usedLastView.current = true;
+    if (openedOnUser.current || userLocation || destination || route) {
+      return;
+    }
+    if (mapReady.current) {
+      cameraRef.current?.flyTo({
+        center: [lastView.center.longitude, lastView.center.latitude],
+        zoom: lastView.zoom,
+        duration: 0,
+      });
+    } else {
+      pendingView.current = lastView;
+    }
+  }, [lastView, userLocation, destination, route]);
 
   // Whenever there is a new route, fit all of it on screen.
   useEffect(() => {
