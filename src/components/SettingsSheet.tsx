@@ -270,10 +270,14 @@ export function SettingsSheet({
           ]
         : [[s.travelModes[mode.id], pace[mode.id]] as [string, number | undefined]],
     );
-    return entries
-      .filter((e): e is [string, number] => e[1] != null)
-      .map(([name, factor]) => `${name} ${formatFactor(factor)}`)
-      .join(' · ');
+    const climb = pace['walking-climb'];
+    return [
+      ...entries
+        .filter((e): e is [string, number] => e[1] != null)
+        .map(([name, factor]) => `${name} ${formatFactor(factor)}`),
+      // Seconds per 10 m climbed on foot (Naismith's is 60).
+      ...(climb != null ? [s.climbPace(Math.round(climb * 10))] : []),
+    ].join(' · ');
   }, [pace, s, strings]);
 
   // Pull the header down to close (`useSwipeToClose`).

@@ -71,3 +71,17 @@ export function clampPace(raw: number, mode: TravelMode): number {
 export function blendPace(stored: number | null | undefined, measured: number): number {
   return stored == null ? measured : stored + (measured - stored) * PACE_LEARN_WEIGHT;
 }
+
+/**
+ * Naismith's rule, as walkers use it: a minute more for every 10 m climbed —
+ * the start, until the person's own climbing pace is learnt (`walking-climb`).
+ * OSRM's walking time is for the flat; Valhalla's bicycle already slows on
+ * hills, so this is for walking only.
+ */
+export const NAISMITH_SECONDS_PER_M = 6;
+/** A walk climbing less than this teaches nothing about climbing. */
+export const CLIMB_LEARN_MIN_M = 30;
+/** What a learnt climbing pace may be: a sprinter to a heavy rucksack. */
+export function clampClimbRate(secondsPerM: number): number {
+  return Math.min(30, Math.max(2, secondsPerM));
+}

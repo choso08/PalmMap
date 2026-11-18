@@ -13,7 +13,7 @@ import type { GestureResponderHandlers } from 'react-native';
 
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
-import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode, TRANSIT_MODE_GROUPS, TRANSIT_SORTS, useSettings } from '../settings';
+import { TRAVEL_MODES, useEta, useT, useTheme, type TravelMode, TRANSIT_MODE_GROUPS, TRANSIT_SORTS, useSettings, useLearnedPace } from '../settings';
 import type { BikeType } from '../services/valhalla';
 
 /** The bicycle choices; the names come from the language table. */
@@ -47,19 +47,11 @@ import type { ElevationProfile } from '../utils/elevation';
 import { ElevationProfileView } from './ElevationProfileView';
 import { sunsetOn } from '../utils/sun';
 import type { RainAt } from '../services/weather';
-
-/**
- * Naismith's rule, as walkers use it: a minute more for every 10 m climbed.
- * OSRM's walking time is for the flat; Valhalla's bicycle already slows on
- * hills, so this is for walking only.
- */
-const CLIMB_SECONDS_PER_M = 6;
+import { NAISMITH_SECONDS_PER_M } from '../utils/eta';
 
 interface RoutePanelProps {
   /** Rain likely at the destination around the arrival (`weather.ts`). */
   rain?: RainAt | null;
-  /** At night, the last connection by the stored timetables (`lastConnectionTonight`). */
-  lastConnection?: TransitTrip | null;
   /** The chosen walking or cycling route's height profile, when known. */
   elevation?: ElevationProfile | null;
   /**
@@ -180,7 +172,6 @@ export function RoutePanel({
   transitGuide,
   onChangeTransitWhen,
   elevation = null,
-  lastConnection = null,
   rain = null,
 }: RoutePanelProps) {
   const theme = useTheme();
@@ -192,13 +183,17 @@ export function RoutePanel({
   const [leaveNote, setLeaveNote] = useState<string | null>(null);
   const { height: windowHeight } = useWindowDimensions();
   const eta = useEta();
+  const { pace: learnt } = useLearnedPace();
+  const { settings: current } = useSettings();
+  const pace = current.paceLearning ? learnt : {};
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
-  // The climb, on foot (`CLIMB_SECONDS_PER_M`): only once the profile came,
+  // The climb, on foot: the person's own pace up hills once learnt
+  // (`walking-climb`), Naismith's until then — only once the profile came,
   // and only for the chosen route, whose profile it is.
-  const climbSeconds =
-    travelMode === 'walking' && elevation ? elevation.ascent * CLIMB_SECONDS_PER_M : 0;
+  const climbRate = pace['walking-climb'] ?? NAISMITH_SECONDS_PER_M;
+  const climbSeconds = travelMode === 'walking' && elevation ? elevation.ascent * climbRate : 0;
 
   // Walking or cycling into the dark: the sun sets on the way (worked out on
   // the phone, `sunsetOn`). Not when it is already dark at the start.
@@ -652,14 +647,6 @@ export function RoutePanel({
             </View>
           )}
           {leaveNote ? <Text style={styles.avisoTexto}>{leaveNote}</Text> : null}
-          {lastConnection ? (
-            <View style={styles.aviso}>
-              <MaterialCommunityIcons name="weather-night" size={16} color={theme.textMuted} />
-              <Text style={styles.avisoTexto}>
-                {strings.transit.lastTonight(relogio(lastConnection.leaveAt), lastConnection.line)}
-              </Text>
-            </View>
-          ) : null}
         </>
       ) : null}
 

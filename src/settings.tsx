@@ -259,7 +259,12 @@ const SATELLITE_HIGH_KEY = 'palmmap.satelliteAltaPorDefeito';
  * one value for every bike; it is still read, only as a fallback until each
  * type has its own, and never written again.
  */
-export type PaceKey = TravelMode | `cycling-${BikeType}`;
+/**
+ * `walking-climb` is not a factor: the person's own seconds per metre climbed
+ * on foot (author's request, November 2026: "it learns from how you walk up
+ * and down"), measured on hilly walks; Naismith's 6 s/m until then.
+ */
+export type PaceKey = TravelMode | `cycling-${BikeType}` | 'walking-climb';
 
 export type LearnedPace = Partial<Record<PaceKey, number>>;
 

@@ -132,13 +132,13 @@ import { parseGeoLink } from './src/utils/geoLink';
 import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
 import { openStatus, parseOpeningHours } from './src/utils/openingHours';
 import type { ElevationProfile } from './src/utils/elevation';
+import { CLIMB_LEARN_MIN_M, clampClimbRate } from './src/utils/eta';
 import {
   placeDetails,
   searchCategoryInBounds,
 } from './src/services/overpass';
 import {
   ensureFeedsFor,
-  lastConnectionTonight,
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
@@ -301,7 +301,7 @@ function PalmMap() {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const { settings, update } = useSettings();
-  const { learnPace } = useLearnedPace();
+  const { learnPace, pace: learntPace } = useLearnedPace();
 
   const mapRef = useRef<MapViewRef>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -686,6 +686,16 @@ function PalmMap() {
    * without running again on every change to them.
    */
   const paceToLearn = useRef<{ key: PaceKey; factor: number } | null>(null);
+  /**
+   * The person's own climbing pace on foot, measured on a hilly walk: seconds
+   * per metre climbed beyond the flat pace (`walking-climb`). The walk's
+   * height profile and the flat pace already learnt come in through refs,
+   * since the tracking callback lives in an effect.
+   */
+  const climbToLearn = useRef<number | null>(null);
+  const routeProfileRef = useRef<ElevationProfile | null>(null);
+  const learntPaceRef = useRef(learntPace);
+  learntPaceRef.current = learntPace;
   /** How far along the route the person is. The map fades what is behind. */
   const [progressIndex, setProgressIndex] = useState(0);
   /** How many readings in a row have been off the route. */
@@ -2072,10 +2082,25 @@ function PalmMap() {
             if (elapsedMs >= PACE_MIN_MS && andados >= PACE_MIN_METERS && previstos > 0) {
               const medido = clampPace(elapsedMs / 1000 / previstos, settings.travelMode);
               setLivePace(medido);
-              paceToLearn.current = {
-                key: paceKeyFor(settings.travelMode, settings.bikeType),
-                factor: medido,
-              };
+              // On foot over hills, the time beyond the flat pace is the
+              // climbing (the climb assumed spread evenly along the route), and
+              // it is learnt as that; the flat pace then learns nothing from
+              // this walk — it would count the hills twice.
+              const perfil = routeProfileRef.current;
+              const subido =
+                settings.travelMode === 'walking' && perfil && route.distanceMeters > 0
+                  ? perfil.ascent * (andados / route.distanceMeters)
+                  : 0;
+              if (perfil && perfil.ascent >= CLIMB_LEARN_MIN_M && subido >= 15) {
+                const plano = previstos * (learntPaceRef.current.walking ?? 1);
+                climbToLearn.current = clampClimbRate((elapsedMs / 1000 - plano) / subido);
+                paceToLearn.current = null;
+              } else {
+                paceToLearn.current = {
+                  key: paceKeyFor(settings.travelMode, settings.bikeType),
+                  factor: medido,
+                };
+              }
             }
           }
 
@@ -2199,6 +2224,7 @@ function PalmMap() {
     if (navigating) {
       paceStart.current = null;
       paceToLearn.current = null;
+      climbToLearn.current = null;
       setLivePace(null);
       return;
     }
@@ -2211,6 +2237,11 @@ function PalmMap() {
 
     const medido = paceToLearn.current;
     paceToLearn.current = null;
+    const subida = climbToLearn.current;
+    climbToLearn.current = null;
+    if (subida !== null) {
+      learnPace('walking-climb', subida);
+    }
     paceStart.current = null;
     setLivePace(null);
 
@@ -3240,6 +3271,7 @@ function PalmMap() {
     };
   }, [route, navigating, settings.travelMode]);
   const routeProfile = elevation && elevation.route === route ? elevation.profile : null;
+  routeProfileRef.current = routeProfile;
 
   /**
    * Android's back button closes what is on top, one thing at a time, as in
@@ -3418,38 +3450,6 @@ function PalmMap() {
       setSuggestion(null);
     }
   }, [destination, navigating, guiding]);
-
-  /**
-   * At night, by transport: the last connection tonight from the stored
-   * timetables (`lastConnectionTonight`), worked out in the background — about
-   * ten planning runs — once per destination. From 20:00 to 03:00 only.
-   */
-  const [lastTonight, setLastTonight] = useState<{ destination: Place; trip: TransitTrip } | null>(null);
-  useEffect(() => {
-    const hour = new Date().getHours();
-    const origem = routeOrigin?.coordinates ?? userLocationRef.current;
-    if (
-      !destination ||
-      navigating ||
-      settings.travelMode !== 'transit' ||
-      !origem ||
-      (hour < 20 && hour >= 3)
-    ) {
-      return;
-    }
-    let cancelled = false;
-    const target = destination;
-    void lastConnectionTonight(origem, target.coordinates, Date.now() / 1000)
-      .then((trip) => {
-        if (!cancelled && trip) {
-          setLastTonight({ destination: target, trip });
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [destination, routeOrigin, navigating, settings.travelMode, hasLocation]);
 
   /**
    * Rain at the destination around the arrival (`weather.ts`, Open-Meteo):
@@ -3757,9 +3757,6 @@ function PalmMap() {
                 route={route}
                 elevation={routeProfile}
                 rain={rainAhead && rainAhead.destination === destination ? rainAhead.rain : null}
-                lastConnection={
-                  lastTonight && lastTonight.destination === destination ? lastTonight.trip : null
-                }
                 loading={routeLoading}
                 error={routeError}
                 onClear={handleClearRoute}

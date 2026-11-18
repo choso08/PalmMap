@@ -342,8 +342,6 @@ export const en: typeof pt = {
   },
 
   transit: {
-    lastTonight: (clock: string, line: string) =>
-      `Last connection tonight: leave at ${clock} (${line}), by the timetable.`,
     title: 'Transport near you',
     subtitle: 'Carris Metropolitana · Lisbon area',
     searching: 'Looking for stops…',
@@ -459,6 +457,7 @@ export const en: typeof pt = {
   },
 
   settings: {
+    climbPace: (secondsPer10m: number) => `Climbs ${secondsPer10m} s/10 m`,
     searchPlaceholder: 'Search settings',
     searchNothing: 'No setting by that name.',
     title: 'Settings',
