@@ -1535,6 +1535,86 @@ def tls_chains():
                 print("  ", line.strip())
 
 
+def post_json(url, payload, timeout=60):
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                 headers={"User-Agent": UA, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.headers.get("Content-Type", ""), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get("Content-Type", ""), e.read()
+    except Exception as e:  # noqa: BLE001
+        return None, "", str(e).encode()
+
+
+def cp_realtime():
+    """Infraestruturas de Portugal's public train circulation service (CP delays)."""
+    section("IP / CP REAL TIME")
+    base = "https://www.infraestruturasdeportugal.pt/negocios-e-servicos"
+    for name in ("Oriente", "Cais do Sodre", "Pragal", "Sintra"):
+        st, ct, body = get(f"{base}/estacao-nome/{urllib.parse.quote(name)}")
+        print(f"\n--- estacao-nome {name} -> {st} {ct} {len(body)} B")
+        print(body[:600].decode("utf-8", "replace"))
+    now = time.strftime("%Y-%m-%d %H:%M", time.localtime())
+    later = time.strftime("%Y-%m-%d %H:%M", time.localtime(time.time() + 2 * 3600))
+    kinds = "INTERNACIONAL, ALFA, IC, IR, REGIONAL, URB|SUBUR, ESPECIAL"
+    for station in ("94-31039", "94-69005", "94-30007"):
+        url = f"{base}/partidas-chegadas/{station}/{urllib.parse.quote(now)}/{urllib.parse.quote(later)}/{urllib.parse.quote(kinds)}"
+        st, ct, body = get(url)
+        print(f"\n--- partidas-chegadas {station} -> {st} {ct} {len(body)} B")
+        text = body.decode("utf-8", "replace")
+        print(text[:2500])
+        try:
+            data = json.loads(text)
+            resp = data.get("response") or []
+            for block in resp[:1]:
+                print("block keys:", sorted(block))
+                for t in (block.get("NodesComboioTabelsPartidasChegadas") or [])[:6]:
+                    print(json.dumps(t, ensure_ascii=False))
+                    number = t.get("NComboio1")
+                    if number:
+                        day = time.strftime("%Y-%m-%d", time.localtime())
+                        st2, _, b2 = get(f"{base}/horarios-ncombio/{number}/{day}")
+                        print(f"   horarios-ncombio {number} -> {st2} {len(b2)} B")
+                        print("  ", b2[:1500].decode("utf-8", "replace"))
+                        number = None
+                        break
+        except Exception as e:  # noqa: BLE001
+            print("not JSON:", e)
+
+
+def valhalla_height():
+    """FOSSGIS Valhalla's /height: elevation along a line (for the profile)."""
+    section("VALHALLA HEIGHT")
+    shape = [{"lat": 38.7169, "lon": -9.1399}, {"lat": 38.7139, "lon": -9.1335},
+             {"lat": 38.7110, "lon": -9.1290}]
+    for payload in ({"range": True, "shape": shape},
+                    {"range": True, "resample_distance": 50, "shape": shape}):
+        st, ct, body = post_json("https://valhalla1.openstreetmap.de/height", payload)
+        print(f"--- {list(payload)} -> {st} {ct} {len(body)} B")
+        print(body[:1500].decode("utf-8", "replace"))
+    # A long line: how many points does it accept?
+    long_shape = [{"lat": 38.70 + i * 0.001, "lon": -9.20 + i * 0.001} for i in range(3000)]
+    st, ct, body = post_json("https://valhalla1.openstreetmap.de/height", {"range": True, "shape": long_shape})
+    print(f"--- 3000 points -> {st} {len(body)} B", body[:300].decode("utf-8", "replace"))
+    long_shape = long_shape[:500]
+    st, ct, body = post_json("https://valhalla1.openstreetmap.de/height", {"range": True, "shape": long_shape})
+    print(f"--- 500 points -> {st} {len(body)} B", body[:300].decode("utf-8", "replace"))
+    # And does a route answer carry elevation already?
+    st, ct, body = post_json("https://valhalla1.openstreetmap.de/route", {
+        "locations": [shape[0], shape[-1]], "costing": "pedestrian", "elevation_interval": 30,
+        "directions_type": "none", "units": "km"})
+    text = body.decode("utf-8", "replace")
+    print(f"--- route elevation_interval -> {st} {len(body)} B")
+    try:
+        trip = json.loads(text)["trip"]
+        print("summary:", trip.get("summary"))
+        print("leg keys:", sorted(trip["legs"][0]))
+        print("elevation sample:", str(trip["legs"][0].get("elevation"))[:300])
+    except Exception as e:  # noqa: BLE001
+        print(text[:800], e)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
