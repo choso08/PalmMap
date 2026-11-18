@@ -1637,6 +1637,18 @@ def cp_realtime2():
                 print(f"{name:14} {url} -> {e}")
 
 
+def open_meteo():
+    """Open-Meteo's forecast: free, no key; the fields for "rain at the destination"."""
+    section("OPEN-METEO")
+    url = ("https://api.open-meteo.com/v1/forecast?latitude=38.80&longitude=-9.38"
+           "&hourly=precipitation_probability,precipitation,weather_code&forecast_hours=12&timezone=auto")
+    st, ct, body = get(url)
+    print(st, ct, len(body), "B")
+    print(body[:1500].decode("utf-8", "replace"))
+    st, ct, body = get(url + "&timeformat=unixtime")
+    print("unixtime:", st, body[:600].decode("utf-8", "replace"))
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
