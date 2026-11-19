@@ -61,6 +61,18 @@ export const en: typeof pt = {
     saved: 'Saved',
     settings: 'Settings',
   },
+  streetView: {
+    title: 'Street view',
+    layer: 'Street view',
+    taken: (date: string) => `Photo from ${date}`,
+    failed: 'Could not open the photo.',
+    dragHint: 'Drag sideways to look around',
+    back: 'Previous photo',
+    forward: 'Next photo',
+    credit: (author: string | null) => `${author ? `© ${author} · ` : ''}CC BY-SA 4.0 · Panoramax`,
+    none: 'No street photos here. Streets with photos are orange.',
+    open: 'Street view',
+  },
   layers: {
     open: 'Map layers',
     mapType: 'Map type',

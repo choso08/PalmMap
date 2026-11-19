@@ -79,6 +79,18 @@ export const pt = {
     saved: 'Guardados',
     settings: 'Definições',
   },
+  streetView: {
+    title: 'Vista de rua',
+    layer: 'Vista de rua',
+    taken: (date: string) => `Foto de ${date}`,
+    failed: 'Não foi possível abrir a foto.',
+    dragHint: 'Arraste para os lados para rodar',
+    back: 'Foto anterior',
+    forward: 'Foto seguinte',
+    credit: (author: string | null) => `${author ? `© ${author} · ` : ''}CC BY-SA 4.0 · Panoramax`,
+    none: 'Sem fotos de rua aqui. As ruas com fotos estão a laranja.',
+    open: 'Vista de rua',
+  },
   layers: {
     open: 'Camadas do mapa',
     mapType: 'Tipo de mapa',

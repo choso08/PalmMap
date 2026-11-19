@@ -13,6 +13,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  ToastAndroid,
   View,
 } from 'react-native';
 import {
@@ -55,6 +56,8 @@ const UPDATE_DISMISSED_KEY = 'palmmap.versaoAdiada';
 import { MapView, type MapViewRef } from './src/components/MapView';
 import { NavigationPanel } from './src/components/NavigationPanel';
 import { PlaceSheet } from './src/components/PlaceSheet';
+import { StreetViewSheet } from './src/components/StreetViewSheet';
+import { pictureById, pictureNear, type StreetPicture } from './src/services/streetView';
 import { RoutePanel } from './src/components/RoutePanel';
 import { SearchBar } from './src/components/SearchBar';
 import { SettingsSheet } from './src/components/SettingsSheet';
@@ -833,6 +836,40 @@ function PalmMap() {
    * only covered the map for those who already know.
    */
   const [hintVisible, setHintVisible] = useState(false);
+  /*
+    Street view (Panoramax): turned on in the layers sheet, for this session
+    only — the orange coverage over the map changes what a tap does, and
+    finding it still on the next day would be a surprise. A tap on the map
+    then opens the nearest picture (`pictureNear`), or says there is none.
+  */
+  const [streetViewOn, setStreetViewOn] = useState(false);
+  const streetViewRef = useRef(false);
+  streetViewRef.current = streetViewOn;
+  const [streetPicture, setStreetPicture] = useState<StreetPicture | null>(null);
+  const streetAsk = useRef(0);
+  const showStreetPicture = useCallback((asked: Promise<StreetPicture | null>) => {
+    const token = ++streetAsk.current;
+    asked
+      .then((picture) => {
+        if (token !== streetAsk.current) {
+          return;
+        }
+        if (picture) {
+          setStreetPicture(picture);
+        } else {
+          ToastAndroid.show(t().streetView.none, ToastAndroid.SHORT);
+        }
+      })
+      .catch(() => {
+        if (token === streetAsk.current) {
+          ToastAndroid.show(t().streetView.failed, ToastAndroid.SHORT);
+        }
+      });
+  }, []);
+  const handleStreetViewAt = useCallback(
+    (at: Coordinates) => showStreetPicture(pictureNear(at)),
+    [showStreetPicture],
+  );
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
@@ -2600,13 +2637,18 @@ function PalmMap() {
       setMeasurePoints((atuais) => [...atuais, coordinates]);
       return;
     }
+    // Street view on: a tap looks for a picture there, off the orange lines too.
+    if (streetViewRef.current) {
+      handleStreetViewAt(coordinates);
+      return;
+    }
 
     setHintVisible(true);
     if (hintTimer.current) {
       clearTimeout(hintTimer.current);
     }
     hintTimer.current = setTimeout(() => setHintVisible(false), 3500);
-  }, []);
+  }, [handleStreetViewAt]);
 
   /**
    * The measuring tape read from a `ref`, not from state.
@@ -3962,6 +4004,8 @@ function PalmMap() {
         }}
         onDropPin={handleDropPin}
         onTapEmpty={handleTapEmpty}
+        streetView={streetViewOn}
+        onStreetViewPress={handleStreetViewAt}
         following={navigating}
         followUser={followUser && !followHold}
         onFollowUserChange={(seguir) => {
@@ -4155,6 +4199,7 @@ function PalmMap() {
                 onRoute={handleRouteToSelected}
                 travelTime={cardTime && cardTime.placeId === lastPlace.id ? cardTime.time : null}
                 onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
+                onOpenStreetPicture={(id) => showStreetPicture(pictureById(id))}
                 onClose={() => {
                   setSelectedPlace(null);
                   setDroppedPin(null);
@@ -4530,8 +4575,21 @@ function PalmMap() {
         />
       ) : null}
 
+      <StreetViewSheet
+        picture={streetPicture}
+        onClose={(at) => {
+          setStreetPicture(null);
+          // The map goes to where one "walked" to, when street view is on.
+          if (at && streetViewRef.current) {
+            mapRef.current?.recenter(at);
+          }
+        }}
+      />
+
       <LayersSheet
         visible={layersVisible}
+        streetView={streetViewOn}
+        onStreetViewChange={setStreetViewOn}
         onClose={() => setLayersVisible(false)}
         onMeasure={() => {
           setMeasuring(true);

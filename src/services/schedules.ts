@@ -885,7 +885,11 @@ export function planScheduledTrips(
 
             const arrives = unixAt(day, times[pos]);
             const reachAt = arrives + walkSeconds(walkAtEnd);
-            if (best && reachAt >= best.reachAt) {
+            // Arriving at the same time, the stop nearest home wins — the one
+            // that lets one leave later. Boarding the same bus a stop back
+            // only adds a walk (author's photo, 19 November 2026: sent 570 m
+            // back to Lazarim Pilotos with the 3022 passing at the door).
+            if (best && (reachAt > best.reachAt || (reachAt === best.reachAt && leaveAt <= best.leaveAt))) {
               continue;
             }
 
@@ -924,7 +928,7 @@ export function planScheduledTrips(
   // Arrives earliest first, and each line appears once: the next three trains
   // on the same line are not three options, they are the same option.
   const byLine = new Map<string, TransitTrip>();
-  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt)) {
+  for (const t of trips.sort((a, b) => a.reachAt - b.reachAt || b.leaveAt - a.leaveAt)) {
     if (!byLine.has(t.line)) {
       byLine.set(t.line, t);
     }
@@ -1853,9 +1857,35 @@ function raptorJourney(
     rides.unshift({ ...p, alight: g, walkAfter });
     g = p.board;
   }
-  const startMeters = access.get(g);
+  let startMeters = access.get(g);
   if (startMeters === undefined) {
     return null;
+  }
+
+  // RAPTOR boards each trip at its **first** reachable stop, and every stop
+  // within a walk of the origin is reachable — so it boarded a stop back
+  // along the line, behind a longer walk (author's photo, 19 November 2026:
+  // 570 m back to Lazarim Pilotos while the 3022 passed at the door). The
+  // same bus, boarded where one can leave home latest, arrives the same.
+  {
+    const ride = rides[0];
+    const pattern = ride.feed.data.patterns[ride.feed.data.trips[ride.trip].p] ?? [];
+    const times = tripMinutes(ride.feed, ride.trip);
+    const base = net.offset.get(ride.feed)!;
+    let bestLeave = ride.departs - walkSeconds(startMeters);
+    for (let pos = ride.boardPos + 1; pos < ride.alightPos; pos += 1) {
+      const meters = access.get(base + pattern[pos]);
+      if (meters === undefined) {
+        continue;
+      }
+      const departs = ride.departs + (times[pos] - times[ride.boardPos]) * 60;
+      const leave = departs - walkSeconds(meters);
+      if (leave > bestLeave || (leave === bestLeave && meters < startMeters)) {
+        bestLeave = leave;
+        startMeters = meters;
+        rides[0] = { ...ride, boardPos: pos, board: base + pattern[pos], departs };
+      }
+    }
   }
 
   const stopAt = (ride: Ride, pos: number, meters: number) => {

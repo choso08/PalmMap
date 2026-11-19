@@ -101,14 +101,19 @@ function signature(trip: TransitTrip): string {
  * arrivals and from its stored timetable: the live one wins, then the first.
  */
 function unique(trips: TransitTrip[]): TransitTrip[] {
-  const sorted = [...trips].sort((a, b) => Number(b.live) - Number(a.live));
+  // Live first; then the later departure, so of two ways onto the same bus
+  // arriving together the one with less walking and waiting is kept.
+  const sorted = [...trips].sort((a, b) => Number(b.live) - Number(a.live) || b.leaveAt - a.leaveAt);
   const kept: TransitTrip[] = [];
   for (const trip of sorted) {
     const sig = signature(trip);
     const twin = kept.some(
       (k) =>
         signature(k) === sig &&
-        Math.abs(k.departsAt - trip.departsAt) <= (k.live || trip.live ? 600 : 60),
+        (Math.abs(k.departsAt - trip.departsAt) <= (k.live || trip.live ? 600 : 60) ||
+          // The same lines arriving within a minute: the same vehicle boarded
+          // at another stop (a stop back, from another planner) — one option.
+          Math.abs(k.reachAt - trip.reachAt) <= 60),
     );
     if (!twin) {
       kept.push(trip);
@@ -169,7 +174,8 @@ async function compute(
         .filter((trip) => trip.reachAt <= when.at + 60)
         .sort((a, b) => b.leaveAt - a.leaveAt);
     }
-    return kept.sort((a, b) => a.reachAt - b.reachAt);
+    // Arriving together, the one that leaves later first (less walking and waiting).
+    return kept.sort((a, b) => a.reachAt - b.reachAt || b.leaveAt - a.leaveAt);
   };
 
   // Carris Metropolitana's arrivals are today's: for another day only the
@@ -377,7 +383,7 @@ export function applyTransitPrefs(
 export function fastestTrip(trips: TransitTrip[]): TransitTrip | null {
   let best: TransitTrip | null = null;
   for (const trip of trips) {
-    if (!best || trip.reachAt < best.reachAt) {
+    if (!best || trip.reachAt < best.reachAt || (trip.reachAt === best.reachAt && trip.leaveAt > best.leaveAt)) {
       best = trip;
     }
   }

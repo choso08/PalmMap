@@ -23,3 +23,26 @@ export interface PanoramaxSearchResponse {
     assets?: { thumb?: { href?: string } };
   }[];
 }
+
+/**
+ * One Panoramax picture, as the search and the item answer it — fields read
+ * from a real response (`sondar: streetview`, 19 November 2026).
+ */
+export interface PanoramaxPictureFeature {
+  id?: string;
+  collection?: string;
+  geometry?: { coordinates?: [number, number] };
+  assets?: { thumb?: { href?: string }; sd?: { href?: string }; hd?: { href?: string } };
+  links?: { rel?: string; href?: string; id?: string; geometry?: { coordinates?: [number, number] } }[];
+  providers?: { name?: string; roles?: string[] }[];
+  properties?: {
+    datetime?: string;
+    'view:azimuth'?: number;
+    'pers:interior_orientation'?: { field_of_view?: number };
+    license?: string;
+  };
+}
+
+export interface PanoramaxPicturesResponse {
+  features?: PanoramaxPictureFeature[];
+}

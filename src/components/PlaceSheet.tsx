@@ -54,6 +54,8 @@ interface PlaceSheetProps {
    * already a destination — before that there is no route to add a stop to.
    */
   onAddStop?: () => void;
+  /** A Panoramax photo tapped: open it in street view (`StreetViewSheet`). */
+  onOpenStreetPicture?: (pictureId: string) => void;
   onClose: () => void;
 }
 
@@ -77,6 +79,7 @@ export function PlaceSheet({
   onRoute,
   travelTime = null,
   onAddStop,
+  onOpenStreetPicture,
   onClose,
   dragHandlers,
   headerHandlers,
@@ -286,6 +289,10 @@ export function PlaceSheet({
           >
             {photos.map((p) => (
               <Pressable key={p.uri} onPress={() => {
+                  if (p.pictureId && onOpenStreetPicture) {
+                    onOpenStreetPicture(p.pictureId);
+                    return;
+                  }
                   const link = webLink(p.uri);
                   if (link) {
                     void Linking.openURL(link);

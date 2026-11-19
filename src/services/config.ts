@@ -750,6 +750,15 @@ export const PHOTO_WIDTH = 640;
 export const PHOTO_NEARBY_M = 25;
 
 /**
+ * Street view (`services/streetView.ts`): Panoramax's coverage tiles, drawn
+ * only while street view is on, and how far from a tap a picture may be.
+ * The tiles go up to zoom 15 (overzoomed above); the pictures' points from 15.
+ */
+export const PANORAMAX_TILES = `${PANORAMAX_URL}/map/{z}/{x}/{y}.mvt`;
+export const PANORAMAX_TILES_MAXZOOM = 15;
+export const STREET_VIEW_TAP_M = 40;
+
+/**
  * The parked car (`services/parkedCar.ts`). Farther than `PARKED_WALK_MIN_M`
  * from it, a car trip starts at the car and the walk is added; past
  * `PARKED_WALK_MAX_M` (straight line) the person is clearly somewhere else and

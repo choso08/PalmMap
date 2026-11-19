@@ -369,6 +369,33 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **Street view, from Panoramax** (author's request, 19 November 2026; not seen on a phone).
+  Coverage measured first (`sondar: streetview`, 25 points per town, a picture within 100 m):
+  Évora 12 (most of them 360°), Porto 4, Lisbon's Baixa 3, Viseu 1, and none in Lisbon's
+  Avenidas, Almada, Seixal, Coimbra, Braga or Faro — so the map **shows where pictures
+  exist** instead of promising them. A "Street view" switch in the layers sheet (this session
+  only, `streetViewOn` in `App.tsx`: it changes what a tap does) draws Panoramax's own vector
+  tiles in their orange (`PANORAMAX_TILES`, `/api/map/{z}/{x}/{y}.mvt`, layers `sequences`
+  and `pictures`, **maxzoom 15** — 16 answers 400; probed with `sondar: streetview_tiles`). A
+  tap, on a line or anywhere while it is on, opens the nearest picture within
+  `STREET_VIEW_TAP_M` (40 m, `pictureNear`) or says there is none. `StreetViewSheet` shows the
+  2048 px `sd` picture with ‹ › to the sequence's `prev`/`next` (item links; `pictureById`),
+  the date and the credit (author, CC BY-SA 4.0). A 360° picture
+  (`pers:interior_orientation.field_of_view` 360) is the equirectangular image at the screen's
+  height, twice as wide, turned by dragging sideways, starting at its middle — not a true
+  sphere, which would need a 3-D view and a native library. A Panoramax photo on a place's
+  card opens there too. Mapillary would cover far more but needs a token in the APK.
+- **The stop nearest home, not one back** (author's photo, 19 November 2026: sent 570 m back
+  to Lazarim Pilotos while the 3022 passed at the door; not seen on a phone). RAPTOR boards
+  each trip at its first reachable stop, and every stop within a walk of the origin is
+  reachable; `planScheduledTrips` kept the first boarding on equal arrival too. Now RAPTOR's
+  first ride moves its boarding to the stop on the same trip one can leave home latest for
+  (`raptorJourney`), the direct planner prefers the later departure on equal arrival, and
+  `unique`/`finish`/`fastestTrip` (`transitPlan.ts`) treat the same lines arriving within a
+  minute as one option, keeping the later departure. **Checked with the real Carris
+  Metropolitana timetable** at 12:35: before, leave 12:36 and walk 410 m to Lazarim Pilotos;
+  now leave 12:44 and walk 63 m to Rotunda Campo Flores, same bus, same arrival. The live
+  planner already broke ties this way (`optionsPerKey`).
 - **A dropped pin says whose it is** (author's photo, 19 November: a pin on their house read
   "Point on the map" with its coordinates; not seen on a phone): within `PIN_SAVED_M` (40 m) of
   Home, Work or a saved place it takes that name and address; otherwise the address as before.
@@ -1072,6 +1099,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── AlertsSheet.tsx   # Every service alert
 │   │   ├── FavouriteStopRow.tsx # A favourite stop with its next buses (Saved)
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
+│   │   ├── StreetViewSheet.tsx # Street view: a Panoramax picture, ‹ › along the street
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
@@ -1106,6 +1134,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── arrivalReminders.ts # "Your bus arrives in 5 min" notifications
 │   │   ├── transitGuide.ts   # A transport trip as steps, and following it with the GPS
 │   │   ├── photos.ts         # A business's photos (Commons, Wikidata, Panoramax)
+│   │   ├── streetView.ts     # Street view pictures (Panoramax): nearest, by id, sequence
 │   │   ├── osmNotes.ts       # "This shop closed": an anonymous OpenStreetMap note
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
 │   │   ├── network.ts        # Online or offline, for the whole app

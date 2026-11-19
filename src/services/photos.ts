@@ -30,6 +30,8 @@ export interface PlacePhoto {
   source: 'commons' | 'panoramax' | 'web';
   /** A street-level picture near the place, not one of the place itself. */
   street?: boolean;
+  /** Panoramax's picture id: a tap opens it in street view. */
+  pictureId?: string;
 }
 
 const client = axios.create({
@@ -111,6 +113,7 @@ async function streetPhotos(at: Coordinates): Promise<PlacePhoto[]> {
       uri: f.assets?.thumb?.href ?? panoramaxThumb(f.id as string),
       source: 'panoramax' as const,
       street: true,
+      pictureId: f.id as string,
     }));
 }
 
@@ -138,7 +141,7 @@ export async function placePhotos(
   if (tags.panoramax) {
     for (const id of tags.panoramax.split(';')) {
       if (id.trim()) {
-        found.push({ uri: panoramaxThumb(id.trim()), source: 'panoramax' });
+        found.push({ uri: panoramaxThumb(id.trim()), source: 'panoramax', pictureId: id.trim() });
       }
     }
   }

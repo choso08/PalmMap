@@ -12,6 +12,9 @@ interface Props {
   onClose: () => void;
   /** Starts the measuring tape (it used to have its own button on the map). */
   onMeasure: () => void;
+  /** Street view (Panoramax) on the map, for this session. */
+  streetView: boolean;
+  onStreetViewChange: (on: boolean) => void;
 }
 
 /**
@@ -23,7 +26,7 @@ interface Props {
  * pattern people already know, and it also gives the map's on/off details a
  * home next to them.
  */
-export function LayersSheet({ visible, onClose, onMeasure }: Props) {
+export function LayersSheet({ visible, onClose, onMeasure, streetView, onStreetViewChange }: Props) {
   const theme = useTheme();
   const strings = useT();
   const insets = useSafeAreaInsets();
@@ -99,6 +102,21 @@ export function LayersSheet({ visible, onClose, onMeasure }: Props) {
           <Switch
             value={settings.showVehicles}
             onValueChange={(v) => update('showVehicles', v)}
+            trackColor={{ true: theme.accent, false: theme.border }}
+          />
+        </View>
+
+        <View style={styles.row}>
+          <MaterialCommunityIcons name="walk" size={22} color={theme.text} />
+          <Text style={styles.rowText}>{strings.streetView.layer}</Text>
+          <Switch
+            value={streetView}
+            onValueChange={(on) => {
+              onStreetViewChange(on);
+              if (on) {
+                onClose();
+              }
+            }}
             trackColor={{ true: theme.accent, false: theme.border }}
           />
         </View>

@@ -40,7 +40,7 @@ import { useSettings, useTheme, type TrailsLayer } from '../settings';
 import type { Bounds, Coordinates, Place, Route } from '../types/geo';
 import { formatDistance } from '../utils/format';
 import { categoryLabel } from '../utils/categories';
-import { MAP_PINS_MIN_ZOOM } from '../services/config';
+import { MAP_PINS_MIN_ZOOM, PANORAMAX_TILES, PANORAMAX_TILES_MAXZOOM } from '../services/config';
 import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { boundsOf, distanceMeters } from '../utils/geometry';
 import {
@@ -65,6 +65,8 @@ const PIN_GLYPH: Record<PoiFamily, string> = {
 
 /** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
 const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
+/** Street view's coverage colour: Panoramax's own orange, which people who use it know. */
+const STREET_VIEW_COLOUR = '#FF6F00';
 const OPENFREEMAP_ATTRIBUTION = 'OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors';
 
 /**
@@ -145,6 +147,12 @@ interface MapViewProps {
   /** Where the car is parked (`services/parkedCar.ts`), drawn as a car. */
   parkedCar?: Coordinates | null;
   onParkedCarPress?: () => void;
+  /**
+   * Street view on: Panoramax's coverage drawn in orange, and a tap on it
+   * hands back where (`services/streetView.ts` finds the nearest picture).
+   */
+  streetView?: boolean;
+  onStreetViewPress?: (at: Coordinates) => void;
   /** Called on a long press anywhere on the map. */
   onDropPin: (coordinates: Coordinates) => void;
   /**
@@ -399,6 +407,8 @@ export function MapView({
   lastView = null,
   onDropPin,
   onTapEmpty,
+  streetView = false,
+  onStreetViewPress,
   following,
   followUser,
   bottomInset = 0,
@@ -1169,6 +1179,52 @@ export function MapView({
             paint={{ 'raster-opacity': 0.9 }}
           />
         </RasterSource>
+      ) : null}
+
+      {/*
+        Street view's coverage (Panoramax): where street-level pictures exist,
+        in orange as in its own viewer — lines for the sequences, dots for the
+        pictures from zoom 15. Over the map, under our pins and route. Only
+        what is on screen is asked, like any tile.
+      */}
+      {streetView ? (
+        <VectorSource
+          id="panoramax"
+          tiles={[PANORAMAX_TILES]}
+          maxzoom={PANORAMAX_TILES_MAXZOOM}
+          attribution="Panoramax (CC BY-SA 4.0)"
+          onPress={(event) => {
+            event.stopPropagation?.();
+            const [longitude, latitude] = event.nativeEvent.lngLat;
+            onStreetViewPress?.({ latitude, longitude });
+          }}
+        >
+          <Layer
+            key="panoramax-sequences"
+            id="panoramax-sequences"
+            type="line"
+            source-layer="sequences"
+            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            paint={{
+              'line-color': STREET_VIEW_COLOUR,
+              'line-width': ['interpolate', ['linear'], ['zoom'], 6, 1, 12, 3, 16, 5, 20, 7],
+              'line-opacity': 0.85,
+            }}
+          />
+          <Layer
+            key="panoramax-pictures"
+            id="panoramax-pictures"
+            type="circle"
+            source-layer="pictures"
+            minzoom={15}
+            paint={{
+              'circle-color': STREET_VIEW_COLOUR,
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 3, 18, 6, 22, 9],
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 1.5,
+            }}
+          />
+        </VectorSource>
       ) : null}
 
       {/*
