@@ -432,6 +432,15 @@ export const en: typeof pt = {
     pointCount: (n: number) => (n === 1 ? '1 point' : `${n} points`),
   },
 
+  /** Alerts of the copy outside the app (`services/backup.ts`). */
+  backup: {
+    restored: 'Copy restored. The app will close; open it again.',
+    invalid: 'That file is not a PalmMap copy.',
+    offerTitle: 'Used PalmMap before?',
+    offerBody: 'You can bring back your settings and saved places from a copy.',
+    offerNo: 'Not now',
+  },
+
   offline: {
     loading: 'Getting the list of maps…',
     empty: 'No maps yet.',
@@ -489,6 +498,13 @@ export const en: typeof pt = {
     dataUsage: 'Data and storage',
     mapsOnMobileData: 'Update country maps on mobile data too',
     storage: 'Storage',
+    backup: 'Automatic copy',
+    backupChoose: 'Choose a folder for the copy',
+    backupHint: 'A file outside the app, kept if you uninstall it.',
+    backupWritten: (when: string) => `Last copy: ${when}`,
+    backupFailed: 'The folder can no longer be reached. Choose another.',
+    backupChange: 'Change folder',
+    backupRestore: 'Restore a copy',
     storageUsed: (maps: number, timetables: number) => `Country maps ${maps} MB · timetables ${timetables} MB`,
 
     installUnfinished: 'The install did not finish',

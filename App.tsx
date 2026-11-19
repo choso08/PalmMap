@@ -32,6 +32,7 @@ import {
   type UpdateInfo,
 } from './src/services/update';
 import { guarded, installCrashHandler } from './src/services/crash';
+import { keepBackupUpToDate, offerRestoreOnFirstStart } from './src/services/backup';
 import { listenForUpdateNotice } from './src/services/updateNotice';
 
 /** When a new version was last looked for. See the effect that uses it. */
@@ -228,6 +229,10 @@ import { useAppActive } from './src/useAppActive';
 // has someone to write it down — and that is exactly where an error has no other
 // way of making itself known. See `src/services/crash.ts`.
 installCrashHandler();
+// The copy outside the app (`services/backup.ts`): kept up to date as the app
+// goes to the background, and offered back on a fresh install
+// (`offerRestoreOnFirstStart`, once the screen is up).
+keepBackupUpToDate();
 
 // Identifies us to OpenStreetMap right at start-up, before any tile.
 configureTileRequests();
@@ -311,6 +316,9 @@ const GUIDE_END_AFTER_MS = 4000;
 /** The panels that open from the bottom, in the order they rank when opened together. */
 type BottomPanel = 'measure' | 'guide' | 'route' | 'place' | 'line' | 'stop' | 'vehicle';
 const PANEL_RANK: readonly BottomPanel[] = ['measure', 'guide', 'route', 'place', 'line', 'stop', 'vehicle'];
+
+/** The restore offer waits for the screen: an alert before it has nowhere to show. */
+const RESTORE_OFFER_DELAY_MS = 1500;
 
 export default function App() {
   return (
@@ -498,6 +506,14 @@ function PalmMap() {
   }
   /** The search is open and covers the screen — see `SearchBar`. */
   const [searchFocused, setSearchFocused] = useState(false);
+  // Once, on a fresh install: "Used PalmMap before?" — restore a copy.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => void offerRestoreOnFirstStart().catch(() => undefined),
+      RESTORE_OFFER_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, []);
   /** Where the map was left last time (`rememberView`). */
   const [lastView, setLastView] = useState<{ center: Coordinates; zoom: number } | null>(null);
   useEffect(() => {

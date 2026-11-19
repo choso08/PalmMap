@@ -469,6 +469,15 @@ export const pt = {
     pointCount: (n: number) => (n === 1 ? '1 ponto' : `${n} pontos`),
   },
 
+  /** Alerts of the copy outside the app (`services/backup.ts`). */
+  backup: {
+    restored: 'Cópia reposta. A app vai fechar; abra-a outra vez.',
+    invalid: 'Esse ficheiro não é uma cópia do PalmMap.',
+    offerTitle: 'Já usou o PalmMap?',
+    offerBody: 'Pode repor as definições e os sítios guardados de uma cópia.',
+    offerNo: 'Agora não',
+  },
+
   offline: {
     loading: 'A obter a lista de mapas…',
     empty: 'Ainda não há mapas.',
@@ -527,6 +536,13 @@ export const pt = {
     dataUsage: 'Dados e armazenamento',
     mapsOnMobileData: 'Atualizar mapas de países também com dados móveis',
     storage: 'Armazenamento',
+    backup: 'Cópia automática',
+    backupChoose: 'Escolher pasta para a cópia',
+    backupHint: 'Um ficheiro fora da app, que fica se a desinstalar.',
+    backupWritten: (when: string) => `Última cópia: ${when}`,
+    backupFailed: 'A pasta deixou de estar acessível. Escolha outra.',
+    backupChange: 'Mudar pasta',
+    backupRestore: 'Restaurar uma cópia',
     storageUsed: (maps: number, timetables: number) => `Mapas de países ${maps} MB · horários ${timetables} MB`,
 
     updateTitle: 'Há uma versão nova',

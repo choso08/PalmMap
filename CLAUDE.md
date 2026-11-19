@@ -369,6 +369,22 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **A copy that survives uninstalling** (author: "it should keep a file on the phone by
+  itself", 19 November; not seen on a phone): `services/backup.ts`. Android deletes the app's
+  folders on uninstall, and a file it put in Downloads is no longer readable by it after
+  reinstalling; what survives is **a folder the person picks once** (Settings → Data and
+  storage → Automatic copy; `Directory.pickDirectoryAsync`, which keeps the permission). From
+  then on `PalmMap-copia.json` is written there **each time the app goes to the background**
+  (`keepBackupUpToDate`): settings, saved places, Home/Work, favourite stops and lines,
+  recents, the parked car, the learnt pace, the trips started, the last view (`KEPT_KEYS`) —
+  not maps, timetables, a pending update or the last crash. The file is found by its decoded
+  address (a picked folder's addresses are document ids) and padded with spaces to the old
+  size (mode "w" does not truncate on some providers). **Restore**: "Restore a copy" picks
+  the file, writes only `KEPT_KEYS` and closes the app (every store read its value at start);
+  a fresh install — none of the person's keys stored — is offered it once, 1.5 s after
+  start (`offerRestoreOnFirstStart`). Android's own Auto Backup is on too (`allowBackup`, the
+  Expo default) but restores reliably only from the Play Store. The alerts' text is in a
+  `backup` section of the language table, not `settings`.
 - **A tap on a map that "did nothing"** (author's report, 19 November; not seen on a phone):
   two causes. A tap on a downloaded, current map **deleted** it at once — now it asks first
   (`offline.removeTitle`). And the Wi-Fi refresh's download was invisible in the list: a tap

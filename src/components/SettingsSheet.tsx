@@ -44,6 +44,19 @@ import {
 import type { Theme } from '../theme';
 import { formatFactor } from '../utils/format';
 import { hasRegionVoice } from '../utils/voice';
+import {
+  chooseBackupFolder,
+  restoreWithNotice,
+  watchBackup,
+  type BackupState,
+} from '../services/backup';
+
+/** "19/11 21:05": when the copy was written. */
+function shortWhen(ms: number): string {
+  const d = new Date(ms);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${d.getDate()}/${d.getMonth() + 1} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
 
 /** How long "recent destinations forgotten" stays on screen. */
 const RECENTS_CLEARED_MS = 4000;
@@ -158,6 +171,8 @@ export function SettingsSheet({
    * groups that hold a match — so nobody has to dig through the groups.
    */
   const [filter, setFilter] = useState('');
+  const [backup, setBackup] = useState<BackupState>({ folder: null, writtenAt: null, failed: false });
+  useEffect(() => watchBackup(setBackup), []);
   /** What the downloads take up, in MB, read when the screen opens. */
   const storage = useMemo(
     () =>
@@ -205,6 +220,7 @@ export function SettingsSheet({
         s.forgetTrips(0),
       ),
       storage: has(s.dataUsage, s.storage),
+      backup: has(s.dataUsage, s.backup, s.backupRestore, s.backupHint),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
       donate: DONATE_URL !== '' && has(s.about, s.donate, s.donateHint),
       recents: has(s.general, s.recents, s.forgetRecents),
@@ -217,7 +233,7 @@ export function SettingsSheet({
       general: result.language || result.appearance || result.recents,
       mapSection: result.places || result.trails,
       transit: result.schedules,
-      data: result.vehicles || result.satellite || result.mobileMaps || result.storage,
+      data: result.vehicles || result.satellite || result.mobileMaps || result.storage || result.backup,
       noticesSection: result.notices,
       aboutSection: result.updates || result.feedback || result.donate || result.about,
       navigation:
@@ -746,6 +762,35 @@ export function SettingsSheet({
                     trackColor={{ true: theme.accent, false: theme.border }}
                   />
                 </View>
+              ) : null}
+
+              {show.backup ? (
+                <>
+                  <Text style={styles.sectionTitle}>{s.backup}</Text>
+                  <Text style={styles.note}>
+                    {backup.failed
+                      ? s.backupFailed
+                      : backup.folder && backup.writtenAt
+                        ? s.backupWritten(shortWhen(backup.writtenAt))
+                        : s.backupHint}
+                  </Text>
+                  <Pressable
+                    style={styles.forgetRow}
+                    onPress={() => void chooseBackupFolder()}
+                  >
+                    <MaterialCommunityIcons name="folder-sync-outline" size={19} color={theme.accent} />
+                    <Text style={styles.linkText}>
+                      {backup.folder && !backup.failed ? s.backupChange : s.backupChoose}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.forgetRow}
+                    onPress={() => void restoreWithNotice()}
+                  >
+                    <MaterialCommunityIcons name="backup-restore" size={19} color={theme.accent} />
+                    <Text style={styles.linkText}>{s.backupRestore}</Text>
+                  </Pressable>
+                </>
               ) : null}
 
               {show.storage ? (
