@@ -514,6 +514,7 @@ environment cannot reach.
   Metropolitana timetable** at 12:35: before, leave 12:36 and walk 410 m to Lazarim Pilotos;
   now leave 12:44 and walk 63 m to Rotunda Campo Flores, same bus, same arrival. The live
   planner already broke ties this way (`optionsPerKey`).
+- **Built in 7.0.65** (19 November): every fix of the code review below.
 - **Code review of the 19 November work, every finding fixed** (author: "see really all the
   bugs and fix them"; none seen on a phone, the Kotlin parts need a full build):
   - **Downloads** (`systemDownload.ts`, `DownloaderModule.kt`): the Wi-Fi-only refresh asks
