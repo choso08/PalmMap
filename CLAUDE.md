@@ -433,7 +433,13 @@ environment cannot reach.
   `note`, `since`, and a watchdog that notes when the JavaScript thread was blocked over
   300 ms, with the last mark before it; App and MapView renders over 30 ms, the country-file
   pins and the timetable stops are timed, and the search notes focus → list on screen.
-  Shown newest first in Settings → About (`PerfCard`), for a screenshot. **High satellite pixelated close in** is the DGT's WMS:
+  Shown newest first in Settings → About (`PerfCard`), for a screenshot. **First reading (7.0.63,
+  author's screenshot):** the list was on screen 41 ms after focus, and the JavaScript thread
+  was then blocked for 4070 ms — so the delay is not the search. The stall's "after" label was a
+  mark three minutes old; now a stall names the `timed` spans that ran inside it ("in: …") or
+  the last mark with its age, coming back to the app is marked (`app: active`), and the
+  heavy synchronous reads are timed: each timetable's read and index, the Carris stop copy
+  and the kept patterns/shapes (read and write), and the business pins' prefetch ticks. **High satellite pixelated close in** is the DGT's WMS:
   `sondar: dgt_speed` measured 1–3 s per tile and 7–13 s for the first ones (rendered on
   demand), and `dgt_wmts` found **no cached tiles** — its GeoWebCache only has GeoServer's
   demo layers. What shows meanwhile is the parent tile stretched; once seen, tiles stay cached.

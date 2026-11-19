@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 
 import { installedRegions, poisFile, type OfflineRegion } from './offlineMap';
 import { distanceMeters } from '../utils/geometry';
+import { timed } from './perfLog';
 import type { Bounds, Place } from '../types/geo';
 import { categoryLabel } from '../utils/categories';
 
@@ -335,9 +336,11 @@ function prefetchAround(
   }
   const tick = () => {
     prefetchTimer = null;
-    for (const cell of todo.splice(0, PREFETCH_PER_TICK)) {
-      readCell(region, opened, cell);
-    }
+    timed('pins: prefetch', () => {
+      for (const cell of todo.splice(0, PREFETCH_PER_TICK)) {
+        readCell(region, opened, cell);
+      }
+    });
     if (todo.length) {
       prefetchTimer = setTimeout(tick, 50);
     }

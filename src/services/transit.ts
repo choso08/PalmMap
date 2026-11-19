@@ -15,6 +15,7 @@ import {
   WALK_SPEED_MS,
 } from './config';
 import { createRateLimiter } from './rateLimit';
+import { timed } from './perfLog';
 import { t } from '../i18n';
 import type { Bounds, Coordinates } from '../types/geo';
 import type {
@@ -184,7 +185,9 @@ function storedStops(): { at: number; stops: TransitStop[] } | null {
     if (!STOPS_COPY.exists) {
       return null;
     }
-    const parsed = JSON.parse(STOPS_COPY.textSync()) as { at?: number; stops?: TransitStop[] };
+    const parsed = timed('stops copy read', () =>
+      JSON.parse(STOPS_COPY.textSync()) as { at?: number; stops?: TransitStop[] },
+    );
     return typeof parsed.at === 'number' && Array.isArray(parsed.stops) && parsed.stops.length > 0
       ? { at: parsed.at, stops: parsed.stops }
       : null;
@@ -248,7 +251,9 @@ async function loadStops(): Promise<TransitStop[]> {
     cachedStops = stops;
     if (stops.length > 0) {
       try {
-        STOPS_COPY.write(JSON.stringify({ at: Date.now(), stops }));
+        timed('stops copy write', () =>
+          STOPS_COPY.write(JSON.stringify({ at: Date.now(), stops })),
+        );
       } catch {
         // Not kept: asked again next time, as before.
       }
@@ -506,7 +511,9 @@ async function keptOrAsked<T>(name: string, maxAgeMs: number, ask: () => Promise
   try {
     const file = keptFile(name);
     if (file.exists) {
-      copy = JSON.parse(file.textSync()) as { at: number; data: T };
+      copy = timed(`kept read: ${name}`, () =>
+        JSON.parse(file.textSync()) as { at: number; data: T },
+      );
     }
   } catch {
     copy = null;
@@ -517,7 +524,9 @@ async function keptOrAsked<T>(name: string, maxAgeMs: number, ask: () => Promise
   try {
     const data = await ask();
     try {
-      keptFile(name).write(JSON.stringify({ at: Date.now(), data }));
+      timed(`kept write: ${name}`, () =>
+        keptFile(name).write(JSON.stringify({ at: Date.now(), data })),
+      );
     } catch {
       // Not kept: asked again next time.
     }

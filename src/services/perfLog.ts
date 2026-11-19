@@ -7,11 +7,15 @@
  * - `timed(label, fn)` runs `fn` and notes how long it took, when over
  *   `SLOW_MS`.
  * - A watchdog ticks every `TICK_MS`; when a tick comes late by more than
- *   `STALL_MS`, the JavaScript thread was blocked that long, and the stall is
- *   noted with the last mark before it — what was running, or about to.
+ *   `STALL_MS`, the JavaScript thread was blocked that long. The stall is
+ *   noted with the `timed` spans that ran inside it ("in: …"), or else the
+ *   last mark and how long before the stall it was ("after: … 3 s before") —
+ *   a mark minutes old says nothing about the stall, and once misled.
  *
  * Nothing is stored or sent; it is gone when the app closes.
  */
+
+import { AppState } from 'react-native';
 
 export interface PerfEntry {
   at: number;
@@ -26,6 +30,10 @@ const SLOW_MS = 30;
 
 const entries: PerfEntry[] = [];
 let lastMark = '';
+let lastMarkAt = 0;
+/** The latest `timed` spans, slow or not, to name what ran in a stall. */
+const spans: { label: string; start: number; end: number }[] = [];
+const SPANS_MAX = 60;
 const listeners = new Set<() => void>();
 
 function push(entry: PerfEntry) {
@@ -38,16 +46,21 @@ function push(entry: PerfEntry) {
 
 export function mark(label: string): void {
   lastMark = label;
-  push({ at: Date.now(), label });
+  lastMarkAt = Date.now();
+  push({ at: lastMarkAt, label });
 }
 
 export function timed<T>(label: string, fn: () => T): T {
   const start = Date.now();
-  lastMark = label;
   try {
     return fn();
   } finally {
-    const ms = Date.now() - start;
+    const end = Date.now();
+    const ms = end - start;
+    spans.push({ label, start, end });
+    if (spans.length > SPANS_MAX) {
+      spans.splice(0, spans.length - SPANS_MAX);
+    }
     if (ms >= SLOW_MS) {
       push({ at: start, label, ms });
     }
@@ -89,7 +102,19 @@ setInterval(() => {
   const late = now - expected;
   // Minutes late is the app having been in the background, not a stall.
   if (late > STALL_MS && late < 30_000) {
-    push({ at: expected, label: `blocked (after: ${lastMark || '—'})`, ms: late });
+    const inside = spans.filter((x) => x.end >= expected && x.end - x.start >= SLOW_MS);
+    const label = inside.length
+      ? `blocked (in: ${inside.map((x) => `${x.label} ${x.end - x.start} ms`).join(', ')})`
+      : `blocked (after: ${lastMark || '—'}, ${Math.round((expected - lastMarkAt) / 1000)} s before)`;
+    push({ at: expected, label, ms: late });
   }
   expected = now + TICK_MS;
 }, TICK_MS);
+
+// Coming back to the app wakes many effects at once (buses, arrivals, the
+// network check, learning); marked so a stall right after it is named.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active' || state === 'background') {
+    mark(`app: ${state}`);
+  }
+});

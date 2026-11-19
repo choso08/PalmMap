@@ -32,6 +32,7 @@ export type { ScheduleFeedInfo };
 import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 import { safeFileName } from '../utils/safeLink';
+import { timed } from './perfLog';
 
 /**
  * Train, metro and ferry timetables, stored on the phone.
@@ -417,12 +418,14 @@ export function loadFeed(info: ScheduleFeedInfo): IndexedFeed | null {
   }
 
   try {
-    const parsed = JSON.parse(file.textSync()) as ScheduleFeed | ScheduleFeedV2;
+    const parsed = timed(`timetable read: ${info.id}`, () =>
+      JSON.parse(file.textSync()) as ScheduleFeed | ScheduleFeedV2,
+    );
     const { data, profiles } = fromFile(parsed);
     if (!Array.isArray(data.trips) || !Array.isArray(data.stops)) {
       return null;
     }
-    const prepared = index(info, data, profiles);
+    const prepared = timed(`timetable index: ${info.id}`, () => index(info, data, profiles));
     cache.set(info.id, prepared);
     return prepared;
   } catch {
