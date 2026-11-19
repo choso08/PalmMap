@@ -7,6 +7,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
 
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
+import { hasSystemDownloader, systemDownload } from './systemDownload';
 
 /**
  * Country maps, downloaded on request and stored on the phone.
@@ -431,6 +432,22 @@ async function downloadOnce(
   let lastPercent = -1;
 
   try {
+    // Through Android's DownloadManager when the build has it: it keeps going
+    // with the app in the background (`systemDownload.ts`).
+    if (hasSystemDownloader()) {
+      await systemDownload({
+        key: `mapa.${region.id}`,
+        url: `${BASE_URL}/${region.ficheiro}`,
+        destination: localFile(region),
+        title: region.nome,
+        expectedBytes: region.bytes,
+        onProgress,
+      });
+      const withPois = await downloadPois(region);
+      writeMetadata(withPois ? region : withoutPois(region));
+      return;
+    }
+
     const downloaded = await File.downloadFileAsync(
       `${BASE_URL}/${region.ficheiro}`,
       partial,
@@ -504,6 +521,16 @@ export async function downloadPois(region: OfflineRegion): Promise<boolean> {
   try {
     if (partial.exists) {
       partial.delete();
+    }
+    if (hasSystemDownloader()) {
+      await systemDownload({
+        key: `negocios.${region.id}`,
+        url: `${BASE_URL}/${region.negocios}`,
+        destination: poisFile(region),
+        title: region.nome,
+        expectedBytes: region.negociosBytes,
+      });
+      return true;
     }
     const downloaded = await File.downloadFileAsync(`${BASE_URL}/${region.negocios}`, partial);
     const destination = poisFile(region);

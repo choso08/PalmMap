@@ -369,17 +369,18 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
-- **The update downloads with the app in the background** (author's photo, 19 November 2026,
-  7.0.60: "Software caused connection abort" after leaving the app mid-download; not seen on a
-  phone, needs a full build). The app's own connection (`File.downloadFileAsync`) is cut when
-  Android puts it in the background. Now the APK goes through **Android's DownloadManager**
+- **Updates and country maps download with the app in the background** (author's photo,
+  19 November 2026, 7.0.60: "Software caused connection abort" after leaving the app
+  mid-download; not seen on a phone, needs a full build). The app's own connection
+  (`File.downloadFileAsync`) is cut when Android puts it in the background. Now the APK, the
+  country maps and their business files go through **Android's DownloadManager**
   (`DownloaderModule.kt` in `modules/palmmap-voice`, `PalmMapDownloader`: `start`, `status`,
   `remove`), which keeps going in the background or with the app closed, with the system's own
-  progress notification, into the app's external files folder (no permission). `systemDownload`
-  (`update.ts`) polls every 700 ms, keeps the id in `palmmap.descargaAtualizacao` so a restart
-  picks the same download up, and copies the finished file to the cache folder under its final
-  name, as before. Without the module (an older build) the old download is used. The country
-  maps still download the old way.
+  progress notification, into the app's external files folder (no permission).
+  `systemDownload` (`services/systemDownload.ts`) polls every 700 ms, keeps each download's id
+  (`palmmap.descarga.<key>`: `atualizacao`, `mapa.<id>`, `negocios.<id>`) so a restart picks
+  the same download up, and moves the finished file to where it belongs (copies if a move
+  fails). Without the module (an older build) the old way is used.
 - **Street view, from Panoramax** (author's request, 19 November 2026; not seen on a phone).
   Coverage measured first (`sondar: streetview`, 25 points per town, a picture within 100 m):
   Évora 12 (most of them 360°), Porto 4, Lisbon's Baixa 3, Viseu 1, and none in Lisbon's
@@ -1149,6 +1150,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── osmNotes.ts       # "This shop closed": an anonymous OpenStreetMap note
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
 │   │   ├── network.ts        # Online or offline, for the whole app
+│   │   ├── systemDownload.ts # Big downloads through Android's DownloadManager
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later

@@ -5,10 +5,10 @@ import { getContentUriAsync } from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Network from 'expo-network';
 import axios from 'axios';
-import { requireOptionalNativeModule } from 'expo';
 
 import { t } from '../i18n';
 import { RELEASES_API_URL, REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
+import { hasSystemDownloader, systemDownload } from './systemDownload';
 
 /**
  * New versions, without having to go to GitHub by hand.
@@ -245,9 +245,20 @@ export async function downloadUpdate(
 
   // Android's DownloadManager when the app has it: it keeps going with the
   // app in the background (`systemDownload`).
-  const system = systemDownloader();
-  if (system) {
-    return systemDownload(system, info, existing, onProgress);
+  if (hasSystemDownloader()) {
+    try {
+      return await systemDownload({
+        key: 'atualizacao',
+        url: info.url,
+        destination: existing,
+        title: `PalmMap ${info.version}`,
+        expectedBytes: info.bytes,
+        onProgress,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new UpdateError(t().errors.updateDownloadFailed(detail));
+    }
   }
 
   const partial = new File(FOLDER, `PalmMap-${info.build}.apk.parcial`);
@@ -286,108 +297,6 @@ export async function downloadUpdate(
     }
     const detail = error instanceof Error ? error.message : String(error);
     throw new UpdateError(t().errors.updateDownloadFailed(detail));
-  }
-}
-
-/** Our native module's downloader (`DownloaderModule.kt`). */
-interface PalmMapDownloader {
-  start(url: string, fileName: string, title: string, userAgent: string): string;
-  status(id: string): {
-    state: 'pending' | 'running' | 'paused' | 'done' | 'failed' | 'missing';
-    bytes?: number;
-    total?: number;
-    reason?: number;
-    path?: string;
-  };
-  remove(id: string): boolean;
-}
-
-function systemDownloader(): PalmMapDownloader | null {
-  try {
-    return requireOptionalNativeModule<PalmMapDownloader>('PalmMapDownloader');
-  } catch {
-    return null;
-  }
-}
-
-/** The system download under way for an update, so a restart finds it again. */
-const SYSTEM_DOWNLOAD_KEY = 'palmmap.descargaAtualizacao';
-const SYSTEM_POLL_MS = 700;
-
-/**
- * The update downloaded by Android's DownloadManager (author's photo,
- * 19 November 2026: sent to the background, the app's own download died
- * with "Software caused connection abort"). The system keeps downloading
- * with the app in the background or closed, with its own notification;
- * this asks how it goes until it is done, then copies the file to the cache
- * folder under its final name, as before. A download started earlier for the
- * same version (the app was closed meanwhile) is picked up, not repeated.
- */
-async function systemDownload(
-  system: PalmMapDownloader,
-  info: UpdateInfo,
-  destination: File,
-  onProgress?: (fraction: number) => void,
-): Promise<File> {
-  const fail = (detail: string): never => {
-    throw new UpdateError(t().errors.updateDownloadFailed(detail));
-  };
-  let id: string | null = null;
-  try {
-    const kept = JSON.parse((await AsyncStorage.getItem(SYSTEM_DOWNLOAD_KEY)) ?? 'null') as
-      | { id: string; build: number }
-      | null;
-    if (kept && kept.build === info.build) {
-      const state = system.status(kept.id).state;
-      if (state !== 'failed' && state !== 'missing') {
-        id = kept.id;
-      } else {
-        system.remove(kept.id);
-      }
-    } else if (kept) {
-      system.remove(kept.id);
-    }
-  } catch {
-    // Nothing usable kept: a new download.
-  }
-  if (!id) {
-    id = system.start(info.url, `PalmMap-${info.build}.apk`, `PalmMap ${info.version}`, USER_AGENT);
-    if (!id) {
-      fail('DownloadManager');
-    }
-    await AsyncStorage.setItem(SYSTEM_DOWNLOAD_KEY, JSON.stringify({ id, build: info.build }));
-  }
-  const downloadId = id as string;
-
-  let lastPercent = -1;
-  for (;;) {
-    const st = system.status(downloadId);
-    if (st.state === 'done' && st.path) {
-      const source = new File(st.path);
-      if (destination.exists) {
-        destination.delete();
-      }
-      source.copy(destination);
-      system.remove(downloadId);
-      await AsyncStorage.removeItem(SYSTEM_DOWNLOAD_KEY);
-      onProgress?.(1);
-      return destination;
-    }
-    if (st.state === 'failed' || st.state === 'missing' || st.state === 'done') {
-      system.remove(downloadId);
-      await AsyncStorage.removeItem(SYSTEM_DOWNLOAD_KEY);
-      fail(st.state === 'failed' ? `DownloadManager ${st.reason ?? ''}`.trim() : st.state);
-    }
-    const total = (st.total ?? 0) > 0 ? (st.total as number) : info.bytes;
-    if (total > 0 && st.bytes !== undefined) {
-      const fraction = Math.min(1, st.bytes / total);
-      const percent = Math.floor(fraction * 100);
-      if (percent !== lastPercent) {
-        lastPercent = percent;
-        onProgress?.(fraction);
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, SYSTEM_POLL_MS));
   }
 }
 
