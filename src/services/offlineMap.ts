@@ -650,6 +650,34 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
 }
 
 /** Deletes a region's downloaded map. */
+/**
+ * Drops country maps and business files whose size is not the published one.
+ *
+ * 7.0.61 moved a finished system download without waiting for it and then had
+ * the system delete the original (`systemDownload`): across filesystems the
+ * move is a copy, and it could be cut short — a map that fails to open (and
+ * falls back to the Internet tiles in silence) or a business file read wrong.
+ * Run once at start-up; what it drops downloads again like any missing file.
+ */
+export function dropCutShortFiles(): void {
+  for (const region of installedRegions()) {
+    try {
+      const map = localFile(region);
+      if (region.bytes > 0 && map.exists && map.size !== region.bytes) {
+        removeRegion(region);
+        continue;
+      }
+      const pois = poisFile(region);
+      if (region.negociosBytes && pois.exists && pois.size !== region.negociosBytes) {
+        pois.delete();
+        writeMetadata(withoutPois(region));
+      }
+    } catch {
+      // Unreadable: left as it is.
+    }
+  }
+}
+
 export function removeRegion(region: OfflineRegion): void {
   const file = localFile(region);
   if (file.exists) {

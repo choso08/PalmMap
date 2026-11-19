@@ -231,7 +231,10 @@ export async function downloadUpdate(
   // instead of downloading forty megabytes a second time. Only a complete file
   // ever gets the `.apk` name, so its presence is enough.
   const existing = new File(FOLDER, `PalmMap-${info.build}.apk`);
-  if (existing.exists) {
+  // Only when its size is the Release's: 7.0.61 could leave a cut-short file
+  // with the final name (`systemDownload`), and handing it over again gave the
+  // same "problem parsing the package" for good.
+  if (existing.exists && (info.bytes <= 0 || existing.size === info.bytes)) {
     onProgress?.(1);
     return existing;
   }
@@ -316,7 +319,20 @@ export function downloadedUpdate(info: UpdateInfo): File | null {
     return null;
   }
   const file = new File(FOLDER, `PalmMap-${info.build}.apk`);
-  return file.exists ? file : null;
+  if (!file.exists) {
+    return null;
+  }
+  // A cut-short file (7.0.61's unawaited move) is not the update: dropped, so
+  // "Install now" downloads it again instead of failing the same way.
+  if (info.bytes > 0 && file.size !== info.bytes) {
+    try {
+      file.delete();
+    } catch {
+      // Overwritten by the next download anyway.
+    }
+    return null;
+  }
+  return file;
 }
 
 const PENDING_INSTALL_KEY = 'palmmap.instalacaoPendente';

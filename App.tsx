@@ -152,6 +152,7 @@ import {
   watchPositionIdle,
 } from './src/services/location';
 import {
+  dropCutShortFiles,
   installBundledAssets,
   installedRegions,
   type OfflineRegion,
@@ -1180,7 +1181,12 @@ function PalmMap() {
     void installBundledAssets()
       .then(() => setLabelsReady(true))
       .catch(() => undefined)
-      .then(() => setOfflineRegions(installedRegions()));
+      .then(() => {
+        // Maps and business files cut short by 7.0.61's download (see
+        // `dropCutShortFiles`) go before anything opens them.
+        dropCutShortFiles();
+        setOfflineRegions(installedRegions());
+      });
   }, []);
 
   /**

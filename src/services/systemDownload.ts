@@ -110,14 +110,28 @@ export async function systemDownload(options: {
     const st = system.status(downloadId);
     if (st.state === 'done' && st.path) {
       const source = new FsFile(st.path);
+      const expected = (st.total ?? 0) > 0 ? (st.total as number) : source.size ?? 0;
       if (destination.exists) {
         destination.delete();
       }
+      // **Awaited.** `move` and `copy` return promises; from the system's
+      // folder to the app's own they are a copy across filesystems, and
+      // `forget()` below has the system delete its file. Not awaited, the
+      // delete ran mid-copy and the update arrived cut short — "there was a
+      // problem parsing the package" (author's photo, 19 November 2026, 7.0.61).
       try {
-        // Moved, not copied: a country map is hundreds of megabytes.
-        source.move(destination);
+        // Moved, not copied, where it can be: a country map is hundreds of MB.
+        await source.move(destination);
       } catch {
-        source.copy(destination);
+        await source.copy(destination);
+      }
+      const landed = new FsFile(destination.uri);
+      if (!landed.exists || (expected > 0 && landed.size !== expected)) {
+        if (landed.exists) {
+          landed.delete();
+        }
+        await forget();
+        throw new SystemDownloadError(`DownloadManager size ${landed.exists ? landed.size : 0}/${expected}`);
       }
       await forget();
       onProgress?.(1);

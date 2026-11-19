@@ -437,6 +437,17 @@ environment cannot reach.
   `sondar: dgt_speed` measured 1–3 s per tile and 7–13 s for the first ones (rendered on
   demand), and `dgt_wmts` found **no cached tiles** — its GeoWebCache only has GeoServer's
   demo layers. What shows meanwhile is the parent tile stretched; once seen, tiles stay cached.
+- **"There was a problem parsing the package" on updating from 7.0.61** (author's photo, 19
+  November 2026): `systemDownload` called `source.move(destination)` **without `await`** —
+  `File.move`/`copy` return promises — and then `forget()` had DownloadManager delete its
+  file. From the system's folder to the app's cache the move is a copy across filesystems, so
+  the delete cut it short, and the truncated file had the final `.apk` name. Now both are
+  awaited, the landed size is checked against the download's total, `downloadUpdate` and
+  `downloadedUpdate` (`update.ts`) only hand over a file the Release's size, and
+  `dropCutShortFiles` (`offlineMap.ts`, at start-up) removes country maps and business files
+  whose size is not the published one (the manifest's `bytes`/`negociosBytes` are the exact
+  file sizes, checked). **To update from 7.0.61 itself**, that version's updater is the broken
+  one: install 7.0.63 from the Release page in the browser.
 - **A refresh button for transport plans** (author's photo, 19 November 2026: "time goes by and
   this stops being current"; not seen on a phone): beside the time chip in the route panel,
   `forgetTransitPlans` + `transitRefresh` plan again from scratch; and coming back to the app
