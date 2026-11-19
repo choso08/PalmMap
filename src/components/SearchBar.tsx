@@ -3,6 +3,8 @@ import { t } from '../i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   Keyboard,
   Pressable,
@@ -509,7 +511,7 @@ export function SearchBar({
           }
           keyExtractor={({ place }, i) => `${place.id}-${i}`}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item: { place, guardado, local } }) => {
+          renderItem={({ item: { place, guardado, local }, index }) => {
             const row = (
             <Pressable style={styles.result} onPress={() => handleSelect(place)}>
               <View style={styles.resultHeader}>
@@ -544,15 +546,51 @@ export function SearchBar({
             </Pressable>
             );
             // Recent destinations go away with a sideways swipe, as in Maps.
-            return local && !guardado && onRemoveRecent ? (
-              <SwipeToRemove onRemove={() => onRemoveRecent(place)}>{row}</SwipeToRemove>
-            ) : (
-              row
+            return (
+              <FadeIn index={index}>
+                {local && !guardado && onRemoveRecent ? (
+                  <SwipeToRemove onRemove={() => onRemoveRecent(place)}>{row}</SwipeToRemove>
+                ) : (
+                  row
+                )}
+              </FadeIn>
             );
           }}
         />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * A row eases in — a fade and a short rise, one after the other (author,
+ * 19 November 2026: the list "appears very bluntly"). Only on mounting: a row
+ * already shown does not move again. Native driver, so a busy JavaScript
+ * thread does not stutter it.
+ */
+const FADE_MS = 180;
+const FADE_STAGGER_MS = 35;
+const FADE_STAGGER_MAX = 8;
+function FadeIn({ index, children }: { index: number; children: React.ReactNode }) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: FADE_MS,
+      delay: Math.min(index, FADE_STAGGER_MAX) * FADE_STAGGER_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [progress, index]);
+  return (
+    <Animated.View
+      style={{
+        opacity: progress,
+        transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }
 

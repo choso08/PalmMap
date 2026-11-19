@@ -423,6 +423,16 @@ environment cannot reach.
   "Delete" — offered too when turning the switch off — removes the data **and destroys the
   key**. Android's Auto Backup is now off (`allowBackup: false`) for the whole app. A line under
   the switch says it stays on the phone, encrypted, nothing sent or copied.
+- **From the author's phone, 19 November 2026 (7.0.61, not seen on a phone yet):** stops over
+  Almada at a region-wide zoom — the stop symbols (`paragens-icon`) had no `minzoom`; now the
+  others show from `STOPS_SHOWN_MIN_ZOOM` (12) and the open one (`paragens-icon-aberta`) at any
+  zoom. The empty search's rows ease in (`FadeIn` in `SearchBar.tsx`: 180 ms fade and 8 px rise,
+  35 ms apart, native driver) — the author found them "very blunt"; they also said the recents
+  took ~5 s to show, cause not found (the list is built at once on focus; the JavaScript thread
+  was busy with something else). **High satellite pixelated close in** is the DGT's WMS:
+  `sondar: dgt_speed` measured 1–3 s per tile and 7–13 s for the first ones (rendered on
+  demand), and `dgt_wmts` found **no cached tiles** — its GeoWebCache only has GeoServer's
+  demo layers. What shows meanwhile is the parent tile stretched; once seen, tiles stay cached.
 - **A refresh button for transport plans** (author's photo, 19 November 2026: "time goes by and
   this stops being current"; not seen on a phone): beside the time chip in the route panel,
   `forgetTransitPlans` + `transitRefresh` plan again from scratch; and coming back to the app
