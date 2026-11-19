@@ -66,6 +66,8 @@ const PIN_GLYPH: Record<PoiFamily, string> = {
 /** OpenFreeMap's TileJSON: free, no key, OpenStreetMap data. See `tilePois`. */
 const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
 /** Street view's coverage colour: Panoramax's own orange, which people who use it know. */
+/** Below this zoom only the open stop is drawn: the rest are a heap over the town. */
+const STOPS_SHOWN_MIN_ZOOM = 12;
 const STREET_VIEW_COLOUR = '#FF6F00';
 const OPENFREEMAP_ATTRIBUTION = 'OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors';
 
@@ -89,7 +91,7 @@ const TRAILS_ATTRIBUTION = '© waymarkedtrails.org, data © OpenStreetMap contri
  * (`transitAt`). See `transitAt` for why.
  */
 const VEHICLE_LAYERS = ['autocarros-base', 'autocarros-icon', 'autocarros-label'];
-const STOP_LAYERS = ['paragens-aberta', 'paragens-icon', 'paragens-label', 'paragens-label-aberta'];
+const STOP_LAYERS = ['paragens-aberta', 'paragens-icon', 'paragens-icon-aberta', 'paragens-label', 'paragens-label-aberta'];
 const STATION_LAYERS = ['estacoes-aberta', 'estacoes-icon', 'estacoes-icon-aberta', 'estacoes-label'];
 /** Half the touch box MapLibre gives a press (44 × 44 pixels). */
 const TAP_HALF_BOX = 22;
@@ -1797,6 +1799,32 @@ export function MapView({
             key="paragens-icon"
             id="paragens-icon"
             type="symbol"
+            // Far out they are a heap over the whole town (author's photo, 19
+            // November 2026: stops over Almada at a region-wide zoom): only
+            // from STOPS_SHOWN_MIN_ZOOM. The open one shows at any zoom.
+            minzoom={STOPS_SHOWN_MIN_ZOOM}
+            filter={['==', ['get', 'aberta'], 0]}
+            layout={{
+              'icon-image': 'stop-bus',
+              // Zoom on the outside: the spec only allows it at the top.
+              'icon-size': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                14,
+                ['case', ['==', ['get', 'aberta'], 1], 1.3, 0.75],
+                17,
+                ['case', ['==', ['get', 'aberta'], 1], 1.5, 1.05],
+              ],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+          />
+          <Layer
+            key="paragens-icon-aberta"
+            id="paragens-icon-aberta"
+            type="symbol"
+            filter={['==', ['get', 'aberta'], 1]}
             layout={{
               'icon-image': 'stop-bus',
               // Zoom on the outside: the spec only allows it at the top.

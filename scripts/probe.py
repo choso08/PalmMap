@@ -1957,6 +1957,28 @@ def dgt_speed():
             print("  ", tag, text[i:i + 300].replace("\n", " "))
 
 
+def dgt_wmts():
+    """The DGT's GeoServer GeoWebCache: which layers it caches, and how fast a cached tile is."""
+    section("DGT WMTS")
+    st, ct, body = get("https://ortos.dgterritorio.gov.pt/geoserver/gwc/service/wmts?REQUEST=GetCapabilities", timeout=60)
+    text = body.decode("utf-8", "replace")
+    layers = re.findall(r"<Layer>.*?<ows:Identifier>([^<]+)</ows:Identifier>", text, re.S)
+    print("layers", len(layers), layers[:80])
+    sets = re.findall(r"<TileMatrixSet>\s*<ows:Identifier>([^<]+)</ows:Identifier>", text)
+    print("matrix sets", sets[:30])
+    for name in layers:
+        if "orto" in name.lower() or "sat" in name.lower() or "2023" in name:
+            i = text.find(f"<ows:Identifier>{name}</ows:Identifier>")
+            chunk = text[i:i + 3000]
+            print(name, re.findall(r"<Format>([^<]+)</Format>", chunk)[:5],
+                  re.findall(r"<TileMatrixSet>([^<]+)</TileMatrixSet>", chunk)[:8],
+                  re.findall(r'template="([^"]+)"', chunk)[:2])
+    st, ct, body = get("https://ortos.dgterritorio.gov.pt/geoserver/ows?service=WMS&request=GetCapabilities", timeout=60)
+    text = body.decode("utf-8", "replace")
+    names = re.findall(r"<Name>([^<]+)</Name>", text)
+    print("geoserver wms names", len(names), [n for n in names if "orto" in n.lower() or "sat" in n.lower()][:40])
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
