@@ -369,6 +369,11 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **A dropped pin says whose it is** (author's photo, 19 November: a pin on their house read
+  "Point on the map" with its coordinates; not seen on a phone): within `PIN_SAVED_M` (40 m) of
+  Home, Work or a saved place it takes that name and address; otherwise the address as before.
+  And **reverse geocoding falls back to Photon** (`reversePhoton`, `/reverse`, its own queue)
+  when Nominatim fails — it had answered 503 after 15 s, and the pin stayed nameless.
 - **A copy that survives uninstalling** (author: "it should keep a file on the phone by
   itself", 19 November; not seen on a phone): `services/backup.ts`. Android deletes the app's
   folders on uninstall, and a file it put in Downloads is no longer readable by it after

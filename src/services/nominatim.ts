@@ -368,8 +368,51 @@ export async function reverseGeocode(coordinates: Coordinates): Promise<Place | 
     cache.set(cacheKey, [place]);
     return place;
   } catch {
+    // Nominatim refused or took too long (it has answered 503 after 15 s):
+    // Photon, as the search does. A dropped pin named "Point on the map" with
+    // its coordinates was the result (author's photo, November 2026).
+    const place = await reversePhoton(coordinates).catch(() => null);
+    if (place) {
+      cache.set(cacheKey, [place]);
+    }
+    return place;
+  }
+}
+
+/**
+ * Photon's reverse geocoding, only after Nominatim failed. Shaped as
+ * Nominatim's answer is, for `addressOf`: the object's own name first in the
+ * address and as `name` (empty for a plain house, so the street is kept).
+ */
+async function reversePhoton(coordinates: Coordinates): Promise<Place | null> {
+  const response = await photonSchedule(() =>
+    photon.get<PhotonResponse>('/reverse', {
+      params: {
+        lat: coordinates.latitude.toFixed(5),
+        lon: coordinates.longitude.toFixed(5),
+        ...(activeLanguage() === 'en' ? { lang: 'en' } : {}),
+      },
+    }),
+  );
+  const p = response.data.features?.[0]?.properties;
+  if (!p) {
     return null;
   }
+  const street = [p.street, p.housenumber].filter(Boolean).join(' ');
+  const parts = [p.name, street, p.postcode, p.city ?? p.district, p.state, p.country].filter(
+    (part): part is string => Boolean(part),
+  );
+  if (parts.length === 0) {
+    return null;
+  }
+  return {
+    id: p.osm_id ?? -Date.now(),
+    name: p.name ?? '',
+    address: parts.join(', '),
+    coordinates,
+    kindKey: p.osm_key,
+    kindValue: p.osm_value,
+  };
 }
 
 /**

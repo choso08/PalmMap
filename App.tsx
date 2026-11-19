@@ -307,6 +307,9 @@ function rememberView(bounds: Bounds, zoom: number): void {
   }, 1000);
 }
 
+/** A dropped pin this close to Home, Work or a saved place is named after it. */
+const PIN_SAVED_M = 40;
+
 /** Arriving counts near the end only once this little of the route is left. */
 const ARRIVAL_NEAR_M = 300;
 
@@ -652,6 +655,8 @@ function PalmMap() {
 
   /** Saved places, read from the phone at start-up. */
   const [favourites, setFavourites] = useState<Place[]>([]);
+  const favouritesRef = useRef(favourites);
+  favouritesRef.current = favourites;
   /** Recent destinations, so the same address does not have to be typed again. */
   const [recents, setRecents] = useState<Place[]>([]);
 
@@ -2921,17 +2926,39 @@ function PalmMap() {
    * so there is no waiting for Nominatim to be able to draw the route.
    */
   const handleDropPin = useCallback((coordinates: Coordinates) => {
+    // **On a place the person saved, the pin says which** (author's photo,
+    // November 2026: a pin on their own house read "Point on the map"): Home,
+    // Work or a saved place within `PIN_SAVED_M`, with its address.
+    const homeWork = homeWorkNow();
+    const saved: { name: string; place: Place } | null = (() => {
+      const near = (p: Place | null | undefined) =>
+        p != null && distanceMeters(p.coordinates, coordinates) <= PIN_SAVED_M;
+      if (near(homeWork.home)) return { name: t().saved.home, place: homeWork.home! };
+      if (near(homeWork.work)) return { name: t().saved.work, place: homeWork.work! };
+      const fav = favouritesRef.current
+        .filter(near)
+        .sort(
+          (a, b) => distanceMeters(a.coordinates, coordinates) - distanceMeters(b.coordinates, coordinates),
+        )[0];
+      return fav ? { name: fav.name, place: fav } : null;
+    })();
     const fallback: Place = {
       // Negative id so it never clashes with OpenStreetMap's.
       id: -Date.now(),
-      name: t().search.mapPoint,
-      address: `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`,
+      name: saved?.name ?? t().search.mapPoint,
+      address:
+        saved?.place.address ||
+        `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`,
       coordinates,
     };
 
     setDroppedPin(coordinates);
     setSelectedPlace(fallback);
     setCategory(null);
+
+    if (saved?.place.address) {
+      return;
+    }
 
     void (async () => {
       const found = await reverseGeocode(coordinates);
@@ -2949,8 +2976,9 @@ function PalmMap() {
         current?.id === fallback.id
           ? {
               ...fallback,
-              name: title || fallback.name,
-              address: rest || fallback.address,
+              // A saved place keeps its name; the address goes under it.
+              name: saved ? fallback.name : title || fallback.name,
+              address: saved ? [title, rest].filter(Boolean).join(', ') || fallback.address : rest || fallback.address,
             }
           : current,
       );
