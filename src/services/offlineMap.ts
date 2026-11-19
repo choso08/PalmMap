@@ -333,13 +333,79 @@ export async function listRegions(): Promise<OfflineRegion[]> {
 }
 
 /**
- * Downloads a region's map.
+ * The downloads under way, whoever started them — a tap in the maps list or
+ * the Wi-Fi refresh — and how far along each is, from 0 to 1.
+ *
+ * One per region (author's report, November 2026: "sometimes I tap to
+ * download a map and it does nothing"): the list did not know of the
+ * refresh's download, a tap started a second one of the same file, and each
+ * deleted the other's partial file. Now a second request joins the first, and
+ * the list shows every download, its own or not.
+ */
+const running = new Map<string, Promise<void>>();
+const progress = new Map<string, number>();
+const progressListeners = new Set<(all: ReadonlyMap<string, number>) => void>();
+
+function announceProgress(): void {
+  const all = new Map(progress);
+  progressListeners.forEach((listener) => listener(all));
+}
+
+/** Every download under way, now and at each change. Returns the unsubscribe. */
+export function watchDownloads(listener: (all: ReadonlyMap<string, number>) => void): () => void {
+  progressListeners.add(listener);
+  listener(new Map(progress));
+  return () => {
+    progressListeners.delete(listener);
+  };
+}
+
+/** Whether this region's map is downloading right now. */
+export function isDownloading(region: OfflineRegion): boolean {
+  return running.has(region.id);
+}
+
+/**
+ * Downloads a region's map — or joins its download already under way.
  *
  * It downloads to a temporary name and only gives it its final name at the
  * end: if the connection drops halfway, no incomplete file is left passing for
  * a good one.
  */
-export async function downloadRegion(
+export function downloadRegion(
+  region: OfflineRegion,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  const already = running.get(region.id);
+  if (already) {
+    if (onProgress) {
+      const listener = (all: ReadonlyMap<string, number>) => {
+        const fraction = all.get(region.id);
+        if (fraction !== undefined) {
+          onProgress(fraction);
+        }
+      };
+      progressListeners.add(listener);
+      void already.catch(() => undefined).finally(() => progressListeners.delete(listener));
+    }
+    return already;
+  }
+  progress.set(region.id, 0);
+  announceProgress();
+  const job = downloadOnce(region, (fraction) => {
+    progress.set(region.id, fraction);
+    announceProgress();
+    onProgress?.(fraction);
+  }).finally(() => {
+    running.delete(region.id);
+    progress.delete(region.id);
+    announceProgress();
+  });
+  running.set(region.id, job);
+  return job;
+}
+
+async function downloadOnce(
   region: OfflineRegion,
   onProgress?: (fraction: number) => void,
 ): Promise<void> {

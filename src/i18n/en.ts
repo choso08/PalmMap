@@ -439,6 +439,9 @@ export const en: typeof pt = {
     noMatch: 'No country by that name.',
     outdated: 'out of date',
     bundled: 'included with the app',
+    removeTitle: (name: string) => `Delete the map of ${name}?`,
+    removeBody: 'It stops working offline. You can download it again.',
+    remove: 'Delete',
   },
 
   schedules: {

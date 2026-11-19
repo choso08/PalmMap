@@ -1,14 +1,16 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '../i18n';
 import {
   downloadRegion,
   isDownloaded,
+  isDownloading,
   listRegions,
   outdatedRegions,
   removeRegion,
+  watchDownloads,
   type OfflineRegion,
 } from '../services/offlineMap';
 import { useT, useTheme } from '../settings';
@@ -78,28 +80,52 @@ export function OfflineMaps() {
     })();
   }, []);
 
+  // Every download under way, also the Wi-Fi refresh's: it used to be
+  // invisible here, and a tap on it started a second, clashing download.
+  useEffect(
+    () =>
+      watchDownloads((all) => {
+        setDownloads(Object.fromEntries(all));
+        for (const id of emCurso.current) {
+          if (!all.has(id)) {
+            emCurso.current.delete(id);
+          }
+        }
+      }),
+    [],
+  );
+
   const handleToggle = useCallback(async (region: OfflineRegion) => {
-    // Already downloading: a second tap does not start over.
-    if (emCurso.current.has(region.id)) {
+    // Already downloading, by a tap or by the Wi-Fi refresh: a second tap
+    // does not start over.
+    if (emCurso.current.has(region.id) || isDownloading(region)) {
       return;
     }
 
     // On an outdated map a tap **renews instead of deleting**. Deleting was the
     // opposite of what the person wants, and irreversible without a network.
     if (isDownloaded(region) && !desatualizadosRef.current.has(region.id)) {
-      removeRegion(region);
-      setRevision((n) => n + 1);
+      // Asked first: a tap meaning "download it again" removed the map, which
+      // looked like a tap that did nothing (author's report, November 2026).
+      Alert.alert(t().offline.removeTitle(region.nome), t().offline.removeBody, [
+        { text: t().common.cancel, style: 'cancel' },
+        {
+          text: t().offline.remove,
+          style: 'destructive',
+          onPress: () => {
+            removeRegion(region);
+            setRevision((n) => n + 1);
+          },
+        },
+      ]);
       return;
     }
 
     emCurso.current.add(region.id);
-    setDownloads((atuais) => ({ ...atuais, [region.id]: 0 }));
     setError(null);
 
     try {
-      await downloadRegion(region, (fracao) => {
-        setDownloads((atuais) => ({ ...atuais, [region.id]: fracao }));
-      });
+      await downloadRegion(region);
       desatualizadosRef.current.delete(region.id);
       setDesatualizados((atuais) => {
         const resto = new Set(atuais);
@@ -113,10 +139,6 @@ export function OfflineMaps() {
       setError(err instanceof Error ? err.message : t().common.failed);
     } finally {
       emCurso.current.delete(region.id);
-      setDownloads((atuais) => {
-        const { [region.id]: _terminada, ...resto } = atuais;
-        return resto;
-      });
     }
   }, []);
 

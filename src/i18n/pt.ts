@@ -476,6 +476,9 @@ export const pt = {
     noMatch: 'Nenhum país com esse nome.',
     outdated: 'desatualizado',
     bundled: 'vem com a aplicação',
+    removeTitle: (name: string) => `Apagar o mapa de ${name}?`,
+    removeBody: 'Deixa de funcionar sem rede. Pode descarregá-lo outra vez.',
+    remove: 'Apagar',
   },
 
   schedules: {

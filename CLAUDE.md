@@ -369,6 +369,12 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **A tap on a map that "did nothing"** (author's report, 19 November; not seen on a phone):
+  two causes. A tap on a downloaded, current map **deleted** it at once — now it asks first
+  (`offline.removeTitle`). And the Wi-Fi refresh's download was invisible in the list: a tap
+  then started a second download of the same file, each deleting the other's `.parcial`.
+  `downloadRegion` now keeps one download per region (`running`), a second request joins it,
+  and the list shows every download under way, whoever started it (`watchDownloads`).
 - **One bottom panel at a time, the newest** (author's report, 18 November: two panels open at
   once; not seen on a phone). Each panel decided alone — the stop's (`transitVisible`), the
   bus's and the measuring tape's showed over a place card or the route. `topPanel` in
