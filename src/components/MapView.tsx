@@ -1,4 +1,5 @@
 import { resolveLanguage } from '../i18n';
+import { note } from '../services/perfLog';
 import {
   Camera,
   type CameraRef,
@@ -19,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -440,6 +442,10 @@ export function MapView({
   labelsReady,
   ref,
 }: MapViewProps) {
+  const renderStart = Date.now();
+  useLayoutEffect(() => {
+    note('Map render', Date.now() - renderStart);
+  });
   const cameraRef = useRef<CameraRef>(null);
   const mapRef = useRef<MapRef>(null);
   /**

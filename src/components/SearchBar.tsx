@@ -23,6 +23,7 @@ import { LabelIcon } from './LabelIcon';
 import { useParkedCar } from '../services/parkedCar';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
+import { mark, since } from '../services/perfLog';
 import { listenOnce, voiceAvailable } from '../services/voiceInput';
 import { useTheme, useT } from '../settings';
 import type { Theme } from '../theme';
@@ -358,7 +359,10 @@ export function SearchBar({
           placeholder={placeholder ?? strings.search.placeholder}
           placeholderTextColor={theme.placeholder}
           returnKeyType="search"
-          onFocus={() => setFocused(true)}
+          onFocus={() => {
+            mark('search: focus');
+            setFocused(true);
+          }}
           onSubmitEditing={() => void runSearch(query)}
         />
 
@@ -478,6 +482,7 @@ export function SearchBar({
       {list.length > 0 || linesShown.length > 0 ? (
         <FlatList
           style={[styles.results, focused && styles.resultsFocused]}
+          onLayout={() => since('search: list on screen', 'search: focus')}
           data={list}
           ListHeaderComponent={
             linesShown.length > 0 ? (

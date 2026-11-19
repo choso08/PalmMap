@@ -428,8 +428,12 @@ environment cannot reach.
   others show from `STOPS_SHOWN_MIN_ZOOM` (12) and the open one (`paragens-icon-aberta`) at any
   zoom. The empty search's rows ease in (`FadeIn` in `SearchBar.tsx`: 180 ms fade and 8 px rise,
   35 ms apart, native driver) — the author found them "very blunt"; they also said the recents
-  took ~5 s to show, cause not found (the list is built at once on focus; the JavaScript thread
-  was busy with something else). **High satellite pixelated close in** is the DGT's WMS:
+  took ~5 s to show, "always", cause not found by reading (the list is built at once on
+  focus). So the phone measures it: **`services/perfLog.ts`** (memory only) — `mark`, `timed`,
+  `note`, `since`, and a watchdog that notes when the JavaScript thread was blocked over
+  300 ms, with the last mark before it; App and MapView renders over 30 ms, the country-file
+  pins and the timetable stops are timed, and the search notes focus → list on screen.
+  Shown newest first in Settings → About (`PerfCard`), for a screenshot. **High satellite pixelated close in** is the DGT's WMS:
   `sondar: dgt_speed` measured 1–3 s per tile and 7–13 s for the first ones (rendered on
   demand), and `dgt_wmts` found **no cached tiles** — its GeoWebCache only has GeoServer's
   demo layers. What shows meanwhile is the parent tile stretched; once seen, tiles stay cached.
@@ -1199,6 +1203,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── StreetViewSheet.tsx # Street view: a Panoramax picture, ‹ › along the street
 │   │   ├── LabelEditor.tsx   # A label of one's own: name, colour, icon or emoji, place
 │   │   ├── LabelIcon.tsx     # A label's icon: the font's or an emoji
+│   │   ├── PerfCard.tsx      # Settings → About: what blocked the app, this session
 │   │   ├── LearningSettings.tsx # "Learn from my movements" and what it learnt
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
@@ -1245,6 +1250,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── favourites.ts     # Saved places
 │   │   ├── parkedCar.ts      # Where the car was left, and its parking timer
 │   │   ├── tripHabits.ts     # Trips started, for the suggestion on opening
+│   │   ├── perfLog.ts        # In-memory performance log and a stall watchdog
 │   │   ├── movementLearning.ts # Opt-in background learning: paces, frequent places
 │   │   ├── weather.ts        # Rain at the destination (Open-Meteo)
 │   │   └── recents.ts        # Recent destinations

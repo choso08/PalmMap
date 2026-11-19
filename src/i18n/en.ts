@@ -605,6 +605,7 @@ export const en: typeof pt = {
 
     timeAdjustment: 'Estimated time',
     paceNote: (list: string) => `Learned pace: ${list}.`,
+    perfTitle: 'Performance (this session)',
     forgetPace: 'Forget the learned pace',
     paceLearning: 'Learn my pace',
 

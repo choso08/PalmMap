@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
@@ -110,6 +110,7 @@ import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/serv
 import { rainAround, type RainAt } from './src/services/weather';
 import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
 import { syncLearning, takePending } from './src/services/movementLearning';
+import { note, timed } from './src/services/perfLog';
 import {
   homeWorkNow,
   kindColour,
@@ -354,6 +355,11 @@ export default function App() {
 }
 
 function PalmMap() {
+  // How long each render of this (big) component takes — see `perfLog.ts`.
+  const renderStart = Date.now();
+  useLayoutEffect(() => {
+    note('App render', Date.now() - renderStart);
+  });
   const theme = useTheme();
   const strings = useT();
   // The system margins: status bar, centre camera and navigation bar. On
@@ -1920,7 +1926,7 @@ function PalmMap() {
         return;
       }
 
-      const local = localPlacesInBounds(bounds, ALL_BUSINESSES);
+      const local = timed('pins: country file', () => localPlacesInBounds(bounds, ALL_BUSINESSES));
       if (local) {
         setPlaces(local);
         setPlacesError(null);
@@ -1989,7 +1995,7 @@ function PalmMap() {
         // Offline, Carris Metropolitana's stops come from its stored timetable
         // too, and their live list is not shown: its times cannot come.
         const semRede = !isOnline();
-        setScheduledStops(scheduledBusStops(bounds, 300, semRede));
+        setScheduledStops(timed('stops: timetables', () => scheduledBusStops(bounds, 300, semRede)));
         const pedido = (stopsRequest.current += 1);
         if (semRede) {
           setMapStops((atual) => (atual.length === 0 ? atual : []));
@@ -2021,7 +2027,7 @@ function PalmMap() {
       // With the country downloaded, the pins come from the phone, now —
       // no wait, no request. See `localPois.ts`.
       if (!category && settings.showPlacesOnMap && zoom >= MAP_PINS_MIN_ZOOM) {
-        const local = localPlacesInBounds(bounds, ALL_BUSINESSES);
+        const local = timed('pins: country file', () => localPlacesInBounds(bounds, ALL_BUSINESSES));
         if (local) {
           latestPlaces.current += 1;
           setPlaces(local);

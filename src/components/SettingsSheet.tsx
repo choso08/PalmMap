@@ -22,6 +22,7 @@ import { clearRecents } from '../services/recents';
 import { DONATE_URL, MAP_REQUEST_URL } from '../services/config';
 import { Collapsible } from './Collapsible';
 import { LearningSettings } from './LearningSettings';
+import { PerfCard } from './PerfCard';
 import type { Coordinates } from '../types/geo';
 import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
@@ -841,6 +842,7 @@ export function SettingsSheet({
           {show.about ? (
             <>
                             <Text style={styles.about}>{s.aboutText}</Text>
+              <PerfCard visible={visible} />
 
               {/*
             The credits. Several of these services require attribution by
