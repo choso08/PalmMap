@@ -1860,6 +1860,28 @@ def streetview():
                 print(e, body[:300])
 
 
+def streetview_tiles():
+    """Panoramax's coverage tiles: the style's source and a tile over Evora."""
+    section("STREET VIEW TILES")
+    st, _, body = get("https://api.panoramax.xyz/api/map/style.json", timeout=30)
+    style = json.loads(body)
+    print("sources:", json.dumps(style.get("sources"))[:800])
+    print("layers:", [(l["id"], l.get("source-layer"), l.get("minzoom"), l.get("maxzoom")) for l in style["layers"]])
+    lon, lat = -7.908, 38.571
+    for z in (7, 12, 14, 15, 16):
+        x = int((lon + 180) / 360 * 2 ** z)
+        y = int((1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z)
+        st, ct, body = get(f"https://api.panoramax.xyz/api/map/{z}/{x}/{y}.mvt", timeout=30)
+        names = re.findall(rb"\x1a[\x01-\x7f]([a-z_]{4,20})", body[:4000])
+        print(z, x, y, st, ct, len(body), sorted(set(n.decode() for n in names))[:10])
+    st, _, body = get("https://api.panoramax.xyz/api/search?ids=5fe2c3b5-18de-4667-8d91-2c22770c2da4&limit=1", timeout=30)
+    try:
+        f = json.loads(body)["features"][0]
+        print("search by id:", st, f.get("collection"), [l.get("rel") for l in f.get("links", [])])
+    except Exception as e:  # noqa: BLE001
+        print("search by id failed", st, e, body[:300])
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
