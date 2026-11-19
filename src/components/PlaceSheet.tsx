@@ -54,6 +54,8 @@ interface PlaceSheetProps {
    * already a destination — before that there is no route to add a stop to.
    */
   onAddStop?: () => void;
+  /** "Label": give this place a label of one's own (`LabelEditor`). */
+  onLabel?: () => void;
   /** A Panoramax photo tapped: open it in street view (`StreetViewSheet`). */
   onOpenStreetPicture?: (pictureId: string) => void;
   onClose: () => void;
@@ -80,6 +82,7 @@ export function PlaceSheet({
   travelTime = null,
   onAddStop,
   onOpenStreetPicture,
+  onLabel,
   onClose,
   dragHandlers,
   headerHandlers,
@@ -202,6 +205,7 @@ export function PlaceSheet({
       label: favourite ? s.unsave : s.save,
       onPress: onToggleFavourite,
     },
+    ...(onLabel ? [{ key: 'label', icon: 'tag-plus-outline', label: strings.labels.label, onPress: onLabel }] : []),
     ...(onAddStop
       ? [{ key: 'stop', icon: 'map-marker-plus-outline', label: s.addWaypoint, onPress: onAddStop }]
       : []),

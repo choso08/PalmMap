@@ -369,6 +369,18 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **Labels of one's own** (author: "more customisable location tags", then "if the tag could
+  really be customised", 19 November 2026; not seen on a phone): as Google's "Labelled", a
+  name, a colour (`LABEL_COLOURS`) and an icon — one of `LABEL_ICONS` or any emoji typed
+  (`isEmojiIcon`, drawn by `LabelIcon`) — each pointing at one place. Stored in
+  `palmmap.etiquetas` (`homeWork.ts`, at most `LABELS_MAX` 20; in the automatic copy). They
+  are Home and Work's kin: `HomeWorkKind` is `'home' | 'work' | 'label:<id>'`, so the
+  `HomeWorkPicker` screen (search, current location, "Choose on map") and the map pin bar
+  serve them through `placeOf`, `kindName`, `kindIcon`, `kindColour`. Made and changed in
+  `LabelEditor` (name, colour, icon or emoji, change/remove the place, delete): from the Saved
+  screen's row of label chips (a tap goes there, a long press edits, the last chip makes a new
+  one) or a place's card ("Label", the place already set). Labels with a place show among the
+  empty search's chips, and a dropped pin within `PIN_SAVED_M` of one takes its name.
 - **Live buses: asked when due, kept when missed, and sliding** (author, 19 November 2026:
   "every 10 s, and if it only updates at 11 s it disappears" — chose all three; not seen on a
   phone). `mergeVehicles` (`vehicles.ts`) keeps a bus missing from a fresh list at its last
@@ -1129,6 +1141,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── FavouriteStopRow.tsx # A favourite stop with its next buses (Saved)
 │   │   ├── TripTimeline.tsx  # A trip's steps as a Maps-style timeline
 │   │   ├── StreetViewSheet.tsx # Street view: a Panoramax picture, ‹ › along the street
+│   │   ├── LabelEditor.tsx   # A label of one's own: name, colour, icon or emoji, place
+│   │   ├── LabelIcon.tsx     # A label's icon: the font's or an emoji
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas

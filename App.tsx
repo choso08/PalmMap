@@ -111,11 +111,18 @@ import { rainAround, type RainAt } from './src/services/weather';
 import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
 import {
   homeWorkNow,
+  kindColour,
+  kindIcon,
+  kindName,
+  labelsNow,
   loadHomeWork,
+  placeOf,
   setHomeWork,
   type HomeWorkKind,
 } from './src/services/homeWork';
 import { HomeWorkPicker } from './src/components/HomeWorkPicker';
+import { LabelEditor, type LabelEditorTarget } from './src/components/LabelEditor';
+import { LabelIcon } from './src/components/LabelIcon';
 import {
   alertManeuver,
   clearApproach,
@@ -501,6 +508,8 @@ function PalmMap() {
   /** Home or Work being set (`HomeWorkPicker`), and being placed on the map. */
   const [homeWorkFor, setHomeWorkFor] = useState<HomeWorkKind | null>(null);
   const [pinHomeWork, setPinHomeWork] = useState<HomeWorkKind | null>(null);
+  /** A label being made or changed (`LabelEditor`). */
+  const [labelEditor, setLabelEditor] = useState<LabelEditorTarget | null>(null);
   const [pinSaving, setPinSaving] = useState(false);
   /** Bumped when the pin mode starts or ends: a lookup finishing later saves nothing. */
   const pinSession = useRef(0);
@@ -2985,6 +2994,9 @@ function PalmMap() {
         p != null && distanceMeters(p.coordinates, coordinates) <= PIN_SAVED_M;
       if (near(homeWork.home)) return { name: t().saved.home, place: homeWork.home! };
       if (near(homeWork.work)) return { name: t().saved.work, place: homeWork.work! };
+      // The person's own labels next ("Gym", "Mum's").
+      const label = labelsNow().find((l) => near(l.place));
+      if (label?.place) return { name: label.name, place: label.place };
       const fav = favouritesRef.current
         .filter(near)
         .sort(
@@ -4210,6 +4222,7 @@ function PalmMap() {
                 travelTime={cardTime && cardTime.placeId === lastPlace.id ? cardTime.time : null}
                 onAddStop={destination ? () => handleAddWaypoint(lastPlace) : undefined}
                 onOpenStreetPicture={(id) => showStreetPicture(pictureById(id))}
+                onLabel={() => setLabelEditor({ place: lastPlace })}
                 onClose={() => {
                   setSelectedPlace(null);
                   setDroppedPin(null);
@@ -4648,7 +4661,7 @@ function PalmMap() {
           setSearchBlurRequest((n) => n + 1);
           setPinHomeWork(kind);
           // Start where it is now, else where the person is.
-          const start = homeWorkNow()[kind]?.coordinates ?? userLocationRef.current;
+          const start = placeOf(kind)?.coordinates ?? userLocationRef.current;
           if (start) {
             mapRef.current?.recenter(start);
           }
@@ -4662,11 +4675,15 @@ function PalmMap() {
       {pinHomeWork ? (
         <>
           <View style={styles.centrePin} pointerEvents="none">
-            <MaterialCommunityIcons
-              name={pinHomeWork === 'work' ? 'briefcase' : 'home-map-marker'}
-              size={44}
-              color={theme.destination}
-            />
+            {pinHomeWork === 'home' ? (
+              <MaterialCommunityIcons name="home-map-marker" size={44} color={theme.destination} />
+            ) : (
+              <LabelIcon
+                icon={kindIcon(pinHomeWork)}
+                size={44}
+                colour={kindColour(pinHomeWork) ?? theme.destination}
+              />
+            )}
           </View>
           <View style={[styles.pinBar, { paddingBottom: 16 + insets.bottom }]}>
             <Text style={styles.pinHint}>{strings.saved.pinHint}</Text>
@@ -4699,7 +4716,7 @@ function PalmMap() {
                         kind,
                         found ?? {
                           id: -Date.now(),
-                          name: t().saved[kind],
+                          name: kindName(kind),
                           address: '',
                           coordinates: centre,
                         },
@@ -4713,7 +4730,11 @@ function PalmMap() {
                   <ActivityIndicator size="small" color={theme.onAccent} />
                 ) : (
                   <Text style={styles.pinConfirmText}>
-                    {pinHomeWork === 'work' ? strings.saved.setWorkHere : strings.saved.setHomeHere}
+                    {pinHomeWork === 'work'
+                      ? strings.saved.setWorkHere
+                      : pinHomeWork === 'home'
+                        ? strings.saved.setHomeHere
+                        : strings.labels.setHere}
                   </Text>
                 )}
               </Pressable>
@@ -4722,8 +4743,15 @@ function PalmMap() {
         </>
       ) : null}
 
+      <LabelEditor
+        target={labelEditor}
+        onClose={() => setLabelEditor(null)}
+        onPickPlace={(kind) => setHomeWorkFor(kind)}
+      />
+
       <SavedSheet
         onSetHomeWork={setHomeWorkFor}
+        onEditLabel={(kind: HomeWorkKind | null) => setLabelEditor(kind ? { kind } : {})}
         visible={savedVisible}
         favourites={favourites}
         recents={recents}

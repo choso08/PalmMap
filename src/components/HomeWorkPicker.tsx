@@ -14,7 +14,17 @@ import {
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { SEARCH_DEBOUNCE_MS } from '../services/config';
-import { setHomeWork, useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import {
+  kindColour,
+  kindIcon,
+  kindName,
+  placeOf,
+  setHomeWork,
+  useHomeWork,
+  useLabels,
+  type HomeWorkKind,
+} from '../services/homeWork';
+import { LabelIcon } from './LabelIcon';
 import { getBestPosition } from '../services/location';
 import { addressAt, searchPlaces } from '../services/nominatim';
 import { SupersededError } from '../services/rateLimit';
@@ -64,6 +74,7 @@ export function HomeWorkPicker({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
   const homeWork = useHomeWork();
+  const labelList = useLabels();
   const visible = kind !== null;
 
   const [query, setQuery] = useState('');
@@ -159,7 +170,7 @@ export function HomeWorkPicker({
       choose(
         found ?? {
           id: -Date.now(),
-          name: strings.saved[forKind],
+          name: kindName(forKind, labelList),
           address: '',
           coordinates: position,
         },
@@ -193,7 +204,7 @@ export function HomeWorkPicker({
   ];
 
   const swipe = useSwipeToClose(onClose, visible);
-  const current = kind ? homeWork[kind] : null;
+  const current = kind ? placeOf(kind, homeWork, labelList) : null;
 
   return (
     <Modal
@@ -210,15 +221,19 @@ export function HomeWorkPicker({
             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
           </Pressable>
           <Text style={styles.title}>
-            {kind === 'work' ? strings.saved.setWorkTitle : strings.saved.setHomeTitle}
+            {kind === 'work'
+              ? strings.saved.setWorkTitle
+              : kind === 'home' || !kind
+                ? strings.saved.setHomeTitle
+                : strings.labels.setTitle(kindName(kind, labelList))}
           </Text>
         </View>
 
         <View style={styles.inputRow}>
-          <MaterialCommunityIcons
-            name={kind === 'work' ? 'briefcase' : 'home'}
+          <LabelIcon
+            icon={kind ? kindIcon(kind, labelList) : 'home'}
             size={20}
-            color={theme.accent}
+            colour={(kind && kindColour(kind, labelList)) || theme.accent}
           />
           <TextInput
             style={styles.input}
@@ -274,7 +289,11 @@ export function HomeWorkPicker({
                   </View>
                   <View style={styles.rowText}>
                     <Text style={[styles.action, { color: theme.danger }]}>
-                      {kind === 'work' ? strings.saved.removeWork : strings.saved.removeHome}
+                      {kind === 'work'
+                        ? strings.saved.removeWork
+                        : kind === 'home'
+                          ? strings.saved.removeHome
+                          : strings.labels.remove}
                     </Text>
                     <Text style={styles.sub} numberOfLines={1}>
                       {current.address ?? current.name}

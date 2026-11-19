@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo, useState } from 'react';
-import { Animated, Modal, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -11,7 +11,8 @@ import { useFavouriteStops } from '../services/favouriteStops';
 import type { TransitStop } from '../services/transit';
 import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
-import { useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import { LABELS_MAX, useHomeWork, useLabels, type HomeWorkKind } from '../services/homeWork';
+import { LabelIcon } from './LabelIcon';
 import {
   forgetParkedCar,
   setParkingPaidUntil,
@@ -40,6 +41,8 @@ interface Props {
   onGoToCar: (car: ParkedCar) => void;
   /** Home or Work to set or change: opens `HomeWorkPicker`. */
   onSetHomeWork: (kind: HomeWorkKind) => void;
+  /** A label to change, or `null` for a new one (`LabelEditor`). */
+  onEditLabel: (kind: HomeWorkKind | null) => void;
 }
 
 /**
@@ -61,6 +64,7 @@ export function SavedSheet({
   onParkHere,
   onGoToCar,
   onSetHomeWork,
+  onEditLabel,
 }: Props) {
   const theme = useTheme();
   const strings = useT();
@@ -69,6 +73,7 @@ export function SavedSheet({
   const stops = useFavouriteStops();
   const lines = useFavouriteLines();
   const homeWork = useHomeWork();
+  const labels = useLabels();
   const parked = useParkedCar();
   const { settings } = useSettings();
   const [noticeOff, setNoticeOff] = useState(false);
@@ -157,6 +162,44 @@ export function SavedSheet({
             );
           })}
         </View>
+        {/*
+          The person's own labels ("Gym", "Mum's"), each in its colour and
+          icon: a tap goes there (or picks its place, when it has none), a
+          long press changes it; the last chip makes a new one.
+        */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.labels}
+          keyboardShouldPersistTaps="handled"
+        >
+          {labels.map((label) => {
+            const kind: HomeWorkKind = `label:${label.id}`;
+            return (
+              <Pressable
+                key={label.id}
+                style={styles.labelChip}
+                onPress={() => (label.place ? go(label.place) : onSetHomeWork(kind))}
+                onLongPress={() => onEditLabel(kind)}
+                accessibilityHint={strings.saved.changeHint}
+              >
+                <View style={[styles.labelDot, { backgroundColor: label.colour }]}>
+                  <LabelIcon icon={label.icon} size={15} colour="#fff" />
+                </View>
+                <Text style={styles.labelText} numberOfLines={1}>
+                  {label.place ? label.name : `${label.name} · ${strings.saved.set}`}
+                </Text>
+              </Pressable>
+            );
+          })}
+          {labels.length < LABELS_MAX ? (
+            <Pressable style={[styles.labelChip, styles.labelAdd]} onPress={() => onEditLabel(null)}>
+              <MaterialCommunityIcons name="tag-plus-outline" size={18} color={theme.accent} />
+              <Text style={[styles.labelText, { color: theme.accent }]}>{strings.labels.add}</Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+
         {/*
           Where the car was left (`services/parkedCar.ts`): a tap walks there;
           with none, a tap saves where the person is.
@@ -477,5 +520,28 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.textMuted,
       marginTop: 2,
     },
+    labels: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+    labelChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingLeft: 6,
+      paddingRight: 14,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      maxWidth: 220,
+    },
+    labelAdd: { paddingLeft: 12, borderStyle: 'dashed', borderColor: theme.accent },
+    labelDot: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    labelText: { fontSize: 14, fontWeight: '600', color: theme.text, flexShrink: 1 },
   });
 }

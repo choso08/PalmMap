@@ -30,6 +30,7 @@ const KEPT_KEYS = [
   'palmmap.settings',
   'palmmap.favourites',
   'palmmap.casaTrabalho',
+  'palmmap.etiquetas',
   'palmmap.paragensFavoritas',
   'palmmap.linhasFavoritas',
   'palmmap.recents',

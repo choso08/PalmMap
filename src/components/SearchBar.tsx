@@ -16,7 +16,8 @@ import { SEARCH_DEBOUNCE_MS } from '../services/config';
 import { searchLines, type TransitLineInfo } from '../services/transit';
 import { operatorColour, textOn } from '../utils/lineColour';
 import { isSamePlace } from '../services/favourites';
-import { useHomeWork, type HomeWorkKind } from '../services/homeWork';
+import { useHomeWork, useLabels, type HomeWorkKind } from '../services/homeWork';
+import { LabelIcon } from './LabelIcon';
 import { useParkedCar } from '../services/parkedCar';
 import { SwipeToRemove } from './SwipeToRemove';
 import { searchPlaces } from '../services/nominatim';
@@ -104,6 +105,7 @@ export function SearchBar({
   /** True while the box is in use, to show the saved places. */
   const [focused, setFocusedState] = useState(false);
   const homeWork = useHomeWork();
+  const labels = useLabels();
   const parkedCar = useParkedCar();
   const setFocused = useCallback(
     (value: boolean) => {
@@ -402,7 +404,7 @@ export function SearchBar({
         The empty search starts with the places one goes to most, as in Maps:
         Home, Work and the parked car, one tap each. Only those set.
       */}
-      {parado && (homeWork.home || homeWork.work || onSetHomeWork || (parkedCar && onGoToCar)) ? (
+      {parado && (homeWork.home || homeWork.work || onSetHomeWork || labels.some((l) => l.place) || (parkedCar && onGoToCar)) ? (
         <View style={styles.shortcuts}>
           {(['home', 'work'] as const).map((kind) => {
             const place = homeWork[kind];
@@ -442,6 +444,19 @@ export function SearchBar({
               </Pressable>
             ) : null;
           })}
+          {/* The person's own labels with a place, in their colour. */}
+          {labels
+            .filter((l) => l.place)
+            .map((l) => (
+              <Pressable
+                key={l.id}
+                style={styles.shortcut}
+                onPress={() => l.place && handleSelect(l.place)}
+              >
+                <LabelIcon icon={l.icon} size={16} colour={l.colour} />
+                <Text style={styles.shortcutText}>{l.name}</Text>
+              </Pressable>
+            ))}
           {parkedCar && onGoToCar ? (
             <Pressable
               style={styles.shortcut}
