@@ -9,6 +9,7 @@ Prints what is needed to fix things against real data instead of guesses:
 - Metro Sul do Tejo stations, as the Carris API lists them.
 - Which satellite / orthophoto editions exist (EOX, DGT).
 """
+import gzip
 import math
 import re
 import urllib.parse
@@ -1880,6 +1881,33 @@ def streetview_tiles():
         print("search by id:", st, f.get("collection"), [l.get("rel") for l in f.get("links", [])])
     except Exception as e:  # noqa: BLE001
         print("search by id failed", st, e, body[:300])
+
+
+def ofm_tiles():
+    """OpenFreeMap: what a phone downloads to show business pins (whole tiles)."""
+    section("OPENFREEMAP TILES")
+    t0 = time.time()
+    st, _, body = get("https://tiles.openfreemap.org/planet", timeout=30)
+    print("tilejson", st, round(time.time() - t0, 2), "s", body[:300])
+    tj = json.loads(body)
+    url = tj["tiles"][0]
+    print("minzoom", tj.get("minzoom"), "maxzoom", tj.get("maxzoom"))
+    for name, lon, lat in (("Lisboa Baixa", -9.1394, 38.7139), ("Almada", -9.158, 38.679), ("Evora", -7.908, 38.571)):
+        for z in (14,):
+            x = int((lon + 180) / 360 * 2 ** z)
+            y = int((1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z)
+            for dx in (0, 1):
+                t0 = time.time()
+                req = urllib.request.Request(url.replace("{z}", str(z)).replace("{x}", str(x + dx)).replace("{y}", str(y)),
+                                             headers={"User-Agent": UA, "Accept-Encoding": "gzip"})
+                try:
+                    with urllib.request.urlopen(req, timeout=30) as r:
+                        raw = r.read()
+                        enc = r.headers.get("Content-Encoding")
+                    size = len(gzip.decompress(raw)) if enc == "gzip" else len(raw)
+                    print(name, z, x + dx, y, "wire", len(raw), "raw", size, enc, round(time.time() - t0, 2), "s")
+                except Exception as e:  # noqa: BLE001
+                    print(name, z, "failed", e)
 
 
 if __name__ == "__main__":
