@@ -401,6 +401,17 @@ environment cannot reach.
   / "Work" with a button to set it, a tap shows it on the map) and deletes everything
   (`forgetLearnt`). Checked with simulated days in a scratch harness: Home and Work found,
   4.5 km/h walks give 1.11.
+- **"Businesses take ages to load"** (author, 19 November 2026; not seen on a phone). Measured:
+  **from the country file**, a Lisbon view at zoom 15 reads 6 cells, 1 MB, 8,046 records; in
+  Node without JIT (closer to Hermes) 115 ms the first time, 10 ms after. Now 45 ms: UTF-8 is
+  decoded through `String.fromCharCode` slices + `decodeURIComponent(escape())` (79 → 17 ms
+  for that MB; the byte loop stays as the fallback), a `Place` is built only for the ≤300 kept
+  (it was built for every record in view), and the ring of cells around the view is read
+  into memory a couple at a time after the pins show (`prefetchAround`, local file only).
+  **Without a downloaded country** the pins come in OpenFreeMap's whole z14 tiles
+  (`sondar: ofm_tiles`): central Lisbon 320 KB compressed (533 KB raw), Almada 149 KB, Évora
+  157 KB — every layer, for the `poi` one alone; that is the slow case on mobile data, and the
+  only real cure is the business file (today it comes with the country map).
 - **A refresh button for transport plans** (author's photo, 19 November 2026: "time goes by and
   this stops being current"; not seen on a phone): beside the time chip in the route panel,
   `forgetTransitPlans` + `transitRefresh` plan again from scratch; and coming back to the app
