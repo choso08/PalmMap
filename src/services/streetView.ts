@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Image } from 'react-native';
 
 import { PANORAMAX_URL, STREET_VIEW_TAP_M, USER_AGENT } from './config';
 import type { Coordinates } from '../types/geo';
@@ -22,6 +23,8 @@ export interface StreetPicture {
   coordinates: Coordinates;
   /** The picture itself, 2048 px wide. */
   uri: string;
+  /** A 500 px version, shown while the big one arrives. */
+  thumbUri: string | null;
   /** Which way the camera looked, degrees from north, when known. */
   azimuth: number | null;
   /** A 360° picture (equirectangular), to be turned with the finger. */
@@ -57,6 +60,7 @@ function fromFeature(f: PanoramaxPictureFeature): StreetPicture | null {
     collection: f.collection ?? '',
     coordinates: { latitude: lat, longitude: lon },
     uri,
+    thumbUri: f.assets?.thumb?.href ?? null,
     azimuth: typeof azimuth === 'number' ? azimuth : null,
     spherical: f.properties?.['pers:interior_orientation']?.field_of_view === 360,
     takenAt: Number.isFinite(taken) ? taken : null,
@@ -85,6 +89,9 @@ export async function pictureNear(at: Coordinates, radius = STREET_VIEW_TAP_M): 
       best = { p, d };
     }
   }
+  if (best) {
+    pictures.set(best.p.id, Promise.resolve(best.p));
+  }
   return best?.p ?? null;
 }
 
@@ -93,7 +100,7 @@ export async function pictureNear(at: Coordinates, radius = STREET_VIEW_TAP_M): 
  * `panoramax` tag. The item address when the sequence is known (it carries
  * the prev/next links), the search by id otherwise.
  */
-export async function pictureById(id: string, collection?: string): Promise<StreetPicture | null> {
+async function askPicture(id: string, collection?: string): Promise<StreetPicture | null> {
   if (collection) {
     const { data } = await client.get<PanoramaxPictureFeature>(
       `${PANORAMAX_URL}/collections/${encodeURIComponent(collection)}/items/${encodeURIComponent(id)}`,
@@ -110,5 +117,48 @@ export async function pictureById(id: string, collection?: string): Promise<Stre
   // The search answer may leave out the sequence links: ask the item.
   return first.links?.some((l) => l.rel === 'next' || l.rel === 'prev')
     ? fromFeature(first)
-    : pictureById(first.id, first.collection);
+    : askPicture(first.id, first.collection);
+}
+
+/**
+ * Pictures already asked, by id — the step back is then instant. Kept for
+ * the session; a walk along a street is a few hundred small answers at most.
+ */
+const pictures = new Map<string, Promise<StreetPicture | null>>();
+
+export function pictureById(id: string, collection?: string): Promise<StreetPicture | null> {
+  let asked = pictures.get(id);
+  if (!asked) {
+    asked = askPicture(id, collection);
+    pictures.set(id, asked);
+    // A failure is not kept: the next tap asks again.
+    asked.catch(() => pictures.delete(id));
+  }
+  return asked;
+}
+
+/**
+ * Gets the pictures before and after ready — their answer and their image —
+ * so a step along the street shows at once instead of waiting for the
+ * network (author: "not very fluid", 19 November 2026). Two steps ahead in
+ * the direction being walked, one behind.
+ */
+export function preloadAround(picture: StreetPicture, forward: 'next' | 'prev' = 'next'): void {
+  const warm = (id: string | null, depth: number, dir: 'next' | 'prev') => {
+    if (!id || depth <= 0) {
+      return;
+    }
+    void pictureById(id, picture.collection || undefined)
+      .then((p) => {
+        if (!p) {
+          return;
+        }
+        void Image.prefetch(p.uri).catch(() => undefined);
+        warm(p[dir], depth - 1, dir);
+      })
+      .catch(() => undefined);
+  };
+  const back = forward === 'next' ? 'prev' : 'next';
+  warm(picture[forward], 2, forward);
+  warm(picture[back], 1, back);
 }

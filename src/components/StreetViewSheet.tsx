@@ -2,8 +2,10 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +16,7 @@ import {
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
 import { PHOTO_HEADERS } from '../services/photos';
-import { pictureById, type StreetPicture } from '../services/streetView';
+import { pictureById, preloadAround, type StreetPicture } from '../services/streetView';
 import { useLanguage, useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates } from '../types/geo';
@@ -32,10 +34,16 @@ interface Props {
  * walking along the street in Google's.
  *
  * A 360° picture is the whole panorama unrolled (equirectangular): drawn at
- * the screen's height, twice as wide, and turned by dragging sideways. Not
+ * the screen's height, twice as wide, three copies side by side so turning
+ * never meets an end, and turned by dragging sideways. Not
  * the true sphere — that would need a 3-D view, a native library and a full
  * build — but it shows all around, and the middle is where the camera faced.
- * A plain picture is shown whole.
+ * A plain picture is shown whole, and a swipe sideways walks.
+ *
+ * Fluid, as asked (author, 19 November 2026): the pictures around are
+ * preloaded (`preloadAround`), the new one fades in over the old one instead
+ * of a black screen and a spinner, the small version shows first, and a 360°
+ * picture opens facing where one was looking.
  *
  * The credit the licence asks for (CC BY-SA 4.0, the author's name) is always
  * on screen.
@@ -49,28 +57,65 @@ export function StreetViewSheet({ picture, onClose }: Props) {
   const { width, height } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
 
+  /** The picture being shown (or arriving). */
   const [shown, setShown] = useState<StreetPicture | null>(picture);
+  /**
+   * The last picture whose image finished drawing: it stays underneath while
+   * the next one arrives, so a step never flashes black.
+   */
+  const [under, setUnder] = useState<StreetPicture | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [imageReady, setImageReady] = useState(false);
+  const fade = useRef(new Animated.Value(0)).current;
   const asking = useRef(0);
   const scroller = useRef<ScrollView>(null);
+  /** Which way one is looking in a 360° picture, degrees from north. */
+  const looking = useRef<number | null>(null);
+  /** The direction being walked, to preload ahead. */
+  const walking = useRef<'next' | 'prev'>('next');
+
+  // The panorama is drawn three times side by side and kept on the middle copy,
+  // so turning round never meets an end.
+  const panoHeight = Math.max(200, height - insets.top - insets.bottom - 150);
+  const panoWidth = panoHeight * 2;
+
+  /** The scroll offset that puts `heading` in the middle of the screen. */
+  const offsetFor = (p: StreetPicture, heading: number | null) => {
+    const turn =
+      heading === null || p.azimuth === null ? 0 : ((((heading - p.azimuth) % 360) + 540) % 360) - 180;
+    return panoWidth + panoWidth * (0.5 + turn / 360) - width / 2;
+  };
+
+  const show = (next: StreetPicture) => {
+    fade.setValue(0);
+    setShown(next);
+    preloadAround(next, walking.current);
+  };
 
   // A new picture from outside (another tap on the map) replaces the one shown.
   const [openedWith, setOpenedWith] = useState(picture);
   if (openedWith !== picture) {
     setOpenedWith(picture);
     setShown(picture);
+    setUnder(null);
     setFailed(false);
     setLoading(false);
-    setImageReady(false);
+    looking.current = null;
     asking.current += 1;
   }
+  useEffect(() => {
+    if (picture) {
+      fade.setValue(0);
+      preloadAround(picture);
+    }
+  }, [picture, fade]);
 
-  const go = (id: string | null) => {
+  const go = (dir: 'next' | 'prev') => {
+    const id = shown?.[dir];
     if (!id || !shown) {
       return;
     }
+    walking.current = dir;
     const token = ++asking.current;
     setLoading(true);
     setFailed(false);
@@ -81,8 +126,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
         }
         setLoading(false);
         if (next) {
-          setImageReady(false);
-          setShown(next);
+          show(next);
         } else {
           setFailed(true);
         }
@@ -95,14 +139,58 @@ export function StreetViewSheet({ picture, onClose }: Props) {
       });
   };
 
-  // The panorama starts facing where the camera faced: its middle.
-  const panoHeight = height - insets.top - insets.bottom - 150;
-  const panoWidth = panoHeight * 2;
+  // A 360° picture opens facing where one was looking in the last one (as
+  // walking in Google's), else where its camera faced.
   useEffect(() => {
     if (shown?.spherical) {
-      scroller.current?.scrollTo({ x: Math.max(0, (panoWidth - width) / 2), animated: false });
+      scroller.current?.scrollTo({ x: startOffset, animated: false });
     }
-  }, [shown?.id, shown?.spherical, panoWidth, width]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown?.id, panoWidth, width]);
+
+  // Worked out once per picture: a prop that changed while turning would
+  // throw the view back.
+  const startOffset = useMemo(
+    () => (shown?.spherical ? offsetFor(shown, looking.current) : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shown?.id, panoWidth, width],
+  );
+
+  const onPanoScroll = (x: number) => {
+    if (!shown?.spherical) {
+      return;
+    }
+    const f = (x + width / 2 - panoWidth) / panoWidth;
+    if (shown.azimuth !== null) {
+      looking.current = (shown.azimuth + (f - 0.5) * 360 + 360) % 360;
+    }
+  };
+  /** Back to the middle copy when a turn ends on one of the side ones. */
+  const recentre = (x: number) => {
+    if (x < panoWidth * 0.5) {
+      scroller.current?.scrollTo({ x: x + panoWidth, animated: false });
+    } else if (x > panoWidth * 1.5) {
+      scroller.current?.scrollTo({ x: x - panoWidth, animated: false });
+    }
+  };
+
+  // A plain picture: a swipe sideways walks, as the arrows do.
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 20 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderRelease: (_e, g) => {
+          if (g.dx < -60) {
+            goRef.current('next');
+          } else if (g.dx > 60) {
+            goRef.current('prev');
+          }
+        },
+      }),
+    [],
+  );
+  const goRef = useRef(go);
+  goRef.current = go;
 
   const date = shown?.takenAt
     ? new Date(shown.takenAt).toLocaleDateString(language === 'en' ? 'en-GB' : 'pt-PT', {
@@ -111,16 +199,61 @@ export function StreetViewSheet({ picture, onClose }: Props) {
       })
     : null;
 
-  const image = shown ? (
-    <Image
-      key={shown.id}
-      source={{ uri: shown.uri, headers: PHOTO_HEADERS }}
-      style={shown.spherical ? { width: panoWidth, height: panoHeight } : styles.flat}
-      resizeMode={shown.spherical ? 'cover' : 'contain'}
-      onLoad={() => setImageReady(true)}
-      onError={() => setFailed(true)}
-    />
-  ) : null;
+  const drawn = (p: StreetPicture, top: boolean) => {
+    const onLoad = top
+      ? () => {
+          Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start(() => {
+            setUnder(p);
+          });
+        }
+      : undefined;
+    const layer = (uri: string, key: string, load?: () => void) =>
+      p.spherical ? (
+        <View key={key} style={[styles.panoRow, { width: panoWidth * 3, height: panoHeight }]}>
+          {[0, 1, 2].map((i) => (
+            <Image
+              key={i}
+              source={{ uri, headers: PHOTO_HEADERS }}
+              style={{ width: panoWidth, height: panoHeight }}
+              resizeMode="cover"
+              fadeDuration={0}
+              onLoad={i === 1 ? load : undefined}
+              onError={i === 1 && top ? () => setFailed(true) : undefined}
+            />
+          ))}
+        </View>
+      ) : (
+        <Image
+          key={key}
+          source={{ uri, headers: PHOTO_HEADERS }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="contain"
+          fadeDuration={0}
+          onLoad={load}
+          onError={top ? () => setFailed(true) : undefined}
+        />
+      );
+    return (
+      <Animated.View
+        key={p.id}
+        style={[StyleSheet.absoluteFill, top ? { opacity: fade } : null]}
+      >
+        {/* The small version first, then the big one over it. */}
+        {top && p.thumbUri ? layer(p.thumbUri, 'thumb') : null}
+        <View style={p.spherical ? styles.panoOver : StyleSheet.absoluteFill}>
+          {layer(p.uri, 'full', onLoad)}
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const sameKind = under && shown && under.spherical === shown.spherical && under.id !== shown.id;
+  const pictures = (
+    <>
+      {sameKind && under ? drawn(under, false) : null}
+      {shown ? drawn(shown, true) : null}
+    </>
+  );
 
   return (
     <Modal
@@ -143,6 +276,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
             <Text style={styles.title}>{s.title}</Text>
             {date ? <Text style={styles.subtitle}>{s.taken(date)}</Text> : null}
           </View>
+          {loading ? <ActivityIndicator color="#fff" /> : null}
           {shown?.spherical ? (
             <MaterialCommunityIcons name="panorama-sphere-outline" size={22} color="#fff" />
           ) : null}
@@ -155,25 +289,30 @@ export function StreetViewSheet({ picture, onClose }: Props) {
               horizontal
               showsHorizontalScrollIndicator={false}
               bounces={false}
-              contentOffset={{ x: Math.max(0, (panoWidth - width) / 2), y: 0 }}
+              overScrollMode="never"
+              decelerationRate="fast"
+              scrollEventThrottle={32}
+              contentOffset={{ x: startOffset, y: 0 }}
+              onScroll={(e) => onPanoScroll(e.nativeEvent.contentOffset.x)}
+              onScrollEndDrag={(e) => recentre(e.nativeEvent.contentOffset.x)}
+              onMomentumScrollEnd={(e) => recentre(e.nativeEvent.contentOffset.x)}
             >
-              {image}
+              <View style={{ width: panoWidth * 3, height: panoHeight }}>{pictures}</View>
             </ScrollView>
           ) : (
-            image
+            <View style={StyleSheet.absoluteFill} {...swipe.panHandlers}>
+              {pictures}
+            </View>
           )}
-          {(loading || (!imageReady && !failed)) ? (
-            <ActivityIndicator style={StyleSheet.absoluteFill} color="#fff" size="large" />
-          ) : null}
           {failed ? <Text style={styles.failed}>{s.failed}</Text> : null}
-          {shown?.spherical && imageReady ? <Text style={styles.hint}>{s.dragHint}</Text> : null}
+          {shown?.spherical && !under ? <Text style={styles.hint}>{s.dragHint}</Text> : null}
         </View>
 
         <View style={styles.footer}>
           <Pressable
             style={[styles.step, !shown?.prev && styles.stepOff]}
-            disabled={!shown?.prev || loading}
-            onPress={() => go(shown?.prev ?? null)}
+            disabled={!shown?.prev}
+            onPress={() => go('prev')}
             accessibilityLabel={s.back}
           >
             <MaterialCommunityIcons name="chevron-left" size={30} color="#fff" />
@@ -183,8 +322,8 @@ export function StreetViewSheet({ picture, onClose }: Props) {
           </Text>
           <Pressable
             style={[styles.step, !shown?.next && styles.stepOff]}
-            disabled={!shown?.next || loading}
-            onPress={() => go(shown?.next ?? null)}
+            disabled={!shown?.next}
+            onPress={() => go('next')}
             accessibilityLabel={s.forward}
           >
             <MaterialCommunityIcons name="chevron-right" size={30} color="#fff" />
@@ -216,7 +355,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
     title: { color: '#fff', fontSize: 18, fontWeight: '700' },
     subtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
     picture: { flex: 1, justifyContent: 'center' },
-    flat: { width: '100%', height: '100%' },
+    panoRow: { flexDirection: 'row' },
+    panoOver: { position: 'absolute', top: 0, left: 0 },
     failed: {
       position: 'absolute',
       alignSelf: 'center',

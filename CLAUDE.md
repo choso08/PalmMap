@@ -397,6 +397,13 @@ environment cannot reach.
   height, twice as wide, turned by dragging sideways, starting at its middle — not a true
   sphere, which would need a 3-D view and a native library. A Panoramax photo on a place's
   card opens there too. Mapillary would cover far more but needs a token in the APK.
+  **Made smoother** (author: "not very fluid", same day): pictures are kept by id for the
+  session and the two ahead (in the direction walked) and one behind are preloaded, answer and
+  image (`preloadAround`, `Image.prefetch`); the new picture fades in over the last one drawn
+  (`under`), its 500 px thumbnail first, with only a small spinner in the header; a 360°
+  picture is three copies side by side, put back on the middle one when a turn ends, so it
+  never meets an end, and opens facing where one was looking in the last one (`looking`,
+  from the scroll and `view:azimuth`); a plain picture walks with a sideways swipe.
 - **The stop nearest home, not one back** (author's photo, 19 November 2026: sent 570 m back
   to Lazarim Pilotos while the 3022 passed at the door; not seen on a phone). RAPTOR boards
   each trip at its first reachable stop, and every stop within a walk of the origin is
