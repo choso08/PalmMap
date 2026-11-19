@@ -1910,6 +1910,53 @@ def ofm_tiles():
                     print(name, z, "failed", e)
 
 
+def dgt_speed():
+    """How long the DGT orthophoto WMS takes per tile, and whether a cached WMTS exists."""
+    section("DGT SPEED")
+    base = ("https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+            "&LAYERS=ortoSat2023-CorVerdadeira&STYLES=&CRS=EPSG:3857&FORMAT=image/vnd.jpeg-png8&TRANSPARENT=true")
+    def bbox(z, x, y):
+        n = 2 ** z
+        size = 40075016.68557849 / n
+        minx = -20037508.342789244 + x * size
+        maxy = 20037508.342789244 - y * size
+        return f"{minx},{maxy - size},{minx + size},{maxy}"
+    lon, lat = -9.1394, 38.7139
+    for z in (15, 16, 17, 18):
+        x = int((lon + 180) / 360 * 2 ** z)
+        y = int((1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * 2 ** z)
+        for dx in range(3):
+            for px in (256, 512):
+                t0 = time.time()
+                try:
+                    st, ct, body = get(f"{base}&BBOX={bbox(z, x + dx, y)}&WIDTH={px}&HEIGHT={px}", timeout=60)
+                    print("z", z, "x+", dx, "px", px, st, ct, len(body), round(time.time() - t0, 2), "s")
+                except Exception as e:  # noqa: BLE001
+                    print("z", z, "px", px, "failed", e, round(time.time() - t0, 2), "s")
+    for url in ("https://ortos.dgterritorio.gov.pt/wmts/ortosat2023?SERVICE=WMTS&REQUEST=GetCapabilities",
+                "https://ortos.dgterritorio.gov.pt/wmts?SERVICE=WMTS&REQUEST=GetCapabilities",
+                "https://ortos.dgterritorio.gov.pt/wmts/ortosat2023/1.0.0/WMTSCapabilities.xml",
+                "https://ortos.dgterritorio.gov.pt/geoserver/gwc/service/wmts?REQUEST=GetCapabilities",
+                "https://ortos.dgterritorio.gov.pt/mapproxy/service?SERVICE=WMTS&REQUEST=GetCapabilities",
+                "https://ortos.dgterritorio.gov.pt/"):
+        t0 = time.time()
+        try:
+            st, ct, body = get(url, timeout=30)
+            print(url, st, ct, len(body), round(time.time() - t0, 2), "s")
+            text = body.decode("utf-8", "replace")
+            print("  ", re.findall(r"<(?:ows:)?Identifier>([^<]{1,80})<", text)[:20])
+            print("  ", re.findall(r"href=[\"']([^\"']{1,120})", text)[:30])
+        except Exception as e:  # noqa: BLE001
+            print(url, "failed", e)
+    st, ct, body = get("https://ortos.dgterritorio.gov.pt/wms/ortosat2023?SERVICE=WMS&REQUEST=GetCapabilities", timeout=60)
+    text = body.decode("utf-8", "replace")
+    print("wms caps", st, len(body))
+    for tag in ("TileSet", "tiled", "VendorSpecific", "MaxWidth", "Fees", "AccessConstraints"):
+        i = text.find(tag)
+        if i >= 0:
+            print("  ", tag, text[i:i + 300].replace("\n", " "))
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
