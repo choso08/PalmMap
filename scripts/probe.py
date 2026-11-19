@@ -1777,6 +1777,89 @@ def photo_coverage():
     print("HITS of", len(sample), hits)
 
 
+def streetview():
+    """Panoramax street-level coverage per town, and what a picture carries (author: a Street View)."""
+    section("STREET VIEW (PANORAMAX)")
+    import random
+    for path in ("/map/style.json", "/configuration", "/map/14/7826/6261.mvt"):
+        st, ct, body = get("https://api.panoramax.xyz/api" + path, timeout=30)
+        print(path, st, ct, len(body), body[:600] if b"json" in ct.encode() else "")
+    url = "https://github.com/choso08/PalmMap/releases/download/mapas/portugal.pois"
+    data = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=120).read()
+    n = int(data[:10])
+    header = json.loads(data[10:10 + n])
+    base = 10 + n
+    g = header["grid"]
+    towns = {
+        "Lisboa Baixa": (-9.145, 38.707, -9.130, 38.716),
+        "Lisboa Avenidas": (-9.150, 38.730, -9.135, 38.745),
+        "Almada": (-9.165, 38.672, -9.150, 38.685),
+        "Seixal/Amora": (-9.120, 38.615, -9.095, 38.635),
+        "Porto": (-8.620, 41.142, -8.600, 41.155),
+        "Coimbra": (-8.435, 40.200, -8.415, 40.215),
+        "Braga": (-8.435, 41.545, -8.415, 41.558),
+        "Faro": (-7.945, 37.012, -7.925, 37.022),
+        "Evora": (-7.915, 38.567, -7.900, 38.576),
+        "Viseu": (-7.920, 40.652, -7.905, 40.662),
+    }
+    sample_feature = None
+    for town, (lon0, lat0, lon1, lat1) in towns.items():
+        places = []
+        for ix in range(math.floor(lon0 / g), math.floor(lon1 / g) + 1):
+            for iy in range(math.floor(lat0 / g), math.floor(lat1 / g) + 1):
+                cell = header["cells"].get(f"{ix},{iy}")
+                if cell:
+                    places += [r for r in json.loads(data[base + cell[0]: base + cell[0] + cell[1]])
+                               if lon0 <= r[0] <= lon1 and lat0 <= r[1] <= lat1]
+        random.seed(11)
+        sample = random.sample(places, min(25, len(places)))
+        hits = {25: 0, 50: 0, 100: 0}
+        years = {}
+        spherical = 0
+        total = 0
+        for r in sample:
+            lon, lat = r[0], r[1]
+            d = 0.0009
+            dl = d / math.cos(math.radians(lat))
+            st, _, body = get(f"https://api.panoramax.xyz/api/search?bbox={lon-dl:.6f},{lat-d:.6f},{lon+dl:.6f},{lat+d:.6f}&limit=100", timeout=30)
+            best = None
+            try:
+                for f in json.loads(body).get("features", []):
+                    total += 1
+                    if sample_feature is None:
+                        sample_feature = f
+                    props = f.get("properties", {})
+                    y = str(props.get("datetime", ""))[:4]
+                    years[y] = years.get(y, 0) + 1
+                    if "equirectangular" in json.dumps(props).lower() or props.get("pers:interior_orientation", {}).get("field_of_view") == 360:
+                        spherical += 1
+                    plon, plat = f["geometry"]["coordinates"][:2]
+                    dist = math.hypot((plon - lon) * 111320 * math.cos(math.radians(lat)), (plat - lat) * 110540)
+                    best = dist if best is None else min(best, dist)
+            except Exception as e:  # noqa: BLE001
+                print("   fail", st, str(e)[:80], body[:120])
+            for k in hits:
+                if best is not None and best <= k:
+                    hits[k] += 1
+            time.sleep(0.25)
+        print(f"{town:16} {len(sample)} points · within 25 m {hits[25]} · 50 m {hits[50]} · 100 m {hits[100]}"
+              f" · pictures seen {total} · 360 {spherical} · years {dict(sorted(years.items()))}")
+    if sample_feature:
+        print("\nSAMPLE FEATURE:")
+        print(json.dumps(sample_feature, indent=1)[:4000])
+        item = next((l["href"] for l in sample_feature.get("links", []) if l.get("rel") == "self"), None)
+        if item:
+            st, _, body = get(item, timeout=30)
+            print("\nITEM", st)
+            try:
+                it = json.loads(body)
+                print("links:", [(l.get("rel"), l.get("href", "")[-60:]) for l in it.get("links", [])])
+                print("assets:", {k: (v.get("href", "")[-60:], v.get("type")) for k, v in it.get("assets", {}).items()})
+                print("props keys:", sorted(it.get("properties", {})))
+            except Exception as e:  # noqa: BLE001
+                print(e, body[:300])
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
