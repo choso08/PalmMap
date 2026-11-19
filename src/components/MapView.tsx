@@ -71,6 +71,10 @@ const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
 /** Below this zoom only the open stop is drawn: the rest are a heap over the town. */
 const STOPS_SHOWN_MIN_ZOOM = 12;
 const STREET_VIEW_COLOUR = '#FF6F00';
+/** The empty layer under which late overlays go (see where it is drawn). */
+const OVERLAY_FLOOR = 'ancora-camadas';
+/** As text: a source given an object turns it into text on every render. */
+const EMPTY_COLLECTION = JSON.stringify({ type: 'FeatureCollection', features: [] });
 const OPENFREEMAP_ATTRIBUTION = 'OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors';
 
 /**
@@ -216,6 +220,12 @@ interface MapViewProps {
   cameras?: SpeedCamera[];
   /** Transport stops to mark on the map, while the panel is open. */
   transitStops?: TransitStop[];
+  /**
+   * The stops are a line's, a trip's or a bus's own, not those in view: shown
+   * at any zoom — a long line framed whole sits below the zoom the stops in
+   * view wait for.
+   */
+  transitStopsFocused?: boolean;
   /** The stop open in the panel, drawn highlighted. */
   selectedStopId?: string | null;
   /**
@@ -425,6 +435,7 @@ export function MapView({
   onAlternativePress,
   waypoints = NONE,
   transitStops = NONE,
+  transitStopsFocused = false,
   selectedStopId = null,
   journeyLine = null,
   guidePaths = null,
@@ -673,7 +684,9 @@ export function MapView({
   );
 
   // Each bus slides from where it was to where it is (`useGlidingVehicles`).
-  const glidingVehicles = useGlidingVehicles(vehicles);
+  /** The area on screen, for what only matters there (the buses' glide). */
+  const viewBoundsRef = useRef<Bounds | null>(null);
+  const glidingVehicles = useGlidingVehicles(vehicles, viewBoundsRef);
   const vehiclesJson = useMemo(
     () =>
       pointsJson(glidingVehicles, (v) => ({
@@ -918,6 +931,7 @@ export function MapView({
     (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
       const { bounds, zoom } = event.nativeEvent;
       const [west, south, east, north] = bounds;
+      viewBoundsRef.current = { south, west, north, east };
       onViewportChange({ south, west, north, east }, zoom);
 
       // Zoomed far out, the screen touches several countries at once and the
@@ -1169,6 +1183,17 @@ export function MapView({
       />
 
       {/*
+        The floor of our layers: an empty layer added first, when the map
+        loads. Overlays switched on later (trails, street view) go under it;
+        without a place given, MapLibre adds a late layer on top of
+        everything — the street-view lines covered the route and pins and took
+        their taps (code review, 19 November 2026).
+      */}
+      <GeoJSONSource id="ancora" data={EMPTY_COLLECTION}>
+        <Layer key={OVERLAY_FLOOR} id={OVERLAY_FLOOR} type="circle" paint={{ 'circle-radius': 0 }} />
+      </GeoJSONSource>
+
+      {/*
         Trail mode, over whatever map type is shown and under everything of
         ours. The `key` makes switching kind a new source instead of a changed
         one (a source's tiles cannot change in place).
@@ -1186,6 +1211,7 @@ export function MapView({
             key={`trilhos-${settings.trails}-layer`}
             id={`trilhos-${settings.trails}-layer`}
             type="raster"
+            beforeId={OVERLAY_FLOOR}
             paint={{ 'raster-opacity': 0.9 }}
           />
         </RasterSource>
@@ -1213,6 +1239,7 @@ export function MapView({
             key="panoramax-sequences"
             id="panoramax-sequences"
             type="line"
+            beforeId={OVERLAY_FLOOR}
             source-layer="sequences"
             layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             paint={{
@@ -1225,6 +1252,7 @@ export function MapView({
             key="panoramax-pictures"
             id="panoramax-pictures"
             type="circle"
+            beforeId={OVERLAY_FLOOR}
             source-layer="pictures"
             minzoom={15}
             paint={{
@@ -1808,7 +1836,7 @@ export function MapView({
             // Far out they are a heap over the whole town (author's photo, 19
             // November 2026: stops over Almada at a region-wide zoom): only
             // from STOPS_SHOWN_MIN_ZOOM. The open one shows at any zoom.
-            minzoom={STOPS_SHOWN_MIN_ZOOM}
+            minzoom={transitStopsFocused ? 0 : STOPS_SHOWN_MIN_ZOOM}
             filter={['==', ['get', 'aberta'], 0]}
             layout={{
               'icon-image': 'stop-bus',
@@ -2354,16 +2382,30 @@ const GLIDE_MAX_BUSES = 400;
  * at each refresh (author, 19 November 2026). The selected bus's panel still
  * reads the real list; only the drawing glides.
  */
-function useGlidingVehicles(vehicles: LiveVehicle[]): LiveVehicle[] {
+function useGlidingVehicles(
+  vehicles: LiveVehicle[],
+  viewRef: { current: Bounds | null },
+): LiveVehicle[] {
   const [drawn, setDrawn] = useState(vehicles);
   const drawnRef = useRef(vehicles);
   drawnRef.current = drawn;
 
   useEffect(() => {
     const from = new globalThis.Map<string, Coordinates>(drawnRef.current.map((v) => [v.id, v.coordinates]));
+    // Only those on screen (with a margin) slide: the list is the whole fleet,
+    // ~950 buses by day, and counted whole it was always over the cap — no
+    // bus ever slid in the daytime (code review, 19 November 2026).
+    const view = viewRef.current;
+    const margin = view ? Math.max(view.north - view.south, view.east - view.west) * 0.25 : 0;
+    const onScreen = (at: Coordinates) =>
+      !view ||
+      (at.latitude >= view.south - margin &&
+        at.latitude <= view.north + margin &&
+        at.longitude >= view.west - margin &&
+        at.longitude <= view.east + margin);
     const moves = vehicles.map((v) => {
       const start = from.get(v.id);
-      if (!start) {
+      if (!start || !onScreen(v.coordinates)) {
         return null;
       }
       const d = distanceMeters(start, v.coordinates);

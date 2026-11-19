@@ -66,6 +66,8 @@ export function StreetViewSheet({ picture, onClose }: Props) {
   const [under, setUnder] = useState<StreetPicture | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** Whether a 360° picture was turned yet: the hint shows until then. */
+  const [turned, setTurned] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const asking = useRef(0);
   const scroller = useRef<ScrollView>(null);
@@ -86,10 +88,16 @@ export function StreetViewSheet({ picture, onClose }: Props) {
     return panoWidth + panoWidth * (0.5 + turn / 360) - width / 2;
   };
 
+  /** Images being warmed out of sight (see `preloadAround`), newest last. */
+  const [warming, setWarming] = useState<string[]>([]);
+  const warmImage = (uri: string) =>
+    setWarming((list) => (list.includes(uri) ? list : [...list, uri].slice(-WARM_MAX)));
+
   const show = (next: StreetPicture) => {
     fade.setValue(0);
+    fadedFor.current = null;
     setShown(next);
-    preloadAround(next, walking.current);
+    preloadAround(next, walking.current, warmImage);
   };
 
   // A new picture from outside (another tap on the map) replaces the one shown.
@@ -100,14 +108,17 @@ export function StreetViewSheet({ picture, onClose }: Props) {
     setUnder(null);
     setFailed(false);
     setLoading(false);
+    setTurned(false);
     looking.current = null;
     asking.current += 1;
   }
   useEffect(() => {
     if (picture) {
       fade.setValue(0);
-      preloadAround(picture);
+      fadedFor.current = null;
+      preloadAround(picture, 'next', warmImage);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picture, fade]);
 
   const go = (dir: 'next' | 'prev') => {
@@ -199,15 +210,28 @@ export function StreetViewSheet({ picture, onClose }: Props) {
       })
     : null;
 
+  /**
+   * The fade starts with whichever image of the new picture arrives first —
+   * the 500 px thumbnail usually — so the thumbnail is really seen (it sat
+   * inside a view that stayed see-through until the big one loaded). The big
+   * one landing is what makes it the picture underneath the next step.
+   */
+  const fadedFor = useRef<string | null>(null);
+  const [fullFor, setFullFor] = useState<string | null>(null);
   const drawn = (p: StreetPicture, top: boolean) => {
-    const onLoad = top
-      ? () => {
-          Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start(() => {
-            setUnder(p);
-          });
-        }
-      : undefined;
-    const layer = (uri: string, key: string, load?: () => void) =>
+    const startFade = () => {
+      if (fadedFor.current === p.id) {
+        return;
+      }
+      fadedFor.current = p.id;
+      Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+    };
+    const fullLoaded = () => {
+      startFade();
+      setFullFor(p.id);
+      setUnder(p);
+    };
+    const layer = (uri: string, key: string, load?: () => void, error?: () => void) =>
       p.spherical ? (
         <View key={key} style={[styles.panoRow, { width: panoWidth * 3, height: panoHeight }]}>
           {[0, 1, 2].map((i) => (
@@ -218,7 +242,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
               resizeMode="cover"
               fadeDuration={0}
               onLoad={i === 1 ? load : undefined}
-              onError={i === 1 && top ? () => setFailed(true) : undefined}
+              onError={i === 1 ? error : undefined}
             />
           ))}
         </View>
@@ -230,7 +254,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
           resizeMode="contain"
           fadeDuration={0}
           onLoad={load}
-          onError={top ? () => setFailed(true) : undefined}
+          onError={error}
         />
       );
     return (
@@ -238,10 +262,16 @@ export function StreetViewSheet({ picture, onClose }: Props) {
         key={p.id}
         style={[StyleSheet.absoluteFill, top ? { opacity: fade } : null]}
       >
-        {/* The small version first, then the big one over it. */}
-        {top && p.thumbUri ? layer(p.thumbUri, 'thumb') : null}
+        {/* The small version first, then the big one over it. A thumbnail that
+            fails says nothing: the big one may still come. */}
+        {top && p.thumbUri ? layer(p.thumbUri, 'thumb', startFade) : null}
         <View style={p.spherical ? styles.panoOver : StyleSheet.absoluteFill}>
-          {layer(p.uri, 'full', onLoad)}
+          {layer(
+            p.uri,
+            'full',
+            top ? fullLoaded : undefined,
+            top ? () => setFailed(true) : undefined,
+          )}
         </View>
       </Animated.View>
     );
@@ -270,15 +300,17 @@ export function StreetViewSheet({ picture, onClose }: Props) {
             hitSlop={12}
             accessibilityLabel={strings.common.close}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+            <MaterialCommunityIcons name="arrow-left" size={24} color={VIEWER.ink} />
           </Pressable>
           <View style={styles.headerTexts}>
             <Text style={styles.title}>{s.title}</Text>
             {date ? <Text style={styles.subtitle}>{s.taken(date)}</Text> : null}
           </View>
-          {loading ? <ActivityIndicator color="#fff" /> : null}
+          {loading || (shown && fullFor !== shown.id && !failed) ? (
+            <ActivityIndicator color={VIEWER.ink} />
+          ) : null}
           {shown?.spherical ? (
-            <MaterialCommunityIcons name="panorama-sphere-outline" size={22} color="#fff" />
+            <MaterialCommunityIcons name="panorama-sphere-outline" size={22} color={VIEWER.ink} />
           ) : null}
         </View>
 
@@ -294,6 +326,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
               scrollEventThrottle={32}
               contentOffset={{ x: startOffset, y: 0 }}
               onScroll={(e) => onPanoScroll(e.nativeEvent.contentOffset.x)}
+              onScrollBeginDrag={() => setTurned(true)}
               onScrollEndDrag={(e) => recentre(e.nativeEvent.contentOffset.x)}
               onMomentumScrollEnd={(e) => recentre(e.nativeEvent.contentOffset.x)}
             >
@@ -305,7 +338,13 @@ export function StreetViewSheet({ picture, onClose }: Props) {
             </View>
           )}
           {failed ? <Text style={styles.failed}>{s.failed}</Text> : null}
-          {shown?.spherical && !under ? <Text style={styles.hint}>{s.dragHint}</Text> : null}
+          {/* The pictures around, loaded out of sight so a step is instant. */}
+          <View style={styles.warm} pointerEvents="none">
+            {warming.map((uri) => (
+              <Image key={uri} source={{ uri, headers: PHOTO_HEADERS }} style={styles.warmImage} fadeDuration={0} />
+            ))}
+          </View>
+          {shown?.spherical && !turned ? <Text style={styles.hint}>{s.dragHint}</Text> : null}
         </View>
 
         <View style={styles.footer}>
@@ -315,7 +354,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
             onPress={() => go('prev')}
             accessibilityLabel={s.back}
           >
-            <MaterialCommunityIcons name="chevron-left" size={30} color="#fff" />
+            <MaterialCommunityIcons name="chevron-left" size={30} color={theme.onAccent} />
           </Pressable>
           <Text style={styles.credit} numberOfLines={2}>
             {s.credit(shown?.author ?? null)}
@@ -326,7 +365,7 @@ export function StreetViewSheet({ picture, onClose }: Props) {
             onPress={() => go('next')}
             accessibilityLabel={s.forward}
           >
-            <MaterialCommunityIcons name="chevron-right" size={30} color="#fff" />
+            <MaterialCommunityIcons name="chevron-right" size={30} color={theme.onAccent} />
           </Pressable>
         </View>
       </View>
@@ -334,13 +373,26 @@ export function StreetViewSheet({ picture, onClose }: Props) {
   );
 }
 
-// A picture viewer is dark whatever the theme, as every gallery is: the
-// photo's own colours are what matters.
+/**
+ * A picture viewer is dark whatever the theme, as every gallery is: the
+ * photo's own colours are what matters. These are its only colours not from
+ * the theme — the recorded exception, like the map's blue dot.
+ */
+/** How many images are kept warming out of sight at once. */
+const WARM_MAX = 6;
+
+const VIEWER = {
+  ground: '#000000',
+  ink: '#FFFFFF',
+  inkSoft: 'rgba(255,255,255,0.7)',
+  pill: 'rgba(0,0,0,0.5)',
+};
+
 function makeStyles(theme: Theme, insets: EdgeInsets) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: '#000',
+      backgroundColor: VIEWER.ground,
       paddingTop: insets.top + 8,
       paddingBottom: insets.bottom + 8,
     },
@@ -352,15 +404,17 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       paddingBottom: 8,
     },
     headerTexts: { flex: 1 },
-    title: { color: '#fff', fontSize: 18, fontWeight: '700' },
-    subtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
+    title: { color: VIEWER.ink, fontSize: 18, fontWeight: '700' },
+    subtitle: { color: VIEWER.inkSoft, fontSize: 13 },
     picture: { flex: 1, justifyContent: 'center' },
     panoRow: { flexDirection: 'row' },
+    warm: { position: 'absolute', width: 1, height: 1, opacity: 0, overflow: 'hidden' },
+    warmImage: { width: 1, height: 1 },
     panoOver: { position: 'absolute', top: 0, left: 0 },
     failed: {
       position: 'absolute',
       alignSelf: 'center',
-      color: '#fff',
+      color: VIEWER.ink,
       fontSize: 15,
       paddingHorizontal: 24,
       textAlign: 'center',
@@ -369,9 +423,9 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       position: 'absolute',
       bottom: 12,
       alignSelf: 'center',
-      color: '#fff',
+      color: VIEWER.ink,
       fontSize: 13,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: VIEWER.pill,
       paddingHorizontal: 12,
       paddingVertical: 4,
       borderRadius: 12,
@@ -393,6 +447,6 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       justifyContent: 'center',
     },
     stepOff: { opacity: 0.3 },
-    credit: { flex: 1, color: 'rgba(255,255,255,0.75)', fontSize: 12, textAlign: 'center' },
+    credit: { flex: 1, color: VIEWER.inkSoft, fontSize: 12, textAlign: 'center' },
   });
 }

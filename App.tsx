@@ -239,6 +239,9 @@ import { namesArePortuguese, speak, stopSpeaking, warmUpVoice } from './src/util
 import { speedLimitsAhead, type LimitsWindow } from './src/services/speedLimits';
 import { useAppActive } from './src/useAppActive';
 
+/** A background walk climbing this much (GPS altitude) teaches no flat pace. */
+const BACKGROUND_FLAT_CLIMB_M = 15;
+
 // **Before everything else.** An error while loading the modules below already
 // has someone to write it down — and that is exactly where an error has no other
 // way of making itself known. See `src/services/crash.ts`.
@@ -367,7 +370,7 @@ function PalmMap() {
   // Android they have to be asked for — the map draws under them.
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(theme, insets), [theme, insets]);
-  const { settings, update } = useSettings();
+  const { settings, update, loaded: settingsLoaded } = useSettings();
   const { learnPace, pace: learntPace } = useLearnedPace();
 
   const mapRef = useRef<MapViewRef>(null);
@@ -894,7 +897,15 @@ function PalmMap() {
       });
   }, []);
   const handleStreetViewAt = useCallback(
-    (at: Coordinates) => showStreetPicture(pictureNear(at)),
+    (at: Coordinates) => {
+      // The tape wins: a tap on an orange line while measuring adds a point,
+      // as a tap anywhere else does.
+      if (measuringRef.current) {
+        setMeasurePoints((atuais) => [...atuais, at]);
+        return;
+      }
+      showStreetPicture(pictureNear(at));
+    },
     [showStreetPicture],
   );
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1040,7 +1051,9 @@ function PalmMap() {
 
   const learningPaused = navigating || guide !== null;
   useEffect(() => {
-    if (!appActive) {
+    // Not before the stored settings are read: on the defaults, learning was
+    // stopped and its trip under way deleted at every start.
+    if (!appActive || !settingsLoaded) {
       return;
     }
     void syncLearning(settings.learnFromMovements, learningPaused);
@@ -1050,7 +1063,20 @@ function PalmMap() {
     void takePending().then(({ paces, trips }) => {
       if (settings.paceLearning) {
         for (const observation of paces) {
-          learnPace(observation.key, observation.factor);
+          if (observation.key === 'walking') {
+            // A walk with a climb taught the flat pace hills it does not
+            // have: the arrival time adds the climb on top (Naismith, or the
+            // learnt climbing pace). Only flat walks teach the flat pace,
+            // as in navigation.
+            if ((observation.climb ?? 0) < BACKGROUND_FLAT_CLIMB_M) {
+              learnPace('walking', observation.factor);
+            }
+          } else {
+            // The bike type chosen in the app: the background cannot tell a
+            // BTT ride from a road one, and the old shared key is only read
+            // as a fallback.
+            learnPace(paceKeyFor('cycling', settings.bikeType), observation.factor);
+          }
         }
       }
       const homeWork = homeWorkNow();
@@ -1064,7 +1090,15 @@ function PalmMap() {
         }
       }
     });
-  }, [appActive, settings.learnFromMovements, settings.paceLearning, learningPaused, learnPace]);
+  }, [
+    appActive,
+    settingsLoaded,
+    settings.learnFromMovements,
+    settings.paceLearning,
+    settings.bikeType,
+    learningPaused,
+    learnPace,
+  ]);
   /** A full-screen sheet hides the map: nothing on it needs refreshing. */
   const mapCovered =
     settingsVisible || nearbyVisible || alertsVisible || savedVisible || directionsVisible || stepsVisible;
@@ -1105,7 +1139,10 @@ function PalmMap() {
           nextDelay = nextVehiclesDelay(lista, Number(settings.vehiclesRefresh) * 1000);
         }
       } catch {
-        // See above: without new positions, the old ones stay.
+        // See above: without new positions, the old ones stay — and the next
+        // ask comes at the chosen interval, not at a quick retry left from
+        // the last answer (which repeated every 3 s while the service failed).
+        nextDelay = Number(settings.vehiclesRefresh) * 1000;
       }
       if (cancelled) {
         return;
@@ -4132,6 +4169,7 @@ function PalmMap() {
         onAlternativePress={handleAlternativePress}
         waypoints={mapWaypoints}
         transitStops={mapTransitStops}
+        transitStopsFocused={mapTransitStops !== mapStopsShown}
         journeyLine={journeyLine}
         guidePaths={guidePaths}
         snappedLocation={snappedLocation}
@@ -4575,9 +4613,17 @@ function PalmMap() {
         onUpdateFound={setUpdateInfo}
         onlyNavigation={settingsNavOnly}
         onShowPlace={(at) => {
+          // A learnt place is shown, not looked up: a pin and the map there,
+          // nothing else. Through the dropped pin's card it went to Nominatim,
+          // to OSRM for the travel time and to Panoramax for a photo — and
+          // what is learnt never leaves the phone (PRIVACY.md). Nor did the
+          // map move, so a place across town opened a card for a pin off
+          // screen (code review, 19 November 2026).
           setSettingsVisible(false);
           setSettingsNavOnly(false);
-          handleDropPin(at);
+          setSelectedPlace(null);
+          setDroppedPin(at);
+          mapRef.current?.recenter(at);
         }}
         onClose={() => {
           setSettingsVisible(false);

@@ -44,9 +44,64 @@ export const LABEL_COLOURS = [
   '#475569',
 ] as const;
 
-/** An emoji typed as the icon: short and not plain letters. */
+/** The icon's colour on a label's colour: every `LABEL_COLOURS` takes white. */
+export const LABEL_INK = '#FFFFFF';
+
+/**
+ * An emoji typed as the icon: one character as seen (`lastGrapheme`), not
+ * plain letters. A family or a flag with a skin tone is several code units
+ * (👨‍👩‍👧‍👦 is 11), so the bound is loose.
+ */
 export function isEmojiIcon(icon: string): boolean {
-  return icon.length > 0 && icon.length <= 8 && !/^[a-z-]+$/.test(icon);
+  return icon.length > 0 && icon.length <= 32 && !/^[a-z-]+$/.test(icon);
+}
+
+/**
+ * The last character as a person sees it, of a text typed as an emoji.
+ * `[...text]` splits by code point and cut 👍🏽, ❤️, 1️⃣ and every ZWJ emoji in
+ * half. `Intl.Segmenter` when Hermes has it; otherwise the joiners that make
+ * one emoji of several code points are glued by hand: ZWJ and what follows
+ * it, variation selectors, skin tones, the keycap mark, tag characters, and
+ * regional indicators in pairs (flags).
+ */
+export function lastGrapheme(text: string): string {
+  const Segmenter = (Intl as unknown as {
+    Segmenter?: new (l?: string, o?: { granularity: 'grapheme' }) => {
+      segment: (t: string) => Iterable<{ segment: string }>;
+    };
+  }).Segmenter;
+  if (Segmenter) {
+    let last = '';
+    for (const { segment } of new Segmenter(undefined, { granularity: 'grapheme' }).segment(text)) {
+      last = segment;
+    }
+    return last;
+  }
+  const points = [...text];
+  const groups: string[] = [];
+  let joinNext = false;
+  let flagHalf = false;
+  for (const ch of points) {
+    const cp = ch.codePointAt(0) ?? 0;
+    const isZwj = cp === 0x200d;
+    const extends_ =
+      isZwj ||
+      cp === 0xfe0f ||
+      cp === 0xfe0e ||
+      cp === 0x20e3 ||
+      (cp >= 0x1f3fb && cp <= 0x1f3ff) ||
+      (cp >= 0xe0020 && cp <= 0xe007f);
+    const regional = cp >= 0x1f1e6 && cp <= 0x1f1ff;
+    if (groups.length && (extends_ || joinNext || (regional && flagHalf))) {
+      groups[groups.length - 1] += ch;
+      flagHalf = false;
+    } else {
+      groups.push(ch);
+      flagHalf = regional;
+    }
+    joinNext = isZwj;
+  }
+  return groups[groups.length - 1] ?? '';
 }
 
 function cleanIcon(icon: unknown): string {
@@ -191,13 +246,20 @@ export function setHomeWork(kind: HomeWorkKind, place: Place | null): void {
   store.update((now) => ({ ...now, [kind]: place }));
 }
 
-/** A new label; returns its kind. */
+/**
+ * A new label; returns its kind, or null when there are `LABELS_MAX`
+ * already — it used to be added and cut off at once, silently, and the
+ * place picker then opened for a label that did not exist.
+ */
 export function addLabel(
   name: string,
   icon: string,
   colour: string,
   place: Place | null = null,
-): HomeWorkKind {
+): HomeWorkKind | null {
+  if (labels.current().length >= LABELS_MAX) {
+    return null;
+  }
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   labels.update((now) =>
     [...now, { id, name: name.trim().slice(0, 40), icon: cleanIcon(icon), colour, place }].slice(0, LABELS_MAX),

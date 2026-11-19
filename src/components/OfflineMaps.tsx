@@ -67,6 +67,7 @@ export function OfflineMaps() {
     void (async () => {
       try {
         const lista = await listRegions();
+        regionsRef.current = lista;
         setRegions(lista);
         const velhos = new Set(outdatedRegions(lista).map((r) => r.id));
         desatualizadosRef.current = velhos;
@@ -82,6 +83,12 @@ export function OfflineMaps() {
 
   // Every download under way, also the Wi-Fi refresh's: it used to be
   // invisible here, and a tap on it started a second, clashing download.
+  // When one ends — the Wi-Fi refresh's too — the outdated marks are worked
+  // out again from what is now on the phone: computed only on opening, a map
+  // just refreshed in front of the person still said "out of date", and a tap
+  // downloaded it once more (code review, 19 November 2026).
+  const regionsRef = useRef<OfflineRegion[]>([]);
+  const seenDownloads = useRef<Set<string>>(new Set());
   useEffect(
     () =>
       watchDownloads((all) => {
@@ -90,6 +97,14 @@ export function OfflineMaps() {
           if (!all.has(id)) {
             emCurso.current.delete(id);
           }
+        }
+        const ended = [...seenDownloads.current].some((id) => !all.has(id));
+        seenDownloads.current = new Set(all.keys());
+        if (ended && regionsRef.current.length) {
+          const velhos = new Set(outdatedRegions(regionsRef.current).map((r) => r.id));
+          desatualizadosRef.current = velhos;
+          setDesatualizados(velhos);
+          setRevision((n) => n + 1);
         }
       }),
     [],

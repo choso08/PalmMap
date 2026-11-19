@@ -7,7 +7,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
 
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
-import { hasSystemDownloader, systemDownload } from './systemDownload';
+import { hasSystemDownloader, systemDownload, SystemDownloadRefused } from './systemDownload';
 
 /**
  * Country maps, downloaded on request and stored on the phone.
@@ -142,9 +142,13 @@ export function localFile(region: OfflineRegion): File {
   return new File(MAPS, region.ficheiro);
 }
 
-/** Whether the region is already on the phone. */
+/**
+ * Whether the region is already on the phone: its map and its identification
+ * file. A map without one (a download cut off between the two by an older
+ * version) is never used offline nor refreshed, so it does not count.
+ */
 export function isDownloaded(region: OfflineRegion): boolean {
-  return localFile(region).exists;
+  return localFile(region).exists && metadataFile(region).exists;
 }
 
 /**
@@ -376,6 +380,7 @@ export function isDownloading(region: OfflineRegion): boolean {
 export function downloadRegion(
   region: OfflineRegion,
   onProgress?: (fraction: number) => void,
+  options: { allowMetered?: boolean } = {},
 ): Promise<void> {
   const already = running.get(region.id);
   if (already) {
@@ -393,11 +398,15 @@ export function downloadRegion(
   }
   progress.set(region.id, 0);
   announceProgress();
-  const job = downloadOnce(region, (fraction) => {
-    progress.set(region.id, fraction);
-    announceProgress();
-    onProgress?.(fraction);
-  }).finally(() => {
+  const job = downloadOnce(
+    region,
+    (fraction) => {
+      progress.set(region.id, fraction);
+      announceProgress();
+      onProgress?.(fraction);
+    },
+    options.allowMetered ?? true,
+  ).finally(() => {
     running.delete(region.id);
     progress.delete(region.id);
     announceProgress();
@@ -409,6 +418,7 @@ export function downloadRegion(
 async function downloadOnce(
   region: OfflineRegion,
   onProgress?: (fraction: number) => void,
+  allowMetered = true,
 ): Promise<void> {
   ensureFolder(MAPS);
 
@@ -435,17 +445,29 @@ async function downloadOnce(
     // Through Android's DownloadManager when the build has it: it keeps going
     // with the app in the background (`systemDownload.ts`).
     if (hasSystemDownloader()) {
-      await systemDownload({
-        key: `mapa.${region.id}`,
-        url: `${BASE_URL}/${region.ficheiro}`,
-        destination: localFile(region),
-        title: region.nome,
-        expectedBytes: region.bytes,
-        onProgress,
-      });
-      const withPois = await downloadPois(region);
-      writeMetadata(withPois ? region : withoutPois(region));
-      return;
+      let taken = true;
+      try {
+        await systemDownload({
+          key: `mapa.${region.id}`,
+          url: `${BASE_URL}/${region.ficheiro}`,
+          destination: localFile(region),
+          title: region.nome,
+          expectedBytes: region.bytes,
+          allowMetered,
+          onProgress,
+        });
+      } catch (error) {
+        // Refused by the system (Download Manager disabled): the app's own
+        // download below. Any other failure is a failure.
+        if (!(error instanceof SystemDownloadRefused)) {
+          throw error;
+        }
+        taken = false;
+      }
+      if (taken) {
+        await mapLanded(region, allowMetered);
+        return;
+      }
     }
 
     const downloaded = await File.downloadFileAsync(
@@ -477,10 +499,7 @@ async function downloadOnce(
       destination.delete();
     }
     await downloaded.move(destination);
-    // The business file comes with the map. Failing here does not undo the
-    // map: it is recorded as missing, and the next Wi-Fi refresh fetches it.
-    const withPois = await downloadPois(region);
-    writeMetadata(withPois ? region : withoutPois(region));
+    await mapLanded(region, allowMetered);
   } catch (error) {
     if (partial.exists) {
       partial.delete();
@@ -492,6 +511,22 @@ async function downloadOnce(
     throw new OfflineMapError(
       t().errors.mapDownloadFailed(region.nome, detail),
     );
+  }
+}
+
+/**
+ * The map is in place: its identification is written **at once**, without
+ * the business file, and again with it once that arrives. Written only at the
+ * end, a refreshed map sat beside last month's identification while the
+ * business file downloaded — and an app closed then had the start-up check
+ * (`dropCutShortFiles`) take the new map for a cut-short one and delete it
+ * (code review, 19 November 2026). Failing the business file does not undo
+ * the map: it is recorded as missing, and the next Wi-Fi refresh fetches it.
+ */
+async function mapLanded(region: OfflineRegion, allowMetered: boolean): Promise<void> {
+  writeMetadata(withoutPois(region));
+  if (await downloadPois(region, allowMetered)) {
+    writeMetadata(region);
   }
 }
 
@@ -512,7 +547,10 @@ function withoutPois(region: OfflineRegion): OfflineRegion {
  * Never throws: a country without its business file still has its map, and
  * the pins fall back to Overpass where there is network.
  */
-export async function downloadPois(region: OfflineRegion): Promise<boolean> {
+export async function downloadPois(
+  region: OfflineRegion,
+  allowMetered = true,
+): Promise<boolean> {
   if (!region.negocios) {
     return false;
   }
@@ -523,14 +561,22 @@ export async function downloadPois(region: OfflineRegion): Promise<boolean> {
       partial.delete();
     }
     if (hasSystemDownloader()) {
-      await systemDownload({
-        key: `negocios.${region.id}`,
-        url: `${BASE_URL}/${region.negocios}`,
-        destination: poisFile(region),
-        title: region.nome,
-        expectedBytes: region.negociosBytes,
-      });
-      return true;
+      try {
+        await systemDownload({
+          key: `negocios.${region.id}`,
+          url: `${BASE_URL}/${region.negocios}`,
+          destination: poisFile(region),
+          title: region.nome,
+          expectedBytes: region.negociosBytes,
+          allowMetered,
+        });
+        return true;
+      } catch (error) {
+        if (!(error instanceof SystemDownloadRefused)) {
+          throw error;
+        }
+        // Refused by the system: the app's own download below.
+      }
     }
     const downloaded = await File.downloadFileAsync(`${BASE_URL}/${region.negocios}`, partial);
     const destination = poisFile(region);
@@ -617,8 +663,17 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
       return 0;
     }
 
+    // Kept to Wi-Fi unless the person said otherwise: a download the system
+    // carries on with must not move to mobile data when the phone leaves the
+    // Wi-Fi it started on.
+    const allowMetered = allowMobileData;
     const published = await listRegions();
-    const toRefresh = outdatedRegions(published);
+    // Outdated ones, and those whose map the start-up check dropped.
+    const dropped = new Set(droppedMaps());
+    const toRefresh = [
+      ...outdatedRegions(published),
+      ...published.filter((r) => dropped.has(r.id)),
+    ];
     let done = 0;
     const refreshing = new Set(toRefresh.map((r) => r.id));
     for (const region of regionsNeedingPois(published)) {
@@ -626,7 +681,7 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
         continue; // comes with the map below
       }
       const stored = installedRegions().find((r) => r.id === region.id);
-      if (stored && (await downloadPois(region))) {
+      if (stored && (await downloadPois(region, allowMetered))) {
         writeMetadata({
           ...stored,
           negocios: region.negocios,
@@ -637,7 +692,7 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
     }
     for (const region of toRefresh) {
       try {
-        await downloadRegion(region);
+        await downloadRegion(region, undefined, { allowMetered });
         done += 1;
       } catch {
         // One country failing cannot stop the others from being refreshed.
@@ -649,7 +704,6 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
   }
 }
 
-/** Deletes a region's downloaded map. */
 /**
  * Drops country maps and business files whose size is not the published one.
  *
@@ -657,14 +711,33 @@ async function refreshOutdated(allowMobileData: boolean): Promise<number> {
  * the system delete the original (`systemDownload`): across filesystems the
  * move is a copy, and it could be cut short — a map that fails to open (and
  * falls back to the Internet tiles in silence) or a business file read wrong.
- * Run once at start-up; what it drops downloads again like any missing file.
+ * Run once at start-up, before any download of this run. A cut-short map goes
+ * but its identification stays, so the Wi-Fi refresh fetches it again
+ * (`droppedMaps`); a business file goes and is recorded as missing, which the
+ * refresh fetches too. Also cleared: maps with no identification at all (a
+ * download cut off by an older version — never used, only taking space) and
+ * files left half way to their final name.
  */
 export function dropCutShortFiles(): void {
-  for (const region of installedRegions()) {
+  if (!MAPS.exists) {
+    return;
+  }
+  const named = new Set<string>();
+  for (const entry of MAPS.list()) {
+    if (!(entry instanceof File) || !entry.uri.endsWith('.json')) {
+      continue;
+    }
     try {
+      const region = JSON.parse(entry.textSync()) as OfflineRegion;
+      named.add(region.ficheiro);
       const map = localFile(region);
       if (region.bytes > 0 && map.exists && map.size !== region.bytes) {
-        removeRegion(region);
+        map.delete();
+        const pois = poisFile(region);
+        if (pois.exists) {
+          pois.delete();
+        }
+        writeMetadata(withoutPois(region));
         continue;
       }
       const pois = poisFile(region);
@@ -676,8 +749,48 @@ export function dropCutShortFiles(): void {
       // Unreadable: left as it is.
     }
   }
+  for (const entry of MAPS.list()) {
+    if (!(entry instanceof File)) {
+      continue;
+    }
+    try {
+      const name = decodeURIComponent(entry.uri.split('/').pop() ?? '');
+      const orphanMap = name.endsWith('.pmtiles') && !named.has(name);
+      if (orphanMap || name.endsWith('.recebido')) {
+        entry.delete();
+      }
+    } catch {
+      // Left as it is.
+    }
+  }
 }
 
+/**
+ * Regions whose identification is on the phone but whose map is not — dropped
+ * by `dropCutShortFiles` — to be fetched again by the Wi-Fi refresh.
+ */
+export function droppedMaps(): string[] {
+  if (!MAPS.exists) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const entry of MAPS.list()) {
+    if (!(entry instanceof File) || !entry.uri.endsWith('.json')) {
+      continue;
+    }
+    try {
+      const region = JSON.parse(entry.textSync()) as OfflineRegion;
+      if (!localFile(region).exists) {
+        ids.push(region.id);
+      }
+    } catch {
+      // Ignored.
+    }
+  }
+  return ids;
+}
+
+/** Deletes a region's downloaded map. */
 export function removeRegion(region: OfflineRegion): void {
   const file = localFile(region);
   if (file.exists) {

@@ -200,6 +200,8 @@ const feedClock: Record<'cm' | 'cl', { newest: number; period: number | null }> 
   cl: { newest: 0, period: null },
 };
 let earlyRetries = 0;
+/** When the last list was asked for (s): a long gap measures the app, not the feed. */
+let lastAskAt = 0;
 /** A second after the data is due, for the server to have it. */
 const DUE_MARGIN_S = 1.5;
 /** When an ask brought nothing newer, the one retry comes this soon. */
@@ -217,6 +219,13 @@ const EARLY_RETRY_MS = 3000;
  */
 export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
   const now = Date.now() / 1000;
+  // The step between two newest reports is the feed's own pace only when the
+  // two asks were close: after a pause (Settings open, the app in the
+  // background) it is the pause, and learning it left the buses refreshing
+  // every 30–60 s for the rest of the session (code review, 19 November 2026).
+  const sinceAsk = lastAskAt > 0 ? now - lastAskAt : Infinity;
+  lastAskAt = now;
+  const asksClose = sinceAsk <= (baseMs / 1000) * 1.5 + DUE_MARGIN_S + 2;
   let gotNew = false;
   let latestDue: number | null = null;
   for (const op of ['cm', 'cl'] as const) {
@@ -232,7 +241,7 @@ export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
     const clock = feedClock[op];
     if (newest > clock.newest) {
       const step = newest - clock.newest;
-      if (clock.newest > 0 && step >= 3 && step <= 120) {
+      if (clock.newest > 0 && asksClose && step >= 3 && step <= 120) {
         clock.period = clock.period === null ? step : clock.period * 0.6 + step * 0.4;
       }
       clock.newest = newest;

@@ -29,24 +29,32 @@ class DownloaderModule : Module() {
 
     /**
      * Starts a download; returns its id (as text — a Long does not fit a JS
-     * number safely), or "" when the system service is missing.
+     * number safely), or "" when the system will not take it (service missing,
+     * the Download Manager app disabled). `allowMetered` false keeps it to
+     * unmetered networks (Wi-Fi): the automatic map refresh must not carry on
+     * over mobile data once the phone leaves the Wi-Fi it started on.
      */
-    Function("start") { url: String, fileName: String, title: String, userAgent: String ->
-      val context = appContext.reactContext ?: return@Function ""
-      val dm = manager() ?: return@Function ""
-      // A file of the same name left by an earlier try would make the system
-      // pick "name-1.apk": cleared first.
-      context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { dir ->
-        File(dir, fileName).takeIf { it.exists() }?.delete()
+    Function("start") { url: String, fileName: String, title: String, userAgent: String,
+      allowMetered: Boolean, allowRoaming: Boolean ->
+      try {
+        val context = appContext.reactContext ?: return@Function ""
+        val dm = manager() ?: return@Function ""
+        // A file of the same name left by an earlier try would make the system
+        // pick "name-1.apk": cleared first.
+        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { dir ->
+          File(dir, fileName).takeIf { it.exists() }?.delete()
+        }
+        val request = DownloadManager.Request(Uri.parse(url))
+          .setTitle(title)
+          .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+          .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
+          .setAllowedOverMetered(allowMetered)
+          .setAllowedOverRoaming(allowRoaming)
+          .addRequestHeader("User-Agent", userAgent)
+        dm.enqueue(request).toString()
+      } catch (e: Exception) {
+        ""
       }
-      val request = DownloadManager.Request(Uri.parse(url))
-        .setTitle(title)
-        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
-        .setAllowedOverMetered(true)
-        .setAllowedOverRoaming(true)
-        .addRequestHeader("User-Agent", userAgent)
-      dm.enqueue(request).toString()
     }
 
     /**

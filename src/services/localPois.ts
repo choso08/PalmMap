@@ -135,8 +135,36 @@ function readRange(file: File, offset: number, length: number): Uint8Array {
   }
 }
 
+/**
+ * A business file's own name in the caches: the region and when its file was
+ * made. Keyed by the region alone, cells read from last month's file kept
+ * answering after the new one landed (code review, 19 November 2026).
+ */
+function fileKey(region: OfflineRegion): string {
+  return `${region.id}|${region.negociosGerado ?? ''}`;
+}
+
+/** Least recently used out: a hit goes to the back of the line. */
+function lruGet<T>(cache: Map<string, T>, key: string): T | undefined {
+  const hit = cache.get(key);
+  if (hit !== undefined) {
+    cache.delete(key);
+    cache.set(key, hit);
+  }
+  return hit;
+}
+function lruSet<T>(cache: Map<string, T>, key: string, value: T): void {
+  if (cache.size >= CELL_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) {
+      cache.delete(oldest);
+    }
+  }
+  cache.set(key, value);
+}
+
 function openRegion(region: OfflineRegion): OpenFile | null {
-  const key = `${region.id}|${region.negociosGerado ?? ''}`;
+  const key = fileKey(region);
   if (files.has(key)) {
     return files.get(key) ?? null;
   }
@@ -151,8 +179,9 @@ function openRegion(region: OfflineRegion): OpenFile | null {
       }
     }
   } catch {
-    // A damaged file is the same as none: the pins fall back to Overpass.
-    opened = null;
+    // A damaged file is the same as none: the pins fall back to the tiles.
+    // Not kept: a file being replaced reads again next time.
+    return null;
   }
   files.set(key, opened);
   return opened;
@@ -172,8 +201,8 @@ export function poisRegionFor(bounds: Bounds): OfflineRegion | null {
 }
 
 function readCell(region: OfflineRegion, opened: OpenFile, cell: string): PoiRecord[] {
-  const cacheKey = `${region.id}|${cell}`;
-  const cached = cellCache.get(cacheKey);
+  const cacheKey = `${fileKey(region)}|${cell}`;
+  const cached = lruGet(cellCache, cacheKey);
   if (cached) {
     return cached;
   }
@@ -183,16 +212,11 @@ function readCell(region: OfflineRegion, opened: OpenFile, cell: string): PoiRec
     try {
       records = JSON.parse(utf8(readRange(opened.file, opened.base + where[0], where[1])));
     } catch {
-      records = [];
+      // Not kept: an empty cell remembered for a failed read stays empty.
+      return [];
     }
   }
-  if (cellCache.size >= CELL_CACHE_MAX) {
-    const oldest = cellCache.keys().next().value;
-    if (oldest !== undefined) {
-      cellCache.delete(oldest);
-    }
-  }
-  cellCache.set(cacheKey, records);
+  lruSet(cellCache, cacheKey, records);
   return records;
 }
 
@@ -313,6 +337,8 @@ export function localPlacesInBounds(
  */
 let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
 const PREFETCH_PER_TICK = 2;
+/** At most this many cells warmed per view, well under the cache's size. */
+const PREFETCH_MAX = 24;
 function prefetchAround(
   region: OfflineRegion,
   opened: OpenFile,
@@ -329,11 +355,13 @@ function prefetchAround(
   for (let x = x0 - 1; x <= x1 + 1; x += 1) {
     for (let y = y0 - 1; y <= y1 + 1; y += 1) {
       const cell = `${x},${y}`;
-      if (opened.header.cells[cell] && !cellCache.has(`${region.id}|${cell}`)) {
+      if (opened.header.cells[cell] && !cellCache.has(`${fileKey(region)}|${cell}`)) {
         todo.push(cell);
       }
     }
   }
+  // A wide view's ring is many cells; a pan needs only a few of them.
+  todo.splice(PREFETCH_MAX);
   const tick = () => {
     prefetchTimer = null;
     timed('pins: prefetch', () => {
@@ -383,24 +411,22 @@ export function localDoorsNear(
   for (let x = Math.floor((lon - dLon) / g); x <= Math.floor((lon + dLon) / g); x += 1) {
     for (let y = Math.floor((lat - dLat) / g); y <= Math.floor((lat + dLat) / g); y += 1) {
       const cell = `${x},${y}`;
-      const cacheKey = `${region.id}|${cell}`;
-      let records: DoorRecord[] = doorCache.get(cacheKey) ?? [];
+      const cacheKey = `${fileKey(region)}|${cell}`;
+      let records: DoorRecord[] = lruGet(doorCache, cacheKey) ?? [];
       if (!doorCache.has(cacheKey)) {
         const where = opened.header.doors[cell];
+        let ok = true;
         if (where) {
           try {
             records = JSON.parse(utf8(readRange(opened.file, opened.base + where[0], where[1])));
           } catch {
             records = [];
+            ok = false;
           }
         }
-        if (doorCache.size >= CELL_CACHE_MAX) {
-          const oldest = doorCache.keys().next().value;
-          if (oldest !== undefined) {
-            doorCache.delete(oldest);
-          }
+        if (ok) {
+          lruSet(doorCache, cacheKey, records);
         }
-        doorCache.set(cacheKey, records);
       }
       for (const [dlon, dlat, main] of records) {
         const door = { latitude: dlat, longitude: dlon };

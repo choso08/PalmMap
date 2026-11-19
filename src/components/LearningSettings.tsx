@@ -8,6 +8,7 @@ import {
   canLearn,
   forgetLearnt,
   guessHomeWork,
+  learningNeedsPermission,
   watchLearnt,
   type FrequentPlace,
   type Learnt,
@@ -32,6 +33,42 @@ export function LearningSettings({ onShowPlace }: { onShowPlace?: (at: Coordinat
   const { settings, update } = useSettings();
   const [learnt, setLearnt] = useState<Learnt | null>(null);
   useEffect(() => watchLearnt(setLearnt), []);
+  /**
+   * On, but without "Allow all the time" — a copy restored on a new install
+   * brings the switch back on, never the permission: it said nothing and
+   * learnt nothing.
+   */
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    if (!settings.learnFromMovements) {
+      setNeedsPermission(false);
+      return;
+    }
+    let cancelled = false;
+    void learningNeedsPermission().then((missing) => {
+      if (!cancelled) {
+        setNeedsPermission(missing);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.learnFromMovements, asking]);
+
+  const askAgain = async () => {
+    if (asking) {
+      return;
+    }
+    setAsking(true);
+    try {
+      if (!(await askBackgroundPermission())) {
+        Alert.alert(s.deniedTitle, s.deniedBody);
+      }
+    } finally {
+      setAsking(false);
+    }
+  };
 
   const toggle = async (next: boolean) => {
     if (!next) {
@@ -45,14 +82,20 @@ export function LearningSettings({ onShowPlace }: { onShowPlace?: (at: Coordinat
       }
       return;
     }
-    if (!canLearn()) {
+    if (!canLearn() || asking) {
       return;
     }
-    // Asked when turned on, never by itself.
-    if (await askBackgroundPermission()) {
-      update('learnFromMovements', true);
-    } else {
-      Alert.alert(s.deniedTitle, s.deniedBody);
+    // Asked when turned on, never by itself. One request at a time: a second
+    // tap while Android's dialog opens would ask twice.
+    setAsking(true);
+    try {
+      if (await askBackgroundPermission()) {
+        update('learnFromMovements', true);
+      } else {
+        Alert.alert(s.deniedTitle, s.deniedBody);
+      }
+    } finally {
+      setAsking(false);
     }
   };
 
@@ -85,6 +128,11 @@ export function LearningSettings({ onShowPlace }: { onShowPlace?: (at: Coordinat
           trackColor={{ true: theme.accent, false: theme.border }}
         />
       </View>
+      {needsPermission ? (
+        <Pressable onPress={() => void askAgain()} accessibilityRole="button">
+          <Text style={styles.warning}>{s.needsPermission}</Text>
+        </Pressable>
+      ) : null}
 
       {settings.learnFromMovements || places.length ? (
         <>
@@ -151,6 +199,7 @@ function makeStyles(theme: Theme) {
     switchText: { flex: 1 },
     switchLabel: { fontSize: 15, color: theme.text },
     hint: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+    warning: { fontSize: 13, color: theme.danger, paddingBottom: 8 },
     section: { marginTop: 6, fontSize: 13, fontWeight: '700', color: theme.textMuted },
     place: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
     placeMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },

@@ -514,6 +514,60 @@ environment cannot reach.
   Metropolitana timetable** at 12:35: before, leave 12:36 and walk 410 m to Lazarim Pilotos;
   now leave 12:44 and walk 63 m to Rotunda Campo Flores, same bus, same arrival. The live
   planner already broke ties this way (`optionsPerKey`).
+- **Code review of the 19 November work, every finding fixed** (author: "see really all the
+  bugs and fix them"; none seen on a phone, the Kotlin parts need a full build):
+  - **Downloads** (`systemDownload.ts`, `DownloaderModule.kt`): the Wi-Fi-only refresh asks
+    DownloadManager for Wi-Fi only (`allowMetered`, `allowRoaming` — it went on over mobile data
+    and roaming); a job paused for `STALL_MS` (90 s) with no byte moved ends in
+    `SystemDownloadStalled` (kept, so the next try picks it up) instead of polling forever; two
+    calls with one key join (`inFlight`), and so do two update downloads of one build
+    (`updateJob`); a refusal (`""` from `start`) falls back to the old download; the file lands as
+    `<name>.recebido` beside its place, is size-checked, then renamed.
+  - **Country maps** (`offlineMap.ts`, `OfflineMaps.tsx`): the identification is written as soon
+    as the map lands (`mapLanded`), without the business file until that lands too — the start-up
+    check (`dropCutShortFiles`) had deleted a freshly refreshed map whose business file was still
+    coming; a size mismatch now deletes the map only and keeps the identification, so the Wi-Fi
+    refresh fetches it again (`droppedMaps`); orphan maps and `.recebido` leftovers go; the list
+    drops "out of date" when a download ends, whoever started it.
+  - **Automatic copy** (`backup.ts`): restoring restarts the app; nothing is written while a
+    picker is open (it went to the background and overwrote the copy about to be restored);
+    choosing a folder that already holds a copy asks Replace or Restore
+    (`chooseBackupFolderWithNotice`).
+  - **Learning** (`movementLearning.ts`, `location.ts`, `App.tsx`, `settings.tsx`): App waits for
+    the stored settings (`loaded`) — at start the defaults said "off" and learning was stopped and
+    its trip wiped; a GPS gap no longer drops the stay one leaves by car or bus
+    (`GAP_DEPARTURE_MAX_M`); navigation's start stops learning first
+    (`setBeforeNavigationStart`) and learning starts again only once navigation's service is gone
+    (`whenNavigationServiceIdle`) — expo-location runs one foreground service for both tasks, and
+    stopping one took the other's away; a walk that climbs ≥ 15 m teaches no flat pace (the climb
+    is read from the GPS altitude); a ride teaches the chosen bike type's pace; a vault that cannot
+    be read keeps its data (five tries) instead of being overwritten empty; a refused background
+    permission is shown under the switch (`learningNeedsPermission`).
+  - **Map** (`MapView.tsx`): street view's lines and the trails go under our layers
+    (`OVERLAY_FLOOR`, an empty always-mounted layer used as `beforeId`) — added late, they landed
+    on top of the route and pins and took their taps; only buses in view glide; the open line's
+    stops show at any zoom (`transitStopsFocused`).
+  - **Transport**: `unique` keeps the earlier-arriving live option before the later departure.
+  - **Buses**: after a pause the operator's pace is not learnt from the gap (`lastAskAt`).
+  - **Perf log**: a pause (picker, permission, background) is not a stall; the search's
+    "list shown" is timed once per focus.
+  - **Learnt place → "Show on map"** moves the map there and drops a pin, no lookup.
+  - **Street view while measuring** adds a point, as every tap does then.
+  - **Search rows are keyed by place** (no index): a row removed above no longer remounts and
+    replays every fade below it.
+  - **Street view sheet**: the 500 px thumbnail is really seen (the fade starts with whichever
+    image comes first), a spinner stays until the big one lands, a failed thumbnail says
+    nothing, the drag hint stays until the first turn; the pictures ahead are warmed as hidden
+    `Image`s with the app's User-Agent (`Image.prefetch` sends none); a picture found by
+    `pictureNear` without sequence links asks its item for them (‹ › stayed off); the viewer's
+    own colours are one `VIEWER` table, the arrows `theme.onAccent`.
+  - **Labels**: the emoji box keeps the last character as seen (`lastGrapheme`: `Intl.Segmenter`,
+    else ZWJ, variation selectors, skin tones, keycaps, tags and flag pairs glued by hand —
+    `[...text].slice(-2)` cut 👍🏽 and 👨‍👩‍👧‍👦); `addLabel` refuses at `LABELS_MAX` and says so
+    (`labels.full`) instead of adding and cutting it off; the icon colour is `LABEL_INK`.
+  - **Business file caches** (`localPois.ts`): keyed by region and `negociosGerado`, so a new
+    file is read afresh; failed reads are not remembered; least recently used out; at most
+    `PREFETCH_MAX` (24) cells warmed per view.
 - **A dropped pin says whose it is** (author's photo, 19 November: a pin on their house read
   "Point on the map" with its coordinates; not seen on a phone): within `PIN_SAVED_M` (40 m) of
   Home, Work or a saved place it takes that name and address; otherwise the address as before.
@@ -530,7 +584,8 @@ environment cannot reach.
   not maps, timetables, a pending update or the last crash. The file is found by its decoded
   address (a picked folder's addresses are document ids) and padded with spaces to the old
   size (mode "w" does not truncate on some providers). **Restore**: "Restore a copy" picks
-  the file, writes only `KEPT_KEYS` and closes the app (every store read its value at start);
+  the file, writes only `KEPT_KEYS` and restarts the app (`reloadAppAsync`; every store read
+  its value at start — closing only sent it to the background, and it wrote the old values back);
   a fresh install — none of the person's keys stored — is offered it once, 1.5 s after
   start (`offerRestoreOnFirstStart`). Android's own Auto Backup is **off** since 19 November 2026
   (`allowBackup: false`, privacy: it uploaded the app's storage to Google's servers). The alerts' text is in a
@@ -626,7 +681,7 @@ environment cannot reach.
     and `routeHints` (rain and sunset notes) — all on by default. The bells a person taps
     (a bus's arrival, time to leave) have no switch: they were asked for. A suggestion
     waved away is not offered again that day (`palmmap.sugestaoDispensada`). The Settings
-    text is 1673 characters with these names — names, not explanations.
+    text is 1863 characters (measured 19 November 2026, over the 1500 mark) — names, not explanations.
   - **Parking timer** on the Saved screen's car: paid for 30 min / 1 h / 2 h / 3 h, a
     notice 10 min before (`setParkingPaidUntil`, `scheduleNotice` in `arrivalReminders.ts`).
 - **"As seamless as possible"** (author's challenge, 18 November; not seen on a phone):
@@ -1261,6 +1316,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── entrances.ts      # A place's doors, to arrive at the right side
 │   │   ├── network.ts        # Online or offline, for the whole app
 │   │   ├── systemDownload.ts # Big downloads through Android's DownloadManager
+│   │   ├── backup.ts         # The automatic copy in a folder the person picked, and restoring it
 │   │   ├── schedules.ts      # Train, metro and ferry timetables stored on the phone
 │   │   ├── update.ts         # New version check, and handing it to the installer
 │   │   ├── crash.ts          # Stores what closed the app, to read later
@@ -2544,7 +2600,9 @@ navigation bar. The elements on top of the map move away.
 ### 12. Light and dark theme
 
 - All colours are in `src/theme.ts`, in two palettes. No component writes a colour by hand —
-  ask the theme with `useTheme()`, from `src/settings.tsx`. (The map's own drawings — the blue
+  ask the theme with `useTheme()`, from `src/settings.tsx`. (The street view's photo viewer —
+  dark whatever the theme, its `VIEWER` table — and a label's white icon, `LABEL_INK`, are
+  exceptions too. The map's own drawings — the blue
   dot, the cone — are the exceptions, as in every maps app.)
 - Which palette: "automatic" follows the phone, otherwise the person's choice.
 - Styles are a function of the theme: `makeStyles(theme)` at the end of the file, with `useMemo`.

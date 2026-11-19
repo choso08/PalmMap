@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { reloadAppAsync } from 'expo';
 import { Directory, File } from 'expo-file-system';
 import { Alert, AppState, BackHandler, Platform } from 'react-native';
 
@@ -69,6 +70,12 @@ export interface BackupState {
 
 let state: BackupState = { folder: null, writtenAt: null, failed: false };
 let loaded = false;
+/**
+ * A system picker is open. Opening one sends the app to the background, and
+ * the copy written then replaced the very file about to be restored with what
+ * the app held — the mistake being undone (code review, 19 November 2026).
+ */
+let picking = false;
 const listeners = new Set<(s: BackupState) => void>();
 
 function setState(next: Partial<BackupState>): void {
@@ -125,24 +132,33 @@ function safeDecode(uri: string): string {
   }
 }
 
+/** Whether a file in a picked folder is the copy. */
+function isBackupFile(entry: File): boolean {
+  // By its name where the provider gives one, else by the decoded address: in
+  // a picked folder the address is a `content://` document id
+  // ("…/document/primary%3ADocuments%2FPalmMap-copia.json"), and some
+  // providers' ids (Downloads' "msf:123") never contain the name — matched by
+  // the address alone, a new "PalmMap-copia (1).json" was made at each write.
+  const named = (entry as File & { fileName?: string | null }).fileName;
+  if (named) {
+    return named === BACKUP_FILE_NAME;
+  }
+  return safeDecode(entry.uri).endsWith(`/${BACKUP_FILE_NAME}`) || entry.name === BACKUP_FILE_NAME;
+}
+
+function existingBackupIn(folder: Directory): File | null {
+  return folder.list().find((entry): entry is File => entry instanceof File && isBackupFile(entry)) ?? null;
+}
+
 function backupFileIn(folder: Directory): File {
-  const existing = folder
-    .list()
-    // By the decoded address: in a picked folder the address is a `content://`
-    // document id ("…/document/primary%3ADocuments%2FPalmMap-copia.json"),
-    // whose last segment is not the plain name.
-    .find(
-      (entry): entry is File =>
-        entry instanceof File && safeDecode(entry.uri).endsWith(`/${BACKUP_FILE_NAME}`),
-    );
-  return existing ?? folder.createFile(BACKUP_FILE_NAME, 'application/json');
+  return existingBackupIn(folder) ?? folder.createFile(BACKUP_FILE_NAME, 'application/json');
 }
 
 /** Writes the copy now, if a folder was chosen. Never throws. */
 export async function writeBackupNow(): Promise<void> {
   try {
     await load();
-    if (!state.folder) {
+    if (!state.folder || picking || restoredNow) {
       return;
     }
     const content = await snapshot();
@@ -165,20 +181,60 @@ export async function writeBackupNow(): Promise<void> {
 }
 
 /**
- * Asks for the folder (Android's picker) and writes the copy there at once.
- * `false` when the person backed out.
+ * Asks for the folder (Android's picker) and keeps it. Returns the copy
+ * already there, if any (`found`, with when it was saved), without writing
+ * over it; otherwise writes the copy at once. `cancelled` when the person
+ * backed out.
  */
-export async function chooseBackupFolder(): Promise<boolean> {
+export async function chooseBackupFolder(): Promise<
+  { outcome: 'written' | 'cancelled' } | { outcome: 'found'; savedAt: number | null }
+> {
+  let folder: Directory;
+  picking = true;
   try {
-    const folder = await Directory.pickDirectoryAsync();
+    folder = await Directory.pickDirectoryAsync();
+  } catch {
+    return { outcome: 'cancelled' };
+  } finally {
+    picking = false;
+  }
+  try {
     await AsyncStorage.setItem(FOLDER_KEY, folder.uri);
     loaded = true;
     setState({ folder: folder.uri, failed: false });
+    // After reinstalling, the old folder holds the only copy of everything:
+    // written over at once, it was replaced by the fresh install's nothing.
+    const found = existingBackupIn(folder);
+    if (found && found.size) {
+      let savedAt: number | null = null;
+      try {
+        savedAt = (JSON.parse(await found.text()) as Partial<BackupFile>).savedAt ?? null;
+      } catch {
+        savedAt = null;
+      }
+      return { outcome: 'found', savedAt };
+    }
     await writeBackupNow();
-    return true;
+    return { outcome: 'written' };
   } catch {
-    return false;
+    return { outcome: 'cancelled' };
   }
+}
+
+/**
+ * "Choose folder" with what follows: a copy already there is restored or
+ * replaced, as the person says.
+ */
+export async function chooseBackupFolderWithNotice(when: (ms: number) => string): Promise<void> {
+  const chosen = await chooseBackupFolder();
+  if (chosen.outcome !== 'found') {
+    return;
+  }
+  const b = t().backup;
+  Alert.alert(b.foundTitle, b.foundBody(chosen.savedAt ? when(chosen.savedAt) : '—'), [
+    { text: b.foundReplace, onPress: () => void writeBackupNow() },
+    { text: b.foundRestore, onPress: () => void restoreFromFolderWithNotice() },
+  ]);
 }
 
 /**
@@ -188,6 +244,7 @@ export async function chooseBackupFolder(): Promise<boolean> {
  */
 export async function restoreBackup(): Promise<'restored' | 'cancelled' | 'invalid'> {
   let picked: File;
+  picking = true;
   try {
     // Any type: some file managers label a .json as text or as nothing.
     const picked0 = await File.pickFileAsync({ mimeTypes: '*/*' });
@@ -197,7 +254,27 @@ export async function restoreBackup(): Promise<'restored' | 'cancelled' | 'inval
     picked = picked0.result;
   } catch {
     return 'cancelled';
+  } finally {
+    picking = false;
   }
+  return restoreFrom(picked);
+}
+
+/** Restores the copy in the chosen folder, without a picker. */
+async function restoreFromFolder(): Promise<'restored' | 'cancelled' | 'invalid'> {
+  await load();
+  if (!state.folder) {
+    return 'cancelled';
+  }
+  try {
+    const found = existingBackupIn(new Directory(state.folder));
+    return found ? restoreFrom(found) : 'invalid';
+  } catch {
+    return 'invalid';
+  }
+}
+
+async function restoreFrom(picked: File): Promise<'restored' | 'invalid'> {
   try {
     const parsed = JSON.parse(await picked.text()) as Partial<BackupFile>;
     if (parsed.app !== 'PalmMap' || parsed.version !== 1 || typeof parsed.data !== 'object' || !parsed.data) {
@@ -263,18 +340,47 @@ export function keepBackupUpToDate(): () => void {
 }
 
 /**
- * "Restore a copy", with what follows said: on success the app closes, since
- * every store read its value when it started; the person opens it again.
+ * "Restore a copy", with what follows said: on success the app starts again,
+ * since every store read its value when it started — and, left running, wrote
+ * that old value back over the restored one at its next change.
+ * `BackHandler.exitApp()` only sent the app to the background with the same
+ * JavaScript still running (code review, 19 November 2026); `reloadAppAsync`
+ * starts the JavaScript afresh, release builds included.
  */
 export async function restoreWithNotice(): Promise<void> {
-  const outcome = await restoreBackup();
+  tellRestored(await restoreBackup());
+}
+
+async function restoreFromFolderWithNotice(): Promise<void> {
+  tellRestored(await restoreFromFolder());
+}
+
+function tellRestored(outcome: 'restored' | 'cancelled' | 'invalid'): void {
   if (outcome === 'restored') {
+    restoredNow = true;
     Alert.alert(t().settings.backupRestore, t().backup.restored, [
-      { text: 'OK', onPress: () => BackHandler.exitApp() },
+      { text: t().backup.ok, onPress: () => void startAgain() },
     ]);
   } else if (outcome === 'invalid') {
     Alert.alert(t().settings.backupRestore, t().backup.invalid);
   }
+}
+
+/**
+ * Set once a copy has been put back: nothing more is written to the copy's
+ * file (the stores still hold the old values until the restart).
+ */
+let restoredNow = false;
+
+async function startAgain(): Promise<void> {
+  try {
+    await reloadAppAsync('backup restored');
+  } catch {
+    // Handled below.
+  }
+  // Still here: the reload is not available in this build. Closing is the
+  // next best thing (the stores write nothing while nobody touches them).
+  setTimeout(() => BackHandler.exitApp(), 1500);
 }
 
 /** Once, at the first start of a fresh install: offer to restore a copy. */

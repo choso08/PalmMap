@@ -1,7 +1,5 @@
 import axios from 'axios';
-import { Image } from 'react-native';
-
-import { PANORAMAX_URL, STREET_VIEW_TAP_M, USER_AGENT } from './config';
+import { PANORAMAX_URL, STREET_VIEW_TAP_M, STREET_VIEW_TIMEOUT_MS, USER_AGENT } from './config';
 import type { Coordinates } from '../types/geo';
 import type { PanoramaxPictureFeature, PanoramaxPicturesResponse } from '../types/photos';
 import { distanceMeters } from '../utils/geometry';
@@ -39,7 +37,7 @@ export interface StreetPicture {
 }
 
 const client = axios.create({
-  timeout: 10000,
+  timeout: STREET_VIEW_TIMEOUT_MS,
   headers: { 'User-Agent': USER_AGENT },
 });
 
@@ -89,10 +87,21 @@ export async function pictureNear(at: Coordinates, radius = STREET_VIEW_TAP_M): 
       best = { p, d };
     }
   }
-  if (best) {
-    pictures.set(best.p.id, Promise.resolve(best.p));
+  if (!best) {
+    return null;
   }
-  return best?.p ?? null;
+  const found = best.p;
+  // The search answer may leave out the sequence links, and a picture kept
+  // without them never walks (‹ › stay off): ask the item for them then.
+  if (!found.prev && !found.next && found.collection) {
+    const full = askPicture(found.id, found.collection)
+      .then((p) => p ?? found)
+      .catch(() => found);
+    pictures.set(found.id, full);
+    return full;
+  }
+  pictures.set(found.id, Promise.resolve(found));
+  return found;
 }
 
 /**
@@ -142,8 +151,16 @@ export function pictureById(id: string, collection?: string): Promise<StreetPict
  * so a step along the street shows at once instead of waiting for the
  * network (author: "not very fluid", 19 November 2026). Two steps ahead in
  * the direction being walked, one behind.
+ *
+ * The images are handed to `onImage`, for the sheet to draw out of sight
+ * with the app's User-Agent: `Image.prefetch` sends none, and the loaded
+ * image stays in the image cache under its address all the same.
  */
-export function preloadAround(picture: StreetPicture, forward: 'next' | 'prev' = 'next'): void {
+export function preloadAround(
+  picture: StreetPicture,
+  forward: 'next' | 'prev',
+  onImage: (uri: string) => void,
+): void {
   const warm = (id: string | null, depth: number, dir: 'next' | 'prev') => {
     if (!id || depth <= 0) {
       return;
@@ -153,7 +170,7 @@ export function preloadAround(picture: StreetPicture, forward: 'next' | 'prev' =
         if (!p) {
           return;
         }
-        void Image.prefetch(p.uri).catch(() => undefined);
+        onImage(p.uri);
         warm(p[dir], depth - 1, dir);
       })
       .catch(() => undefined);

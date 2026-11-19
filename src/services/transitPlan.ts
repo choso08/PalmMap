@@ -110,9 +110,14 @@ function signature(trip: TransitTrip): string {
  * arrivals and from its stored timetable: the live one wins, then the first.
  */
 function unique(trips: TransitTrip[]): TransitTrip[] {
-  // Live first; then the later departure, so of two ways onto the same bus
-  // arriving together the one with less walking and waiting is kept.
-  const sorted = [...trips].sort((a, b) => Number(b.live) - Number(a.live) || b.leaveAt - a.leaveAt);
+  // Live first; then the earliest arrival — of two departures of the same
+  // lines a few minutes apart, the one that arrives first is the option (by
+  // later departure alone, the later bus won and the better one was dropped:
+  // code review, 19 November 2026); and among those arriving together, the
+  // later departure, the way onto the same bus with less walking and waiting.
+  const sorted = [...trips].sort(
+    (a, b) => Number(b.live) - Number(a.live) || a.reachAt - b.reachAt || b.leaveAt - a.leaveAt,
+  );
   const kept: TransitTrip[] = [];
   for (const trip of sorted) {
     const sig = signature(trip);

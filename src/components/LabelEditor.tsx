@@ -16,10 +16,13 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import {
   LABEL_COLOURS,
   LABEL_ICONS,
+  LABEL_INK,
+  LABELS_MAX,
   addLabel,
   editLabel,
   isEmojiIcon,
   labelOf,
+  lastGrapheme,
   removeLabel,
   setHomeWork,
   useLabels,
@@ -90,6 +93,10 @@ export function LabelEditor({ target, onClose, onPickPlace }: Props) {
       return;
     }
     const kind = addLabel(name, shownIcon, colour, target.place ?? null);
+    if (!kind) {
+      Alert.alert(s.full(LABELS_MAX));
+      return;
+    }
     onClose();
     if (!target.place) {
       onPickPlace(kind);
@@ -126,7 +133,7 @@ export function LabelEditor({ target, onClose, onPickPlace }: Props) {
           {/* What it will look like. */}
           <View style={styles.preview}>
             <View style={[styles.previewIcon, { backgroundColor: colour }]}>
-              <LabelIcon icon={shownIcon} size={30} colour="#fff" />
+              <LabelIcon icon={shownIcon} size={30} colour={LABEL_INK} />
             </View>
             <Text style={styles.previewName} numberOfLines={1}>
               {name.trim() || s.namePlaceholder}
@@ -157,7 +164,7 @@ export function LabelEditor({ target, onClose, onPickPlace }: Props) {
                 onPress={() => setColour(c)}
                 accessibilityState={{ selected: colour === c }}
               >
-                {colour === c ? <MaterialCommunityIcons name="check" size={18} color="#fff" /> : null}
+                {colour === c ? <MaterialCommunityIcons name="check" size={18} color={LABEL_INK} /> : null}
               </Pressable>
             ))}
           </View>
@@ -176,7 +183,7 @@ export function LabelEditor({ target, onClose, onPickPlace }: Props) {
                   }}
                   accessibilityState={{ selected: on }}
                 >
-                  <MaterialCommunityIcons name={i as never} size={22} color={on ? '#fff' : theme.text} />
+                  <MaterialCommunityIcons name={i as never} size={22} color={on ? LABEL_INK : theme.text} />
                 </Pressable>
               );
             })}
@@ -184,7 +191,7 @@ export function LabelEditor({ target, onClose, onPickPlace }: Props) {
           <TextInput
             style={[styles.input, styles.emoji]}
             value={emoji}
-            onChangeText={(text) => setEmoji([...text].slice(-2).join(''))}
+            onChangeText={(text) => setEmoji(lastGrapheme(text))}
             placeholder={s.emojiPlaceholder}
             placeholderTextColor={theme.textMuted}
           />

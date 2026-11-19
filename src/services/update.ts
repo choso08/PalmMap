@@ -8,7 +8,7 @@ import axios from 'axios';
 
 import { t } from '../i18n';
 import { RELEASES_API_URL, REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
-import { hasSystemDownloader, systemDownload } from './systemDownload';
+import { hasSystemDownloader, systemDownload, SystemDownloadRefused } from './systemDownload';
 
 /**
  * New versions, without having to go to GitHub by hand.
@@ -219,7 +219,40 @@ const RELEASE_DOWNLOAD_PREFIX = 'https://github.com/choso08/PalmMap/releases/dow
  * Progress is reported **per whole percentage and not per chunk written** —
  * see the same note in `offlineMap.ts`, which is where that lesson was learnt.
  */
-export async function downloadUpdate(
+export function downloadUpdate(
+  info: UpdateInfo,
+  onProgress?: (fraction: number) => void,
+): Promise<File> {
+  // One at a time: Settings closed and opened again mid-download showed the
+  // button again, and a second download emptied the folder under the first.
+  if (updateJob && updateJob.build === info.build) {
+    if (onProgress) {
+      updateJob.listeners.add(onProgress);
+    }
+    return updateJob.job;
+  }
+  const listeners = new Set<(fraction: number) => void>();
+  if (onProgress) {
+    listeners.add(onProgress);
+  }
+  const job = downloadUpdateOnce(info, (fraction) => listeners.forEach((l) => l(fraction))).finally(
+    () => {
+      if (updateJob?.job === job) {
+        updateJob = null;
+      }
+    },
+  );
+  updateJob = { build: info.build, job, listeners };
+  return job;
+}
+
+let updateJob: {
+  build: number;
+  job: Promise<File>;
+  listeners: Set<(fraction: number) => void>;
+} | null = null;
+
+async function downloadUpdateOnce(
   info: UpdateInfo,
   onProgress?: (fraction: number) => void,
 ): Promise<File> {
@@ -259,8 +292,12 @@ export async function downloadUpdate(
         onProgress,
       });
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      throw new UpdateError(t().errors.updateDownloadFailed(detail));
+      // Refused by the system (Download Manager disabled): the app's own
+      // download below.
+      if (!(error instanceof SystemDownloadRefused)) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new UpdateError(t().errors.updateDownloadFailed(detail));
+      }
     }
   }
 

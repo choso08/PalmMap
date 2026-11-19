@@ -48,7 +48,7 @@ import type { Theme } from '../theme';
 import { formatFactor } from '../utils/format';
 import { hasRegionVoice } from '../utils/voice';
 import {
-  chooseBackupFolder,
+  chooseBackupFolderWithNotice,
   restoreWithNotice,
   watchBackup,
   type BackupState,
@@ -226,7 +226,7 @@ export function SettingsSheet({
         s.forgetTrips(0),
       ),
       storage: has(s.dataUsage, s.storage),
-      backup: has(s.dataUsage, s.backup, s.backupRestore, s.backupHint),
+      backup: has(s.dataUsage, s.backup, s.backupRestore, s.backupChoose),
       feedback: has(s.about, s.feedback, s.feedbackPlaceholder),
       donate: DONATE_URL !== '' && has(s.about, s.donate, s.donateHint),
       recents: has(s.general, s.recents, s.forgetRecents),
@@ -774,16 +774,16 @@ export function SettingsSheet({
               {show.backup ? (
                 <>
                   <Text style={styles.sectionTitle}>{s.backup}</Text>
-                  <Text style={styles.note}>
-                    {backup.failed
-                      ? s.backupFailed
-                      : backup.folder && backup.writtenAt
-                        ? s.backupWritten(shortWhen(backup.writtenAt))
-                        : s.backupHint}
-                  </Text>
+                  {backup.failed || (backup.folder && backup.writtenAt) ? (
+                    <Text style={styles.note}>
+                      {backup.failed
+                        ? s.backupFailed
+                        : s.backupWritten(shortWhen(backup.writtenAt ?? 0))}
+                    </Text>
+                  ) : null}
                   <Pressable
                     style={styles.forgetRow}
-                    onPress={() => void chooseBackupFolder()}
+                    onPress={() => void chooseBackupFolderWithNotice(shortWhen)}
                   >
                     <MaterialCommunityIcons name="folder-sync-outline" size={19} color={theme.accent} />
                     <Text style={styles.linkText}>

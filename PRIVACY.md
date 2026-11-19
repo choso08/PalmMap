@@ -23,7 +23,7 @@ and not you.
 | Businesses, speed cameras and limits (Overpass) | Volunteers (overpass-api.de, private.coffee) | The area in view, or along the route | Category buttons, a tapped business, cameras/limits on a route |
 | Public transport (Carris Metropolitana, Carris) | The operators | Which stop, line or bus you look at; the live bus list | Transport map and trips |
 | Weather at the destination (Open-Meteo) | Open-Meteo | The destination rounded to about 1 km, and the hour | A route with route hints on |
-| Photos and street view (Wikimedia, Wikidata, Panoramax) | Wikimedia, Panoramax | The business's photo name, or a point near the place | Opening a card, using street view |
+| Photos and street view (Wikimedia, Wikidata, Panoramax) | Wikimedia, Panoramax | The business's photo name, or a point near the place; with street view on, the coverage squares of the area in view and the point tapped | Opening a card, using street view |
 | OpenStreetMap notes | OSM Foundation | Your report's text and the place, **anonymously** | Only when you press Send on "Report" |
 | Updates, maps and timetables (GitHub) | GitHub | That a copy of PalmMap is checking | At start (at most every 15 min), and downloads you start |
 
@@ -57,6 +57,7 @@ possible, and to be useless to anyone but you:
 - **Never sent and never copied**: no request carries it, it is not in the automatic copy, and
   cloud backup is off. The one exception is when you tap "Home" or "Work" next to a learnt place:
   that point is sent to Nominatim to get its street name, as when you set Home any other way.
+  "Show on the map" only moves the map there: the point is not looked up.
 - **Forgotten by itself** after 90 days without a visit.
 - **Deleted for good** from Settings → Navigation, or when turning the feature off: the data
   is removed and the encryption key destroyed.

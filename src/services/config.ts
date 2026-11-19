@@ -757,6 +757,8 @@ export const PHOTO_NEARBY_M = 25;
 export const PANORAMAX_TILES = `${PANORAMAX_URL}/map/{z}/{x}/{y}.mvt`;
 export const PANORAMAX_TILES_MAXZOOM = 15;
 export const STREET_VIEW_TAP_M = 40;
+/** How long a Panoramax answer is waited for. */
+export const STREET_VIEW_TIMEOUT_MS = 10_000;
 
 /**
  * The parked car (`services/parkedCar.ts`). Farther than `PARKED_WALK_MIN_M`

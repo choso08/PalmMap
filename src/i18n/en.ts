@@ -92,6 +92,7 @@ export const en: typeof pt = {
     remove: 'Remove the place',
     setHere: 'Set here',
     label: 'Label',
+    full: (max: number) => `You already have ${max} labels, the most there can be. Delete one to make another.`,
   },
   layers: {
     open: 'Map layers',
@@ -465,7 +466,7 @@ export const en: typeof pt = {
     pointCount: (n: number) => (n === 1 ? '1 point' : `${n} points`),
   },
 
-  /** Alerts of the copy outside the app (`services/backup.ts`). */
+  /** "Learn from my movements" (`LearningSettings.tsx`). */
   learning: {
     title: 'Learn from my movements',
     hint: 'Follows you with the app closed; uses more battery.',
@@ -486,9 +487,16 @@ export const en: typeof pt = {
     offTitle: 'Also delete what it learnt?',
     keep: 'Keep',
     forgetTitle: 'Delete the learnt places and paces?',
+    needsPermission: 'Stopped: location is not set to "Allow all the time". Tap to allow.',
   },
+  /** Alerts of the copy outside the app (`services/backup.ts`). */
   backup: {
-    restored: 'Copy restored. The app will close; open it again.',
+    restored: 'Copy restored. The app will start again.',
+    ok: 'OK',
+    foundTitle: 'There is already a copy in this folder',
+    foundBody: (when: string) => `From ${when}. Restore it, or replace it with what is in this app?`,
+    foundRestore: 'Restore',
+    foundReplace: 'Replace',
     invalid: 'That file is not a PalmMap copy.',
     offerTitle: 'Used PalmMap before?',
     offerBody: 'You can bring back your settings and saved places from a copy.',
@@ -554,7 +562,6 @@ export const en: typeof pt = {
     storage: 'Storage',
     backup: 'Automatic copy',
     backupChoose: 'Choose a folder for the copy',
-    backupHint: 'A file outside the app, kept if you uninstall it.',
     backupWritten: (when: string) => `Last copy: ${when}`,
     backupFailed: 'The folder can no longer be reached. Choose another.',
     backupChange: 'Change folder',

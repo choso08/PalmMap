@@ -97,15 +97,28 @@ export function watchPerf(listener: () => void): () => void {
 }
 
 let expected = Date.now() + TICK_MS;
+/**
+ * Off screen (or behind a system screen: the voice recogniser, a permission
+ * dialog, a picker), Android pauses the JavaScript timers — not the thread.
+ * The first tick back came late by the whole pause and read as a stall that
+ * never happened (code review, 19 November 2026). While paused nothing is
+ * measured, and the clock starts again on coming back.
+ */
+let paused = AppState.currentState !== 'active';
 setInterval(() => {
   const now = Date.now();
+  if (paused) {
+    expected = now + TICK_MS;
+    return;
+  }
   const late = now - expected;
   // Minutes late is the app having been in the background, not a stall.
   if (late > STALL_MS && late < 30_000) {
     const inside = spans.filter((x) => x.end >= expected && x.end - x.start >= SLOW_MS);
+    const before = Math.max(0, Math.round((expected - lastMarkAt) / 1000));
     const label = inside.length
       ? `blocked (in: ${inside.map((x) => `${x.label} ${x.end - x.start} ms`).join(', ')})`
-      : `blocked (after: ${lastMark || '—'}, ${Math.round((expected - lastMarkAt) / 1000)} s before)`;
+      : `blocked (after: ${lastMark || '—'}, ${before} s before)`;
     push({ at: expected, label, ms: late });
   }
   expected = now + TICK_MS;
@@ -114,6 +127,12 @@ setInterval(() => {
 // Coming back to the app wakes many effects at once (buses, arrivals, the
 // network check, learning); marked so a stall right after it is named.
 AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    paused = false;
+    expected = Date.now() + TICK_MS;
+  } else {
+    paused = true;
+  }
   if (state === 'active' || state === 'background') {
     mark(`app: ${state}`);
   }

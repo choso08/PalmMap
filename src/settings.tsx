@@ -328,6 +328,13 @@ interface SettingsContextValue {
   /** Os textos dessa língua. */
   strings: Strings;
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  /**
+   * The stored settings have been read. Until then `settings` holds the
+   * defaults — an effect acting on a setting at start-up must wait for this,
+   * or it acts on a default the person never chose (learning was stopped at
+   * every start, its trip under way deleted).
+   */
+  loaded: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -336,6 +343,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [pace, setPace] = useState<LearnedPace>({});
+  const [loaded, setLoaded] = useState(false);
 
   // Reads the saved settings once, at startup.
   useEffect(() => {
@@ -390,6 +398,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       } catch {
         // With no saved settings, the defaults stay. No reason to fail.
       }
+      setLoaded(true);
 
       try {
         const stored = await AsyncStorage.getItem(PACE_KEY);
@@ -462,8 +471,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       language,
       strings: stringsFor(language),
       update,
+      loaded,
     };
-  }, [settings, pace, learnPace, forgetPace, systemScheme, update]);
+  }, [settings, pace, learnPace, forgetPace, systemScheme, update, loaded]);
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
@@ -478,8 +488,8 @@ function useSettingsContext(): SettingsContextValue {
 
 /** The current settings and how to change them. */
 export function useSettings() {
-  const { settings, update } = useSettingsContext();
-  return { settings, update };
+  const { settings, update, loaded } = useSettingsContext();
+  return { settings, update, loaded };
 }
 
 /**

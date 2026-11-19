@@ -67,8 +67,38 @@ function stopService(): void {
   cancelStop();
   scheduledStop = setTimeout(() => {
     scheduledStop = null;
-    void Location.stopLocationUpdatesAsync(NAVIGATION_TASK).catch(() => undefined);
+    void Location.stopLocationUpdatesAsync(NAVIGATION_TASK)
+      .catch(() => undefined)
+      .finally(() => {
+        const waiting = idleWaiters.splice(0);
+        waiting.forEach((resolve) => resolve());
+      });
   }, SERVICE_STOP_GRACE_MS);
+}
+
+/**
+ * **`expo-location` has one foreground service for every task.** Each task's
+ * stop calls `stopForeground` on that one service — so the navigation's
+ * delayed stop took the foreground (and the notification) away from the
+ * learning task that had just started again, and learning's stop could take
+ * it from navigation at its start (code review, 19 November 2026). The two
+ * are kept in turn: navigation asks the other task to stop before it starts
+ * (`setBeforeNavigationStart`), and the other task starts only once
+ * navigation's stop has happened (`whenNavigationServiceIdle`).
+ */
+const idleWaiters: (() => void)[] = [];
+let beforeNavigationStart: (() => Promise<void>) | null = null;
+
+export function setBeforeNavigationStart(hook: () => Promise<void>): void {
+  beforeNavigationStart = hook;
+}
+
+/** Resolves once no navigation stop is pending (at once when none is). */
+export function whenNavigationServiceIdle(): Promise<void> {
+  if (!scheduledStop) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => idleWaiters.push(resolve));
 }
 
 /**
@@ -320,6 +350,9 @@ export async function watchPosition(
 
   try {
     navListener = deliver;
+    if (!wasRunning) {
+      await beforeNavigationStart?.().catch(() => undefined);
+    }
     await Location.startLocationUpdatesAsync(NAVIGATION_TASK, {
       ...options,
       foregroundService: {

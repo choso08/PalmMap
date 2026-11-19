@@ -7,6 +7,7 @@ import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
 import { distanceMeters } from '../utils/geometry';
 import { LEARNING_TASK } from './config';
+import { requestPermission, setBeforeNavigationStart, whenNavigationServiceIdle } from './location';
 
 /**
  * Learning from the person's own movements, with the app closed too (author,
@@ -33,9 +34,9 @@ import { LEARNING_TASK } from './config';
  * `learnPace` and `recordTrip` navigation uses.
  */
 
-/** What is kept: places, and what still has to reach the app. Backed up. */
+/** What is kept: places, and what still has to reach the app. Never in the automatic copy. */
 const LEARNT_KEY = 'palmmap.aprendizagem';
-/** The trip under way and the current stay candidate. Not backed up. */
+/** The trip under way and the current stay candidate. Never in the automatic copy. */
 const STATE_KEY = 'palmmap.aprendizagem.estado';
 
 const STAY_RADIUS_M = 100;
@@ -46,6 +47,16 @@ const PLACES_MAX = 30;
 const ACCURACY_MAX_M = 60;
 /** A gap this long with the person elsewhere: the trip is not known. */
 const GAP_MAX_MS = 30 * 60_000;
+/**
+ * …unless the first reading after the gap is this close: then the person was
+ * still (no reading comes while still) and has just left — by car or bus the
+ * first reading is already a few hundred metres off. Farther, the gap was a
+ * trip without GPS (a tunnel, the metro, the phone off) and no stay is made of
+ * its start.
+ */
+const GAP_DEPARTURE_MAX_M = 1500;
+/** GPS altitude moves this much before a climb is counted: it is noisy. */
+const CLIMB_STEP_M = 8;
 const SPEEDS_MAX = 400;
 /** Like navigation's: shorter trips are dominated by a door or a light. */
 const PACE_TRIP_MIN_MS = 3 * 60_000;
@@ -74,6 +85,8 @@ export interface FrequentPlace {
 export interface PaceObservation {
   key: 'walking' | 'cycling';
   factor: number;
+  /** Metres climbed on the way, from the GPS altitude (rough). */
+  climb?: number;
 }
 
 export interface LearntTrip {
@@ -98,7 +111,15 @@ interface State {
   /** The current stay candidate: where readings have stayed close. */
   anchor: (Point & { since: number; metersAt: number; speedsAt: number }) | null;
   /** The trip since the last stay ended. */
-  trip: { from: Coordinates | null; startAt: number; meters: number; speeds: number[] } | null;
+  trip: {
+    from: Coordinates | null;
+    startAt: number;
+    meters: number;
+    speeds: number[];
+    /** Metres climbed so far, and the altitude the next climb counts from. */
+    climb?: number;
+    altitude?: number | null;
+  } | null;
   last: Point | null;
 }
 
@@ -120,24 +141,67 @@ export function canLearn(): boolean {
   return vault != null;
 }
 
+/** The stored value could not be read this time: nothing is written on top. */
+class Unreadable extends Error {}
+
+/** Reads that failed in a row; past `UNREADABLE_GIVE_UP` the value is lost for good. */
+let unreadable = 0;
+const UNREADABLE_GIVE_UP = 5;
+
+/**
+ * Reads a sealed value: `fallback` when nothing is stored. **A value that is
+ * stored but cannot be read now throws** (`Unreadable`) instead of passing for
+ * an empty one — taken as empty, the batch then wrote one new stay over every
+ * place learnt (code review, 19 November 2026). Only after several failures in
+ * a row (the key gone for good, e.g. a phone restored from another) is it
+ * given up as empty.
+ */
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   if (!vault) {
     return fallback;
   }
+  let raw: string | null;
   try {
-    const raw = await AsyncStorage.getItem(key);
-    const text = raw ? vault.open(raw) : null;
-    return text ? { ...fallback, ...(JSON.parse(text) as T) } : fallback;
+    raw = await AsyncStorage.getItem(key);
   } catch {
+    throw new Unreadable(key);
+  }
+  if (!raw) {
     return fallback;
   }
+  let text: string | null = null;
+  try {
+    text = vault.open(raw);
+  } catch {
+    text = null;
+  }
+  if (text) {
+    try {
+      const value = { ...fallback, ...(JSON.parse(text) as T) };
+      unreadable = 0;
+      return value;
+    } catch {
+      // A sealed text that is not JSON: corrupt for good.
+      return fallback;
+    }
+  }
+  unreadable += 1;
+  if (unreadable >= UNREADABLE_GIVE_UP) {
+    return fallback;
+  }
+  throw new Unreadable(key);
 }
 
+/** Writes a sealed value; if it cannot be sealed, what was stored stays (sealed). */
 async function writeJson(key: string, value: unknown): Promise<void> {
-  const sealed = vault?.seal(JSON.stringify(value)) ?? '';
+  let sealed = '';
+  try {
+    sealed = vault?.seal(JSON.stringify(value)) ?? '';
+  } catch {
+    sealed = '';
+  }
   if (!sealed) {
-    // Not sealed, not kept.
-    await AsyncStorage.removeItem(key).catch(() => undefined);
+    // Not sealed, not kept — and never the clear text.
     return;
   }
   await AsyncStorage.setItem(key, sealed).catch(() => undefined);
@@ -176,7 +240,9 @@ function told(learnt: Learnt) {
 
 export function watchLearnt(listener: (learnt: Learnt) => void): () => void {
   listeners.add(listener);
-  void readJson(LEARNT_KEY, EMPTY).then(listener);
+  void readJson(LEARNT_KEY, EMPTY)
+    .catch(() => EMPTY)
+    .then(listener);
   return () => {
     listeners.delete(listener);
   };
@@ -291,13 +357,33 @@ function handle(readings: Location.LocationObject[]): Promise<void> {
       }
       const step = last ? distanceMeters(last, point) : 0;
 
-      // A long silence somewhere else: nothing is known about the way.
-      if (last && point.at - last.at > GAP_MAX_MS && step > STAY_RADIUS_M) {
+      // A long silence and then far away: nothing is known about the way, and
+      // no stay is made of where the silence began. A long silence and then a
+      // reading just outside it is the normal end of a stay (nothing comes
+      // while still) — left to the stay check below: nulled here, every stay
+      // left by car or bus was lost.
+      const silent = last != null && point.at - last.at > GAP_MAX_MS;
+      if (silent && step > GAP_DEPARTURE_MAX_M) {
         state.trip = null;
         state.anchor = null;
       }
 
       if (state.trip) {
+        const trip = state.trip;
+        const altitude = reading.coords.altitude;
+        if (altitude != null && Number.isFinite(altitude)) {
+          if (trip.altitude == null) {
+            trip.altitude = altitude;
+          } else if (altitude - trip.altitude >= CLIMB_STEP_M) {
+            trip.climb = (trip.climb ?? 0) + (altitude - trip.altitude);
+            trip.altitude = altitude;
+          } else if (trip.altitude - altitude >= CLIMB_STEP_M) {
+            trip.altitude = altitude;
+          }
+        }
+      }
+
+      if (state.trip && !silent) {
         state.trip.meters += step;
         const gps = reading.coords.speed;
         const speed =
@@ -332,7 +418,11 @@ function handle(readings: Location.LocationObject[]): Promise<void> {
               const model = mode === 'walking' ? WALK_MODEL_MS : CYCLE_MODEL_MS;
               const factor = ms / 1000 / (meters / model);
               if (factor >= 0.5 && factor <= 2.5) {
-                paces.push({ key: mode, factor: Math.round(factor * 100) / 100 });
+                paces.push({
+                  key: mode,
+                  factor: Math.round(factor * 100) / 100,
+                  climb: Math.round(trip.climb ?? 0),
+                });
               }
             }
             if (distanceMeters(trip.from, here) > STAY_RADIUS_M * 3) {
@@ -438,12 +528,10 @@ export function guessHomeWork(places: FrequentPlace[]): {
  */
 export async function askBackgroundPermission(): Promise<boolean> {
   try {
-    const foreground = await Location.getForegroundPermissionsAsync();
-    if (!foreground.granted) {
-      const asked = await Location.requestForegroundPermissionsAsync();
-      if (!asked.granted) {
-        return false;
-      }
+    // Through location.ts, which keeps to one permission request at a time
+    // (two at once crash a release build).
+    if (!(await requestPermission())) {
+      return false;
     }
     const current = await Location.getBackgroundPermissionsAsync();
     if (current.granted) {
@@ -469,10 +557,30 @@ async function hasBackgroundPermission(): Promise<boolean> {
  * navigation already measures the pace), stopped otherwise. Called with the
  * app on screen — Android only lets a foreground service start from there.
  */
-export async function syncLearning(wanted: boolean, paused: boolean): Promise<void> {
+export function syncLearning(wanted: boolean, paused: boolean): Promise<void> {
+  // The latest wish wins, and syncs run one at a time: two overlapping ones
+  // (one stopping, one starting) could leave the task stopped.
+  desired = { wanted, paused };
+  const next = syncing.then(applyDesired, applyDesired);
+  syncing = next.catch(() => undefined);
+  return next;
+}
+
+let desired = { wanted: false, paused: false };
+let syncing: Promise<unknown> = Promise.resolve();
+
+async function applyDesired(): Promise<void> {
   try {
+    let { wanted, paused } = desired;
+    let run = wanted && !paused && canLearn() && (await hasBackgroundPermission());
+    if (run) {
+      // Not while navigation's service is still to stop: its stop would take
+      // the shared foreground service with it (`whenNavigationServiceIdle`).
+      await whenNavigationServiceIdle();
+      ({ wanted, paused } = desired);
+      run = wanted && !paused && run;
+    }
     const running = await Location.hasStartedLocationUpdatesAsync(LEARNING_TASK).catch(() => false);
-    const run = wanted && !paused && canLearn() && (await hasBackgroundPermission());
     if (run && !running) {
       await Location.startLocationUpdatesAsync(LEARNING_TASK, {
         // GPS, not Wi-Fi and cell towers: speeds need it. The distance filter
@@ -502,4 +610,26 @@ export async function syncLearning(wanted: boolean, paused: boolean): Promise<vo
   } catch {
     // A phone that refuses the service: nothing is learnt, nothing breaks.
   }
+}
+
+/**
+ * Before navigation starts its service, learning's is stopped and the stop
+ * waited for: done the other way round, learning's stop took the shared
+ * foreground service from navigation (`location.ts`).
+ */
+setBeforeNavigationStart(async () => {
+  desired = { ...desired, paused: true };
+  const stopped = syncing.then(async () => {
+    if (await Location.hasStartedLocationUpdatesAsync(LEARNING_TASK).catch(() => false)) {
+      await Location.stopLocationUpdatesAsync(LEARNING_TASK).catch(() => undefined);
+    }
+  });
+  syncing = stopped.catch(() => undefined);
+  // Never holding navigation up for long, whatever the queue is waiting for.
+  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 3000))]);
+});
+
+/** Whether "Allow all the time" is missing while learning is switched on. */
+export async function learningNeedsPermission(): Promise<boolean> {
+  return canLearn() && !(await hasBackgroundPermission());
 }

@@ -110,6 +110,7 @@ export const pt = {
     remove: 'Tirar o sítio',
     setHere: 'Pôr aqui',
     label: 'Etiqueta',
+    full: (max: number) => `Já tem ${max} etiquetas, o máximo. Apague uma para fazer outra.`,
   },
   layers: {
     open: 'Camadas do mapa',
@@ -502,7 +503,7 @@ export const pt = {
     pointCount: (n: number) => (n === 1 ? '1 ponto' : `${n} pontos`),
   },
 
-  /** Alerts of the copy outside the app (`services/backup.ts`). */
+  /** "Learn from my movements" (`LearningSettings.tsx`). */
   learning: {
     title: 'Aprender com as minhas deslocações',
     hint: 'Segue-o com a app fechada; gasta mais bateria.',
@@ -523,9 +524,16 @@ export const pt = {
     offTitle: 'Apagar também o que aprendeu?',
     keep: 'Manter',
     forgetTitle: 'Apagar os sítios e ritmos aprendidos?',
+    needsPermission: 'Parado: falta a localização "Permitir sempre". Toque para dar.',
   },
+  /** Alerts of the copy outside the app (`services/backup.ts`). */
   backup: {
-    restored: 'Cópia reposta. A app vai fechar; abra-a outra vez.',
+    restored: 'Cópia reposta. A app vai recomeçar.',
+    ok: 'OK',
+    foundTitle: 'Já há uma cópia nesta pasta',
+    foundBody: (when: string) => `De ${when}. Repô-la, ou substituí-la pelo que está nesta app?`,
+    foundRestore: 'Repor',
+    foundReplace: 'Substituir',
     invalid: 'Esse ficheiro não é uma cópia do PalmMap.',
     offerTitle: 'Já usou o PalmMap?',
     offerBody: 'Pode repor as definições e os sítios guardados de uma cópia.',
@@ -592,7 +600,6 @@ export const pt = {
     storage: 'Armazenamento',
     backup: 'Cópia automática',
     backupChoose: 'Escolher pasta para a cópia',
-    backupHint: 'Um ficheiro fora da app, que fica se a desinstalar.',
     backupWritten: (when: string) => `Última cópia: ${when}`,
     backupFailed: 'A pasta deixou de estar acessível. Escolha outra.',
     backupChange: 'Mudar pasta',

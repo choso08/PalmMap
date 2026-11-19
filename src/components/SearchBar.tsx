@@ -133,6 +133,8 @@ export function SearchBar({
    */
   const [lineResults, setLineResults] = useState<TransitLineInfo[]>([]);
   const inputRef = useRef<TextInput>(null);
+  /** The list's first layout since the box got the focus was measured. */
+  const listTimed = useRef(true);
   /**
    * "Add stop" in the route panel asks for the box: it is emptied (it still
    * held the destination's name, which came first in the list) and the cursor
@@ -330,7 +332,15 @@ export function SearchBar({
 
   const showingSuggestions = parado && sugestoes.length > 0;
   // Only while the box is in use: once something is chosen, the list has no job.
-  const list = focused && (showingSuggestions || !parado) ? sugestoes : [];
+  // Keyed by the place's id, so a row keeps its element (and its fade does not
+  // replay) when one above it goes; two rows with the same id keep the first.
+  const seenIds = new Set<string>();
+  const list = (focused && (showingSuggestions || !parado) ? sugestoes : []).filter(({ place }) => {
+    const key = String(place.id);
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
+  });
   const linesShown = focused && !parado ? lineResults : [];
 
   return (
@@ -361,6 +371,7 @@ export function SearchBar({
           returnKeyType="search"
           onFocus={() => {
             mark('search: focus');
+            listTimed.current = false;
             setFocused(true);
           }}
           onSubmitEditing={() => void runSearch(query)}
@@ -482,7 +493,14 @@ export function SearchBar({
       {list.length > 0 || linesShown.length > 0 ? (
         <FlatList
           style={[styles.results, focused && styles.resultsFocused]}
-          onLayout={() => since('search: list on screen', 'search: focus')}
+          onLayout={() => {
+            // Once per focus: the list's layout changes with every keystroke
+            // and the keyboard, and each one logged "N ms since focus".
+            if (!listTimed.current) {
+              listTimed.current = true;
+              since('search: list on screen', 'search: focus');
+            }
+          }}
           data={list}
           ListHeaderComponent={
             linesShown.length > 0 ? (
@@ -514,7 +532,7 @@ export function SearchBar({
               </View>
             ) : null
           }
-          keyExtractor={({ place }, i) => `${place.id}-${i}`}
+          keyExtractor={({ place }) => String(place.id)}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item: { place, guardado, local }, index }) => {
             const row = (

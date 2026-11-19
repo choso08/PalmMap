@@ -11,7 +11,7 @@ import { useFavouriteStops } from '../services/favouriteStops';
 import type { TransitStop } from '../services/transit';
 import { FavouriteStopRow } from './FavouriteStopRow';
 import { useFavouriteLines } from '../services/favouriteLines';
-import { LABELS_MAX, useHomeWork, useLabels, type HomeWorkKind } from '../services/homeWork';
+import { LABEL_INK, LABELS_MAX, useHomeWork, useLabels, type HomeWorkKind } from '../services/homeWork';
 import { LabelIcon } from './LabelIcon';
 import {
   forgetParkedCar,
@@ -188,7 +188,7 @@ export function SavedSheet({
                 accessibilityHint={strings.saved.changeHint}
               >
                 <View style={[styles.labelDot, { backgroundColor: label.colour }]}>
-                  <LabelIcon icon={label.icon} size={15} colour="#fff" />
+                  <LabelIcon icon={label.icon} size={15} colour={LABEL_INK} />
                 </View>
                 <Text style={styles.labelText} numberOfLines={1}>
                   {label.place ? label.name : `${label.name} · ${strings.saved.set}`}
