@@ -170,6 +170,10 @@ export function SavedSheet({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          // A horizontal ScrollView in a column takes every free pixel of
+          // height: the "New label" chip stretched to half the screen
+          // (author's photo, 19 November 2026).
+          style={styles.labelsRow}
           contentContainerStyle={styles.labels}
           keyboardShouldPersistTaps="handled"
         >
@@ -520,7 +524,8 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       color: theme.textMuted,
       marginTop: 2,
     },
-    labels: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+    labelsRow: { flexGrow: 0, flexShrink: 0 },
+    labels: { paddingHorizontal: 16, paddingBottom: 12, gap: 8, alignItems: 'center' },
     labelChip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -533,6 +538,7 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderWidth: 1,
       borderColor: theme.border,
       maxWidth: 220,
+      height: 40,
     },
     labelAdd: { paddingLeft: 12, borderStyle: 'dashed', borderColor: theme.accent },
     labelDot: {
