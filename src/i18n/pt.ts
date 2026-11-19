@@ -519,6 +519,9 @@ export const pt = {
     setWork: 'Trabalho',
     show: 'Ver no mapa',
     forget: 'Apagar o que aprendeu',
+    privacy: 'Fica só neste telemóvel, cifrado; nada é enviado nem copiado. Esquece ao fim de 90 dias.',
+    offTitle: 'Apagar também o que aprendeu?',
+    keep: 'Manter',
     forgetTitle: 'Apagar os sítios e ritmos aprendidos?',
   },
   backup: {

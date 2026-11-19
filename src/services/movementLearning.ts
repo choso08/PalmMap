@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { requireOptionalNativeModule } from 'expo';
 
 import { t } from '../i18n';
 import type { Coordinates } from '../types/geo';
@@ -103,13 +104,61 @@ interface State {
 
 const EMPTY: Learnt = { places: [], pending: { paces: [], trips: [] } };
 
+/**
+ * **Everything this file stores is sealed** (author: "it has to be
+ * bulletproof"): AES-GCM with a key that lives only in Android's Keystore
+ * (`VaultModule.kt`). Without the module (an older build) or if sealing fails,
+ * nothing is stored at all — never the clear text.
+ */
+const vault = requireOptionalNativeModule<{
+  seal(text: string): string;
+  open(sealed: string): string | null;
+  destroy(): boolean;
+}>('PalmMapVault');
+
+export function canLearn(): boolean {
+  return vault != null;
+}
+
 async function readJson<T>(key: string, fallback: T): Promise<T> {
+  if (!vault) {
+    return fallback;
+  }
   try {
     const raw = await AsyncStorage.getItem(key);
-    return raw ? { ...fallback, ...(JSON.parse(raw) as T) } : fallback;
+    const text = raw ? vault.open(raw) : null;
+    return text ? { ...fallback, ...(JSON.parse(text) as T) } : fallback;
   } catch {
     return fallback;
   }
+}
+
+async function writeJson(key: string, value: unknown): Promise<void> {
+  const sealed = vault?.seal(JSON.stringify(value)) ?? '';
+  if (!sealed) {
+    // Not sealed, not kept.
+    await AsyncStorage.removeItem(key).catch(() => undefined);
+    return;
+  }
+  await AsyncStorage.setItem(key, sealed).catch(() => undefined);
+}
+
+/** What is older than this is forgotten: a habit not seen in 3 months is not one. */
+const KEEP_DAYS = 90;
+
+function pruned(learnt: Learnt, now: number): Learnt {
+  const oldest = now - KEEP_DAYS * 86_400_000;
+  const since = dateKey(oldest);
+  return {
+    ...learnt,
+    places: learnt.places
+      .filter((p) => p.lastAt >= oldest)
+      .map((p) => ({
+        ...p,
+        nights: p.nights.filter((d) => d >= since),
+        workdays: p.workdays.filter((d) => d >= since),
+      })),
+  };
 }
 
 /** Every change goes through here, one at a time: batches can overlap. */
@@ -310,9 +359,10 @@ function handle(readings: Location.LocationObject[]): Promise<void> {
       state.last = point;
     }
 
-    await AsyncStorage.setItem(STATE_KEY, JSON.stringify(state)).catch(() => undefined);
+    await writeJson(STATE_KEY, state);
     if (changed) {
-      await AsyncStorage.setItem(LEARNT_KEY, JSON.stringify(learnt)).catch(() => undefined);
+      learnt = pruned(learnt, Date.now());
+      await writeJson(LEARNT_KEY, learnt);
       told(learnt);
     }
   });
@@ -340,16 +390,25 @@ export function takePending(): Promise<Learnt['pending']> {
       return learnt.pending;
     }
     const next = { ...learnt, pending: { paces: [], trips: [] } };
-    await AsyncStorage.setItem(LEARNT_KEY, JSON.stringify(next)).catch(() => undefined);
+    await writeJson(LEARNT_KEY, next);
     told(next);
     return learnt.pending;
   });
 }
 
-/** Forgets every place, every pending observation and the trip under way. */
+/**
+ * Forgets every place, every pending observation and the trip under way — and
+ * destroys the key, so even a copy of the old sealed text made before can
+ * never be opened again.
+ */
 export function forgetLearnt(): Promise<void> {
   return serial(async () => {
     await AsyncStorage.multiRemove([LEARNT_KEY, STATE_KEY]).catch(() => undefined);
+    try {
+      vault?.destroy();
+    } catch {
+      // Already gone.
+    }
     told(EMPTY);
   });
 }
@@ -413,7 +472,7 @@ async function hasBackgroundPermission(): Promise<boolean> {
 export async function syncLearning(wanted: boolean, paused: boolean): Promise<void> {
   try {
     const running = await Location.hasStartedLocationUpdatesAsync(LEARNING_TASK).catch(() => false);
-    const run = wanted && !paused && (await hasBackgroundPermission());
+    const run = wanted && !paused && canLearn() && (await hasBackgroundPermission());
     if (run && !running) {
       await Location.startLocationUpdatesAsync(LEARNING_TASK, {
         // GPS, not Wi-Fi and cell towers: speeds need it. The distance filter

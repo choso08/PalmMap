@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { setHomeWork } from '../services/homeWork';
 import {
   askBackgroundPermission,
+  canLearn,
   forgetLearnt,
   guessHomeWork,
   watchLearnt,
@@ -35,6 +36,16 @@ export function LearningSettings({ onShowPlace }: { onShowPlace?: (at: Coordinat
   const toggle = async (next: boolean) => {
     if (!next) {
       update('learnFromMovements', false);
+      // Turned off: offered to delete everything at once, not left lying.
+      if (learnt?.places.length) {
+        Alert.alert(s.offTitle, undefined, [
+          { text: s.keep, style: 'cancel' },
+          { text: s.forget, style: 'destructive', onPress: () => void forgetLearnt() },
+        ]);
+      }
+      return;
+    }
+    if (!canLearn()) {
       return;
     }
     // Asked when turned on, never by itself.
@@ -66,6 +77,7 @@ export function LearningSettings({ onShowPlace }: { onShowPlace?: (at: Coordinat
         <View style={styles.switchText}>
           <Text style={styles.switchLabel}>{s.title}</Text>
           <Text style={styles.hint}>{s.hint}</Text>
+          <Text style={styles.hint}>{s.privacy}</Text>
         </View>
         <Switch
           value={settings.learnFromMovements}

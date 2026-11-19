@@ -21,6 +21,11 @@ the browser or file manager that opens the file.
 
 The APK is built for **arm64-v8a** and **armeabi-v7a** — every Android phone of the last decade, including budget ones running a 32-bit system.
 
+## Privacy
+
+No account, no server, no analytics, no ads. What leaves the phone, to whom and when, is in
+[PRIVACY.md](PRIVACY.md).
+
 ## What it does
 
 **Map** — drawn, satellite imagery or the public transport network, in light or dark theme

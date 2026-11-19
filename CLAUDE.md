@@ -394,8 +394,8 @@ environment cannot reach.
   the nights (03:00) and weekday working days (2 h in 09–18) they cover; the trip between two
   stays is classed by the GPS's speeds (median / 95th percentile) and a walking or cycling one
   of 3 min and 500 m gives a pace factor against 5 and 12.5 km/h (car and mixed trips teach
-  nothing). Waiting in `palmmap.aprendizagem` (in the automatic copy; the trip under way in
-  `…estado`, not) until App takes them (`takePending`): paces through `learnPace` (only with
+  nothing). Waiting in `palmmap.aprendizagem` (the trip under way in `…estado`) until App
+  takes them (`takePending`): paces through `learnPace` (only with
   `paceLearning`), and trips ending at Home, Work, a label or a saved place into
   `recordTrip(…, at)` for the opening suggestion. Settings lists the places ("Looks like Home"
   / "Work" with a button to set it, a tap shows it on the map) and deletes everything
@@ -412,6 +412,17 @@ environment cannot reach.
   (`sondar: ofm_tiles`): central Lisbon 320 KB compressed (533 KB raw), Almada 149 KB, Évora
   157 KB — every layer, for the `poi` one alone; that is the slow case on mobile data, and the
   only real cure is the business file (today it comes with the country map).
+- **Privacy, "bulletproof"** (author, 19 November 2026: "for the habits it has to be
+  bulletproof… open source and as clean as possible on privacy"; not seen on a phone, needs a
+  full build): **`PRIVACY.md`** lists every service, what it receives and when — keep it true
+  when adding a request. What `movementLearning.ts` stores is **sealed** with AES-256-GCM by a
+  Keystore key that never leaves Android's Keystore (`VaultModule.kt`, `PalmMapVault`:
+  `seal`/`open`/`destroy`); without the module or if sealing fails **nothing is stored**,
+  never clear text (`writeJson`), and learning does not start (`canLearn`). It is **not** in
+  the automatic copy (`KEPT_KEYS`), places unvisited for 90 days are dropped (`pruned`), and
+  "Delete" — offered too when turning the switch off — removes the data **and destroys the
+  key**. Android's Auto Backup is now off (`allowBackup: false`) for the whole app. A line under
+  the switch says it stays on the phone, encrypted, nothing sent or copied.
 - **A refresh button for transport plans** (author's photo, 19 November 2026: "time goes by and
   this stops being current"; not seen on a phone): beside the time chip in the route panel,
   `forgetTransitPlans` + `transitRefresh` plan again from scratch; and coming back to the app
@@ -490,8 +501,8 @@ environment cannot reach.
   size (mode "w" does not truncate on some providers). **Restore**: "Restore a copy" picks
   the file, writes only `KEPT_KEYS` and closes the app (every store read its value at start);
   a fresh install — none of the person's keys stored — is offered it once, 1.5 s after
-  start (`offerRestoreOnFirstStart`). Android's own Auto Backup is on too (`allowBackup`, the
-  Expo default) but restores reliably only from the Play Store. The alerts' text is in a
+  start (`offerRestoreOnFirstStart`). Android's own Auto Backup is **off** since 19 November 2026
+  (`allowBackup: false`, privacy: it uploaded the app's storage to Google's servers). The alerts' text is in a
   `backup` section of the language table, not `settings`.
 - **A tap on a map that "did nothing"** (author's report, 19 November; not seen on a phone):
   two causes. A tap on a downloaded, current map **deleted** it at once — now it asks first
@@ -1147,7 +1158,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
 ├── modules/
-│   └── palmmap-voice/      # Our only native code: speech recogniser and compass (Kotlin)
+│   └── palmmap-voice/      # Our only native code: speech, compass, downloads, vault (Kotlin)
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/
@@ -1253,6 +1264,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 ├── App.tsx                   # Entry point: puts everything together and holds the state
 ├── README.md                 # The project's front page on GitHub
 ├── AGENTS.md                 # Points to this file
+├── PRIVACY.md                # What leaves the phone, to whom; what stays
 ├── app.json                  # Expo config and Android permissions
 ├── eas.json                  # Build profiles
 ├── map-regions.json          # Which countries are cut for offline, and at what detail

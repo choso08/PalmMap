@@ -482,6 +482,9 @@ export const en: typeof pt = {
     setWork: 'Work',
     show: 'Show on map',
     forget: 'Delete what it learnt',
+    privacy: 'Stays on this phone only, encrypted; nothing is sent or copied. Forgotten after 90 days.',
+    offTitle: 'Also delete what it learnt?',
+    keep: 'Keep',
     forgetTitle: 'Delete the learnt places and paces?',
   },
   backup: {
