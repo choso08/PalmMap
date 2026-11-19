@@ -141,6 +141,120 @@ export async function liveVehicles(
   ];
 }
 
+/**
+ * How long a bus missing from a fresh list stays on the map at its last
+ * position (author, 19 November 2026: a bus that reports every 11 s while the
+ * map asks every 10 s should not blink out). Its own age filter still
+ * applies on top (`VEHICLE_MAX_AGE_S`).
+ */
+const MISSING_GRACE_S = 45;
+/** When each bus was last in a list, by id. */
+const lastListed = new Map<string, number>();
+
+/**
+ * The new list joined with the old: a bus that is in the old one and not in
+ * the new one stays while it was listed within `MISSING_GRACE_S` and is still
+ * fresh enough; of two copies of a bus, the newer report wins. Only the
+ * operators asked are kept (`which`).
+ */
+export function mergeVehicles(
+  before: LiveVehicle[],
+  fresh: LiveVehicle[],
+  which: { cm: boolean; cl: boolean },
+): LiveVehicle[] {
+  const now = Date.now() / 1000;
+  const byId = new Map<string, LiveVehicle>();
+  for (const v of fresh) {
+    byId.set(v.id, v);
+    lastListed.set(v.id, now);
+  }
+  for (const old of before) {
+    if (!which[old.operator]) {
+      continue;
+    }
+    const newer = byId.get(old.id);
+    if (newer) {
+      if (old.reportedAt > newer.reportedAt) {
+        byId.set(old.id, old);
+      }
+      continue;
+    }
+    const seen = lastListed.get(old.id) ?? 0;
+    if (now - seen <= MISSING_GRACE_S && now - old.reportedAt <= VEHICLE_MAX_AGE_S) {
+      byId.set(old.id, { ...old, ageSeconds: Math.round(now - old.reportedAt) });
+    }
+  }
+  if (lastListed.size > 5000) {
+    for (const [id, at] of lastListed) {
+      if (now - at > MISSING_GRACE_S) {
+        lastListed.delete(id);
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
+/** Per operator: the newest report seen, how often new ones come, and retries. */
+const feedClock: Record<'cm' | 'cl', { newest: number; period: number | null }> = {
+  cm: { newest: 0, period: null },
+  cl: { newest: 0, period: null },
+};
+let earlyRetries = 0;
+/** A second after the data is due, for the server to have it. */
+const DUE_MARGIN_S = 1.5;
+/** When an ask brought nothing newer, the one retry comes this soon. */
+const EARLY_RETRY_MS = 3000;
+
+/**
+ * How long to wait before the next ask, from what the last one brought
+ * (author, 19 November 2026: "if it only updates at 11 s…"). Each operator's
+ * newest report shows how often its data really changes; the next ask goes a
+ * moment after the next change is due — never sooner than the interval the
+ * person chose (`baseMs`, the data they agreed to spend), and when the
+ * feed is slower than that, not before it has anything new. An ask that
+ * brought nothing newer is retried once, 3 s later, instead of a whole
+ * interval later.
+ */
+export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
+  const now = Date.now() / 1000;
+  let gotNew = false;
+  let latestDue: number | null = null;
+  for (const op of ['cm', 'cl'] as const) {
+    let newest = 0;
+    for (const v of list) {
+      if (v.operator === op && v.reportedAt > newest) {
+        newest = v.reportedAt;
+      }
+    }
+    if (newest === 0) {
+      continue;
+    }
+    const clock = feedClock[op];
+    if (newest > clock.newest) {
+      const step = newest - clock.newest;
+      if (clock.newest > 0 && step >= 3 && step <= 120) {
+        clock.period = clock.period === null ? step : clock.period * 0.6 + step * 0.4;
+      }
+      clock.newest = newest;
+      gotNew = true;
+    }
+    if (clock.period !== null) {
+      const due = clock.newest + clock.period + DUE_MARGIN_S;
+      latestDue = latestDue === null ? due : Math.min(latestDue, due);
+    }
+  }
+  if (!gotNew && list.length > 0 && earlyRetries < 1) {
+    earlyRetries += 1;
+    return EARLY_RETRY_MS;
+  }
+  earlyRetries = 0;
+  if (latestDue === null) {
+    return baseMs;
+  }
+  const untilDue = (latestDue - now) * 1000;
+  return Math.round(Math.min(Math.max(baseMs, untilDue), Math.max(baseMs * 3, 60000)));
+}
+
 /** Carris Metropolitana's fleet, from its JSON API. */
 async function metropolitanaVehicles(): Promise<LiveVehicle[]> {
   const { data } = await client.get<CarrisVehicle[]>('/vehicles');

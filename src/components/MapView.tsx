@@ -664,9 +664,11 @@ export function MapView({
     [transitStops, selectedStopId],
   );
 
+  // Each bus slides from where it was to where it is (`useGlidingVehicles`).
+  const glidingVehicles = useGlidingVehicles(vehicles);
   const vehiclesJson = useMemo(
     () =>
-      pointsJson(vehicles, (v) => ({
+      pointsJson(glidingVehicles, (v) => ({
         at: v.coordinates,
         // A bus standing at a stop is drawn fainter: the difference between
         // "moving" and "standing there" is what makes this useful to someone
@@ -683,7 +685,7 @@ export function MapView({
           aberto: v.id === selectedVehicleId ? 1 : 0,
         },
       })),
-    [vehicles, selectedVehicleId],
+    [glidingVehicles, selectedVehicleId],
   );
 
   const camerasJson = useMemo(
@@ -2303,6 +2305,76 @@ function lineJson(coordinates: [number, number][]): string {
 }
 
 /** A list of points as GeoJSON text, each with its properties. */
+/** How long a bus takes to slide to its new position. */
+const GLIDE_MS = 1200;
+/** Frames per second of the slide: plenty for a dot, light on the JS thread. */
+const GLIDE_FRAME_MS = 66;
+/** A jump longer than this is not slid (a bus seen again far away, a wrong fix). */
+const GLIDE_MAX_M = 800;
+/** Above this many buses moving at once, they jump: each frame rewrites the source. */
+const GLIDE_MAX_BUSES = 400;
+
+/**
+ * The buses as drawn: each new list slides every bus from where it was drawn
+ * to its new place over `GLIDE_MS`, as in Maps or Moovit, instead of jumping
+ * at each refresh (author, 19 November 2026). The selected bus's panel still
+ * reads the real list; only the drawing glides.
+ */
+function useGlidingVehicles(vehicles: LiveVehicle[]): LiveVehicle[] {
+  const [drawn, setDrawn] = useState(vehicles);
+  const drawnRef = useRef(vehicles);
+  drawnRef.current = drawn;
+
+  useEffect(() => {
+    const from = new globalThis.Map<string, Coordinates>(drawnRef.current.map((v) => [v.id, v.coordinates]));
+    const moves = vehicles.map((v) => {
+      const start = from.get(v.id);
+      if (!start) {
+        return null;
+      }
+      const d = distanceMeters(start, v.coordinates);
+      return d > 2 && d < GLIDE_MAX_M ? start : null;
+    });
+    const moving = moves.filter(Boolean).length;
+    if (moving === 0 || moving > GLIDE_MAX_BUSES) {
+      setDrawn(vehicles);
+      return;
+    }
+    const began = Date.now();
+    const frame = () => {
+      const t = Math.min(1, (Date.now() - began) / GLIDE_MS);
+      // Ease out: quick to leave, gentle to arrive.
+      const k = 1 - (1 - t) * (1 - t);
+      setDrawn(
+        t >= 1
+          ? vehicles
+          : vehicles.map((v, i) => {
+              const a = moves[i];
+              return a
+                ? {
+                    ...v,
+                    coordinates: {
+                      latitude: a.latitude + (v.coordinates.latitude - a.latitude) * k,
+                      longitude: a.longitude + (v.coordinates.longitude - a.longitude) * k,
+                    },
+                  }
+                : v;
+            }),
+      );
+      return t >= 1;
+    };
+    frame();
+    const timer = setInterval(() => {
+      if (frame()) {
+        clearInterval(timer);
+      }
+    }, GLIDE_FRAME_MS);
+    return () => clearInterval(timer);
+  }, [vehicles]);
+
+  return drawn;
+}
+
 function pointsJson<T>(
   items: readonly T[],
   describe: (item: T) => {

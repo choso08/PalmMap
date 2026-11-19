@@ -162,7 +162,7 @@ import {
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
-import { liveVehicles, vehicleAreas, type LiveVehicle } from './src/services/vehicles';
+import { liveVehicles, mergeVehicles, nextVehiclesDelay, vehicleAreas, type LiveVehicle } from './src/services/vehicles';
 import { useFavouriteStops } from './src/services/favouriteStops';
 import { configureTileRequests, MAP_CACHE_MB, setMapCacheSize } from './src/services/tiles';
 import {
@@ -1007,11 +1007,14 @@ function PalmMap() {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const which = { cm: vehicleOperators.includes('cm'), cl: vehicleOperators.includes('cl') };
 
+    let nextDelay = Number(settings.vehiclesRefresh) * 1000;
     const carregar = async () => {
       try {
         const lista = await liveVehicles(which);
         if (!cancelled) {
-          setVehicles(lista);
+          // A bus that missed this list stays a while (`mergeVehicles`).
+          setVehicles((before) => mergeVehicles(before, lista, which));
+          nextDelay = nextVehiclesDelay(lista, Number(settings.vehiclesRefresh) * 1000);
         }
       } catch {
         // See above: without new positions, the old ones stay.
@@ -1028,7 +1031,12 @@ function PalmMap() {
         settings.vehiclesIdleSlowdown &&
         Date.now() - lastMapMove.current > VEHICLES_IDLE_MS &&
         !selectedVehicleRef.current;
-      timer = setTimeout(() => void carregar(), idle ? Math.max(base, Math.min(base * 3, 60000)) : base);
+      // Not on a fixed clock: a moment after the next positions are due
+      // (`nextVehiclesDelay`), never sooner than the chosen interval.
+      timer = setTimeout(
+        () => void carregar(),
+        idle ? Math.max(nextDelay, Math.min(base * 3, 60000)) : nextDelay,
+      );
     };
 
     void carregar();
@@ -3344,7 +3352,9 @@ function PalmMap() {
       const found = lista.find((v) => v.id === id) ?? null;
       setFreshVehicle(found);
       if (isTransitMap(settings.mapType) && settings.showVehicles && vehicleZoomOk) {
-        setVehicles(lista);
+        setVehicles((before) =>
+          mergeVehicles(before, lista, { cm: vehicleOperators.includes('cm'), cl: vehicleOperators.includes('cl') }),
+        );
       }
       if (!found || found.reportedAt <= before) {
         setBusRefreshNote(t().transit.vehicleNoNews);

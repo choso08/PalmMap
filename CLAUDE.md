@@ -369,6 +369,16 @@ environment cannot reach.
   `getBestPosition` and a late answer saves nothing after closing or choosing; the walk to the
   car's notification shows the walk's metres; the blue dot snaps around `progressIndex` and to
   the trip's current leg only.
+- **Live buses: asked when due, kept when missed, and sliding** (author, 19 November 2026:
+  "every 10 s, and if it only updates at 11 s it disappears" — chose all three; not seen on a
+  phone). `mergeVehicles` (`vehicles.ts`) keeps a bus missing from a fresh list at its last
+  place for `MISSING_GRACE_S` (45 s) since it was last listed, while `VEHICLE_MAX_AGE_S` still
+  applies, and of two copies keeps the newer report. `nextVehiclesDelay` learns each operator's
+  pace from its newest report and asks a moment (`DUE_MARGIN_S`, 1.5 s) after the next is due —
+  never sooner than the chosen `vehiclesRefresh`, at most 3× it or a minute — and retries an
+  ask that brought nothing newer once, 3 s later. `useGlidingVehicles` (`MapView.tsx`) slides
+  each bus to its new place over `GLIDE_MS` (1.2 s, ~15 frames a second), not for jumps over
+  800 m nor above 400 buses moving at once; the bus panel reads the real list.
 - **Updates and country maps download with the app in the background** (author's photo,
   19 November 2026, 7.0.60: "Software caused connection abort" after leaving the app
   mid-download; not seen on a phone, needs a full build). The app's own connection
