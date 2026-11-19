@@ -109,6 +109,7 @@ import {
 import { forgetParkedCar, parkCar, parkedCarNow, useParkedCar } from './src/services/parkedCar';
 import { rainAround, type RainAt } from './src/services/weather';
 import { loadTripHabits, recordTrip, suggestTrip, type TripSuggestion } from './src/services/tripHabits';
+import { syncLearning, takePending } from './src/services/movementLearning';
 import {
   homeWorkNow,
   kindColour,
@@ -201,6 +202,7 @@ import {
 import {
   applyTransitPrefs,
   fastestTrip,
+  forgetTransitPlans,
   LEAVE_NOW,
   planTransit,
   type TransitWhen,
@@ -319,6 +321,8 @@ function rememberView(bounds: Bounds, zoom: number): void {
 
 /** A dropped pin this close to Home, Work or a saved place is named after it. */
 const PIN_SAVED_M = 40;
+/** A "leave now" transport plan older than this is redone on coming back. */
+const TRANSIT_STALE_MS = 2 * 60_000;
 
 /** Arriving counts near the end only once this little of the route is left. */
 const ARRIVAL_NEAR_M = 300;
@@ -623,6 +627,13 @@ function PalmMap() {
   const transitTrips = shownTransit?.trips ?? null;
   /** Leave now, depart at, arrive by — reset to now with each new destination. */
   const [transitWhen, setTransitWhen] = useState<TransitWhen>(LEAVE_NOW);
+  /**
+   * Bumped to plan the transport trip again from scratch (the refresh button,
+   * or coming back to a stale "leave now" plan). `transitPlannedAt` says when
+   * the shown plan was made.
+   */
+  const [transitRefresh, setTransitRefresh] = useState(0);
+  const transitPlannedAt = useRef(0);
   useEffect(() => {
     setTransitWhen(LEAVE_NOW);
   }, [destination]);
@@ -986,6 +997,67 @@ function PalmMap() {
    * next update tries again. This is extra information on the map, not the map.
    */
   const appActive = useAppActive();
+
+  /**
+   * Learning from the person's movements (`movementLearning.ts`, off by
+   * default): the background task is started or stopped on screen — Android
+   * only starts a foreground service from there — and paused while navigating
+   * or on a transport trip, which have their own. What it learnt in the
+   * meantime is applied here: paces through `learnPace` (only with pace
+   * learning on), and trips ending at a named place feed the opening
+   * suggestion.
+   */
+  const refreshTransit = useCallback(() => {
+    forgetTransitPlans();
+    setTransitRefresh((n) => n + 1);
+  }, []);
+  /**
+   * A "leave now" transport plan left open goes stale: the buses in it leave.
+   * Coming back to the app with one older than `TRANSIT_STALE_MS`, it is
+   * planned again by itself; the button does it any time.
+   */
+  useEffect(() => {
+    if (
+      appActive &&
+      settings.travelMode === 'transit' &&
+      destination &&
+      !navigating &&
+      guide === null &&
+      transitWhen.kind === 'now' &&
+      transitPlannedAt.current > 0 &&
+      Date.now() - transitPlannedAt.current > TRANSIT_STALE_MS
+    ) {
+      refreshTransit();
+    }
+  }, [appActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const learningPaused = navigating || guide !== null;
+  useEffect(() => {
+    if (!appActive) {
+      return;
+    }
+    void syncLearning(settings.learnFromMovements, learningPaused);
+    if (!settings.learnFromMovements) {
+      return;
+    }
+    void takePending().then(({ paces, trips }) => {
+      if (settings.paceLearning) {
+        for (const observation of paces) {
+          learnPace(observation.key, observation.factor);
+        }
+      }
+      const homeWork = homeWorkNow();
+      const named = [homeWork.home, homeWork.work, ...labelsNow().map((l) => l.place), ...favouritesRef.current];
+      for (const trip of trips) {
+        const place = named.find(
+          (p): p is Place => p != null && distanceMeters(p.coordinates, trip.to) <= PIN_SAVED_M * 3,
+        );
+        if (place) {
+          recordTrip(trip.from, place, trip.at);
+        }
+      }
+    });
+  }, [appActive, settings.learnFromMovements, settings.paceLearning, learningPaused, learnPace]);
   /** A full-screen sheet hides the map: nothing on it needs refreshing. */
   const mapCovered =
     settingsVisible || nearbyVisible || alertsVisible || savedVisible || directionsVisible || stepsVisible;
@@ -1600,6 +1672,7 @@ function PalmMap() {
           }
           setTransitTrips(plan.trips);
           setTransitTripIndex(0);
+          transitPlannedAt.current = Date.now();
           setRouteError(plan.error);
           routePending.current = false;
           setRouteLoading(false);
@@ -1674,7 +1747,7 @@ function PalmMap() {
     // job, which has its own recalculation.
     // `online` too: going offline replans from the stored timetables, coming
     // back brings the live buses and a route that may have failed.
-  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen, online, parkedCar]);
+  }, [destination, routeOrigin, waypoints, hasLocation, settings.travelMode, settings.avoidTolls, settings.bikeType, navigating, transitWhen, online, parkedCar, transitRefresh]);
 
   /**
    * Each travel mode's time, for the route panel buttons ("car 12 min · walk
@@ -4293,6 +4366,7 @@ function PalmMap() {
                 transitWhen={transitWhen}
                 transitGuide={previewGuide}
                 onChangeTransitWhen={setTransitWhen}
+                onRefreshTransit={refreshTransit}
               />
             )}
           </DraggableSheet>
@@ -4488,6 +4562,11 @@ function PalmMap() {
         update={updateInfo}
         onUpdateFound={setUpdateInfo}
         onlyNavigation={settingsNavOnly}
+        onShowPlace={(at) => {
+          setSettingsVisible(false);
+          setSettingsNavOnly(false);
+          handleDropPin(at);
+        }}
         onClose={() => {
           setSettingsVisible(false);
           setSettingsNavOnly(false);

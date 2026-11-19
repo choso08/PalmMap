@@ -69,6 +69,15 @@ function keyOf(origin: Coordinates, destination: Coordinates, when: TransitWhen)
     .join(',');
 }
 
+/**
+ * Drops every kept plan: the refresh button in the route panel (author's
+ * report, 19 November 2026: "time goes by and this stops being current") and
+ * coming back to a plan left open.
+ */
+export function forgetTransitPlans(): void {
+  plans.clear();
+}
+
 export function planTransit(
   origin: Coordinates,
   destination: Coordinates,

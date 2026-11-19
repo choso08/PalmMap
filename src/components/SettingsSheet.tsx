@@ -21,6 +21,8 @@ import { forgetCrash, lastCrash, type CrashReport } from '../services/crash';
 import { clearRecents } from '../services/recents';
 import { DONATE_URL, MAP_REQUEST_URL } from '../services/config';
 import { Collapsible } from './Collapsible';
+import { LearningSettings } from './LearningSettings';
+import type { Coordinates } from '../types/geo';
 import { FeedbackForm } from './FeedbackForm';
 import { OfflineMaps } from './OfflineMaps';
 import { Schedules } from './Schedules';
@@ -89,6 +91,8 @@ interface SettingsSheetProps {
    * open.
    */
   onlyNavigation?: boolean;
+  /** A learnt frequent place tapped: close Settings and show it on the map. */
+  onShowPlace?: (at: Coordinates) => void;
 }
 
 /**
@@ -146,6 +150,7 @@ export function SettingsSheet({
   update: novaVersao,
   onUpdateFound,
   onlyNavigation = false,
+  onShowPlace,
 }: SettingsSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -194,7 +199,7 @@ export function SettingsSheet({
         : !q || terms.some((term) => normalise(term).includes(q));
     const result = {
       language: has(s.general, s.language, ...LANGUAGES.map((l) => strings.languages[l.id])),
-      time: has(nav, s.timeAdjustment, s.forgetPace, s.paceLearning),
+      time: has(nav, s.timeAdjustment, s.forgetPace, s.paceLearning, strings.learning.title, strings.learning.places),
       appearance: has(s.general, s.appearance, ...Object.values(s.appearanceModes)),
       satellite: has(s.dataUsage, s.satelliteDetail, ...Object.values(s.satelliteDetails)),
       places: has(s.map, s.showPlaces),
@@ -536,6 +541,7 @@ export function SettingsSheet({
                       </Pressable>
                     </>
                   ) : null}
+                  <LearningSettings onShowPlace={onShowPlace} />
                 </>
               ) : null}
               {show.voice ? (

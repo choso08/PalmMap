@@ -37,6 +37,7 @@ const KEPT_KEYS = [
   'palmmap.carroEstacionado',
   'palmmap.pace',
   'palmmap.viagensFeitas',
+  'palmmap.aprendizagem',
   'palmmap.ultimaVista',
   'palmmap.satelliteAltaPorDefeito',
 ] as const;

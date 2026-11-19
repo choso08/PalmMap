@@ -113,6 +113,8 @@ interface RoutePanelProps {
   /** Leave now, depart at, arrive by — transport only. */
   transitWhen?: TransitWhen;
   onChangeTransitWhen?: (when: TransitWhen) => void;
+  /** Plan the transport trip again: the times shown age (author's report). */
+  onRefreshTransit?: () => void;
   /** The chosen trip's steps, for its timeline; null while being prepared. */
   transitGuide?: TransitGuide | null;
   /** Alternative routes, and which one is chosen. */
@@ -173,6 +175,7 @@ export function RoutePanel({
   transitWhen,
   transitGuide,
   onChangeTransitWhen,
+  onRefreshTransit,
   elevation = null,
   optionElevations,
   rain = null,
@@ -413,7 +416,21 @@ export function RoutePanel({
         stays put while the trips reload.
       */}
       {travelMode === 'transit' && transitWhen && onChangeTransitWhen ? (
-        <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
+        <View style={styles.whenRow}>
+          <TransitWhenPicker when={transitWhen} onChange={onChangeTransitWhen} />
+          {onRefreshTransit ? (
+            <Pressable
+              style={[styles.refresh, loading && styles.refreshBusy]}
+              onPress={onRefreshTransit}
+              disabled={loading}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={strings.route.refreshTransit}
+            >
+              <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {/*
@@ -902,6 +919,16 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 13,
       color: theme.text,
     },
+    whenRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    refresh: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceMuted,
+    },
+    refreshBusy: { opacity: 0.4 },
     addStop: {
       flexDirection: 'row',
       alignItems: 'center',

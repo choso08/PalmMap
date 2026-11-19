@@ -381,6 +381,30 @@ environment cannot reach.
   screen's row of label chips (a tap goes there, a long press edits, the last chip makes a new
   one) or a place's card ("Label", the place already set). Labels with a place show among the
   empty search's chips, and a dropped pin within `PIN_SAVED_M` of one takes its name.
+- **Learn from my movements** (author, 19 November 2026: "an option, off by default, to let the
+  app follow the person to learn habits and paces"; not seen on a phone, needs a full build):
+  `services/movementLearning.ts`, setting `learnFromMovements` (Navigation group, **off**),
+  `LearningSettings.tsx`. Turning it on asks for "Allow all the time"
+  (`askBackgroundPermission`; refused → stays off with a note) — the **eighth permission**,
+  `ACCESS_BACKGROUND_LOCATION`, with the `expo-location` plugin's
+  `isAndroidBackgroundLocationEnabled`. A second task, `LEARNING_TASK` (GPS, 30 m / 20 s,
+  its own notification, `killServiceOnDestroy: false`), started and stopped by `syncLearning`
+  with the app on screen and **paused while navigating or on a transport trip**. It keeps
+  only results, never the path: stays (100 m, 10 min) merge into frequent places (120 m) with
+  the nights (03:00) and weekday working days (2 h in 09–18) they cover; the trip between two
+  stays is classed by the GPS's speeds (median / 95th percentile) and a walking or cycling one
+  of 3 min and 500 m gives a pace factor against 5 and 12.5 km/h (car and mixed trips teach
+  nothing). Waiting in `palmmap.aprendizagem` (in the automatic copy; the trip under way in
+  `…estado`, not) until App takes them (`takePending`): paces through `learnPace` (only with
+  `paceLearning`), and trips ending at Home, Work, a label or a saved place into
+  `recordTrip(…, at)` for the opening suggestion. Settings lists the places ("Looks like Home"
+  / "Work" with a button to set it, a tap shows it on the map) and deletes everything
+  (`forgetLearnt`). Checked with simulated days in a scratch harness: Home and Work found,
+  4.5 km/h walks give 1.11.
+- **A refresh button for transport plans** (author's photo, 19 November 2026: "time goes by and
+  this stops being current"; not seen on a phone): beside the time chip in the route panel,
+  `forgetTransitPlans` + `transitRefresh` plan again from scratch; and coming back to the app
+  with a "leave now" plan older than `TRANSIT_STALE_MS` (2 min) replans by itself.
 - **Live buses: asked when due, kept when missed, and sliding** (author, 19 November 2026:
   "every 10 s, and if it only updates at 11 s it disappears" — chose all three; not seen on a
   phone). `mergeVehicles` (`vehicles.ts`) keeps a bus missing from a fresh list at its last
@@ -1074,7 +1098,7 @@ a previous version.
 VirusTotal scan, signed build provenance and a "Verify" section were added and taken out the
 same day — the author found that, to someone wary, all of it reads as a reason to give up.
 To reassure a person, the advice is: upload the APK to virustotal.com yourself, and look at
-the seven permissions the app asks for. Do not add it back unless asked.
+the eight permissions the app asks for. Do not add it back unless asked.
 
 The workflow checks the APK before publishing it: archive integrity, identification
 (package, `minSdk`, architectures) and signing schemes. A broken file is caught at build
@@ -1143,6 +1167,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── StreetViewSheet.tsx # Street view: a Panoramax picture, ‹ › along the street
 │   │   ├── LabelEditor.tsx   # A label of one's own: name, colour, icon or emoji, place
 │   │   ├── LabelIcon.tsx     # A label's icon: the font's or an emoji
+│   │   ├── LearningSettings.tsx # "Learn from my movements" and what it learnt
 │   │   ├── ConnectivityBanner.tsx # "Offline" / "Back online"
 │   │   ├── SwipeToRemove.tsx # Swipe a row away (recent searches)
 │   │   ├── MeasureSheet.tsx  # Measuring tape: distances and areas
@@ -1188,6 +1213,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   │   ├── favourites.ts     # Saved places
 │   │   ├── parkedCar.ts      # Where the car was left, and its parking timer
 │   │   ├── tripHabits.ts     # Trips started, for the suggestion on opening
+│   │   ├── movementLearning.ts # Opt-in background learning: paces, frequent places
 │   │   ├── weather.ts        # Rain at the destination (Open-Meteo)
 │   │   └── recents.ts        # Recent destinations
 │   ├── types/                # TypeScript types
@@ -1308,6 +1334,7 @@ in one place instead of spread through the code.
   | `transitAvoid` | Means left out of transport options (bus, metro, train, boat) — chosen in the route panel |
   | `notifyGetOff`, `notifyParking`, `notifyUpdates`, `suggestOnOpen`, `routeHints` | The Notifications group — see "Clever features" in "Where this stands"; all on by default |
   | `paceLearning` | Learn the person's pace (5-A); off, OSRM's time as it comes and nothing is measured or stored |
+  | `learnFromMovements` | Follow the person in the background to learn paces and frequent places — **off by default**, needs "Allow all the time" |
 
 - To add a setting: add it to the `Settings` type, give it a value in `DEFAULT_SETTINGS`,
   show it in `SettingsSheet` **inside its group** **and add it to `show`** (the settings

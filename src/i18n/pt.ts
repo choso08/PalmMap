@@ -300,6 +300,7 @@ export const pt = {
     ascent: (m: number) => `${m} m`,
     descent: (m: number) => `${m} m`,
     heightRange: (min: number, max: number) => `${min}–${max} m de altitude`,
+    refreshTransit: 'Atualizar horários',
     addStop: 'Adicionar paragem',
     calculating: 'A calcular o percurso…',
     start: 'Iniciar',
@@ -502,6 +503,24 @@ export const pt = {
   },
 
   /** Alerts of the copy outside the app (`services/backup.ts`). */
+  learning: {
+    title: 'Aprender com as minhas deslocações',
+    hint: 'Segue-o com a app fechada; gasta mais bateria.',
+    serviceTitle: 'PalmMap está a aprender',
+    serviceBody: 'Ritmos e sítios frequentes. Desligue nas Definições.',
+    deniedTitle: 'Sem localização "Permitir sempre"',
+    deniedBody: 'Para aprender com a app fechada, a localização tem de estar em "Permitir sempre".',
+    places: 'Sítios frequentes',
+    none: 'Ainda nada aprendido.',
+    visits: (n: number, hours: number) => `${n} ${n === 1 ? 'visita' : 'visitas'} · ${hours} h`,
+    looksHome: 'Parece Casa',
+    looksWork: 'Parece Trabalho',
+    setHome: 'Casa',
+    setWork: 'Trabalho',
+    show: 'Ver no mapa',
+    forget: 'Apagar o que aprendeu',
+    forgetTitle: 'Apagar os sítios e ritmos aprendidos?',
+  },
   backup: {
     restored: 'Cópia reposta. A app vai fechar; abra-a outra vez.',
     invalid: 'Esse ficheiro não é uma cópia do PalmMap.',

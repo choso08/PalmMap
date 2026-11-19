@@ -280,6 +280,7 @@ export const en: typeof pt = {
     ascent: (m: number) => `${m} m`,
     descent: (m: number) => `${m} m`,
     heightRange: (min: number, max: number) => `${min}–${max} m elevation`,
+    refreshTransit: 'Refresh times',
     addStop: 'Add stop',
     calculating: 'Working out the route…',
     start: 'Start',
@@ -465,6 +466,24 @@ export const en: typeof pt = {
   },
 
   /** Alerts of the copy outside the app (`services/backup.ts`). */
+  learning: {
+    title: 'Learn from my movements',
+    hint: 'Follows you with the app closed; uses more battery.',
+    serviceTitle: 'PalmMap is learning',
+    serviceBody: 'Paces and frequent places. Turn off in Settings.',
+    deniedTitle: 'No "Allow all the time" location',
+    deniedBody: 'To learn with the app closed, location must be set to "Allow all the time".',
+    places: 'Frequent places',
+    none: 'Nothing learnt yet.',
+    visits: (n: number, hours: number) => `${n} ${n === 1 ? 'visit' : 'visits'} · ${hours} h`,
+    looksHome: 'Looks like Home',
+    looksWork: 'Looks like Work',
+    setHome: 'Home',
+    setWork: 'Work',
+    show: 'Show on map',
+    forget: 'Delete what it learnt',
+    forgetTitle: 'Delete the learnt places and paces?',
+  },
   backup: {
     restored: 'Copy restored. The app will close; open it again.',
     invalid: 'That file is not a PalmMap copy.',

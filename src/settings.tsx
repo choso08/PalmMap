@@ -157,6 +157,13 @@ export interface Settings {
    * and nothing is measured or stored (author's request, November 2026).
    */
   paceLearning: boolean;
+  /**
+   * Follow the person in the background to learn their walking and cycling
+   * pace and the places they go often (`movementLearning.ts`). **Off by
+   * default** (author's request, 19 November 2026): it needs "Allow all the
+   * time" location and a permanent notification.
+   */
+  learnFromMovements: boolean;
 }
 
 export type TransitSort = 'best' | 'walk' | 'changes';
@@ -198,6 +205,7 @@ export const DEFAULT_SETTINGS: Settings = {
   transitSort: 'best',
   transitAvoid: [],
   paceLearning: true,
+  learnFromMovements: false,
 };
 
 /**

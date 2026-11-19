@@ -48,8 +48,8 @@ const weekdayOf = (d: Date) => (d.getDay() + 6) % 7;
 const isWeekend = (weekday: number) => weekday >= 5;
 
 /** A trip has started (navigation or a transport trip): remember it. */
-export function recordTrip(from: Coordinates, place: Place): void {
-  const now = new Date();
+export function recordTrip(from: Coordinates, place: Place, at?: number): void {
+  const now = at != null ? new Date(at) : new Date();
   store.update((list) =>
     [
       ...list,

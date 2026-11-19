@@ -778,3 +778,11 @@ export const CAR_REACHED_M = 35;
 export const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 /** A forecast is kept this long per place (rounded to ~1 km). */
 export const WEATHER_CACHE_MS = 30 * 60 * 1000;
+
+/**
+ * The task that follows the person in the background to learn their paces and
+ * frequent places, when they turned that on (`learnFromMovements`). Kept in
+ * Portuguese for the same reason as `NAVIGATION_TASK`: the name must never
+ * change between versions.
+ */
+export const LEARNING_TASK = 'palmmap-aprender-deslocacoes';
