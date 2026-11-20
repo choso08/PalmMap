@@ -240,13 +240,13 @@ export function removeFeed(info: ScheduleFeedInfo): void {
 function forgetFeed(id: string): void {
   cache.delete(id);
   installed = null;
-  if (id === CARRIS_LISBOA_FEED_ID) {
-    carrisLisboaWarming = false;
-    carrisLisboaLines = null;
-    const side = linesFile();
-    if (side.exists) {
-      side.delete();
-    }
+  // Any timetable's live-bus numbers (Carris de Lisboa's and every other
+  // feed with live positions): made again from the new file.
+  lineWarming.delete(id);
+  lineTables.delete(id);
+  const side = linesFile(id);
+  if (side.exists) {
+    side.delete();
   }
 }
 
@@ -1959,14 +1959,15 @@ function raptorJourney(
 /** GTFS stop id → station index, per feed, built once. */
 const stationByGtfsId = new Map<string, Map<string, number>>();
 
-function carrisLisboaFeed(): IndexedFeed | null {
-  const info = installedFeeds().find((f) => f.id === CARRIS_LISBOA_FEED_ID);
+function storedFeed(feedId: string): IndexedFeed | null {
+  const info = installedFeeds().find((f) => f.id === feedId);
   return info ? loadFeed(info) : null;
 }
 
-let carrisLisboaWarming = false;
-/** Carris de Lisboa's route id → public number, from the side file or the timetable. */
-let carrisLisboaLines: Map<string, string> | null = null;
+/** Feeds whose line table is being made (once each, a few seconds late). */
+const lineWarming = new Set<string>();
+/** Per feed: GTFS route id → public number, from the side file or the timetable. */
+const lineTables = new Map<string, Map<string, string>>();
 
 /**
  * The line numbers alone, a few kilobytes beside the 5.5 MB timetable
@@ -1974,8 +1975,8 @@ let carrisLisboaLines: Map<string, string> | null = null;
  * opened and dropped when it changes). The live buses read this, so the big
  * file is not parsed on the JavaScript thread just to put "735" on a bus.
  */
-function linesFile(): File {
-  return new File(FOLDER, `${CARRIS_LISBOA_FEED_ID}.linhas.json`);
+function linesFile(feedId: string): File {
+  return new File(FOLDER, `${feedId}.linhas.json`);
 }
 
 function linesFrom(feed: IndexedFeed): Map<string, string> {
@@ -1996,40 +1997,42 @@ function linesFrom(feed: IndexedFeed): Map<string, string> {
  * map; now, only when neither exists (once per install), the first asks get
  * no number and the timetable is opened a few seconds later.
  */
-function carrisLisboaLineTable(): Map<string, string> | null {
-  if (carrisLisboaLines) {
-    return carrisLisboaLines;
+function lineTable(feedId: string): Map<string, string> | null {
+  const known = lineTables.get(feedId);
+  if (known) {
+    return known;
   }
-  if (!installedFeeds().some((f) => f.id === CARRIS_LISBOA_FEED_ID)) {
+  if (!installedFeeds().some((f) => f.id === feedId)) {
     return null;
   }
-  const open = cache.get(CARRIS_LISBOA_FEED_ID);
+  const open = cache.get(feedId);
   if (open) {
-    carrisLisboaLines = linesFrom(open);
-    return carrisLisboaLines;
+    const made = linesFrom(open);
+    lineTables.set(feedId, made);
+    return made;
   }
-  const side = linesFile();
+  const side = linesFile(feedId);
   if (side.exists) {
     try {
-      carrisLisboaLines = new Map(
-        Object.entries(JSON.parse(side.textSync()) as Record<string, string>),
-      );
-      return carrisLisboaLines;
+      const read = new Map(Object.entries(JSON.parse(side.textSync()) as Record<string, string>));
+      lineTables.set(feedId, read);
+      return read;
     } catch {
       // Broken: made again from the timetable below.
     }
   }
-  if (!carrisLisboaWarming) {
-    carrisLisboaWarming = true;
+  if (!lineWarming.has(feedId)) {
+    lineWarming.add(feedId);
     // Once per install, a few seconds after the first live buses; a broken
     // file is not read again on every refresh (the flag stays set until the
     // timetable changes).
     setTimeout(() => {
-      const feed = carrisLisboaFeed();
+      const feed = storedFeed(feedId);
       if (feed) {
-        carrisLisboaLines = linesFrom(feed);
+        const made = linesFrom(feed);
+        lineTables.set(feedId, made);
         try {
-          linesFile().write(JSON.stringify(Object.fromEntries(carrisLisboaLines)));
+          linesFile(feedId).write(JSON.stringify(Object.fromEntries(made)));
         } catch {
           // Next start reads the timetable again; nothing else is lost.
         }
@@ -2046,8 +2049,11 @@ const CARRIS_LISBOA_WARM_MS = 4000;
  * the stored timetable — the live feed only carries the route id. Null when the
  * timetable is not downloaded or is older than the ids (before November 2026).
  */
-export function carrisLisboaLine(routeId: string | null): string | null {
-  return (routeId && carrisLisboaLineTable()?.get(routeId)) || null;
+export function carrisLisboaLine(
+  routeId: string | null,
+  feedId: string = CARRIS_LISBOA_FEED_ID,
+): string | null {
+  return (routeId && lineTable(feedId)?.get(routeId)) || null;
 }
 
 /** The station a GTFS stop id was merged into, in a feed that keeps the ids. */
@@ -2079,8 +2085,8 @@ export function carrisLisboaTrip(vehicle: {
   stopId: string | null;
   stopSequence: number | null;
   line: string;
-}): VehicleTripLike | null {
-  const feed = carrisLisboaFeed();
+}, feedId: string = CARRIS_LISBOA_FEED_ID): VehicleTripLike | null {
+  const feed = storedFeed(feedId);
   if (!feed || !feed.data.routeIds || !vehicle.routeId) {
     return null;
   }

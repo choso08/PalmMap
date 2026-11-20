@@ -157,4 +157,10 @@ export interface ScheduleFeedInfo {
    * Missing on the files generated before November 2026: those are all "PT".
    */
   pais?: string;
+  /**
+   * The operator's open GTFS-RT vehicle positions (https only), when it has
+   * them: with this timetable downloaded, its buses show live on the map, their
+   * numbers read from it (`routeIds`). Probed with `sondar: eu_feeds`.
+   */
+  posicoes?: string;
 }

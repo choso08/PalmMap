@@ -1139,6 +1139,8 @@ def main() -> int:
                     "bbox": resultado["bbox"],
                     # ISO 3166-1 alpha-2: the app groups the list by country.
                     "pais": feed.get("pais", "PT"),
+                    # Live vehicle positions (GTFS-RT), for the app's map.
+                    **({"posicoes": feed["posicoes"]} if feed.get("posicoes") else {}),
                     "origem": url,
                     "ficheiro2": f"{feed['id']}.v2.json",
                     "bytes2": bytes2,

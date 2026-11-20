@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { carrisLisboaTrip } from './schedules';
 import {
   CARRIS_BASE_URL,
+  CARRIS_LISBOA_FEED_ID,
   CARRIS_MIN_INTERVAL_MS,
   CARRIS_STOPS_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
@@ -1047,7 +1048,7 @@ function todayKey(): string {
  * between stops, which hardly change from one trip to the next.
  */
 export async function vehicleTrip(vehicle: {
-  operator?: 'cm' | 'cl';
+  operator?: string;
   patternId: string | null;
   tripId: string | null;
   stopId: string | null;
@@ -1055,14 +1056,18 @@ export async function vehicleTrip(vehicle: {
   stopSequence?: number | null;
   line: string;
 }): Promise<VehicleTrip> {
-  if (vehicle.operator === 'cl') {
-    // Carris de Lisboa: from the stored timetable, which must be downloaded.
-    const trip = carrisLisboaTrip({
-      routeId: vehicle.routeId ?? null,
-      stopId: vehicle.stopId,
-      stopSequence: vehicle.stopSequence ?? null,
-      line: vehicle.line,
-    });
+  if (vehicle.operator && vehicle.operator !== 'cm') {
+    // Carris de Lisboa and every other GTFS-RT operator: from the stored
+    // timetable, which must be downloaded (it is what gave the bus its number).
+    const trip = carrisLisboaTrip(
+      {
+        routeId: vehicle.routeId ?? null,
+        stopId: vehicle.stopId,
+        stopSequence: vehicle.stopSequence ?? null,
+        line: vehicle.line,
+      },
+      vehicle.operator === 'cl' ? CARRIS_LISBOA_FEED_ID : vehicle.operator,
+    );
     if (!trip) {
       throw new TransitError(t().transit.vehicleNeedsTimetable);
     }

@@ -30,5 +30,9 @@ export const POI_IMAGE_SOURCES = {
   'vehicle-disc-cl': require('./vehicle-disc-cl.png'),
   'vehicle-live-cl': require('./vehicle-live-cl.png'),
   'vehicle-pill-cl': require('./vehicle-pill-cl.png'),
+  'vehicle-heading-gen': require('./vehicle-heading-gen.png'),
+  'vehicle-disc-gen': require('./vehicle-disc-gen.png'),
+  'vehicle-live-gen': require('./vehicle-live-gen.png'),
+  'vehicle-pill-gen': require('./vehicle-pill-gen.png'),
   'heading-cone': require('./heading-cone.png'),
 };

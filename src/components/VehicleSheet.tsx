@@ -95,7 +95,11 @@ export function VehicleSheet({
   }, []);
 
   const colour = trip?.colour ??
-    lineColour('bus', vehicle.line, theme.vehicle, vehicle.operator === 'cl' ? 'carris-lisboa' : 'carris-metropolitana');
+    lineColour('bus', vehicle.line, theme.vehicle, vehicle.operator === 'cl'
+      ? 'carris-lisboa'
+      : vehicle.operator === 'cm'
+        ? 'carris-metropolitana'
+        : vehicle.operator);
   const stops = trip?.stops ?? [];
   const ahead = progress ? stops.slice(progress.nextIndex) : [];
   // Where it has been, from the line's first stop: the origin always shows,

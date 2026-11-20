@@ -706,8 +706,9 @@ export function MapView({
         properties: {
           id: v.id,
           linha: v.line,
-          // Each operator its own colour (`-cm` yellow, `-cl` deep blue).
-          op: v.operator,
+          // Each operator its own colour (`-cm` yellow, `-cl` deep blue);
+          // every other operator one neutral drawing (`-gen`).
+          op: v.operator === 'cm' || v.operator === 'cl' ? v.operator : 'gen',
           parado: v.atStop ? 1 : 0,
           rumo: v.bearing ?? -1,
           aberto: v.id === selectedVehicleId ? 1 : 0,

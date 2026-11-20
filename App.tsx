@@ -172,7 +172,16 @@ import {
   scheduledBusStops,
 } from './src/services/schedules';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
-import { liveVehicles, mergeVehicles, nextVehiclesDelay, vehicleAreas, type LiveVehicle } from './src/services/vehicles';
+import {
+  liveVehicles,
+  mergeVehicles,
+  nextVehiclesDelay,
+  operatorOfId,
+  operatorsFromKey,
+  operatorsKey,
+  vehicleAreas,
+  type LiveVehicle,
+} from './src/services/vehicles';
 import { useFavouriteStops } from './src/services/favouriteStops';
 import { configureTileRequests, MAP_CACHE_MB, setMapCacheSize } from './src/services/tiles';
 import {
@@ -478,7 +487,7 @@ function PalmMap() {
   const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
   const [vehicleZoomOk, setVehicleZoomOk] = useState(false);
   /** Operators whose area the view touches: `cm`, `cl`, both or neither. */
-  const [vehicleOperators, setVehicleOperators] = useState('cmcl');
+  const [vehicleOperators, setVehicleOperators] = useState('cl,cm');
   /** When the map last moved: past `VEHICLES_IDLE_MS` the buses are asked less often. */
   const lastMapMove = useRef(Date.now());
   /**
@@ -1127,7 +1136,7 @@ function PalmMap() {
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const which = { cm: vehicleOperators.includes('cm'), cl: vehicleOperators.includes('cl') };
+    const which = operatorsFromKey(vehicleOperators);
 
     let nextDelay = Number(settings.vehiclesRefresh) * 1000;
     const carregar = async () => {
@@ -2015,7 +2024,7 @@ function PalmMap() {
       // Which operators' buses this view can show, as a short key that only
       // changes when the map crosses an operator's edge.
       const areas = vehicleAreas(bounds);
-      const areasKey = `${areas.cm ? 'cm' : ''}${areas.cl ? 'cl' : ''}`;
+      const areasKey = operatorsKey(areas);
       setVehicleOperators((atual) => (atual === areasKey ? atual : areasKey));
       lastMapMove.current = Date.now();
 
@@ -3477,17 +3486,14 @@ function PalmMap() {
     setBusRefreshNote(null);
     try {
       // The operators the view shows, and always the open bus's own.
-      const ofCl = id.startsWith('cl:');
-      const lista = await liveVehicles({
-        cm: !ofCl || vehicleOperators.includes('cm'),
-        cl: ofCl || vehicleOperators.includes('cl'),
-      });
+      const which = { ...operatorsFromKey(vehicleOperators), [operatorOfId(id)]: true };
+      const lista = await liveVehicles(which);
       const before = lastVehicle.current?.reportedAt ?? 0;
       const found = lista.find((v) => v.id === id) ?? null;
       setFreshVehicle(found);
       if (isTransitMap(settings.mapType) && settings.showVehicles && vehicleZoomOk) {
         setVehicles((before) =>
-          mergeVehicles(before, lista, { cm: vehicleOperators.includes('cm'), cl: vehicleOperators.includes('cl') }),
+          mergeVehicles(before, lista, operatorsFromKey(vehicleOperators)),
         );
       }
       if (!found || found.reportedAt <= before) {

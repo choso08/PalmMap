@@ -63,6 +63,9 @@ PILL_W, PILL_H = 40, 16
 VEHICLE_OPERATORS = [
     ("cm", "#FFD100", "#1F1F1F"),
     ("cl", "#1E3A8A", "#FFFFFF"),
+    # Every other operator with live positions (other countries' GTFS-RT):
+    # one slate drawing, the line number in its pill as for the others.
+    ("gen", "#37474F", "#FFFFFF"),
 ]
 
 

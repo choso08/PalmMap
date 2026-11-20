@@ -536,6 +536,16 @@ environment cannot reach.
   (`poisRegionsFor`), twins merged as before. The maps list (`OfflineMaps.tsx`) groups by
   `pais ?? nome`: one row for a country with one map, a drop-down for the rest, opened by a
   matching search. Published entries without `pais` stay their own country until redone.
+- **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
+  none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
+  vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so
+  OVapi's `http://` is out). With that timetable downloaded, `vehicleAreas` adds its id when
+  the view touches its `bbox`, `liveVehicles` reads it with the same decoder as Carris de
+  Lisboa (`gtfsRtVehicles`, ids `<feed>:<vehicle>`), the number comes from the stored
+  timetable's `routeIds` (`carrisLisboaLine(routeId, feedId)`, its side file
+  `<feed>.linhas.json`; else the `route_id` itself) and the panel's trip from it too
+  (`carrisLisboaTrip(…, feedId)`). Operators are a `Record<string, boolean>` and the App's
+  key is `operatorsKey` ("cl,cm,…"). Drawn with one slate set, `vehicle-*-gen`.
 - **Orthophotos of other EU countries in "High" satellite detail** (author, 20 November
   2026; not seen on a phone): `EU_ORTHOS` in `tiles.ts` — France (IGN's WMTS, Licence
   Ouverte) and the German states Bavaria, Hesse, Rhineland-Palatinate, Saarland and Bremen

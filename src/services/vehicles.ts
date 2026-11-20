@@ -2,10 +2,11 @@ import { lineLabel } from './transit';
 import axios from 'axios';
 import { transit_realtime } from 'gtfs-realtime-bindings';
 
-import { carrisLisboaLine } from './schedules';
+import { carrisLisboaLine, installedFeeds } from './schedules';
 
 import {
   CARRIS_BASE_URL,
+  CARRIS_LISBOA_FEED_ID,
   CARRIS_LISBOA_VEHICLES_URL,
   REQUEST_TIMEOUT_MS,
   USER_AGENT,
@@ -62,8 +63,12 @@ const client = axios.create({
 /** A moving bus, ready for the map. */
 export interface LiveVehicle {
   id: string;
-  /** Carris Metropolitana (JSON API) or Carris de Lisboa (GTFS-RT). */
-  operator: 'cm' | 'cl';
+  /**
+   * Carris Metropolitana (`cm`, JSON API), Carris de Lisboa (`cl`, GTFS-RT),
+   * or the id of a downloaded timetable whose operator publishes GTFS-RT
+   * positions (`posicoes` in its manifest entry: Rome, Kraków, Bucharest…).
+   */
+  operator: string;
   /** The GTFS route id (Carris de Lisboa: `172_1`), to find its timetable. */
   routeId: string | null;
   /** The sequence of `stopId` in its trip, when the feed says. */
@@ -101,6 +106,28 @@ function toNumber(value: unknown): number | null {
 const CM_AREA: [number, number, number, number] = [-9.52, 38.4, -8.47, 39.08];
 const CL_AREA: [number, number, number, number] = [-9.24, 38.68, -9.08, 38.8];
 
+/** Which operators to ask, by id (`cm`, `cl`, or a timetable's id). */
+export type VehicleOperators = Record<string, boolean>;
+
+/**
+ * The other operators with live positions: downloaded timetables whose entry
+ * names a GTFS-RT address. Only https (Android refuses cleartext), and never
+ * Carris Metropolitana's or Carris de Lisboa's own, read their own way above.
+ */
+function otherLiveFeeds(): { id: string; url: string; bbox: [number, number, number, number] }[] {
+  return installedFeeds()
+    .filter(
+      (f) =>
+        typeof f.posicoes === 'string' &&
+        f.posicoes.startsWith('https://') &&
+        f.id !== CARRIS_LISBOA_FEED_ID &&
+        f.id !== 'carris-metropolitana' &&
+        Array.isArray(f.bbox) &&
+        f.bbox.length === 4,
+    )
+    .map((f) => ({ id: f.id, url: f.posicoes as string, bbox: f.bbox }));
+}
+
 /**
  * Which operators' buses the view can show: an operator whose area does not
  * touch it is not asked (each ask is the whole fleet).
@@ -110,10 +137,38 @@ export function vehicleAreas(bounds: {
   south: number;
   east: number;
   north: number;
-}): { cm: boolean; cl: boolean } {
+}): VehicleOperators {
   const touches = ([w, s, e, n]: [number, number, number, number]) =>
     bounds.west <= e && bounds.east >= w && bounds.south <= n && bounds.north >= s;
-  return { cm: touches(CM_AREA), cl: touches(CL_AREA) };
+  const areas: VehicleOperators = { cm: touches(CM_AREA), cl: touches(CL_AREA) };
+  for (const feed of otherLiveFeeds()) {
+    areas[feed.id] = touches(feed.bbox);
+  }
+  return areas;
+}
+
+/** The operators that are on, as a short key that changes only with the set. */
+export function operatorsKey(which: VehicleOperators): string {
+  return Object.keys(which)
+    .filter((k) => which[k])
+    .sort()
+    .join(',');
+}
+
+/** The key back into operators. */
+export function operatorsFromKey(key: string): VehicleOperators {
+  return Object.fromEntries(
+    key
+      .split(',')
+      .filter(Boolean)
+      .map((k) => [k, true]),
+  );
+}
+
+/** The operator of a bus, from its id (`cl:123`, `roma:456`; Carris Metropolitana's have none). */
+export function operatorOfId(id: string): string {
+  const colon = id.indexOf(':');
+  return colon > 0 ? id.slice(0, colon) : 'cm';
 }
 
 /**
@@ -123,22 +178,38 @@ export function vehicleAreas(bounds: {
  * right answer, not a fault.
  */
 export async function liveVehicles(
-  which: { cm: boolean; cl: boolean } = { cm: true, cl: true },
+  which: VehicleOperators = { cm: true, cl: true },
 ): Promise<LiveVehicle[]> {
-  // Each operator on its own: one failing leaves the other's buses. Only those
+  // Each operator on its own: one failing leaves the others' buses. Only those
   // whose area the map shows are asked (`vehicleAreas`): Carris de Lisboa's
   // 45 KB, which its server does not compress, are no use over Almada.
-  const [cm, cl] = await Promise.allSettled([
-    which.cm ? metropolitanaVehicles() : Promise.resolve([]),
-    which.cl ? lisboaVehicles() : Promise.resolve([]),
-  ]);
-  if (cm.status === 'rejected' && cl.status === 'rejected') {
-    throw cm.reason;
+  const asks: Promise<LiveVehicle[]>[] = [];
+  if (which.cm) {
+    asks.push(metropolitanaVehicles());
   }
-  return [
-    ...(cm.status === 'fulfilled' ? cm.value : []),
-    ...(cl.status === 'fulfilled' ? cl.value : []),
-  ];
+  if (which.cl) {
+    asks.push(
+      gtfsRtVehicles(CARRIS_LISBOA_VEHICLES_URL, 'cl', (routeId) => carrisLisboaLine(routeId)),
+    );
+  }
+  for (const feed of otherLiveFeeds()) {
+    if (which[feed.id]) {
+      asks.push(
+        gtfsRtVehicles(feed.url, feed.id, (routeId) => carrisLisboaLine(routeId, feed.id)),
+      );
+    }
+  }
+  if (asks.length === 0) {
+    return [];
+  }
+  const results = await Promise.allSettled(asks);
+  const ok = results.filter(
+    (r): r is PromiseFulfilledResult<LiveVehicle[]> => r.status === 'fulfilled',
+  );
+  if (ok.length === 0) {
+    throw (results[0] as PromiseRejectedResult).reason;
+  }
+  return ok.flatMap((r) => r.value);
 }
 
 /**
@@ -160,7 +231,7 @@ const lastListed = new Map<string, number>();
 export function mergeVehicles(
   before: LiveVehicle[],
   fresh: LiveVehicle[],
-  which: { cm: boolean; cl: boolean },
+  which: VehicleOperators,
 ): LiveVehicle[] {
   const now = Date.now() / 1000;
   const byId = new Map<string, LiveVehicle>();
@@ -195,7 +266,7 @@ export function mergeVehicles(
 }
 
 /** Per operator: the newest report seen. */
-const newestSeen: Record<'cm' | 'cl', number> = { cm: 0, cl: 0 };
+const newestSeen: Record<string, number> = {};
 let earlyRetries = 0;
 /** When an ask brought nothing newer, the one retry comes this soon. */
 const EARLY_RETRY_MS = 3000;
@@ -218,15 +289,15 @@ const EARLY_RETRY_MS = 3000;
  */
 export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
   let gotNew = false;
-  for (const op of ['cm', 'cl'] as const) {
-    let newest = 0;
-    for (const v of list) {
-      if (v.operator === op && v.reportedAt > newest) {
-        newest = v.reportedAt;
-      }
+  const newest: Record<string, number> = {};
+  for (const v of list) {
+    if (v.reportedAt > (newest[v.operator] ?? 0)) {
+      newest[v.operator] = v.reportedAt;
     }
-    if (newest > newestSeen[op]) {
-      newestSeen[op] = newest;
+  }
+  for (const [op, at] of Object.entries(newest)) {
+    if (at > (newestSeen[op] ?? 0)) {
+      newestSeen[op] = at;
       gotNew = true;
     }
   }
@@ -308,7 +379,9 @@ function plain(value: unknown): number | null {
 }
 
 /**
- * Carris de Lisboa's buses and trams, from their GTFS-RT feed — Protobuf,
+ * Any operator's GTFS-RT vehicle positions — Carris de Lisboa's, and since
+ * November 2026 those of other countries' downloaded timetables. First
+ * written for Carris de Lisboa's buses and trams, from their GTFS-RT feed — Protobuf,
  * decoded with `gtfs-realtime-bindings` (the official bindings, on
  * `protobufjs/minimal`: no `eval`, fine on Hermes). About 10 KB for the whole
  * fleet, so it costs next to nothing beside Carris Metropolitana's list.
@@ -318,8 +391,12 @@ function plain(value: unknown): number | null {
  * `current_stop_sequence`, `current_status` 2 (in transit), `timestamp` in
  * seconds, no bearing or speed.
  */
-async function lisboaVehicles(): Promise<LiveVehicle[]> {
-  const { data } = await axios.get<ArrayBuffer>(CARRIS_LISBOA_VEHICLES_URL, {
+async function gtfsRtVehicles(
+  url: string,
+  operator: string,
+  lineOf: (routeId: string | null) => string | null,
+): Promise<LiveVehicle[]> {
+  const { data } = await axios.get<ArrayBuffer>(url, {
     responseType: 'arraybuffer',
     timeout: REQUEST_TIMEOUT_MS,
     headers: { 'User-Agent': USER_AGENT },
@@ -350,11 +427,14 @@ async function lisboaVehicles(): Promise<LiveVehicle[]> {
     const routeId = v.trip?.routeId || null;
     const speed = plain(position.speed);
     moving.push({
-      id: `cl:${v.vehicle?.id || entity.id}`,
-      operator: 'cl',
+      id: `${operator}:${v.vehicle?.id || entity.id}`,
+      operator,
       routeId,
       stopSequence: plain(v.currentStopSequence),
-      line: carrisLisboaLine(routeId) ?? '',
+      // The number from the stored timetable. Without it, other operators'
+      // route ids are often the number itself; Carris de Lisboa's (`172_1`)
+      // never are, so its buses then show none.
+      line: lineOf(routeId) ?? (operator === 'cl' ? '' : (routeId ?? '')),
       coordinates: { latitude: position.latitude, longitude: position.longitude },
       bearing: position.bearing ? position.bearing : null,
       speedKmh: speed ? Math.round(speed * 3.6) : 0,
