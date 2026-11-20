@@ -150,8 +150,9 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
   try {
     const axios = require('axios');
     const r = await axios.get('https://api.carrismetropolitana.pt/v2/stops', { timeout: 60000 });
-    const pera = (r.data || []).filter((s) => /p[êe]ra de cima/i.test(s.long_name || s.name || ''));
-    console.log(`\n=== Pêra de Cima stops: ${pera.map((s) => `${s.id} ${s.long_name} [${(s.line_ids || []).join(',')}]`).join(' | ')}`);
+    const todas = (r.data || []).filter((s) => /p[êe]ra\b/i.test((s.long_name || s.name || '').normalize('NFC')));
+    const pera = [...todas.filter((s) => /cima/i.test(s.long_name || s.name || '')), ...todas.filter((s) => !/cima/i.test(s.long_name || s.name || ''))].slice(0, 8);
+    console.log(`\n=== Pêra de Cima stops: ${pera.map((s) => `${s.id} ${s.long_name} ${s.lat},${s.lon} [${(s.line_ids || []).join(',')}]`).join(' | ')}`);
     if (pera[0]) {
       const destino = { latitude: Number(pera[0].lat), longitude: Number(pera[0].lon) };
       for (const [nome, [la, lo]] of [['Granja', [38.6656, -9.1996]], ['Almada centro', [38.6790, -9.1569]], ['Costa da Caparica', [38.6413, -9.2358]]]) {
@@ -186,6 +187,8 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
   } catch (erro) {
     console.log('  mixed ERRO:', erro && erro.message);
   }
+  // The app's timers (performance watchdog) would keep Node alive for ever.
+  process.exit(0);
 })();
 
 // Diagnosis: why a pattern's trips do not match between a departure stop and
