@@ -652,6 +652,9 @@ environment cannot reach.
   download notifications, errors and timetable station/line labels. The timetables list
   (`Schedules.tsx`) is a drop-down per country like the maps (Portugal open at first, all
   open while searching, "N timetables · M saved").
+- **Built in 7.0.68** (20 November): the measured live-arrival stretch and "N stops away", English
+  catalogue names, timetables by country, removed maps still listed for deletion. Not in it:
+  the Canary Islands' English name.
 - **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
   with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
   the EU catalogue, zones and orthophotos above (none of those generated yet).
