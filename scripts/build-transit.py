@@ -358,6 +358,11 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
             lon = float(linha.get("stop_lon") or "")
         except ValueError:
             return None
+        # A stop at 0,0 is a stop with no coordinates (OVapi has some): kept, it
+        # stretched the feed's box to the equator, and the app judges by that
+        # box which timetables to open.
+        if abs(lat) < 0.5 and abs(lon) < 0.5:
+            return None
         idx_stops[estacao] = len(lista_stops)
         ids_stops.append([stop_id])
         lista_stops.append(

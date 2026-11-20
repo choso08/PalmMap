@@ -443,6 +443,49 @@ export function loadFeed(info: ScheduleFeedInfo): IndexedFeed | null {
  * never read: the map's stops and stations skip Carris Metropolitana's 27 MB,
  * and used to parse it all the same.
  */
+type Box = { west: number; south: number; east: number; north: number };
+
+/** A box around points, widened by `metres` on every side. */
+function boxAround(points: Coordinates[], metres: number): Box {
+  const lats = points.map((p) => p.latitude);
+  const lons = points.map((p) => p.longitude);
+  const dLat = metres / 111_000;
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const dLon = metres / (111_000 * Math.max(0.2, Math.cos((midLat * Math.PI) / 180)));
+  return {
+    west: Math.min(...lons) - dLon,
+    south: Math.min(...lats) - dLat,
+    east: Math.max(...lons) + dLon,
+    north: Math.max(...lats) + dLat,
+  };
+}
+
+/**
+ * Whether a timetable's own box touches the area asked about — judged from the
+ * identification, without opening the file (author's screenshot, 20 November
+ * 2026: one search in Portugal read the Dutch, Belgian, French, Spanish,
+ * Italian and Danish timetables, 8.7 s of a blocked app). A feed with no box
+ * is opened, as before.
+ */
+function touches(info: ScheduleFeedInfo, box: Box): boolean {
+  if (!info.bbox) {
+    return true;
+  }
+  const [west, south, east, north] = info.bbox;
+  return west <= box.east && east >= box.west && south <= box.north && north >= box.south;
+}
+
+/**
+ * The area a trip between two points can use: their box with room for the
+ * walks at both ends and a detour (a change of line off the straight line).
+ */
+function tripBox(origin: Coordinates, destination: Coordinates): Box {
+  return boxAround([origin, destination], TRIP_BOX_MARGIN_M);
+}
+
+/** See `tripBox`. */
+const TRIP_BOX_MARGIN_M = 5_000;
+
 function loadedFeeds(wanted?: (info: ScheduleFeedInfo) => boolean): IndexedFeed[] {
   const open: IndexedFeed[] = [];
   for (const info of installedFeeds()) {
@@ -630,7 +673,9 @@ export function departuresNear(
 
   // Bus timetables answer at their own stops (`departuresAtStop`): their
   // nearest stop to a metro station would put buses in the station's list.
-  for (const feed of loadedFeeds((info) => info.kind !== 'bus' && !isExpired(info, now))) {
+  for (const feed of loadedFeeds(
+    (info) => info.kind !== 'bus' && !isExpired(info, now) && touches(info, boxAround([origin], maxMeters)),
+  )) {
 
     const nearest = nearestStop(feed, origin, maxMeters);
     if (!nearest) {
@@ -661,7 +706,11 @@ export function scheduledBusStops(
   // Carris Metropolitana's own stops come live from its API; its stored
   // timetable stands in for them only offline (`withLive`).
   for (const feed of loadedFeeds(
-    (info) => info.kind === 'bus' && (info.naApp !== false || withLive) && !isExpired(info),
+    (info) =>
+      info.kind === 'bus' &&
+      (info.naApp !== false || withLive) &&
+      !isExpired(info) &&
+      touches(info, bounds),
   )) {
     feed.data.stops.forEach((stop, i) => {
       if (
@@ -704,7 +753,11 @@ export function busDeparturesNear(
 ): ScheduleDeparture[] {
   const out: ScheduleDeparture[] = [];
   for (const feed of loadedFeeds(
-    (info) => info.kind === 'bus' && (info.naApp !== false || withLive) && !isExpired(info, now),
+    (info) =>
+      info.kind === 'bus' &&
+      (info.naApp !== false || withLive) &&
+      !isExpired(info, now) &&
+      touches(info, boxAround([point], maxMeters)),
   )) {
     const nearest = nearestStop(feed, point, maxMeters);
     if (nearest) {
@@ -822,8 +875,12 @@ export function planScheduledTrips(
   const nowUnix = now.getTime() / 1000;
   const days = candidateDays(now);
   const trips: TransitTrip[] = [];
+  const atOrigin = boxAround([origin], TRANSIT_WALK_MAX_M);
+  const atDestination = boxAround([destination], TRANSIT_WALK_MAX_M);
 
-  for (const feed of loadedFeeds((info) => !isExpired(info, now))) {
+  for (const feed of loadedFeeds(
+    (info) => !isExpired(info, now) && touches(info, atOrigin) && touches(info, atDestination),
+  )) {
     const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
     const arrivals = stopsNear(feed, destination, TRANSIT_WALK_MAX_M);
     if (departures.size === 0 || arrivals.size === 0) {
@@ -1070,7 +1127,9 @@ export function planScheduledTransfers(
 ): TransitTrip[] {
   const nowUnix = now.getTime() / 1000;
   const days = candidateDays(now);
-  const feeds = loadedFeeds((info) => !isExpired(info, now));
+  const feeds = loadedFeeds(
+    (info) => !isExpired(info, now) && touches(info, tripBox(origin, destination)),
+  );
   if (feeds.length === 0) {
     return [];
   }
@@ -1236,7 +1295,8 @@ export function scheduledBoardingsTo(destination: Coordinates): {
 } {
   const points: RailPoint[] = [];
   const refs: StationRef[] = [];
-  for (const feed of loadedFeeds((info) => !isExpired(info))) {
+  const near = boxAround([destination], TRANSIT_WALK_MAX_M);
+  for (const feed of loadedFeeds((info) => !isExpired(info) && touches(info, near))) {
     const seen = new Set<number>();
     for (const station of stopsNear(feed, destination, TRANSIT_WALK_MAX_M).keys()) {
       for (const { trip, pos } of callsAt(feed, station)) {
@@ -1343,7 +1403,9 @@ export function scheduledReachedFrom(
   destination: Coordinates,
   now = new Date(),
 ): { points: RailPoint[]; legs: TransitTrip[] } {
-  const feeds = loadedFeeds((info) => !isExpired(info, now));
+  const feeds = loadedFeeds(
+    (info) => !isExpired(info, now) && touches(info, tripBox(origin, destination)),
+  );
   const reached = reachFrom(feeds, origin, now.getTime() / 1000, candidateDays(now));
   const points: RailPoint[] = [];
   const legs: TransitTrip[] = [];
@@ -1654,7 +1716,9 @@ export async function planScheduledRaptor(
   runs = 2,
 ): Promise<TransitTrip[]> {
   const now = new Date(departAt * 1000);
-  const feeds = loadedFeeds((info) => !isExpired(info, now));
+  const feeds = loadedFeeds(
+    (info) => !isExpired(info, now) && touches(info, tripBox(origin, destination)),
+  );
   if (feeds.length === 0) {
     return [];
   }

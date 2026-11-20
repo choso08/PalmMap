@@ -312,3 +312,61 @@ export function routeElevation(route: Route, isWanted?: () => boolean): Promise<
   elevationCache.set(route, { asked, interested });
   return asked;
 }
+
+/** Road lines already asked for, by their stops (`roadLine`). */
+const roadLines = new Map<string, Promise<Coordinates[] | null>>();
+
+/** At most this many stops in one request; a longer trip keeps its straight line. */
+const ROAD_LINE_MAX_POINTS = 80;
+
+/** A road line longer than this many times the stops joined is a detour, not the bus's way. */
+const ROAD_LINE_MAX_DETOUR = 1.6;
+
+/**
+ * A bus's way through its stops along the streets, for a stored timetable that
+ * carries no shape (author's photo, 20 November 2026: Carris de Lisboa's 729
+ * drawn as straight lines across Belém's blocks). One car route through the
+ * stops, through OSRM's one-a-second queue, kept for the session. A car's
+ * way is not always a bus's (bus lanes, turns only buses may make): if it
+ * comes out much longer than the stops joined, `null`, and the straight line
+ * stays. Never throws.
+ */
+export function roadLine(stops: Coordinates[]): Promise<Coordinates[] | null> {
+  if (stops.length < 2 || stops.length > ROAD_LINE_MAX_POINTS) {
+    return Promise.resolve(null);
+  }
+  const path = stops.map((p) => `${p.longitude.toFixed(5)},${p.latitude.toFixed(5)}`).join(';');
+  const kept = roadLines.get(path);
+  if (kept) {
+    return kept;
+  }
+  const asked = (async () => {
+    try {
+      const response = await schedule(() =>
+        client.get<OsrmRouteResponse>(`${OSRM_ENDPOINTS.driving}/route/v1/${OSRM_PROFILE_PATH.driving}/${path}`, {
+          params: { overview: 'full', geometries: 'geojson', steps: 'false', continue_straight: 'true' },
+          validateStatus: (s) => s < 500,
+        }),
+      );
+      const route = response.data.routes?.[0];
+      if (response.data.code !== 'Ok' || !route) {
+        return null;
+      }
+      let joined = 0;
+      for (let i = 1; i < stops.length; i += 1) {
+        joined += distanceMeters(stops[i - 1], stops[i]);
+      }
+      if (route.distance > joined * ROAD_LINE_MAX_DETOUR) {
+        return null;
+      }
+      const line = route.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }));
+      return line.length >= 2 ? line : null;
+    } catch {
+      // A failure is not kept: the next panel opened may ask again.
+      roadLines.delete(path);
+      return null;
+    }
+  })();
+  roadLines.set(path, asked);
+  return asked;
+}

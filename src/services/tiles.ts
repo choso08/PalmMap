@@ -259,10 +259,10 @@ const PNOA_ORTOS =
   ORTHO_FORMAT;
 
 /** A WMS GetMap address at the app's tile size, in a given format. */
-function wmsTiles(base: string, layer: string, format: string): string {
+function wmsTiles(base: string, layer: string, format: string, size = 512): string {
   return (
     `${base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(layer)}` +
-    '&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512' +
+    `&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=${size}&HEIGHT=${size}` +
     `&FORMAT=${format}&TRANSPARENT=true`
   );
 }
@@ -277,13 +277,33 @@ function wmsTiles(base: string, layer: string, format: string): string {
  * over the neighbour's imagery and the sea — the DGT's old white squares. So:
  * France's WMTS answers 404 outside; Bavaria, Hesse, Rhineland-Palatinate,
  * Saarland and Bremen take `image/vnd.jpeg-png(8)` (JPEG over imagery, a
- * 100-byte transparent PNG outside). Left out for that reason, though they
- * answer: the Netherlands (PDOK), Austria (basemap.at), Luxembourg, Flanders,
- * Wallonia, Czechia (ArcGIS: its "jpeg-png8" is a 600 KB PNG), Saxony and the
- * other German states. Need a key: Denmark, Finland, Lithuania. Not in Web
+ * 100-byte transparent PNG outside). Wallonia, Flanders, Czechia and seven
+ * more German states only in plain PNG (see those entries). Left out for that
+ * reason, though they answer: the Netherlands (PDOK), Austria (basemap.at),
+ * Luxembourg and Poland. Need a key: Denmark, Finland, Lithuania. Not in Web
  * Mercator: Croatia, Cyprus, Greece, Sweden. Bounds are Geofabrik's outlines'
  * rectangles, so nothing is asked elsewhere.
  */
+/** See the PNG entries of `EU_ORTHOS`. */
+const PNG_ORTHO_PX = 256;
+
+type OrthoCredit = 'wallonie' | 'vlaanderen' | 'cuzk' | 'nrw' | 'brandenburg' | 'sachsen' | 'thueringen' | 'bw' | 'sachsenAnhalt' | 'sh' | 'mv';
+
+function pngOrtho(
+  id: string,
+  base: string,
+  layer: string,
+  bounds: [number, number, number, number],
+  credit: OrthoCredit,
+): { id: string; tiles: string; bounds: [number, number, number, number]; attribution: () => string } {
+  return {
+    id,
+    tiles: wmsTiles(base, layer, 'image/png', PNG_ORTHO_PX),
+    bounds,
+    attribution: () => t().attributions[credit],
+  };
+}
+
 const EU_ORTHOS: { id: string; tiles: string; bounds: [number, number, number, number]; attribution: () => string }[] = [
   {
     // IGN's BD ORTHO, 20 cm, mainland France and Corsica. Licence Ouverte 2.0.
@@ -334,6 +354,24 @@ const EU_ORTHOS: { id: string; tiles: string; bounds: [number, number, number, n
     bounds: [8.481, 53.01, 8.991, 53.611],
     attribution: () => t().attributions.bremen,
   },
+  // **In PNG** (author's choice, 20 November 2026: "the first, in PNG"): these
+  // send only JPEG for jpeg-png, an opaque square outside their area, but
+  // their plain PNG is fully transparent there (`sondar: eu_orthos_png`, every
+  // pixel clear across the border and far off). A 512 px PNG is ~600 KB, so
+  // these are asked at 256 px (`PNG_ORTHO_PX`): ~150 KB, the detail of one
+  // zoom level less than the others. Left out: the Netherlands (JPEG whatever
+  // is asked), Luxembourg (opaque at the border) and Poland (opaque).
+  pngOrtho('dop-wal', 'https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer', '0', [2.84, 49.49, 6.41, 50.82], 'wallonie'),
+  pngOrtho('dop-vla', 'https://geo.api.vlaanderen.be/omw/wms', 'OMWRGB25VL', [2.54, 50.68, 5.92, 51.51], 'vlaanderen'),
+  pngOrtho('dop-cz', 'https://ags.cuzk.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer', '0', [12.09, 48.55, 18.86, 51.06], 'cuzk'),
+  pngOrtho('dop-nw', 'https://www.wms.nrw.de/geobasis/wms_nw_dop', 'nw_dop_rgb', [5.86, 50.32, 9.46, 52.53], 'nrw'),
+  pngOrtho('dop-bb', 'https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms', 'bebb_dop20c', [11.26, 51.36, 14.77, 53.56], 'brandenburg'),
+  pngOrtho('dop-sn', 'https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest', 'sn_dop_020', [11.87, 50.17, 15.04, 51.69], 'sachsen'),
+  pngOrtho('dop-th', 'https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP', 'th_dop', [9.87, 50.2, 12.65, 51.65], 'thueringen'),
+  pngOrtho('dop-bw', 'https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C', 'IMAGES_DOP_20_RGB', [7.51, 47.53, 10.5, 49.79], 'bw'),
+  pngOrtho('dop-st', 'https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest', 'lsa_lvermgeo_dop20_2', [10.56, 50.94, 13.19, 53.04], 'sachsenAnhalt'),
+  pngOrtho('dop-sh', 'https://service.gdi-sh.de/WMS_SH_DOP20col_OpenGBD', 'sh_dop20_rgb', [7.86, 53.36, 11.31, 55.06], 'sh'),
+  pngOrtho('dop-mv', 'https://www.geodaten-mv.de/dienste/adv_dop', 'mv_dop', [10.59, 53.11, 14.42, 54.69], 'mv'),
 ];
 
 /** The same fade-in from zoom 12 as the DGT's and the PNOA's (see below). */

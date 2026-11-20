@@ -1,3 +1,4 @@
+import type { ExpressionSpecification } from '@maplibre/maplibre-gl-style-spec';
 import { resolveLanguage } from '../i18n';
 import { note } from '../services/perfLog';
 import {
@@ -100,6 +101,26 @@ const VEHICLE_LAYERS = ['autocarros-base', 'autocarros-icon', 'autocarros-label'
 const STOP_LAYERS = ['paragens-aberta', 'paragens-icon', 'paragens-icon-aberta', 'paragens-label', 'paragens-label-aberta'];
 const STATION_LAYERS = ['estacoes-aberta', 'estacoes-icon', 'estacoes-icon-aberta', 'estacoes-label'];
 /** Half the touch box MapLibre gives a press (44 × 44 pixels). */
+/**
+ * Live buses grow with the zoom: at full size from 15, three fifths at 12 —
+ * at a city's zoom, full-size drops were a carpet over the map (author's
+ * photo, 20 November 2026). The bus whose panel is open, a third bigger.
+ */
+const VEHICLE_SIZE = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  12,
+  ['case', ['==', ['get', 'aberto'], 1], 0.8, 0.6],
+  15,
+  ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
+] as unknown as ExpressionSpecification;
+const VEHICLE_TEXT_SIZE = ['interpolate', ['linear'], ['zoom'], 13, 8, 15, 10] as unknown as ExpressionSpecification;
+/** No line numbers further out than this: they cannot be read there. */
+const VEHICLE_PILLS_MIN_ZOOM = 13;
+/** From here every number shows, overlapping; below, colliding ones hide. */
+const VEHICLE_PILLS_OVERLAP_ZOOM = 15.5;
+
 const TAP_HALF_BOX = 22;
 
 /**
@@ -1986,8 +2007,7 @@ export function MapView({
                 ['concat', 'vehicle-disc-', ['get', 'op']],
               ],
               'icon-rotate': ['max', ['get', 'rumo'], 0],
-              // The bus whose panel is open, bigger.
-              'icon-size': ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
+              'icon-size': VEHICLE_SIZE,
               // Turned with the map, so the point keeps pointing down the
               // street when the map itself is rotated.
               'icon-rotation-alignment': 'map',
@@ -2003,7 +2023,7 @@ export function MapView({
             type="symbol"
             layout={{
               'icon-image': ['concat', 'vehicle-live-', ['get', 'op']],
-              'icon-size': ['case', ['==', ['get', 'aberto'], 1], 1.3, 1],
+              'icon-size': VEHICLE_SIZE,
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
             }}
@@ -2016,20 +2036,28 @@ export function MapView({
               // Carris de Lisboa's number comes from its stored timetable;
               // without it, no empty pill.
               filter={['!=', ['get', 'linha'], '']}
+              minzoom={VEHICLE_PILLS_MIN_ZOOM}
               layout={{
                 'icon-image': ['concat', 'vehicle-pill-', ['get', 'op']],
-                // Under the drop: 16 of its radius, 5 of gap, half the pill.
+                // Under the drop: 16 of its radius, 5 of gap, half the pill —
+                // in icon pixels, so it shrinks with the drop.
                 'icon-offset': [0, 29],
+                'icon-size': VEHICLE_SIZE,
                 'text-field': ['get', 'linha'],
                 'text-font': ['Noto Sans Medium'],
-                'text-size': 10,
+                // In ems, so the offset follows the size.
+                'text-size': VEHICLE_TEXT_SIZE,
                 'text-offset': [0, 2.9],
-                // Overlapping on purpose: a bus without its number is a bus
-                // nobody can tell apart.
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-                'text-allow-overlap': true,
-                'text-ignore-placement': true,
+                // Close in, every bus keeps its number, overlapping or not: a
+                // bus without its number is one nobody can tell apart. Further
+                // out a number that would land on another is left out
+                // (author's photo, 20 November 2026: piles of "742 742" and
+                // "1715 1714" over Belém); the open bus's goes first.
+                'icon-allow-overlap': ['step', ['zoom'], false, VEHICLE_PILLS_OVERLAP_ZOOM, true],
+                'icon-ignore-placement': ['step', ['zoom'], false, VEHICLE_PILLS_OVERLAP_ZOOM, true],
+                'text-allow-overlap': ['step', ['zoom'], false, VEHICLE_PILLS_OVERLAP_ZOOM, true],
+                'text-ignore-placement': ['step', ['zoom'], false, VEHICLE_PILLS_OVERLAP_ZOOM, true],
+                'symbol-sort-key': ['case', ['==', ['get', 'aberto'], 1], 0, 1],
               }}
               paint={{
                 // Dark on Carris Metropolitana's yellow, white on the rest.

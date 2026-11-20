@@ -159,7 +159,7 @@ import {
   refreshOutdatedOnWifi,} from './src/services/offlineMap';
 import { addressAt, addressOf, reverseGeocode, searchPlaces } from './src/services/nominatim';
 import { parseGeoLink } from './src/utils/geoLink';
-import { RouteError, getDuration, getRoutes, routeElevation } from './src/services/osrm';
+import { RouteError, getDuration, getRoutes, roadLine, routeElevation } from './src/services/osrm';
 import { openStatus, parseOpeningHours } from './src/utils/openingHours';
 import type { ElevationProfile } from './src/utils/elevation';
 import { CLIMB_LEARN_MIN_M, NAISMITH_SECONDS_PER_M, clampClimbRate } from './src/utils/eta';
@@ -3457,8 +3457,18 @@ function PalmMap() {
     setBusTrip((before) => ({ trip: before.trip, loading: before.trip === null, error: null }));
     vehicleTrip(v)
       .then((trip) => {
-        if (!cancelled) {
-          setBusTrip({ trip, loading: false, error: null });
+        if (cancelled) {
+          return;
+        }
+        setBusTrip({ trip, loading: false, error: null });
+        if (v.operator && v.operator !== 'cm') {
+          // A stored timetable has no shape: its stops joined in a row, then
+          // the streets through them once OSRM answers (`roadLine`).
+          void roadLine(trip.stops.map((s) => s.coordinates)).then((line) => {
+            if (line && !cancelled) {
+              setBusTrip({ trip: { ...trip, shape: line }, loading: false, error: null });
+            }
+          });
         }
       })
       .catch((e: unknown) => {

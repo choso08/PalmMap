@@ -773,6 +773,17 @@ export const en: typeof pt = {
     rlp: '© GeoBasis-DE / LVermGeoRP (dl-de/by-2-0)',
     saarland: '© GeoBasis DE/LVGL-SL',
     bremen: '© Landesamt GeoInformation Bremen (CC BY)',
+    wallonie: '© SPW – Service public de Wallonie',
+    vlaanderen: '© Digitaal Vlaanderen (CC BY 4.0)',
+    cuzk: '© ČÚZK (CC BY 4.0)',
+    nrw: '© Geobasis NRW (dl-de/zero-2-0)',
+    brandenburg: '© GeoBasis-DE/LGB (dl-de/by-2-0)',
+    sachsen: '© GeoSN (dl-de/by-2-0)',
+    thueringen: '© GDI-Th (dl-de/by-2-0)',
+    bw: '© LGL, www.lgl-bw.de (dl-de/by-2-0)',
+    sachsenAnhalt: '© GeoBasis-DE / LVermGeo ST (dl-de/by-2-0)',
+    sh: '© GeoBasis-DE/LVermGeo SH (CC BY 4.0)',
+    mv: '© GeoBasis-DE/M-V (CC BY 4.0)',
   },
 
   hints: {

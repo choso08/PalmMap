@@ -462,7 +462,10 @@ export function applyTransitPrefs(
       : trips.filter((trip) => !tripGroups(trip).some((g) => avoid.includes(g)));
   const hidden = trips.length - kept.length;
   if (sort === 'best') {
-    return { trips: kept, hidden };
+    return {
+      trips: [...kept].sort((a, b) => tripEffort(a) - tripEffort(b) || b.leaveAt - a.leaveAt),
+      hidden,
+    };
   }
   const key = (trip: TransitTrip) =>
     sort === 'walk' ? walkMetersOf(trip) : changesOf(trip).length;
@@ -473,6 +476,25 @@ export function applyTransitPrefs(
     hidden,
   };
 }
+
+/**
+ * What "Best" orders by: the arrival, with each minute walked counted once
+ * more and each change as `CHANGE_PENALTY_S` — as the trip planners people
+ * know weigh them (author's photo, 20 November 2026: "Best" was a 16-minute,
+ * 1.2 km walk from the bus to arrive at 17:23, ahead of bus + Metro Sul do
+ * Tejo with 5 minutes' walk at 17:26). Waiting at home costs nothing: the
+ * arrival already counts it.
+ */
+export function tripEffort(trip: TransitTrip): number {
+  return (
+    trip.reachAt +
+    walkMetersOf(trip) / WALK_SPEED_MS +
+    changesOf(trip).length * CHANGE_PENALTY_S
+  );
+}
+
+/** See `tripEffort`. */
+const CHANGE_PENALTY_S = 180;
 
 /** The option that arrives first — what the transport chip's time is. */
 export function fastestTrip(trips: TransitTrip[]): TransitTrip | null {

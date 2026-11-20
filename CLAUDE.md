@@ -593,6 +593,31 @@ environment cannot reach.
   `<feed>.linhas.json`; else the `route_id` itself) and the panel's trip from it too
   (`carrisLisboaTrip(…, feedId)`). Operators are a `Record<string, boolean>` and the App's
   key is `operatorsKey` ("cl,cm,…"). Drawn with one slate set, `vehicle-*-gen`.
+- **From the author's phone, 20 November 2026 (7.0.68; none seen on a phone yet):**
+  - **Timetables are opened only where asked** (screenshot: one search in Portugal read the
+    Dutch, Belgian, French, Spanish, Italian and Danish timetables, 8.7 s blocked):
+    every query filters by the identification's `bbox` before reading (`touches`,
+    `boxAround`, `tripBox` with `TRIP_BOX_MARGIN_M` 5 km in `schedules.ts`). Some boxes were
+    wrong: OVapi has stops at 0,0 (its box reached the equator) — `build-transit.py` now drops
+    such stops; Rejseplanen's reaches Greenland (real stops, kept).
+  - **"Best" weighs walking and changes** (`tripEffort`, `transitPlan.ts`): arrival + the
+    minutes walked once more + `CHANGE_PENALTY_S` (3 min) per change. A 3017 with a 16-minute
+    walk at 17:23 was "Best" over 3503 + MTS L3 with 5 minutes' walk at 17:26.
+  - **Live buses shrink with the zoom** (`VEHICLE_SIZE`, 0.6 at 12 → 1 at 15) and their line
+    numbers show from zoom 13; below 15.5 a number landing on another is left out (photo:
+    piles of "742 742" over Belém).
+  - **A stored timetable's bus is drawn along the streets** (`roadLine` in `osrm.ts`, one car
+    route through its stops, OSRM's queue, kept for the session; kept straight when the road
+    is over 1.6× the stops joined) — the 729 crossed Belém's blocks in straight lines.
+  - **Madeira and the Azores under Portugal**: the published entries predate `pais`; the app
+    takes it from the bundled catalogue (`MAP_COUNTRY_BY_ID`, `withCountry` in
+    `listRegions`), and `build-map.yml`'s remove job fills it into `mapas.json`.
+  - **More "High" satellite in PNG** (author's choice): Wallonia, Flanders, Czechia, NRW,
+    Brandenburg/Berlin, Saxony, Thuringia, Baden-Württemberg, Saxony-Anhalt,
+    Schleswig-Holstein, Mecklenburg-Vorpommern (`pngOrtho`, `sondar: eu_orthos_png`: every
+    pixel transparent outside; BW's 1-bit PNG unread but 100 bytes). At 256 px
+    (`PNG_ORTHO_PX`, ~150 KB a tile) — 512 px PNG was ~600 KB. Still out: the Netherlands
+    (JPEG only), Luxembourg and Poland (opaque).
 - **Orthophotos of other EU countries in "High" satellite detail** (author, 20 November
   2026; not seen on a phone): `EU_ORTHOS` in `tiles.ts` — France (IGN's WMTS, Licence
   Ouverte) and the German states Bavaria, Hesse, Rhineland-Palatinate, Saarland and Bremen
