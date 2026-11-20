@@ -2030,6 +2030,18 @@ def _gtfs_rt_summary(body):
     return entities, vehicles, stamp
 
 
+def eu_feeds_compact_a():
+    """The compact list for Austria to Finland only (the log is cut past ~300 lines)."""
+    os.environ["EU_PAISES"] = "AT BE BG CY CZ DE DK EE ES FI"
+    eu_feeds(compact=True)
+
+
+def eu_feeds_compact_fr():
+    """The compact list for France only: its first half was cut."""
+    os.environ["EU_PAISES"] = "FR"
+    eu_feeds(compact=True)
+
+
 def eu_feeds_compact():
     """`eu_feeds`, printing only a short line per working source at the end."""
     eu_feeds(compact=True)
