@@ -108,14 +108,6 @@
       "geofabrik": "africa/mozambique"
     },
     {
-      "id": "brasil",
-      "nome": "Brasil",
-      "bbox": "-74.0,-33.8,-34.7,5.3",
-      "maxzoom": 11,
-      "geofabrik": "south-america/brazil",
-      "pais": "Brasil"
-    },
-    {
       "id": "brasil-centro-oeste",
       "nome": "Centro-Oeste",
       "pais": "Brasil",
@@ -166,14 +158,6 @@
       "bbox": "124.0,-9.55,127.35,-8.1",
       "maxzoom": 14,
       "geofabrik": "asia/east-timor"
-    },
-    {
-      "id": "espanha",
-      "nome": "Espanha",
-      "bbox": "-9.4,35.9,3.4,43.9",
-      "maxzoom": 13,
-      "geofabrik": "europe/spain",
-      "pais": "Espanha"
     },
     {
       "id": "espanha-andalucia",
@@ -320,12 +304,13 @@
       "poligono": "europe/spain/valencia"
     },
     {
-      "id": "franca",
-      "nome": "França",
-      "bbox": "-5.2,41.3,9.6,51.15",
-      "maxzoom": 12,
-      "geofabrik": "europe/france",
-      "pais": "França"
+      "id": "espanha-canarias",
+      "nome": "Canárias",
+      "pais": "Espanha",
+      "bbox": "-18.2,27.6,-13.3,29.5",
+      "maxzoom": 14,
+      "geofabrik": "africa/canary-islands",
+      "poligono": "africa/canary-islands"
     },
     {
       "id": "franca-alsace",
@@ -526,14 +511,6 @@
       "poligono": "europe/france/ile-de-france"
     },
     {
-      "id": "italia",
-      "nome": "Itália",
-      "bbox": "6.6,35.4,18.6,47.1",
-      "maxzoom": 13,
-      "geofabrik": "europe/italy",
-      "pais": "Itália"
-    },
-    {
       "id": "italia-centro",
       "nome": "Centro",
       "pais": "Itália",
@@ -577,14 +554,6 @@
       "maxzoom": 14,
       "geofabrik": "europe/italy/sud",
       "poligono": "europe/italy/sud"
-    },
-    {
-      "id": "alemanha",
-      "nome": "Alemanha",
-      "bbox": "5.85,47.25,15.05,55.1",
-      "maxzoom": 13,
-      "geofabrik": "europe/germany",
-      "pais": "Alemanha"
     },
     {
       "id": "alemanha-baden-wuerttemberg",
@@ -731,14 +700,6 @@
       "poligono": "europe/germany/thueringen"
     },
     {
-      "id": "reinounido",
-      "nome": "Reino Unido",
-      "bbox": "-8.7,49.85,1.8,60.9",
-      "maxzoom": 13,
-      "geofabrik": "europe/united-kingdom",
-      "pais": "Reino Unido"
-    },
-    {
       "id": "reinounido-scotland",
       "nome": "Escócia",
       "pais": "Reino Unido",
@@ -768,17 +729,9 @@
     {
       "id": "irlanda",
       "nome": "Irlanda",
-      "bbox": "-10.6,51.4,-5.9,55.45",
+      "bbox": "-10.6,51.4,-5.3,55.45",
       "maxzoom": 14,
       "geofabrik": "europe/ireland-and-northern-ireland"
-    },
-    {
-      "id": "paisesbaixos",
-      "nome": "Países Baixos",
-      "bbox": "3.3,50.7,7.25,53.6",
-      "maxzoom": 14,
-      "geofabrik": "europe/netherlands",
-      "pais": "Países Baixos"
     },
     {
       "id": "paisesbaixos-noord-brabant",
@@ -915,14 +868,6 @@
       "bbox": "9.52,46.36,17.18,49.03",
       "maxzoom": 14,
       "geofabrik": "europe/austria"
-    },
-    {
-      "id": "polonia",
-      "nome": "Polónia",
-      "bbox": "14.11,48.99,24.16,54.85",
-      "maxzoom": 13,
-      "geofabrik": "europe/poland",
-      "pais": "Polónia"
     },
     {
       "id": "polonia-dolnoslaskie",
@@ -1067,14 +1012,6 @@
       "maxzoom": 14,
       "geofabrik": "europe/poland/lodzkie",
       "poligono": "europe/poland/lodzkie"
-    },
-    {
-      "id": "chequia",
-      "nome": "Chéquia",
-      "bbox": "12.08,48.54,18.87,51.07",
-      "maxzoom": 14,
-      "geofabrik": "europe/czech-republic",
-      "pais": "Chéquia"
     },
     {
       "id": "chequia-stredocesky",

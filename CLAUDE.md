@@ -633,6 +633,14 @@ environment cannot reach.
   themselves on the 2nd** (`build-transit.yml` `schedule`, redoing the ids in `horarios.json`,
   60 days) — they had to be run by hand and would have expired in mid-January. Italy's 22
   timetables were generated the same day (`pais:IT`).
+- **Whole countries with zones removed** (author, 20 November 2026: "take out the whole
+  countries that already have zones"): Spain, France, Italy, the Netherlands, Czechia,
+  Germany, Poland, the United Kingdom and Brazil left `map-regions.json`, and leave the
+  manifest (`remover`) once their zones are published. Two gaps found first: Spain's
+  Geofabrik zones have no Canary Islands (the whole-Spain map's bbox had none either) —
+  `espanha-canarias` (`africa/canary-islands`) added; the UK's have no Northern Ireland,
+  which is in the Ireland map (`ireland-and-northern-ireland`), whose bbox was widened east
+  to −5.3 so the Ards coast is not cut. Ceuta and Melilla are in no zone.
 - **Catalogue names in English, timetables by country** (author, 20 November 2026: "don't
   forget the translations of the transport etc., and each country of transport in a
   drop-down"; not seen on a phone). The manifests name maps, zones, countries and timetables

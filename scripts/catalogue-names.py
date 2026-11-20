@@ -138,7 +138,7 @@ NAMES = {
     "Roménia — comboios": "Romania — trains", "Liubliana (LPP)": "Ljubljana (LPP)",
     "Bratislava — regionais (IDS BK)": "Bratislava — regional (IDS BK)",
     "ZSSK — comboios da Eslováquia": "ZSSK — Slovak trains",
-    "Limburgo": "Limburg", "Trenord (Lombardia)": "Trenord (Lombardy)",
+    "Limburgo": "Limburg", "Canárias": "Canary Islands", "Trenord (Lombardia)": "Trenord (Lombardy)",
     "Carris (Lisboa)": "Carris (Lisbon)",
 }
 
