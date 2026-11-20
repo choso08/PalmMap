@@ -38,6 +38,13 @@ Module._load = function (pedido, ...resto) {
     }
     return { Directory, File, Paths: { document: '', cache: '' } };
   }
+  // The performance log listens to the app's state; network state for downloads.
+  if (pedido === 'react-native') {
+    return { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } };
+  }
+  if (pedido === 'expo-network') {
+    return { getNetworkStateAsync: async () => ({ type: 'NONE' }), NetworkStateType: { WIFI: 'WIFI' } };
+  }
   return original.call(this, pedido, ...resto);
 };
 

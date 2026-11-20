@@ -33,7 +33,7 @@ import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 import { safeFileName } from '../utils/safeLink';
 import { timed } from './perfLog';
-import { onWifi } from './update';
+import * as Network from 'expo-network';
 
 /**
  * Train, metro and ferry timetables, stored on the phone.
@@ -1433,6 +1433,16 @@ const autoChecked = new Map<string, Promise<void>>();
  * them for a tap on mobile data.
  */
 export const AUTO_FEED_MAX_BYTES = 8 * 1024 * 1024;
+
+/** On Wi-Fi and reaching the outside — as `update.ts`'s, kept here so this file stays light. */
+async function onWifi(): Promise<boolean> {
+  try {
+    const state = await Network.getNetworkStateAsync();
+    return state.type === Network.NetworkStateType.WIFI && !!state.isInternetReachable;
+  } catch {
+    return false;
+  }
+}
 
 function feedSize(info: ScheduleFeedInfo): number {
   return info.ficheiro2 && info.bytes2 ? info.bytes2 : info.bytes;
