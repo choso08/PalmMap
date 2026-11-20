@@ -612,6 +612,14 @@ environment cannot reach.
   - **Madeira and the Azores under Portugal**: the published entries predate `pais`; the app
     takes it from the bundled catalogue (`MAP_COUNTRY_BY_ID`, `withCountry` in
     `listRegions`), and `build-map.yml`'s remove job fills it into `mapas.json`.
+  - **Live bus numbers in the line's colour** (author: Carris Metropolitana's blue, yellow,
+    red and purple): `vehicle-pill-sdf`, the pill as a signed distance field drawn by
+    `generate-poi-icons.py` (`{ source, sdf: true }` in `assets/poi/index.ts`), painted with
+    `icon-color` from `/lines`' `color`/`text_color` (`lineColours`, kept a day) and a white
+    halo; other operators keep their pill.
+  - **"The 3527 does not even appear"**: probed (`sondar: line_probe`, public line data). At
+    17:00 the 3527 towards Monte de Caparica (FCT) next passed Feijó (Cemitério) Externato at
+    19:03; the ones at 17:16–17:27 run the other way, to Paio Pires. Not a fault.
   - **More "High" satellite in PNG** (author's choice): Wallonia, Flanders, Czechia, NRW,
     Brandenburg/Berlin, Saxony, Thuringia, Baden-Württemberg, Saxony-Anhalt,
     Schleswig-Holstein, Mecklenburg-Vorpommern (`pngOrtho`, `sondar: eu_orthos_png`: every
