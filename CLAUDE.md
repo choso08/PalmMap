@@ -801,6 +801,9 @@ environment cannot reach.
   off-route recalculation, no announcements, no pace measured), then drives; within
   `CAR_REACHED_M` (35 m) the car counts as reached and is forgotten. Setting off by car
   next to it forgets it too.
+  **Saving it from the Saved screen asks first** (author's report, 20 November 2026: saving
+  the school's label parked the car — the Car row sits just under the label chips and saved
+  on one tap).
 - **Height profile on walking and cycling routes** (author's request, 18 November; not
   seen on a phone): `routeElevation` (`osrm.ts`, OSRM's queue — FOSSGIS rules) asks
   Valhalla's `/height` with the route as `encoded_polyline` (at most ~400 points),

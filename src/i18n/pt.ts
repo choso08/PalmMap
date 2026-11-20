@@ -131,6 +131,7 @@ export const pt = {
     car: 'Carro',
     title: 'O seu carro',
     saveHere: 'Guardar onde estou',
+    saveHereAsk: 'Guardar aqui onde deixou o carro?',
     ago: (minutes: number) =>
       minutes < 1
         ? 'agora'

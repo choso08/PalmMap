@@ -113,6 +113,7 @@ export const en: typeof pt = {
     car: 'Car',
     title: 'Your car',
     saveHere: 'Save where I am',
+    saveHereAsk: 'Save where you are as where the car is?',
     ago: (minutes: number) =>
       minutes < 1
         ? 'just now'

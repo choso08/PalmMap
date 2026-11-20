@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMemo, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
 import { useSwipeToClose } from '../useSwipeToClose';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -216,8 +216,14 @@ export function SavedSheet({
                 if (parked) {
                   onClose();
                   onGoToCar(parked);
-                } else {
-                  onParkHere?.();
+                } else if (onParkHere) {
+                  // Asked first (author's report, 20 November 2026: saving the
+                  // school's label parked the car — a tap just below the label
+                  // chips landed on this row, which saved at once).
+                  Alert.alert(strings.parked.saveHereAsk, undefined, [
+                    { text: strings.common.cancel, style: 'cancel' },
+                    { text: strings.parked.saveHere, onPress: onParkHere },
+                  ]);
                 }
               }}
             >
