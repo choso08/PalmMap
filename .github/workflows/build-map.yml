@@ -33,18 +33,55 @@ on:
     inputs:
       regioes:
         description: 'Space-separated ids or patterns (see map-regions.json; "alemanha-*" is every zone of Germany). "todas" only if you know what you are doing.'
-        default: 'portugal'
+        default: 'portugal-*'
         required: true
       apenas_negocios:
         description: 'Only (re)build the business files, keeping the published maps as they are'
         type: boolean
         default: false
+      remover:
+        description: 'Only remove these published ids (space-separated) from the list, with their files; nothing is cut'
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
+  # Takes maps out of the list and deletes their files (mainland Portugal on
+  # 20 November 2026, replaced by its five zones). Phones that have one keep
+  # it, and the app still lists it there so it can be removed.
+  remove:
+    if: github.event_name == 'workflow_dispatch' && inputs.remover != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove from the list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          IDS: ${{ inputs.remover }}
+        run: |
+          set -e
+          gh release download mapas -R "$REPO" -p mapas.json -O atuais.json
+          IDS_JSON=$(printf '%s\n' $IDS | jq -R . | jq -s .)
+          echo "Removing: $IDS_JSON"
+          jq -r --argjson ids "$IDS_JSON" \
+            '.regioes[] | select(.id as $i | $ids | index($i)) | .ficheiro, (.negocios // empty)' \
+            atuais.json > ficheiros.txt
+          jq --argjson ids "$IDS_JSON" \
+            '{regioes: [.regioes[] | select(.id as $i | $ids | index($i) | not)]}' \
+            atuais.json > mapas.json
+          echo "Before: $(jq '.regioes | length' atuais.json), now: $(jq '.regioes | length' mapas.json)"
+          gh release upload mapas mapas.json -R "$REPO" --clobber
+          while read -r F; do
+            case "$F" in
+              ''|*/*) continue ;;
+            esac
+            echo "Deleting $F"
+            gh release delete-asset mapas "$F" -R "$REPO" -y || true
+          done < ficheiros.txt
+
   extract:
+    if: github.event_name != 'workflow_dispatch' || inputs.remover == ''
     runs-on: ubuntu-latest
 
     steps:

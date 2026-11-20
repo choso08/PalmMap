@@ -23,11 +23,14 @@ name: Build timetables
 #
 # ## Run again now and then
 #
-# Timetables change, and the generated window is sixty days. This should run
-# once a month. It is not scheduled on purpose — the author asked that nothing
-# build by itself.
+# Timetables change, and the generated window is sixty days. **It runs by itself
+# on the 2nd of each month** (author's request, 20 November 2026), redoing
+# exactly the operators already published — as the maps workflow does on the
+# 1st. Builds of the app still only run when asked.
 
 on:
+  schedule:
+    - cron: '0 5 2 * *'
   workflow_dispatch:
     inputs:
       modo:
@@ -108,18 +111,29 @@ jobs:
           PROBE_ONLY="${{ inputs.sondar }}" NODE_PATH=/tmp/t/node_modules node scripts/probe-trips.js /tmp/t/out
 
       - name: Convert the timetables
-        if: inputs.modo == 'gerar'
+        if: inputs.modo == 'gerar' || github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
+          IDS="${{ inputs.operadores }}"
+          DIAS="${{ inputs.dias }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # The month turned: redo the published ones, not the whole catalogue.
+            gh release download horarios -R "$REPO" -p horarios.json -O publicados.json
+            IDS=$(jq -r '[.horarios[].id] | join(" ")' publicados.json)
+            echo "Redoing the published: $IDS"
+          fi
           python3 scripts/build-transit.py \
-            --ids "${{ inputs.operadores }}" \
-            --dias "${{ inputs.dias }}" \
+            --ids "$IDS" \
+            --dias "${DIAS:-60}" \
             --saida horarios
 
       # The list is what the app reads to know what exists. What was already
       # there is merged with this run's, otherwise generating only CP would erase
       # the others — the same trap as in the maps workflow.
       - name: Publish
-        if: inputs.modo == 'gerar'
+        if: inputs.modo == 'gerar' || github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

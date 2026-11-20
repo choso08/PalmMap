@@ -18,8 +18,8 @@ biggest unknown and no longer is.
 
 1. **The version comes from the build number** (`7.0.<n>`) — see "Installing on the phone".
    The author asked: **build only when they say so.** Do not start the workflow unasked.
-2. **The maps are published under the `mapas` tag** — 27 regions in November 2026: mainland
-   Portugal, Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Angola,
+2. **The maps are published under the `mapas` tag** — in November 2026 mainland Portugal's
+   five zones (Norte, Centro, Lisboa e Vale do Tejo, Alentejo, Algarve), Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Angola,
    Mozambique, Timor-Leste, Brazil, Morocco, Spain, France, Italy, Germany, United Kingdom,
    Ireland, Netherlands, Belgium, Luxembourg, Switzerland, Austria, Poland, Czechia,
    Croatia, Denmark and Greece. The manifest (`mapas.json` in that Release) is the truth;
@@ -621,6 +621,18 @@ environment cannot reach.
   promise buses later than they came): a minute too soon 34 → 17, median miss 48 → 24 s,
   latest 32 s — on the stop panel, the Transit tab and favourite stops (`stretchLive`).
   One weekday afternoon in Oeiras/Amadora; probe again at rush hour before raising it.
+- **Mainland Portugal removed, its five zones instead; timetables monthly** (author, 20
+  November 2026, after the zones were generated: "pt continental should stop existing", and
+  updates "monthly"). The zones Norte (132 MB), Centro (115), Lisboa e Vale do Tejo (43),
+  Alentejo (72) and Algarve (19) were published that day with their business files;
+  `portugal` left `map-regions.json` and the manifest — `build-map.yml` gained a `remover`
+  input (takes ids out of `mapas.json` and deletes their files) and its default is now
+  `portugal-*`. **Phones that have a removed map keep it**: `listRegions` appends installed
+  regions missing from the manifest, so it can still be removed there (apps before this one
+  just stop listing it). Maps refresh on the 1st (as before); **timetables now run by
+  themselves on the 2nd** (`build-transit.yml` `schedule`, redoing the ids in `horarios.json`,
+  60 days) — they had to be run by hand and would have expired in mid-January. Italy's 22
+  timetables were generated the same day (`pais:IT`).
 - **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
   with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
   the EU catalogue, zones and orthophotos above (none of those generated yet).

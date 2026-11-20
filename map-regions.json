@@ -17,14 +17,6 @@
   ],
   "regioes": [
     {
-      "id": "portugal",
-      "nome": "Portugal continental",
-      "bbox": "-9.6,36.9,-6.1,42.2",
-      "maxzoom": 14,
-      "geofabrik": "europe/portugal",
-      "pais": "Portugal"
-    },
-    {
       "id": "madeira",
       "nome": "Madeira",
       "bbox": "-17.3,32.35,-16.2,33.15",

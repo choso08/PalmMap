@@ -365,7 +365,12 @@ export async function listRegions(): Promise<OfflineRegion[]> {
       } catch {
         // Not being able to keep a copy is no reason to hide the list.
       }
-      return regions;
+      // A map taken out of the manifest (mainland Portugal, 20 November 2026,
+      // now its five zones) stays listed on the phones that have it, so it
+      // can still be removed there — off the list, its megabytes were stuck.
+      const published = new Set(regions.map((r) => r.id));
+      const gone = installedRegions().filter((r) => !published.has(r.id));
+      return gone.length > 0 ? [...regions, ...gone] : regions;
     } catch {
       // One more go before falling back.
     }
