@@ -654,6 +654,10 @@ environment cannot reach.
   promise buses later than they came): a minute too soon 34 → 17, median miss 48 → 24 s,
   latest 32 s — on the stop panel, the Transit tab and favourite stops (`stretchLive`).
   One weekday afternoon in Oeiras/Amadora; probe again at rush hour before raising it.
+  **Rush hour, 20 November 17:52–18:08** (129 readings): the service is worse — mean −75 s,
+  49 over a minute too soon, 10 too late; with the stretch mean −24 s, 38 too soon, 23 too
+  late, median miss 57 → 55 s. The misses spread both ways (the 1103 promised 3.5 min for 2),
+  so a bigger stretch would only add late ones: **kept at 1.2**.
 - **Mainland Portugal removed, its five zones instead; timetables monthly** (author, 20
   November 2026, after the zones were generated: "pt continental should stop existing", and
   updates "monthly"). The zones Norte (132 MB), Centro (115), Lisboa e Vale do Tejo (43),
