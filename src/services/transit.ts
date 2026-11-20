@@ -1689,86 +1689,221 @@ export async function timetableBusTrips(
     ends = await stopsNear(destination, TRANSIT_WALK_WIDE_M);
     patterns = shared(ends);
   }
+  if (patterns.length === 0) {
+    // No line goes the whole way: one change, from the timetables too.
+    return timetableTransferTrips(origin, destination, at);
+  }
   const out: TransitTrip[] = [];
   const first = new Date(at * 1000);
   await Promise.all(
     patterns.slice(0, TIMETABLE_PATTERNS_MAX).map(async (patternId) => {
-      const pattern = await loadPattern(patternId).catch(() => null);
-      const path = pattern?.path ?? [];
-      // Board at the nearest start stop on this pattern; get off at the end
-      // stop after it that is nearest the destination.
-      let board: { stop: TransitStop; seq: number; index: number } | null = null;
-      for (const stop of starts) {
-        const index = path.findIndex((x) => x.stop_id === stop.id);
-        if (index >= 0 && path[index].stop_sequence !== undefined) {
-          board = { stop, seq: path[index].stop_sequence!, index };
-          break;
-        }
-      }
-      if (!pattern || !board) {
+      const leg = await patternLeg(patternId, starts, ends);
+      if (!leg) {
         return;
       }
-      let alight: { stop: TransitStop; seq: number; index: number } | null = null;
-      for (const stop of ends) {
-        const index = path.findIndex((x, i) => i > board!.index && x.stop_id === stop.id);
-        if (index >= 0 && path[index].stop_sequence !== undefined) {
-          alight = { stop, seq: path[index].stop_sequence!, index };
-          break;
-        }
-      }
-      if (!alight) {
-        return;
-      }
-      const walkIn = walkSeconds(board.stop.meters);
-      const walkOut = walkSeconds(alight.stop.meters);
       const found: TransitTrip[] = [];
       // From the day before (its past-24 trips run in the small hours) on.
       for (let d = -1; d <= TIMETABLE_DAYS_AHEAD && found.length < perLine; d++) {
         const day = new Date(first.getFullYear(), first.getMonth(), first.getDate() + d, 12);
-        const key = dayKeyOf(day);
-        const today: TransitTrip[] = [];
-        for (const tr of pattern.trips ?? []) {
-          if (tr.valid_on && !tr.valid_on.includes(key)) {
-            continue;
-          }
-          const sched = tr.schedule ?? [];
-          const dep = secondsOf(sched.find((x) => x.stop_sequence === board!.seq)?.arrival_time);
-          const arr = secondsOf(sched.find((x) => x.stop_sequence === alight!.seq)?.arrival_time);
-          if (dep === null || arr === null || arr < dep) {
-            continue;
-          }
-          // Handed to `Date`, not added to midnight: right on clock-change days.
-          const unix = (sec: number) =>
-            new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, sec).getTime() / 1000;
-          const departsAt = unix(dep);
-          const leaveAt = departsAt - walkIn;
-          if (leaveAt < at - 60) {
-            continue;
-          }
-          const arrivesAt = unix(arr);
-          today.push({
-            tripId: `horario:${patternId}:${departsAt}`,
-            kind: 'bus',
-            line: lineLabel(pattern.short_name ?? pattern.line_id),
-            headsign: pattern.headsign ?? '',
-            from: board.stop,
-            to: alight.stop,
-            departsAt,
-            arrivesAt,
-            leaveAt,
-            reachAt: arrivesAt + walkOut,
-            stops: alight.index - board.index,
-            live: false,
-            ride: { source: 'carris', patternId, fromSeq: board.seq, toSeq: alight.seq },
-          });
-        }
-        today.sort((a, b) => a.departsAt - b.departsAt);
+        const today = dayRides(leg, day).filter((trip) => trip.leaveAt >= at - 60);
         found.push(...today.slice(0, perLine - found.length));
       }
       out.push(...found);
     }),
   );
+  if (out.length === 0) {
+    // The shared lines only go the other way (or not this week): a change.
+    return timetableTransferTrips(origin, destination, at);
+  }
   return out.sort((a, b) => a.reachAt - b.reachAt);
+}
+
+/** A pattern resolved for one ride: where it is boarded and left, by sequence. */
+interface PatternLeg {
+  patternId: string;
+  pattern: CarrisPattern;
+  board: { stop: TransitStop; seq: number; index: number };
+  alight: { stop: TransitStop; seq: number; index: number };
+}
+
+/**
+ * Boards at the first of `starts` (nearest first) the pattern calls at, and
+ * leaves at the first of `ends` it reaches after that. Null when it does not
+ * go from one to the other, or the pattern cannot be read.
+ */
+async function patternLeg(
+  patternId: string,
+  starts: TransitStop[],
+  ends: TransitStop[],
+): Promise<PatternLeg | null> {
+  const pattern = await loadPattern(patternId).catch(() => null);
+  const path = pattern?.path ?? [];
+  let board: PatternLeg['board'] | null = null;
+  for (const stop of starts) {
+    const index = path.findIndex((x) => x.stop_id === stop.id);
+    if (index >= 0 && path[index].stop_sequence !== undefined) {
+      board = { stop, seq: path[index].stop_sequence!, index };
+      break;
+    }
+  }
+  if (!pattern || !board) {
+    return null;
+  }
+  for (const stop of ends) {
+    const index = path.findIndex((x, i) => i > board!.index && x.stop_id === stop.id);
+    if (index >= 0 && path[index].stop_sequence !== undefined) {
+      return { patternId, pattern, board, alight: { stop, seq: path[index].stop_sequence!, index } };
+    }
+  }
+  return null;
+}
+
+/**
+ * Every trip of a resolved leg that runs on `day` (by `valid_on`; times past 24
+ * fall on the next morning), earliest first. The walks are each end stop's
+ * `meters` — from the origin or to the destination for a direct trip.
+ */
+function dayRides(leg: PatternLeg, day: Date): TransitTrip[] {
+  const { pattern, patternId, board, alight } = leg;
+  const key = dayKeyOf(day);
+  const walkIn = walkSeconds(board.stop.meters);
+  const walkOut = walkSeconds(alight.stop.meters);
+  // Handed to `Date`, not added to midnight: right on clock-change days.
+  const unix = (sec: number) =>
+    new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, sec).getTime() / 1000;
+  const out: TransitTrip[] = [];
+  for (const tr of pattern.trips ?? []) {
+    if (tr.valid_on && !tr.valid_on.includes(key)) {
+      continue;
+    }
+    const sched = tr.schedule ?? [];
+    const dep = secondsOf(sched.find((x) => x.stop_sequence === board.seq)?.arrival_time);
+    const arr = secondsOf(sched.find((x) => x.stop_sequence === alight.seq)?.arrival_time);
+    if (dep === null || arr === null || arr < dep) {
+      continue;
+    }
+    const departsAt = unix(dep);
+    const arrivesAt = unix(arr);
+    out.push({
+      tripId: `horario:${patternId}:${departsAt}`,
+      kind: 'bus',
+      line: lineLabel(pattern.short_name ?? pattern.line_id),
+      headsign: pattern.headsign ?? '',
+      from: board.stop,
+      to: alight.stop,
+      departsAt,
+      arrivesAt,
+      leaveAt: departsAt - walkIn,
+      reachAt: arrivesAt + walkOut,
+      stops: alight.index - board.index,
+      live: false,
+      ride: { source: 'carris', patternId, fromSeq: board.seq, toSeq: alight.seq },
+    });
+  }
+  return out.sort((a, b) => a.departsAt - b.departsAt);
+}
+
+/** At most how many patterns the one-change timetable search reads. */
+const TIMETABLE_TRANSFER_PATTERNS_MAX = 12;
+/** The longest wait at a change the timetable search accepts, in seconds. */
+const TIMETABLE_TRANSFER_WAIT_S = 45 * 60;
+
+/**
+ * **One change, from the lines' timetables** — when no line goes the whole way
+ * and nothing comes now. The meeting places are `transferPlan`'s (no request);
+ * each first line is timed from near the origin to the place, each second line
+ * from there to near the destination, and a first ride is joined to the first
+ * second ride leaving at least `TRANSFER_MIN_S` plus the walk later, within
+ * `TIMETABLE_TRANSFER_WAIT_S`. Day by day until something is found, for up to
+ * `TIMETABLE_DAYS_AHEAD` days; the next two per pair of lines.
+ */
+async function timetableTransferTrips(
+  origin: Coordinates,
+  destination: Coordinates,
+  at: number,
+): Promise<TransitTrip[]> {
+  const plan = await transferPlan(origin, destination);
+  if (!plan) {
+    return [];
+  }
+  const startIds = new Set(plan.starts.flatMap((s) => s.patterns));
+  const endIds = new Set(plan.ends.flatMap((s) => s.patterns));
+  // Each place's first and second patterns, the fewest-detour places first,
+  // until the budget of patterns to read is spent.
+  const pairs: { place: ChangePlace; first: string; second: string }[] = [];
+  const wanted = new Set<string>();
+  for (const place of plan.places) {
+    for (const a of place.off.patterns.filter((p) => startIds.has(p))) {
+      for (const b of place.on.patterns.filter((p) => endIds.has(p) && !startIds.has(p))) {
+        const extra = [a, b].filter((p) => !wanted.has(p)).length;
+        if (wanted.size + extra > TIMETABLE_TRANSFER_PATTERNS_MAX) {
+          continue;
+        }
+        wanted.add(a);
+        wanted.add(b);
+        pairs.push({ place, first: a, second: b });
+      }
+    }
+  }
+  const starts = await stopsNear(origin, TRANSIT_WALK_MAX_M);
+  const ends = await stopsNear(destination, TRANSIT_WALK_MAX_M);
+  const legs = await Promise.all(
+    pairs.map(async ({ place, first, second }) => {
+      const [a, b] = await Promise.all([
+        patternLeg(first, starts, [{ ...place.off, meters: 0 }]),
+        patternLeg(second, [{ ...place.on, meters: 0 }], ends),
+      ]);
+      return a && b ? { a, b, walk: place.meters } : null;
+    }),
+  );
+  const usable = legs.filter((x): x is NonNullable<typeof x> => x !== null);
+  const startDay = new Date(at * 1000);
+  const byPair = new Map<string, TransitTrip[]>();
+  for (let d = -1; d <= TIMETABLE_DAYS_AHEAD && byPair.size === 0; d++) {
+    const day = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate() + d, 12);
+    const next = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 12);
+    for (const { a, b, walk } of usable) {
+      const firsts = dayRides(a, day).filter((r) => r.leaveAt >= at - 60);
+      if (firsts.length === 0) {
+        continue;
+      }
+      const seconds = [...dayRides(b, day), ...dayRides(b, next)];
+      for (const one of firsts) {
+        const ready = one.arrivesAt + TRANSFER_MIN_S + walkSeconds(walk);
+        const two = seconds.find(
+          (r) => r.departsAt >= ready && r.departsAt - ready <= TIMETABLE_TRANSFER_WAIT_S,
+        );
+        if (!two) {
+          continue;
+        }
+        const key = `${one.line}>${two.line}`;
+        const list = byPair.get(key) ?? [];
+        if (list.length >= 2) {
+          continue;
+        }
+        list.push({
+          ...one,
+          tripId: `${one.tripId}>${two.tripId}`,
+          to: two.to,
+          arrivesAt: two.arrivesAt,
+          reachAt: two.reachAt,
+          stops: one.stops + two.stops,
+          change: {
+            at: one.to,
+            boardAt: two.from,
+            walkMeters: walk,
+            arrivesAt: one.arrivesAt,
+            line: two.line,
+            headsign: two.headsign,
+            departsAt: two.departsAt,
+            ride: two.ride,
+          },
+        });
+        byPair.set(key, list);
+      }
+    }
+  }
+  return [...byPair.values()].flat().sort((x, y) => x.reachAt - y.reachAt);
 }
 
 /** At most how many places are tried to change buses. */

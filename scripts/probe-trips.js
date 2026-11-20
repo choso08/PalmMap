@@ -156,7 +156,7 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
     {
       // Rua Azinhaga de Pêra (line 3033), by Pêra de Cima.
       const destino = { latitude: 38.661144, longitude: -9.214555 };
-      for (const [nome, [la, lo]] of [['Granja', [38.6656, -9.1996]], ['Almada centro', [38.6790, -9.1569]], ['Costa da Caparica', [38.6413, -9.2358]]]) {
+      for (const [nome, [la, lo]] of [['Granja', [38.6656, -9.1996]], ['Almada centro', [38.6790, -9.1569]], ['Costa da Caparica', [38.6413, -9.2358]], ['Seixal (one change)', [38.6406, -9.1015]], ['Amadora (one change)', [38.7538, -9.2308]]]) {
         const origem = { latitude: la, longitude: lo };
         const vivo = await transit.planBusTrips(origem, destino).catch((e) => `ERRO ${e && e.message}`);
         console.log(`  ${nome} → Pêra de Cima live:`, Array.isArray(vivo) ? vivo.map((t) => `${t.line} ${hora(t.departsAt)}`).join(' ') || '0' : vivo);
@@ -164,7 +164,7 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
           const t0 = Date.now();
           const tt = await transit.timetableBusTrips(origem, destino, at).catch((e) => `ERRO ${e && e.message}`);
           console.log(`  timetable from ${new Date(at * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} (${Date.now() - t0} ms):`,
-            Array.isArray(tt) ? tt.map((t) => `${t.line} ${new Date(t.departsAt * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} ${t.from.name} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} st)`).join(' | ') || '0' : tt);
+            Array.isArray(tt) ? tt.map((t) => `${t.line} ${new Date(t.departsAt * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} ${t.from.name}${t.change ? ` | ${t.change.at.name} ${hora(t.change.arrivesAt)} → ${t.change.line} ${hora(t.change.departsAt)}` : ''} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} st)`).join(' | ') || '0' : tt);
         }
       }
     }
