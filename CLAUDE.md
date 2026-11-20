@@ -567,6 +567,15 @@ environment cannot reach.
   `valid_on`, up to `TIMETABLE_DAYS_AHEAD` (7) days on — timetable times, not live, with the
   pattern as `ride` so Start follows it. Walking is beaten from when one leaves for it, not
   from now. The trip card puts "Amanhã" or the weekday before the times (`dayLabel`).
+  **With one change too** (`timetableTransferTrips`), when no line goes the whole way or the
+  shared ones only go the other way: `transferPlan`'s meeting places, up to
+  `TIMETABLE_TRANSFER_PATTERNS_MAX` (12) patterns, a first ride joined to the first second
+  ride `TRANSFER_MIN_S` + the walk later within 45 min, day by day, two per pair of lines.
+  **Checked with the real API** (`trajetos`, 20 November 2026, destination Rua Azinhaga de
+  Pêra): Almada at 22:50 → 3009 23:26, tomorrow 06:36; Costa da Caparica at night → 3021
+  tomorrow 07:05; Seixal → 3116 to Corroios, change to the 3527; Amadora → 1716 to Marquês
+  de Pombal, then the 3709, at the weekend Monday's first. 2–9 s the first time (patterns
+  asked), milliseconds after.
 - **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
   none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
   vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so
