@@ -34,7 +34,7 @@ import { Animated, AppState, Easing, type NativeSyntheticEvent, Pressable, Style
 import { useInternetReachable } from '../services/network';
 import { ScaleBar, type ScaleBarRef } from './ScaleBar';
 import { type SpeedCamera } from '../services/cameras';
-import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
+import { lineColours, stationLabel, type TransitStation, type TransitStop } from '../services/transit';
 import { regionsForView, type OfflineRegion } from '../services/offlineMap';
 import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
@@ -715,6 +715,26 @@ export function MapView({
   /** The area on screen, for what only matters there (the buses' glide). */
   const viewBoundsRef = useRef<Bounds | null>(null);
   const glidingVehicles = useGlidingVehicles(vehicles, viewBoundsRef);
+  // Each Carris Metropolitana line's own colour for its number pill, asked
+  // once the first of its buses shows (the list of lines, kept a day).
+  const hasMetropolitana = vehicles.some((v) => v.operator === 'cm');
+  const [colourOf, setColourOf] = useState<Record<string, { colour: string; text: string }>>({});
+  useEffect(() => {
+    if (!hasMetropolitana || Object.keys(colourOf).length > 0) {
+      return;
+    }
+    let cancelled = false;
+    lineColours()
+      .then((found) => {
+        if (!cancelled) {
+          setColourOf(found);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasMetropolitana, colourOf]);
   const vehiclesJson = useMemo(
     () =>
       pointsJson(glidingVehicles, (v) => ({
@@ -733,9 +753,12 @@ export function MapView({
           parado: v.atStop ? 1 : 0,
           rumo: v.bearing ?? -1,
           aberto: v.id === selectedVehicleId ? 1 : 0,
+          // The line's own colour, where known (`''`: the operator's pill).
+          cor: v.operator === 'cm' ? colourOf[v.line]?.colour ?? '' : '',
+          corTexto: v.operator === 'cm' ? colourOf[v.line]?.text ?? '' : '',
         },
       })),
-    [glidingVehicles, selectedVehicleId],
+    [glidingVehicles, selectedVehicleId, colourOf],
   );
 
   const camerasJson = useMemo(
@@ -2038,7 +2061,12 @@ export function MapView({
               filter={['!=', ['get', 'linha'], '']}
               minzoom={VEHICLE_PILLS_MIN_ZOOM}
               layout={{
-                'icon-image': ['concat', 'vehicle-pill-', ['get', 'op']],
+                'icon-image': [
+                  'case',
+                  ['!=', ['get', 'cor'], ''],
+                  'vehicle-pill-sdf',
+                  ['concat', 'vehicle-pill-', ['get', 'op']],
+                ],
                 // Under the drop: 16 of its radius, 5 of gap, half the pill —
                 // in icon pixels, so it shrinks with the drop.
                 'icon-offset': [0, 29],
@@ -2060,8 +2088,19 @@ export function MapView({
                 'symbol-sort-key': ['case', ['==', ['get', 'aberto'], 1], 0, 1],
               }}
               paint={{
-                // Dark on Carris Metropolitana's yellow, white on the rest.
-                'text-color': ['case', ['==', ['get', 'op'], 'cm'], '#1F1F1F', '#FFFFFF'],
+                // The line's own: its colour, a white edge, its text colour.
+                'icon-color': ['case', ['!=', ['get', 'cor'], ''], ['get', 'cor'], '#000000'],
+                'icon-halo-color': '#FFFFFF',
+                'icon-halo-width': 1.5,
+                // Otherwise dark on Carris Metropolitana's yellow, white on the rest.
+                'text-color': [
+                  'case',
+                  ['!=', ['get', 'corTexto'], ''],
+                  ['get', 'corTexto'],
+                  ['==', ['get', 'op'], 'cm'],
+                  '#1F1F1F',
+                  '#FFFFFF',
+                ],
                 'icon-opacity': ['case', ['==', ['get', 'parado'], 1], 0.65, 1],
               }}
             />

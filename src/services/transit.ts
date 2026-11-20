@@ -2784,3 +2784,20 @@ export async function lineDirections(line: TransitLineInfo): Promise<LineDirecti
   }
   return out;
 }
+
+/**
+ * Carris Metropolitana's colour of each line, by number: its services' own
+ * blue, yellow, red and purple (author's request, 20 November 2026), for the
+ * live buses' number pills. From the list of lines, kept on the phone a day.
+ */
+export async function lineColours(): Promise<Record<string, { colour: string; text: string }>> {
+  const out: Record<string, { colour: string; text: string }> = {};
+  for (const line of await loadLines()) {
+    if (line.colour && /^#?[0-9A-Fa-f]{6}$/.test(line.colour)) {
+      const hex = (c: string) => (c.startsWith('#') ? c : `#${c}`);
+      const text = line.textColour && /^#?[0-9A-Fa-f]{6}$/.test(line.textColour) ? hex(line.textColour) : '#FFFFFF';
+      out[line.short] = { colour: hex(line.colour), text };
+    }
+  }
+  return out;
+}

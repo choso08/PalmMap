@@ -35,4 +35,5 @@ export const POI_IMAGE_SOURCES = {
   'vehicle-live-gen': require('./vehicle-live-gen.png'),
   'vehicle-pill-gen': require('./vehicle-pill-gen.png'),
   'heading-cone': require('./heading-cone.png'),
+  'vehicle-pill-sdf': { source: require('./vehicle-pill-sdf.png'), sdf: true },
 };
