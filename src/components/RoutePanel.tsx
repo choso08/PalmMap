@@ -130,6 +130,27 @@ function relogio(unixSeconds: number): string {
 }
 
 /**
+ * "Amanhã " or "sex. 22 " before a trip's times when it leaves on another day —
+ * the timetable fallback offers tomorrow's bus when none comes today. Empty for
+ * today.
+ */
+function dayLabel(unixSeconds: number, strings: ReturnType<typeof useT>): string {
+  const d = new Date(unixSeconds * 1000);
+  const now = new Date();
+  const days = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+      86400000,
+  );
+  if (days <= 0) {
+    return '';
+  }
+  return days === 1
+    ? `${strings.when.tomorrowShort} `
+    : `${strings.place.weekdaysShort[(d.getDay() + 6) % 7]} ${d.getDate()} `;
+}
+
+/**
  * The walking time for a distance, the same as trip planning uses.
  *
  * Repeated here on purpose rather than imported from the service: the service
@@ -548,6 +569,7 @@ export function RoutePanel({
                 >
                   <View style={styles.trajetoTopo}>
                     <Text style={styles.trajetoHoras}>
+                      {dayLabel(t.leaveAt, strings)}
                       {relogio(t.leaveAt)} – {relogio(t.reachAt)}
                     </Text>
                     <Text style={styles.trajetoDuracao}>

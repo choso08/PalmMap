@@ -14,6 +14,7 @@ import {
   busToPoints,
   changesOf,
   planBusTrips,
+  timetableBusTrips,
   type TransitTrip,
 } from './transit';
 import { optionsPerKey } from '../utils/tripOptions';
@@ -192,6 +193,23 @@ async function compute(
     return kept.sort((a, b) => a.reachAt - b.reachAt || b.leaveAt - a.leaveAt);
   };
 
+  // Nothing at all: the next buses from the lines' own timetables, later today
+  // or another day (`timetableBusTrips`; author's photo, Pêra de Cima — "there
+  // is a bus, just not now"). Walking is beaten from when one leaves for it,
+  // not from now: a bus tomorrow morning still beats a 40 km walk.
+  const later = async (): Promise<TransitTrip[]> => {
+    if (!isOnline()) {
+      return [];
+    }
+    const found = await timetableBusTrips(origin, destination, startAt).catch(() => []);
+    const kept = unique(found).filter((trip) =>
+      beatsWalking(trip, origin, destination, trip.leaveAt),
+    );
+    return when.kind === 'arrive'
+      ? kept.filter((trip) => trip.reachAt <= when.at + 60).sort((a, b) => b.leaveAt - a.leaveAt)
+      : kept.sort((a, b) => a.reachAt - b.reachAt || b.leaveAt - a.leaveAt);
+  };
+
   // Carris Metropolitana's arrivals are today's: for another day only the
   // stored timetables answer.
   //
@@ -200,7 +218,10 @@ async function compute(
   // when downloaded in Settings — answers in their place, like the trains'.
   const today = new Date(nowUnix * 1000).toDateString() === startDate.toDateString();
   if (!today || !isOnline()) {
-    const trips = finish(stored);
+    let trips = finish(stored);
+    if (trips.length === 0) {
+      trips = await later();
+    }
     return {
       trips,
       error:
@@ -221,6 +242,9 @@ async function compute(
     if (trips.length < 2) {
       mixed = await mixedTrips(origin, destination, startAt).catch(() => []);
       trips = finish([...(buses ?? []), ...mixed, ...stored]);
+    }
+    if (trips.length === 0) {
+      trips = await later();
     }
     return {
       trips,

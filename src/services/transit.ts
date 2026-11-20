@@ -1651,6 +1651,126 @@ export function beatsWalking(
   return trip.reachAt - now < walkSeconds(distanceMeters(origin, destination));
 }
 
+/** How many shared lines the timetable fallback reads (a pattern is ~20 KB, kept). */
+const TIMETABLE_PATTERNS_MAX = 6;
+/** How many days ahead the timetable fallback looks for the next bus. */
+const TIMETABLE_DAYS_AHEAD = 7;
+
+/**
+ * **The next buses from the lines' own timetables, when no bus comes soon**
+ * (author's photo, 20 November 2026: Pêra de Cima said "no connection" — "I know
+ * there is a bus there, just not now"). The live arrivals only hold what is
+ * left of today, and a line that runs a few times a day, or not on Sundays,
+ * vanished from the plan. Maps offers the next one instead, tomorrow if need be.
+ *
+ * Only lines that call near both ends, in that order: each shared pattern
+ * (`/patterns`, the same answer as a line's journey, kept on the phone) gives
+ * its trips' times at the boarding and alighting stops, run by `valid_on`, for
+ * up to `TIMETABLE_DAYS_AHEAD` days. Timetable times, never marked live; the
+ * trip carries its pattern, so Start can follow it.
+ */
+export async function timetableBusTrips(
+  origin: Coordinates,
+  destination: Coordinates,
+  at = Date.now() / 1000,
+  perLine = 2,
+): Promise<TransitTrip[]> {
+  const starts = await stopsNear(origin, TRANSIT_WALK_MAX_M);
+  if (starts.length === 0) {
+    return [];
+  }
+  let ends = await stopsNear(destination, TRANSIT_WALK_MAX_M);
+  const shared = (list: TransitStop[]) => {
+    const atEnd = new Set(list.flatMap((stop) => stop.patterns));
+    return [...new Set(starts.flatMap((stop) => stop.patterns))].filter((p) => atEnd.has(p));
+  };
+  let patterns = shared(ends);
+  if (patterns.length === 0) {
+    ends = await stopsNear(destination, TRANSIT_WALK_WIDE_M);
+    patterns = shared(ends);
+  }
+  const out: TransitTrip[] = [];
+  const first = new Date(at * 1000);
+  await Promise.all(
+    patterns.slice(0, TIMETABLE_PATTERNS_MAX).map(async (patternId) => {
+      const pattern = await loadPattern(patternId).catch(() => null);
+      const path = pattern?.path ?? [];
+      // Board at the nearest start stop on this pattern; get off at the end
+      // stop after it that is nearest the destination.
+      let board: { stop: TransitStop; seq: number; index: number } | null = null;
+      for (const stop of starts) {
+        const index = path.findIndex((x) => x.stop_id === stop.id);
+        if (index >= 0 && path[index].stop_sequence !== undefined) {
+          board = { stop, seq: path[index].stop_sequence!, index };
+          break;
+        }
+      }
+      if (!pattern || !board) {
+        return;
+      }
+      let alight: { stop: TransitStop; seq: number; index: number } | null = null;
+      for (const stop of ends) {
+        const index = path.findIndex((x, i) => i > board!.index && x.stop_id === stop.id);
+        if (index >= 0 && path[index].stop_sequence !== undefined) {
+          alight = { stop, seq: path[index].stop_sequence!, index };
+          break;
+        }
+      }
+      if (!alight) {
+        return;
+      }
+      const walkIn = walkSeconds(board.stop.meters);
+      const walkOut = walkSeconds(alight.stop.meters);
+      const found: TransitTrip[] = [];
+      // From the day before (its past-24 trips run in the small hours) on.
+      for (let d = -1; d <= TIMETABLE_DAYS_AHEAD && found.length < perLine; d++) {
+        const day = new Date(first.getFullYear(), first.getMonth(), first.getDate() + d, 12);
+        const key = dayKeyOf(day);
+        const today: TransitTrip[] = [];
+        for (const tr of pattern.trips ?? []) {
+          if (tr.valid_on && !tr.valid_on.includes(key)) {
+            continue;
+          }
+          const sched = tr.schedule ?? [];
+          const dep = secondsOf(sched.find((x) => x.stop_sequence === board!.seq)?.arrival_time);
+          const arr = secondsOf(sched.find((x) => x.stop_sequence === alight!.seq)?.arrival_time);
+          if (dep === null || arr === null || arr < dep) {
+            continue;
+          }
+          // Handed to `Date`, not added to midnight: right on clock-change days.
+          const unix = (sec: number) =>
+            new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, sec).getTime() / 1000;
+          const departsAt = unix(dep);
+          const leaveAt = departsAt - walkIn;
+          if (leaveAt < at - 60) {
+            continue;
+          }
+          const arrivesAt = unix(arr);
+          today.push({
+            tripId: `horario:${patternId}:${departsAt}`,
+            kind: 'bus',
+            line: lineLabel(pattern.short_name ?? pattern.line_id),
+            headsign: pattern.headsign ?? '',
+            from: board.stop,
+            to: alight.stop,
+            departsAt,
+            arrivesAt,
+            leaveAt,
+            reachAt: arrivesAt + walkOut,
+            stops: alight.index - board.index,
+            live: false,
+            ride: { source: 'carris', patternId, fromSeq: board.seq, toSeq: alight.seq },
+          });
+        }
+        today.sort((a, b) => a.departsAt - b.departsAt);
+        found.push(...today.slice(0, perLine - found.length));
+      }
+      out.push(...found);
+    }),
+  );
+  return out.sort((a, b) => a.reachAt - b.reachAt);
+}
+
 /** At most how many places are tried to change buses. */
 const TRANSFER_STOPS = 6;
 

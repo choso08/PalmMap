@@ -137,6 +137,32 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
     }
   }
 
+  // The timetable fallback (`timetableBusTrips`): the next buses from the
+  // lines' patterns when the live arrivals give nothing (author's photo, Pêra
+  // de Cima, 20 November 2026). The destination is the stop named so.
+  try {
+    const axios = require('axios');
+    const r = await axios.get('https://api.carrismetropolitana.pt/v2/stops', { timeout: 60000 });
+    const pera = (r.data || []).filter((s) => /p[êe]ra de cima/i.test(s.long_name || s.name || ''));
+    console.log(`\n=== Pêra de Cima stops: ${pera.map((s) => `${s.id} ${s.long_name} [${(s.line_ids || []).join(',')}]`).join(' | ')}`);
+    if (pera[0]) {
+      const destino = { latitude: Number(pera[0].lat), longitude: Number(pera[0].lon) };
+      for (const [nome, [la, lo]] of [['Granja', [38.6656, -9.1996]], ['Almada centro', [38.6790, -9.1569]], ['Costa da Caparica', [38.6413, -9.2358]]]) {
+        const origem = { latitude: la, longitude: lo };
+        const vivo = await transit.planBusTrips(origem, destino).catch((e) => `ERRO ${e && e.message}`);
+        console.log(`  ${nome} → Pêra de Cima live:`, Array.isArray(vivo) ? vivo.map((t) => `${t.line} ${hora(t.departsAt)}`).join(' ') || '0' : vivo);
+        for (const at of [Date.now() / 1000, Date.now() / 1000 + 12 * 3600]) {
+          const t0 = Date.now();
+          const tt = await transit.timetableBusTrips(origem, destino, at).catch((e) => `ERRO ${e && e.message}`);
+          console.log(`  timetable from ${new Date(at * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} (${Date.now() - t0} ms):`,
+            Array.isArray(tt) ? tt.map((t) => `${t.line} ${new Date(t.departsAt * 1000).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} ${t.from.name} → ${t.to.name} ${hora(t.arrivesAt)} (${t.stops} st)`).join(' | ') || '0' : tt);
+        }
+      }
+    }
+  } catch (erro) {
+    console.log('  timetable ERRO:', erro && erro.message);
+  }
+
   // Bus then metro (busToPoints), with the metro stations from Carris's own
   // list standing in for the stored timetables the phone would use.
   try {
