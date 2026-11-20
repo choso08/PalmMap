@@ -554,6 +554,10 @@ environment cannot reach.
   South, Gelderland), Autolinee Toscane to Florence. The workflow takes `pais:IT` for a whole
   country. Licences are in each entry's `notas`; most are CC BY or the national open
   licences — credit the operators in About if they are ever listed there.
+  **Big timetables wait for Wi-Fi** (`AUTO_FEED_MAX_BYTES`, 8 MB, in `ensureFeedsFor`): a
+  covering feed up to that size downloads by itself on any network and the plan waits for it,
+  as before; a bigger one (national rail, the EU catalogue's regions) only on Wi-Fi, in the
+  background, with nobody waiting — Settings still offers it for a tap.
 - **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
   none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
   vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so

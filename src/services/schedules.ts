@@ -33,6 +33,7 @@ import { optionsPerKey } from '../utils/tripOptions';
 import { distanceMeters } from '../utils/geometry';
 import { safeFileName } from '../utils/safeLink';
 import { timed } from './perfLog';
+import { onWifi } from './update';
 
 /**
  * Train, metro and ferry timetables, stored on the phone.
@@ -1423,6 +1424,20 @@ const autoChecked = new Map<string, Promise<void>>();
  * they cover. Once per session; failing is silent and the next session tries
  * again. Returns whether anything new arrived.
  */
+/**
+ * Up to this size a covering timetable downloads by itself on any network and the
+ * plan waits for it: a city's metro or buses, a few hundred kilobytes to a few
+ * megabytes. Above it — national rail, a whole region's buses, the EU catalogue's
+ * big feeds (November 2026) — it downloads by itself only on Wi-Fi, and nobody
+ * waits: the plan in hand goes ahead, the next one uses it. Settings still lists
+ * them for a tap on mobile data.
+ */
+export const AUTO_FEED_MAX_BYTES = 8 * 1024 * 1024;
+
+function feedSize(info: ScheduleFeedInfo): number {
+  return info.ficheiro2 && info.bytes2 ? info.bytes2 : info.bytes;
+}
+
 export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
   const area = `${Math.round(point.latitude * 2)},${Math.round(point.longitude * 2)}`;
   const before = autoChecked.get(area);
@@ -1435,6 +1450,7 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
     try {
       const published = await listFeeds();
       const stored = new Map(installedFeeds().map((f) => [f.id, f]));
+      const big: ScheduleFeedInfo[] = [];
       for (const info of published) {
         const [west, south, east, north] = info.bbox ?? [0, 0, 0, 0];
         // A margin of about ten kilometres: the station that matters may be
@@ -1462,12 +1478,24 @@ export async function ensureFeedsFor(point: Coordinates): Promise<boolean> {
         if (!needed) {
           continue;
         }
+        if (feedSize(info) > AUTO_FEED_MAX_BYTES) {
+          big.push(info);
+          continue;
+        }
         try {
           await downloadFeed(info);
           changed = true;
         } catch {
           // One operator failing does not stop the others.
         }
+      }
+      if (big.length > 0 && (await onWifi())) {
+        // Not awaited by the caller: one after the other, in the background.
+        void (async () => {
+          for (const info of big) {
+            await downloadFeed(info).catch(() => undefined);
+          }
+        })();
       }
     } catch {
       // No list, no network: nothing to do now.
