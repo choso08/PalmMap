@@ -1979,6 +1979,168 @@ def dgt_wmts():
     print("geoserver wms names", len(names), [n for n in names if "orto" in n.lower() or "sat" in n.lower()][:40])
 
 
+def _varint(buf, i):
+    shift = value = 0
+    while True:
+        b = buf[i]
+        i += 1
+        value |= (b & 0x7F) << shift
+        if b < 0x80:
+            return value, i
+        shift += 7
+
+
+def _fields(buf):
+    """Top-level protobuf fields: (number, wire type, value or bytes)."""
+    i = 0
+    while i < len(buf):
+        key, i = _varint(buf, i)
+        num, wt = key >> 3, key & 7
+        if wt == 0:
+            v, i = _varint(buf, i)
+        elif wt == 2:
+            n, i = _varint(buf, i)
+            v = buf[i:i + n]
+            i += n
+        elif wt == 1:
+            v = buf[i:i + 8]
+            i += 8
+        elif wt == 5:
+            v = buf[i:i + 4]
+            i += 4
+        else:
+            return
+        yield num, wt, v
+
+
+def _gtfs_rt_summary(body):
+    """Entities in a GTFS-RT FeedMessage, how many carry a vehicle, the header time."""
+    entities = vehicles = 0
+    stamp = None
+    for num, _, v in _fields(body):
+        if num == 1:
+            for n2, _, v2 in _fields(v):
+                if n2 == 3:
+                    stamp = v2
+        elif num == 2:
+            entities += 1
+            if any(n == 4 for n, _, _ in _fields(v)):
+                vehicles += 1
+    return entities, vehicles, stamp
+
+
+def eu_feeds():
+    """
+    Every open EU source in scripts/eu-candidates.json (from the Mobility
+    Database, scripts/eu-catalogue.py): does the producer's timetable address
+    answer, with a real GTFS (stops.txt, stop_times.txt), how big, how many
+    stops and trips, until when it runs; and do its live positions answer,
+    with how many vehicles and how fresh. One "EU|" JSON line per source.
+    """
+    import concurrent.futures
+    import csv
+    import io
+    import os
+    import tempfile
+    import zipfile
+
+    section("EU FEEDS")
+    with open(os.path.join(os.path.dirname(__file__), "eu-candidates.json"), encoding="utf-8") as f:
+        candidates = json.load(f)
+    only = os.environ.get("EU_PAISES", "").split()
+    if only:
+        candidates = [c for c in candidates if c["pais"] in only]
+
+    def fetch_to_file(url):
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        fd, path = tempfile.mkstemp(suffix=".zip")
+        size = 0
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r, os.fdopen(fd, "wb") as out:
+                status, ctype = r.status, r.headers.get("Content-Type", "")
+                while True:
+                    chunk = r.read(1 << 20)
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    out.write(chunk)
+                    if size > 1_500_000_000:
+                        raise RuntimeError("over 1.5 GB")
+            return status, ctype, size, path
+        except urllib.error.HTTPError as e:
+            os.path.exists(path) and os.remove(path)
+            return e.code, "", 0, None
+        except Exception as e:  # noqa: BLE001
+            os.path.exists(path) and os.remove(path)
+            return None, str(e)[:80], 0, None
+
+    def lines(z, name):
+        try:
+            with z.open(name) as f:
+                return sum(1 for _ in f) - 1
+        except KeyError:
+            return None
+
+    def last_day(z):
+        best = ""
+        for name, col in (("calendar.txt", "end_date"), ("calendar_dates.txt", "date")):
+            try:
+                with z.open(name) as f:
+                    for row in csv.DictReader(io.TextIOWrapper(f, "utf-8-sig")):
+                        d = (row.get(col) or "").strip()
+                        if d > best:
+                            best = d
+            except KeyError:
+                pass
+        return best
+
+    def one(c):
+        r = {"mdb": c["mdb"], "pais": c["pais"], "operador": c["operador"][:60], "local": c["local"][:40]}
+        for label, url in (("url", c["url"]), ("copia", c.get("copia"))):
+            if not url:
+                continue
+            status, ctype, size, path = fetch_to_file(url)
+            r[label] = {"estado": status, "mb": round(size / 1e6, 1)}
+            if not path:
+                r[label]["erro"] = ctype
+                continue
+            try:
+                with zipfile.ZipFile(path) as z:
+                    names = set(z.namelist())
+                    if "stops.txt" not in names or "stop_times.txt" not in names:
+                        r[label]["erro"] = "not a GTFS"
+                    else:
+                        r[label].update(
+                            paragens=lines(z, "stops.txt"),
+                            viagens=lines(z, "trips.txt"),
+                            linhas=lines(z, "routes.txt"),
+                            ate=last_day(z),
+                        )
+            except zipfile.BadZipFile:
+                r[label]["erro"] = "not a zip"
+            finally:
+                os.remove(path)
+            if "paragens" in r[label]:
+                break  # the producer's own address works: no need for the copy
+        r["posicoes"] = []
+        for url in c.get("posicoes") or []:
+            status, ctype, body = get(url, timeout=30)
+            p = {"url": url[:120], "estado": status, "kb": round(len(body) / 1e3, 1)}
+            if status == 200:
+                try:
+                    ents, veh, stamp = _gtfs_rt_summary(body)
+                    p.update(entidades=ents, veiculos=veh,
+                             idade_s=None if stamp is None else round(time.time() - stamp))
+                except Exception as e:  # noqa: BLE001
+                    p["erro"] = f"not GTFS-RT: {e}"[:60]
+            r["posicoes"].append(p)
+        return r
+
+    with concurrent.futures.ThreadPoolExecutor(6) as pool:
+        for r in pool.map(one, candidates):
+            print("EU|" + json.dumps(r, ensure_ascii=False), flush=True)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
