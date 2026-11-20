@@ -2559,6 +2559,63 @@ def eu_orthos_png():
         print("PNG|" + json.dumps(r, ensure_ascii=False), flush=True)
 
 
+def line_probe(line_id="3527"):
+    """
+    One line, from public data only: its patterns, their stops in order (name,
+    locality, distance from the previous), whether `/stops` lists the pattern
+    at each of its stops (the planner crosses those lists), and the next
+    passes at its Feijó stops.
+    """
+    section(f"LINE {line_id}")
+    _, _, body = get(f"{CARRIS}/lines/{line_id}")
+    line = json.loads(body)
+    print("line:", {k: line.get(k) for k in ("id", "short_name", "long_name", "color", "text_color")})
+    _, _, body = get(f"{CARRIS}/stops", timeout=120)
+    stops = {s["id"]: s for s in json.loads(body)}
+    for pid in line.get("pattern_ids") or []:
+        st, _, body = get(f"{CARRIS}/patterns/{pid}")
+        if st != 200:
+            print("pattern", pid, st)
+            continue
+        data = json.loads(body)
+        pattern = data[0] if isinstance(data, list) else data
+        print(f"\n--- pattern {pid} -> {pattern.get('headsign')}  trips today: "
+              f"{sum(1 for t in pattern.get('trips') or [] if time.strftime('%Y%m%d') in (t.get('valid_on') or []))}")
+        prev = None
+        for p_ in sorted(pattern.get("path") or [], key=lambda x: x.get("stop_sequence") or 0):
+            sid = p_.get("stop_id")
+            stop = stops.get(sid, {})
+            lat, lon = float(stop.get("lat") or 0), float(stop.get("lon") or 0)
+            d = ""
+            if prev:
+                d = f"{_dist(prev, (lat, lon)):.0f} m"
+            prev = (lat, lon)
+            listed = pid in (stop.get("pattern_ids") or [])
+            print(f"  {p_.get('stop_sequence'):>3} {sid} {stop.get('long_name')} | {stop.get('locality_name')} | {d} | listed={listed}")
+    for sid, stop in stops.items():
+        if "FEIJ" in (stop.get("long_name") or "").upper() and any(
+            str(p).startswith(line_id) for p in stop.get("pattern_ids") or []
+        ):
+            st, _, body = get(f"{CARRIS}/arrivals/by_stop/{sid}")
+            if st != 200:
+                continue
+            now = time.time()
+            nxt = sorted(
+                (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0, a.get("estimated_arrival_unix") is not None)
+                for a in json.loads(body)
+                if a.get("line_id") == line_id and (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now
+            )[:4]
+            print(f"\nnext {line_id} at {sid} {stop.get('long_name')}:",
+                  [(time.strftime('%H:%M', time.localtime(t)), live) for t, live in nxt])
+
+
+def _dist(a, b):
+    la1, lo1 = map(math.radians, a)
+    la2, lo2 = map(math.radians, b)
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 2 * 6371000 * math.asin(math.sqrt(h))
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
