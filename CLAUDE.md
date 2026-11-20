@@ -605,6 +605,9 @@ environment cannot reach.
   Web Mercator: Croatia, Cyprus, Greece, Sweden; nothing open found for Italy (PCN is 2012,
   HTTP), Ireland, Hungary, Bulgaria, Malta, Romania, Slovakia, Slovenia, Latvia. Every
   candidate's TLS root is an old one (USERTrust, ISRG X1, SwissSign, GlobalSign R6, D-TRUST).
+- **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
+  with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
+  the EU catalogue, zones and orthophotos above (none of those generated yet).
 - **Built in 7.0.65** (19 November): every fix of the code review below.
 - **Live buses every minute, fixed** (author, 20 November 2026, on 7.0.65: "transport now takes
   1 min to update"; not seen on a phone): `nextVehiclesDelay` "learnt each feed's pace" from the
