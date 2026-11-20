@@ -8,7 +8,12 @@
     "ficheiro para cerca de metade. Países grandes levam menos, senão passavam",
     "o limite de 2 GB por ficheiro que o GitHub impõe — o workflow avisa se",
     "acontecer, e aí baixa-se o maxzoom desse país.",
-    "A ordem aqui é a ordem em que aparecem na aplicação: Portugal primeiro."
+    "A ordem aqui é a ordem em que aparecem na aplicação: Portugal primeiro.",
+    "pais: the country a zone belongs to; the app shows each country's maps",
+    "under one drop-down. poligono: the Geofabrik path whose .poly outline cuts",
+    "the zone (pmtiles --region), instead of the rectangle. Portugal has no",
+    "Geofabrik sub-regions, so its zones (NUTS II, roughly) are rectangles that",
+    "overlap a little; the app draws every zone in view, so overlaps do no harm."
   ],
   "regioes": [
     {
@@ -16,19 +21,62 @@
       "nome": "Portugal continental",
       "bbox": "-9.6,36.9,-6.1,42.2",
       "maxzoom": 14,
-      "geofabrik": "europe/portugal"
+      "geofabrik": "europe/portugal",
+      "pais": "Portugal"
     },
     {
       "id": "madeira",
       "nome": "Madeira",
       "bbox": "-17.3,32.35,-16.2,33.15",
       "maxzoom": 14,
-      "geofabrik": "europe/portugal"
+      "geofabrik": "europe/portugal",
+      "pais": "Portugal"
     },
     {
       "id": "acores",
       "nome": "Açores",
       "bbox": "-31.4,36.85,-24.7,39.8",
+      "maxzoom": 14,
+      "geofabrik": "europe/portugal",
+      "pais": "Portugal"
+    },
+    {
+      "id": "portugal-norte",
+      "nome": "Norte",
+      "pais": "Portugal",
+      "bbox": "-8.95,40.75,-6.18,42.16",
+      "maxzoom": 14,
+      "geofabrik": "europe/portugal"
+    },
+    {
+      "id": "portugal-centro",
+      "nome": "Centro",
+      "pais": "Portugal",
+      "bbox": "-9.5,39.2,-6.8,41.25",
+      "maxzoom": 14,
+      "geofabrik": "europe/portugal"
+    },
+    {
+      "id": "portugal-lisboa",
+      "nome": "Lisboa e Vale do Tejo",
+      "pais": "Portugal",
+      "bbox": "-9.55,38.35,-8.2,39.55",
+      "maxzoom": 14,
+      "geofabrik": "europe/portugal"
+    },
+    {
+      "id": "portugal-alentejo",
+      "nome": "Alentejo",
+      "pais": "Portugal",
+      "bbox": "-9.0,37.3,-6.9,39.7",
+      "maxzoom": 14,
+      "geofabrik": "europe/portugal"
+    },
+    {
+      "id": "portugal-algarve",
+      "nome": "Algarve",
+      "pais": "Portugal",
+      "bbox": "-9.0,36.9,-7.38,37.55",
       "maxzoom": 14,
       "geofabrik": "europe/portugal"
     },

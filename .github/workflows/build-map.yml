@@ -205,9 +205,12 @@ jobs:
               # phone is older than the one published.
               ENTRY=$(printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
                 "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)")
-              if [ -n "$PAIS" ]; then
-                ENTRY=$(echo "$ENTRY" | jq -c --arg p "$PAIS" '. + {pais: $p}')
-              fi
+            fi
+
+            # The country goes in the entry even when only the business file is
+            # redone, so a published map joins its country's drop-down.
+            if [ -n "$PAIS" ]; then
+              ENTRY=$(echo "$ENTRY" | jq -c --arg p "$PAIS" '. + {pais: $p}')
             fi
 
             # **Every named business, for use without network.** From
