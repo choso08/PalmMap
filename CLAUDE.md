@@ -680,9 +680,10 @@ environment cannot reach.
   to −5.3 so the Ards coast is not cut. Ceuta and Melilla are in no zone.
   **Done the same evening**: every zone of those nine countries, `espanha-canarias` and the
   widened `irlanda` published, and all nine whole maps removed from `mapas.json`. **EU
-  timetables generated** that day for every country in `transit-feeds.json` except those
-  never listed (IT, then DE, PL, CZ, SK, HU, then RO, BG, HR, SI, FI, EE, LV, LT, IE, CY —
-  each batch complete, checked against the catalogue).
+  timetables generated** that day in batches (IT; DE, PL, CZ, SK, HU; RO, BG, HR, SI, FI, EE,
+  LV, LT, IE, CY), each complete against the catalogue. **Not yet generated** (checked
+  against `horarios.json`): Metz (`metz`) and the four Portuguese the EU catalogue added —
+  `mobicascais`, `tcb` (Barreiro), `horarios-funchal`, `guimabus`.
 - **Catalogue names in English, timetables by country** (author, 20 November 2026: "don't
   forget the translations of the transport etc., and each country of transport in a
   drop-down"; not seen on a phone). The manifests name maps, zones, countries and timetables
