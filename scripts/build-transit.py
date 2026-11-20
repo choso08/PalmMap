@@ -1137,6 +1137,8 @@ def main() -> int:
                     "fim": resultado["fim"],
                     "estacoes": len(resultado["stops"]),
                     "bbox": resultado["bbox"],
+                    # ISO 3166-1 alpha-2: the app groups the list by country.
+                    "pais": feed.get("pais", "PT"),
                     "origem": url,
                     "ficheiro2": f"{feed['id']}.v2.json",
                     "bytes2": bytes2,

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '../i18n';
 import {
@@ -43,6 +43,14 @@ function formatDate(aaaammdd: string): string {
   return t().schedules.date(Number(aaaammdd.slice(6, 8)), Number(aaaammdd.slice(4, 6)));
 }
 
+/** No accents, no capitals: "chequia" finds "Chéquia". */
+function simplify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export function Schedules() {
   const theme = useTheme();
   const strings = useT();
@@ -58,6 +66,8 @@ export function Schedules() {
    * the first before asking for the second made no sense at all.
    */
   const [busy, setBusy] = useState<string[]>([]);
+  /** Text to filter the list: operator, country or kind. */
+  const [filtro, setFiltro] = useState('');
   /** Changes on every download or delete, so the list redraws. */
   const [revision, setRevision] = useState(0);
 
@@ -102,63 +112,120 @@ export function Schedules() {
     );
   }
 
+  const countryName = (code: string) => strings.schedules.countries[code] ?? code;
+  const procurado = simplify(filtro.trim());
+  // Each country's timetables together; Portugal first, the others by name.
+  const porPais = new Map<string, ScheduleFeedInfo[]>();
+  for (const info of feeds) {
+    const pais = info.pais ?? 'PT';
+    if (
+      procurado &&
+      !simplify(
+        `${info.nome} ${countryName(pais)} ${pais} ${stationLabel(info.kind as StationKind)}`,
+      ).includes(procurado)
+    ) {
+      continue;
+    }
+    const lista = porPais.get(pais) ?? [];
+    lista.push(info);
+    porPais.set(pais, lista);
+  }
+  const grupos = [...porPais.entries()]
+    .map(
+      ([pais, lista]) =>
+        [pais, lista.slice().sort((a, b) => a.nome.localeCompare(b.nome))] as const,
+    )
+    .sort(([a], [b]) =>
+      a === 'PT' ? -1 : b === 'PT' ? 1 : countryName(a).localeCompare(countryName(b)),
+    );
+  const variosPaises = new Set(feeds.map((f) => f.pais ?? 'PT')).size > 1;
+
+  const renderRow = (info: ScheduleFeedInfo) => {
+    // `revision` is here so the state is read again after the files change.
+    const guardado = revision >= 0 && isInstalled(info);
+    const ocupado = busy.includes(info.id);
+    const fora = isExpired(info);
+    const icone = STATION_ICONS[info.kind as StationKind] ?? 'clock-outline';
+
+    return (
+      <Pressable
+        key={info.id}
+        style={styles.row}
+        disabled={ocupado}
+        onPress={() => void handleToggle(info)}
+      >
+        <MaterialCommunityIcons
+          name={icone as never}
+          size={22}
+          color={guardado && !fora ? theme.accent : theme.textMuted}
+        />
+
+        <View style={styles.rowText}>
+          <Text style={styles.name}>{info.nome}</Text>
+          <Text style={[styles.size, fora ? styles.expirado : null]}>
+            {stationLabel(info.kind as StationKind)} · {formatBytes(feedBytes(info))} ·{' '}
+            {strings.schedules.stationCount(info.estacoes)}
+            {/*
+                  The expiry date has to be visible. An expired timetable gives
+                  no answers, and without this one would not know why.
+                */}
+            {fora
+              ? ` · ${strings.schedules.expired}`
+              : info.fim
+                ? ` · ${strings.schedules.until(formatDate(info.fim))}`
+                : ''}
+          </Text>
+        </View>
+
+        {ocupado ? (
+          <ActivityIndicator size="small" color={theme.accent} />
+        ) : guardado ? (
+          <MaterialCommunityIcons name="delete-outline" size={20} color={theme.danger} />
+        ) : (
+          <MaterialCommunityIcons name="download" size={20} color={theme.textMuted} />
+        )}
+      </Pressable>
+    );
+  };
+
   return (
     <View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {feeds.length === 0 && !error ? (
-        <Text style={styles.error}>
-          {strings.schedules.empty}
-        </Text>
+        <Text style={styles.error}>{strings.schedules.empty}</Text>
       ) : null}
 
-      {feeds.map((info) => {
-        // `revision` is here so the state is read again after the files change.
-        const guardado = revision >= 0 && isInstalled(info);
-        const ocupado = busy.includes(info.id);
-        const fora = isExpired(info);
-        const icone = STATION_ICONS[info.kind as StationKind] ?? 'clock-outline';
+      {feeds.length > 8 ? (
+        <View style={styles.search}>
+          <MaterialCommunityIcons name="magnify" size={18} color={theme.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={filtro}
+            onChangeText={setFiltro}
+            placeholder={strings.schedules.searchIn(feeds.length)}
+            placeholderTextColor={theme.placeholder}
+            autoCorrect={false}
+          />
+          {filtro.length > 0 ? (
+            <Pressable onPress={() => setFiltro('')} hitSlop={10}>
+              <MaterialCommunityIcons name="close" size={18} color={theme.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
-        return (
-          <Pressable
-            key={info.id}
-            style={styles.row}
-            disabled={ocupado}
-            onPress={() => void handleToggle(info)}
-          >
-            <MaterialCommunityIcons
-              name={icone as never}
-              size={22}
-              color={guardado && !fora ? theme.accent : theme.textMuted}
-            />
+      {procurado && grupos.length === 0 ? (
+        <Text style={styles.vazio}>{strings.schedules.noMatch}</Text>
+      ) : null}
 
-            <View style={styles.rowText}>
-              <Text style={styles.name}>{info.nome}</Text>
-              <Text style={[styles.size, fora ? styles.expirado : null]}>
-                {stationLabel(info.kind as StationKind)} · {formatBytes(feedBytes(info))} ·{' '}
-                {strings.schedules.stationCount(info.estacoes)}
-                {/*
-                  The expiry date has to be visible. An expired timetable gives
-                  no answers, and without this one would not know why.
-                */}
-                {fora
-                  ? ` · ${strings.schedules.expired}`
-                  : info.fim
-                    ? ` · ${strings.schedules.until(formatDate(info.fim))}`
-                    : ''}
-              </Text>
-            </View>
-
-            {ocupado ? (
-              <ActivityIndicator size="small" color={theme.accent} />
-            ) : guardado ? (
-              <MaterialCommunityIcons name="delete-outline" size={20} color={theme.danger} />
-            ) : (
-              <MaterialCommunityIcons name="download" size={20} color={theme.textMuted} />
-            )}
-          </Pressable>
-        );
-      })}
+      {grupos.map(([pais, lista]) => (
+        <View key={pais}>
+          {/* One heading per country, only when there is more than one. */}
+          {variosPaises ? <Text style={styles.country}>{countryName(pais)}</Text> : null}
+          {lista.map(renderRow)}
+        </View>
+      ))}
 
       <Text style={styles.nota}>{strings.schedules.note}</Text>
     </View>
@@ -167,6 +234,37 @@ export function Schedules() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    search: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 12,
+      paddingHorizontal: 14,
+      borderRadius: 18,
+      backgroundColor: theme.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    searchInput: {
+      flex: 1,
+      paddingVertical: 10,
+      fontSize: 15,
+      color: theme.text,
+    },
+    vazio: {
+      fontSize: 13,
+      color: theme.textMuted,
+      marginTop: 14,
+    },
+    country: {
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+      color: theme.textMuted,
+      marginTop: 18,
+      marginBottom: 2,
+    },
     loading: {
       flexDirection: 'row',
       alignItems: 'center',

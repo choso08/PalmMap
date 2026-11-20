@@ -152,4 +152,9 @@ export interface ScheduleFeedInfo {
    * proves the conversion chain works when the others fail.
    */
   naApp?: boolean;
+  /**
+   * The country, ISO 3166-1 alpha-2 ("PT", "ES"…), for grouping the list.
+   * Missing on the files generated before November 2026: those are all "PT".
+   */
+  pais?: string;
 }
