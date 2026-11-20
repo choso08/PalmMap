@@ -2285,6 +2285,55 @@ def eu_orthos():
         print("ORTO|" + json.dumps(r, ensure_ascii=False), flush=True)
 
 
+
+def geofabrik_zones():
+    """
+    Geofabrik's sub-regions of every country (author's request, 20 November
+    2026: maps by zone — Alentejo, Norte… — and per administrative area in
+    other countries). Each Geofabrik extract has a polygon, published, that
+    `pmtiles extract --region` can cut with. One "GF|" JSON line per child of a
+    country: id, parent, name, bbox (west, south, east, north), and whether it
+    has children of its own.
+    """
+    section("GEOFABRIK ZONES")
+    st, ct, body = get("https://download.geofabrik.de/index-v1.json", timeout=120)
+    print("index:", st, len(body))
+    if st != 200:
+        return
+    feats = json.loads(body)["features"]
+    by_id = {f["properties"]["id"]: f for f in feats}
+    parents = {f["properties"].get("parent") for f in feats}
+    continents = {f["properties"]["id"] for f in feats if not f["properties"].get("parent")}
+
+    def bbox(geom):
+        xs, ys = [], []
+        def walk(c):
+            if isinstance(c[0], (int, float)):
+                xs.append(c[0]); ys.append(c[1])
+            else:
+                for k in c:
+                    walk(k)
+        walk(geom["coordinates"])
+        return [round(min(xs), 3), round(min(ys), 3), round(max(xs), 3), round(max(ys), 3)]
+
+    for f in feats:
+        p = f["properties"]
+        parent = p.get("parent")
+        if not parent or parent in continents or parent not in by_id:
+            continue
+        # A child of a country (its parent's parent is a continent), or one
+        # level below for countries split twice (England's counties, Bayern's
+        # Regierungsbezirke).
+        grand = by_id[parent]["properties"].get("parent")
+        depth = 2 if grand in continents else 3
+        print("GF|" + json.dumps({
+            "id": p["id"], "pai": parent, "nivel": depth, "nome": p.get("name"),
+            "bbox": bbox(f["geometry"]) if f.get("geometry") else None,
+            "filhos": p["id"] in parents,
+            "pbf": p.get("urls", {}).get("pbf"),
+        }, ensure_ascii=False), flush=True)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
