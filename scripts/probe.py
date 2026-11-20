@@ -2327,7 +2327,7 @@ def geofabrik_zones(compact=False):
     section("GEOFABRIK ZONES")
     for attempt in range(4):
         st, ct, body = get("https://download.geofabrik.de/index-v1.json", timeout=120)
-        print("index:", st, len(body), ct[:80])
+        print("index:", st, len(body), ct[:80], body[:120] if st != 200 else b"")
         if st == 200:
             break
         time.sleep(10 * (attempt + 1))
