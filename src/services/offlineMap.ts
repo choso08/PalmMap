@@ -9,6 +9,7 @@ import * as Network from 'expo-network';
 
 import { REQUEST_TIMEOUT_MS, USER_AGENT } from './config';
 import { hasSystemDownloader, systemDownload, SystemDownloadRefused } from './systemDownload';
+import { MAP_COUNTRY_BY_ID } from '../i18n/catalogueNames';
 
 /**
  * Country maps, downloaded on request and stored on the phone.
@@ -358,6 +359,20 @@ async function fetchManifest(): Promise<OfflineRegion[]> {
  * received, plus whatever is installed.
  */
 export async function listRegions(): Promise<OfflineRegion[]> {
+  return (await listRegionsAsPublished()).map(withCountry);
+}
+
+/**
+ * Entries published before `pais` existed (Madeira, the Azores) take it from
+ * the bundled catalogue, so they group under their country (author's report,
+ * 20 November 2026: "the archipelagos belong to the countries too").
+ */
+function withCountry(region: OfflineRegion): OfflineRegion {
+  const pais = region.pais ?? MAP_COUNTRY_BY_ID[region.id];
+  return pais && pais !== region.pais ? { ...region, pais } : region;
+}
+
+async function listRegionsAsPublished(): Promise<OfflineRegion[]> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const regions = await fetchManifest();

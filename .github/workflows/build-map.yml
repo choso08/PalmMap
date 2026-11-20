@@ -54,6 +54,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.remover != ''
     runs-on: ubuntu-latest
     steps:
+      # For the catalogue's `pais`, filled into entries published without it.
+      - uses: actions/checkout@v4
+
       - name: Remove from the list
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,9 +70,14 @@ jobs:
           jq -r --argjson ids "$IDS_JSON" \
             '.regioes[] | select(.id as $i | $ids | index($i)) | .ficheiro, (.negocios // empty)' \
             atuais.json > ficheiros.txt
-          jq --argjson ids "$IDS_JSON" \
-            '{regioes: [.regioes[] | select(.id as $i | $ids | index($i) | not)]}' \
+          # Entries published before `pais` existed (Madeira, the Azores) take
+          # it from the catalogue, so the app lists them under their country.
+          PAISES=$(jq -c '[.regioes[] | select(.pais) | {key: .id, value: .pais}] | from_entries' map-regions.json)
+          jq --argjson ids "$IDS_JSON" --argjson paises "$PAISES" \
+            '.regioes |= [.[] | select(.id as $i | $ids | index($i) | not)
+              | if (.pais == null and $paises[.id] != null) then . + {pais: $paises[.id]} else . end]' \
             atuais.json > mapas.json
+          echo "Given a country: $(jq -c '[.regioes[] | select(.pais) | .id]' mapas.json)"
           echo "Before: $(jq '.regioes | length' atuais.json), now: $(jq '.regioes | length' mapas.json)"
           gh release upload mapas mapas.json -R "$REPO" --clobber
           while read -r F; do
