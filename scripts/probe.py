@@ -2325,8 +2325,12 @@ def geofabrik_zones(compact=False):
     has children of its own.
     """
     section("GEOFABRIK ZONES")
-    st, ct, body = get("https://download.geofabrik.de/index-v1.json", timeout=120)
-    print("index:", st, len(body))
+    for attempt in range(4):
+        st, ct, body = get("https://download.geofabrik.de/index-v1.json", timeout=120)
+        print("index:", st, len(body), ct[:80])
+        if st == 200:
+            break
+        time.sleep(10 * (attempt + 1))
     if st != 200:
         return
     feats = json.loads(body)["features"]
