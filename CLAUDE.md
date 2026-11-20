@@ -514,6 +514,24 @@ environment cannot reach.
   Metropolitana timetable** at 12:35: before, leave 12:36 and walk 410 m to Lazarim Pilotos;
   now leave 12:44 and walk 63 m to Rotunda Campo Flores, same bus, same arrival. The live
   planner already broke ties this way (`optionsPerKey`).
+- **Country maps by zone** (author, 20 November 2026: "download by zones, like Alentejo,
+  Norte, Centro, Sul… for the other countries too, with a drop-down per country and
+  administrative area"; not seen on a phone, no zone generated yet). The catalogue
+  (`map-regions.json`) gains `pais` (the country a zone belongs to) and `poligono` (the
+  Geofabrik path whose `.poly` outline cuts it: `scripts/poly-to-geojson.py` →
+  `pmtiles extract --region`, and `osmium extract -p` for the business file); the manifest
+  entry carries `pais`. **Portugal has no Geofabrik sub-regions**: its zones (Norte, Centro,
+  Lisboa e Vale do Tejo, Alentejo, Algarve — roughly NUTS II) are rectangles that overlap a
+  little. The other countries' zones come from Geofabrik's index (`sondar:
+  geofabrik_zones_compact`). **Offline, every downloaded zone in view is drawn at once**
+  (`regionsForView`, at most `MAX_ZONES_IN_VIEW` 6): `buildVectorStyle` takes several
+  `pmtiles://` addresses and repeats each layer once per zone side by side (`earth`,
+  `earth@1`…), so zone B's land never covers zone A's roads; overlapping tiles are the same
+  tiles. The set is kept while it still holds every zone wanted (each change reloads the
+  map). A failure drops the side zones first. Business pins read up to four zones' files
+  (`poisRegionsFor`), twins merged as before. The maps list (`OfflineMaps.tsx`) groups by
+  `pais ?? nome`: one row for a country with one map, a drop-down for the rest, opened by a
+  matching search. Published entries without `pais` stay their own country until redone.
 - **Built in 7.0.65** (19 November): every fix of the code review below.
 - **Live buses every minute, fixed** (author, 20 November 2026, on 7.0.65: "transport now takes
   1 min to update"; not seen on a phone): `nextVehiclesDelay` "learnt each feed's pace" from the
@@ -1249,6 +1267,8 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── generate-poi-icons.py # Draws the business pins, stop symbol and compass cone
 │   ├── build-transit.py    # Converts an operator's GTFS into compact timetables
 │   ├── build-pois.py       # Business file for a downloaded country (from Geofabrik)
+│   ├── poly-to-geojson.py  # A zone's Geofabrik outline, for cutting its map
+│   ├── eu-catalogue.py     # Open EU transport sources from the Mobility Database
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
 ├── modules/
