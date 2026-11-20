@@ -73,6 +73,12 @@ export interface OfflineRegion {
   negociosBytes?: number;
   /** When the business file was generated, as `YYYY-MM-DD`. */
   negociosGerado?: string;
+  /**
+   * The country a zone belongs to ("Portugal", "Alemanha"), for the maps list's
+   * drop-down per country. Missing on whole-country maps published before zones
+   * existed: then the region is its own country.
+   */
+  pais?: string;
 }
 
 interface Manifest {
@@ -252,6 +258,55 @@ export function regionForView(
   }
 
   return best;
+}
+
+/** At most this many zones drawn at once: each is a source and 25 layers. */
+export const MAX_ZONES_IN_VIEW = 6;
+
+/**
+ * Every downloaded region worth drawing for this view: the one
+ * `regionForView` picks first, then the others touching the view widened by
+ * its own size on each side, nearest first. With a country downloaded by
+ * zones (Norte, Centro…), only one at a time left the map empty past the
+ * zone's border, offline.
+ *
+ * Widened so that a zone joins a little before it shows: each change of the
+ * set rebuilds the style, which reloads the map.
+ */
+export function regionsForView(
+  bounds: { west: number; south: number; east: number; north: number },
+  regions = installedRegions(),
+): OfflineRegion[] {
+  const first = regionForView(bounds, regions);
+  if (!first) {
+    return [];
+  }
+  const w = bounds.east - bounds.west;
+  const h = bounds.north - bounds.south;
+  const wide = {
+    west: bounds.west - w,
+    east: bounds.east + w,
+    south: bounds.south - h,
+    north: bounds.north + h,
+  };
+  const centreLon = (bounds.west + bounds.east) / 2;
+  const centreLat = (bounds.south + bounds.north) / 2;
+  const others = regions
+    .filter(hasArea)
+    .filter((r) => r.id !== first.id)
+    .filter((r) => {
+      const [west, south, east, north] = r.bbox;
+      return !(east < wide.west || west > wide.east || north < wide.south || south > wide.north);
+    })
+    .map((r) => {
+      const [west, south, east, north] = r.bbox;
+      const dLon = Math.max(west - centreLon, 0, centreLon - east);
+      const dLat = Math.max(south - centreLat, 0, centreLat - north);
+      return { r, d: dLon * dLon + dLat * dLat };
+    })
+    .sort((a, b) => a.d - b.d)
+    .map(({ r }) => r);
+  return [first, ...others].slice(0, MAX_ZONES_IN_VIEW);
 }
 
 /**

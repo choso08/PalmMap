@@ -189,15 +189,39 @@ function openRegion(region: OfflineRegion): OpenFile | null {
 
 /** The installed region with a business file that covers the centre of the view. */
 export function poisRegionFor(bounds: Bounds): OfflineRegion | null {
+  return poisRegionsFor(bounds)[0] ?? null;
+}
+
+/** At most this many business files read for one view. */
+const MAX_FILES_IN_VIEW = 4;
+
+/**
+ * Every installed region with a business file that touches the view, the one
+ * covering its centre first. A country downloaded by zones (Norte, Centro…)
+ * has one file per zone, and a view across the border needs both.
+ */
+function poisRegionsFor(bounds: Bounds): OfflineRegion[] {
   const lon = (bounds.west + bounds.east) / 2;
   const lat = (bounds.south + bounds.north) / 2;
+  const centre: OfflineRegion[] = [];
+  const touching: OfflineRegion[] = [];
   for (const r of installedRegions()) {
     const [west, south, east, north] = r.bbox ?? [0, 0, 0, 0];
-    if (lon >= west && lon <= east && lat >= south && lat <= north && poisFile(r).exists) {
-      return r;
+    if (east < bounds.west || west > bounds.east || north < bounds.south || south > bounds.north) {
+      continue;
+    }
+    if (!poisFile(r).exists) {
+      continue;
+    }
+    if (lon >= west && lon <= east && lat >= south && lat <= north) {
+      centre.push(r);
+    } else {
+      touching.push(r);
     }
   }
-  return null;
+  // Without one under the centre, the view is not in a downloaded area:
+  // the caller asks the Internet, as before zones.
+  return centre.length ? [...centre, ...touching].slice(0, MAX_FILES_IN_VIEW) : [];
 }
 
 function readCell(region: OfflineRegion, opened: OpenFile, cell: string): PoiRecord[] {
@@ -263,23 +287,11 @@ export function localPlacesInBounds(
   filter: TagFilter,
   limit = 300,
 ): Place[] | null {
-  const region = poisRegionFor(bounds);
-  if (!region) {
+  const files = poisRegionsFor(bounds)
+    .map((region) => ({ region, opened: openRegion(region) }))
+    .filter((f): f is { region: OfflineRegion; opened: OpenFile } => f.opened !== null);
+  if (files.length === 0) {
     return null;
-  }
-  const opened = openRegion(region);
-  if (!opened) {
-    return null;
-  }
-
-  const g = opened.header.grid;
-  const x0 = Math.floor(bounds.west / g);
-  const x1 = Math.floor(bounds.east / g);
-  const y0 = Math.floor(bounds.south / g);
-  const y1 = Math.floor(bounds.north / g);
-  // A view that would touch hundreds of cells is too far out for pins anyway.
-  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) {
-    return [];
   }
 
   const centreLon = (bounds.west + bounds.east) / 2;
@@ -289,22 +301,36 @@ export function localPlacesInBounds(
   // the work.
   const found: { record: PoiRecord; index: number; d: number }[] = [];
   let index = 0;
-  for (let x = x0; x <= x1; x += 1) {
-    for (let y = y0; y <= y1; y += 1) {
-      for (const r of readCell(region, opened, `${x},${y}`)) {
-        index += 1;
-        const [lon, lat] = r;
-        if (lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north) {
-          continue;
+  let ring: (() => void) | null = null;
+  for (const { region, opened } of files) {
+    const g = opened.header.grid;
+    const x0 = Math.floor(bounds.west / g);
+    const x1 = Math.floor(bounds.east / g);
+    const y0 = Math.floor(bounds.south / g);
+    const y1 = Math.floor(bounds.north / g);
+    // A view that would touch hundreds of cells is too far out for pins anyway.
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) {
+      return [];
+    }
+    for (let x = x0; x <= x1; x += 1) {
+      for (let y = y0; y <= y1; y += 1) {
+        for (const r of readCell(region, opened, `${x},${y}`)) {
+          index += 1;
+          const [lon, lat] = r;
+          if (lon < bounds.west || lon > bounds.east || lat < bounds.south || lat > bounds.north) {
+            continue;
+          }
+          if (!matches(r, filter)) {
+            continue;
+          }
+          const dx = lon - centreLon;
+          const dy = lat - centreLat;
+          found.push({ record: r, index, d: dx * dx + dy * dy });
         }
-        if (!matches(r, filter)) {
-          continue;
-        }
-        const dx = lon - centreLon;
-        const dy = lat - centreLat;
-        found.push({ record: r, index, d: dx * dx + dy * dy });
       }
     }
+    // The ring is warmed for the file under the centre only.
+    ring ??= () => prefetchAround(region, opened, x0, x1, y0, y1);
   }
   // The nearest the centre first, when there are more than fit on screen.
   // **The same name and kind a stone's throw apart is one place.** OSM often
@@ -326,7 +352,7 @@ export function localPlacesInBounds(
       kept.push(toPlace(record, n));
     }
   }
-  prefetchAround(region, opened, x0, x1, y0, y1);
+  ring?.();
   return kept;
 }
 

@@ -34,7 +34,7 @@ import { useInternetReachable } from '../services/network';
 import { ScaleBar, type ScaleBarRef } from './ScaleBar';
 import { type SpeedCamera } from '../services/cameras';
 import { stationLabel, type TransitStation, type TransitStop } from '../services/transit';
-import { regionForView, type OfflineRegion } from '../services/offlineMap';
+import { regionsForView, type OfflineRegion } from '../services/offlineMap';
 import type { LiveVehicle } from '../services/vehicles';
 import { mapStyleFor } from '../services/tiles';
 import { watchCompass } from '../services/location';
@@ -385,6 +385,8 @@ function HeadingCone({
   time.
 */
 const NONE: never[] = [];
+/** No stored map in use: one shared empty list, so a state update to it changes nothing. */
+const NO_ZONES: OfflineRegion[] = [];
 
 /** Where the camera starts while the person's position is not yet known. */
 const DEFAULT_CENTER: [number, number] = [-9.1393, 38.7223]; // Lisboa
@@ -508,8 +510,11 @@ export function MapView({
   const satelliteLabels = settings.mapType === 'satellite' || settings.mapType === 'satelliteTransit';
   const placeLanguage = resolveLanguage(settings.language);
 
-  /** The stored map covering the area in view, if there is one. */
-  const [offlineRegion, setOfflineRegion] = useState<OfflineRegion | null>(null);
+  /**
+   * The stored maps drawn for the area in view: the one in the middle first,
+   * then the zones beside it (a country downloaded by zones).
+   */
+  const [offlineZones, setOfflineZones] = useState<OfflineRegion[]>(NO_ZONES);
   /**
    * The stored maps that failed to open.
    *
@@ -520,6 +525,8 @@ export function MapView({
    * an empty screen with no explanation at all.
    */
   const [failedRegions, setFailedRegions] = useState<string[]>([]);
+  /** The same, for the view handler, which must not change with it. */
+  const failedRef = useRef<string[]>([]);
   /**
    * Changes every time going back to the car is asked for while navigating.
    *
@@ -945,8 +952,19 @@ export function MapView({
       // Entering a country whose map is stored, use it. Compared by id so the
       // style only switches when the region really changes — switching style
       // reloads the map, and on every drag that would be unbearable.
-      const seguinte = regionForView({ west, south, east, north }, offlineRegions);
-      setOfflineRegion((atual) => (atual?.id === seguinte?.id ? atual : seguinte));
+      // The set is kept while it still holds every zone wanted and the same one
+      // in the middle: dropping a zone that left the view would reload the map
+      // for nothing.
+      const usable = offlineRegions.filter((r) => !failedRef.current.includes(r.id));
+      const seguinte = regionsForView({ west, south, east, north }, usable);
+      setOfflineZones((atuais) => {
+        if (seguinte.length === 0) {
+          return atuais.length === 0 ? atuais : NO_ZONES;
+        }
+        const ids = new Set(atuais.map((r) => r.id));
+        // Another one in the middle of the same set changes nothing drawn.
+        return seguinte.every((r) => ids.has(r.id)) ? atuais : seguinte;
+      });
     },
     [onViewportChange, offlineRegions],
   );
@@ -1001,12 +1019,17 @@ export function MapView({
     // Mark this country as failed and fall back to the Internet tiles. The
     // `setState` updater cannot have side effects: React may run it twice, and
     // then the failure would be recorded twice.
-    const falhado = offlineRegion?.id;
-    if (falhado) {
-      setFailedRegions((atuais) => (atuais.includes(falhado) ? atuais : [...atuais, falhado]));
+    // With several zones, the ones beside the middle go first: which file
+    // failed is not said, and the middle one is the one being looked at. If it
+    // was the middle one, the next failure takes it too.
+    const falhados =
+      offlineZones.length > 1 ? offlineZones.slice(1).map((r) => r.id) : offlineZones.map((r) => r.id);
+    if (falhados.length > 0) {
+      failedRef.current = [...new Set([...failedRef.current, ...falhados])];
+      setFailedRegions(failedRef.current);
     }
-    setOfflineRegion(null);
-  }, [offlineRegion]);
+    setOfflineZones(offlineZones.length > 1 ? [offlineZones[0]] : NO_ZONES);
+  }, [offlineZones]);
 
   /**
    * **With a network, the stored map is not used.**
@@ -1036,12 +1059,10 @@ export function MapView({
       mapStyleFor(
         theme.dark,
         settings.mapType,
-        semRede && offlineRegion && !failedRegions.includes(offlineRegion.id)
-          ? offlineRegion
-          : null,
+        semRede ? offlineZones.filter((r) => !failedRegions.includes(r.id)) : null,
         settings.satelliteDetail,
       ),
-    [theme.dark, settings.mapType, settings.satelliteDetail, offlineRegion, failedRegions, semRede],
+    [theme.dark, settings.mapType, settings.satelliteDetail, offlineZones, failedRegions, semRede],
   );
 
   /**

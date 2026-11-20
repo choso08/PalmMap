@@ -136,29 +136,52 @@ export interface StyleOverlay {
 /**
  * Builds the complete style.
  *
- * @param pmtilesUri  Address of the downloaded file, already with the `pmtiles://` prefix.
+ * @param pmtilesUri  Address of the downloaded file, already with the `pmtiles://` prefix —
+ *                    or several: zones of a country (Norte, Centro…) drawn together,
+ *                    so the map does not end at a zone's border.
  * @param glyphs      Template of the fonts' address, with `{fontstack}` and `{range}`.
  * @param dark        Whether the dark palette is used.
  * @param overlay     Internet tiles for the zooms where the country is not enough.
  */
 export function buildVectorStyle(
-  pmtilesUri: string,
+  pmtilesUri: string | string[],
   glyphs: string,
   dark: boolean,
   overlay?: StyleOverlay | null,
 ): StyleSpecification {
   const c = dark ? DARK : LIGHT;
 
-  const sources: Record<string, unknown> = {
-    [VECTOR_SOURCE]: {
+  const uris = Array.isArray(pmtilesUri) ? pmtilesUri : [pmtilesUri];
+  const sources: Record<string, unknown> = {};
+  uris.forEach((url, i) => {
+    sources[zoneSource(i)] = {
       type: 'vector',
-      url: pmtilesUri,
+      url,
       maxzoom: MAX_DATA_ZOOM,
-      attribution: ATTRIBUTION,
-    },
-  };
+      // Once: the same credit for every zone.
+      ...(i === 0 ? { attribution: ATTRIBUTION } : {}),
+    };
+  });
 
-  const styleLayers = layers(c);
+  // **Each layer once per zone, side by side** — the second zone's land is
+  // drawn right after the first's, before either's roads. Stacking whole
+  // styles would have zone B's land cover zone A's roads where the two meet.
+  // Where zones overlap they hold the same tiles (cut whole from one planet),
+  // so drawing both changes nothing, and the duplicated labels collide away.
+  const styleLayers: StyleSpecification['layers'] = [];
+  for (const layer of layers(c)) {
+    if (!('source' in layer)) {
+      styleLayers.push(layer);
+      continue;
+    }
+    uris.forEach((_, i) => {
+      styleLayers.push(
+        i === 0
+          ? layer
+          : ({ ...layer, id: `${layer.id}@${i}`, source: zoneSource(i) } as typeof layer),
+      );
+    });
+  }
 
   if (overlay) {
     sources[OVERLAY_SOURCE] = {
@@ -184,6 +207,11 @@ export function buildVectorStyle(
     sources,
     layers: styleLayers,
   } as StyleSpecification;
+}
+
+/** The source of the `i`-th zone: the first keeps the historical name. */
+function zoneSource(i: number): string {
+  return i === 0 ? VECTOR_SOURCE : `${VECTOR_SOURCE}-${i}`;
 }
 
 /** Name of the Internet tiles' source inside the downloaded map's style. */

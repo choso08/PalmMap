@@ -11,6 +11,7 @@ Prints what is needed to fix things against real data instead of guesses:
 """
 import gzip
 import math
+import os
 import re
 import urllib.parse
 import json
@@ -2029,7 +2030,12 @@ def _gtfs_rt_summary(body):
     return entities, vehicles, stamp
 
 
-def eu_feeds():
+def eu_feeds_compact():
+    """`eu_feeds`, printing only a short line per working source at the end."""
+    eu_feeds(compact=True)
+
+
+def eu_feeds(compact=False):
     """
     Every open EU source in scripts/eu-candidates.json (from the Mobility
     Database, scripts/eu-catalogue.py): does the producer's timetable address
@@ -2137,8 +2143,26 @@ def eu_feeds():
         return r
 
     with concurrent.futures.ThreadPoolExecutor(6) as pool:
+        results = []
         for r in pool.map(one, candidates):
-            print("EU|" + json.dumps(r, ensure_ascii=False), flush=True)
+            results.append(r)
+            if not compact:
+                print("EU|" + json.dumps(r, ensure_ascii=False), flush=True)
+    if not compact:
+        return
+    # One line per source that gave a real GTFS, and one per live feed with
+    # buses reported in the last ten minutes. Fields split by "|".
+    for r in sorted(results, key=lambda x: (x["pais"], x["local"], x["operador"])):
+        for label in ("url", "copia"):
+            g = r.get(label) or {}
+            if "paragens" in g:
+                print(f"OK|{r['mdb']}|{r['pais']}|{r['local']}|{r['operador']}|{label}|"
+                      f"{g['mb']}MB|{g['paragens']}st|{g['viagens']}tr|{g['ate']}")
+                break
+        for p in r["posicoes"]:
+            if p.get("veiculos") and (p.get("idade_s") is None or p["idade_s"] < 600):
+                print(f"VP|{r['mdb']}|{r['pais']}|{r['local']}|{r['operador']}|"
+                      f"{p['veiculos']}v|{p.get('idade_s')}s|{p['kb']}kB|{p['url']}")
 
 
 # Open orthophoto services of EU countries, to try (author's request, 20 November
@@ -2286,7 +2310,12 @@ def eu_orthos():
 
 
 
-def geofabrik_zones():
+def geofabrik_zones_compact():
+    """`geofabrik_zones` for the countries of map-regions.json only, short lines."""
+    geofabrik_zones(compact=True)
+
+
+def geofabrik_zones(compact=False):
     """
     Geofabrik's sub-regions of every country (author's request, 20 November
     2026: maps by zone — Alentejo, Norte… — and per administrative area in
@@ -2316,10 +2345,25 @@ def geofabrik_zones():
         walk(geom["coordinates"])
         return [round(min(xs), 3), round(min(ys), 3), round(max(xs), 3), round(max(ys), 3)]
 
+    wanted = None
+    if compact:
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "..", "map-regions.json"), encoding="utf-8") as fh:
+            cat = json.load(fh)["regioes"]
+        wanted = {r["geofabrik"].split("/")[-1] for r in cat if r.get("geofabrik")}
     for f in feats:
         p = f["properties"]
         parent = p.get("parent")
         if not parent or parent in continents or parent not in by_id:
+            continue
+        if wanted is not None:
+            grand = by_id[parent]["properties"].get("parent")
+            if parent not in wanted or grand not in continents:
+                continue
+            name = re.sub(r"<br\s*/?>.*", "", p.get("name") or "")
+            b = bbox(f["geometry"]) if f.get("geometry") else None
+            print(f"Z|{parent}|{p['id']}|{name}|{','.join(map(str, b)) if b else ''}"
+                  f"{'|+' if p['id'] in parents else ''}")
             continue
         # A child of a country (its parent's parent is a continent), or one
         # level below for countries split twice (England's counties, Bayern's
@@ -2332,6 +2376,74 @@ def geofabrik_zones():
             "filhos": p["id"] in parents,
             "pbf": p.get("urls", {}).get("pbf"),
         }, ensure_ascii=False), flush=True)
+
+
+
+# The orthophoto services that answered in eu_orthos, each with a point inside
+# and a point just across its border (in a neighbour, inside its rectangle).
+# kind, address (WMS base, or tile template), layer, inside (lat, lon), outside.
+EU_ORTHOS2 = [
+    ("FR", "wmts", "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg", "", (48.8566, 2.3522), (41.3874, 2.1686)),
+    ("FR", "wms", "https://data.geopf.fr/wms-r/wms", "HR.ORTHOIMAGERY.ORTHOPHOTOS", (48.8566, 2.3522), (41.3874, 2.1686)),
+    ("NL", "xyz", "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg", "", (52.3702, 4.8952), (51.2194, 4.4025)),
+    ("NL", "wms", "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0", "Actueel_orthoHR", (52.3702, 4.8952), (51.2194, 4.4025)),
+    ("BE-WAL", "wms", "https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer", "0", (50.6326, 5.5797), (50.8514, 5.6909)),
+    ("BE-VLA", "wms", "https://geo.api.vlaanderen.be/omw/wms", "OMWRGB25VL", (51.0543, 3.7174), (50.6292, 3.0573)),
+    ("LU", "wms", "https://wms.geoportail.lu/opendata/service", "ortho_latest", (49.6116, 6.1319), (49.6833, 5.8167)),
+    ("AT", "xyz", "https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg", "", (48.2082, 16.3738), (48.1486, 17.1077)),
+    ("DE-NW", "wms", "https://www.wms.nrw.de/geobasis/wms_nw_dop", "nw_dop_rgb", (50.9375, 6.9603), (51.3704, 6.1724)),
+    ("DE-BY", "wms", "https://geoservices.bayern.de/od/wms/dop/v1/dop20", "by_dop20c", (48.1372, 11.5756), (47.8095, 13.0550)),
+    ("DE-BB", "wms", "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms", "bebb_dop20c", (52.5200, 13.4050), (53.4285, 14.5528)),
+    ("DE-SN", "wms", "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest", "sn_dop_020", (51.0504, 13.7373), (50.6607, 14.0323)),
+    ("DE-HE", "wms", "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows", "he_dop20_rgb", (50.1109, 8.6821), (49.7913, 9.9534)),
+    ("DE-TH", "wms", "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP", "th_dop", (50.9848, 11.0299), (51.3127, 9.4797)),
+    ("DE-BW", "wms", "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C", "IMAGES_DOP_20_RGB", (48.7758, 9.1829), (48.5734, 7.7521)),
+    ("DE-ST", "wms", "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest", "lsa_lvermgeo_dop20_2", (52.1205, 11.6276), (52.2689, 10.5268)),
+    ("DE-SH", "wms", "https://service.gdi-sh.de/WMS_SH_DOP20col_OpenGBD", "sh_dop20_rgb", (54.3233, 10.1228), (53.5511, 9.9937)),
+    ("DE-MV", "wms", "https://www.geodaten-mv.de/dienste/adv_dop", "mv_dop", (54.0924, 12.0991), (53.4285, 14.5528)),
+    ("DE-RP", "wms", "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi", "rp_dop20", (49.9929, 8.2473), (50.0782, 8.2398)),
+    ("DE-SL", "wms", "https://geoportal.saarland.de/freewms/dop2022", "sl_dop20_rgb", (49.2402, 6.9969), (49.1193, 6.1757)),
+    ("DE-HB", "wms", "https://geodienste.bremen.de/wms_dop_lb", "DOP Luftbilder Land Bremen", (53.0793, 8.8017), (53.0505, 8.6316)),
+    ("DE-NI", "wms", "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms", "ni_dop20", (52.3759, 9.7320), (53.0793, 8.8017)),
+    ("CZ", "wms", "https://ags.cuzk.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer", "0", (50.0755, 14.4378), (51.0504, 13.7373)),
+    ("PL", "wms", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", "Raster", (52.2297, 21.0122), (52.3471, 14.5506)),
+    ("EE", "xyz", "https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{ty}.png", "", (59.4370, 24.7536), (57.8667, 24.3600)),
+]
+
+
+def eu_orthos2():
+    """
+    For each orthophoto service that answered: a tile inside and a tile just
+    across its border, in each format it might be asked in. A uniform tile
+    (white, black, transparent) is a few kB; imagery tens. "Outside" decides
+    whether the service can be drawn over its neighbours: a big opaque JPEG
+    there means squares of nothing over the neighbour's map.
+    """
+    section("EU ORTHOS 2")
+    z = 16
+    for country, kind, url, layer, inside, outside in EU_ORTHOS2:
+        r = {"pais": country, "tipo": kind}
+        for where, (lat, lon) in (("dentro", inside), ("fora", outside)):
+            if kind in ("xyz", "wmts"):
+                x, y = _tile(lat, lon, z)
+                t = url.replace("{z}", str(z)).replace("{x}", str(x)).replace("{y}", str(y)).replace("{ty}", str(2 ** z - 1 - y))
+                t0 = time.time()
+                st, ct, body = get(t, timeout=40)
+                r[where] = f"{st} {ct.split(';')[0]} {len(body) / 1e3:.1f}kB {time.time() - t0:.1f}s"
+                continue
+            mx, my = _merc(lat, lon)
+            h = 20037508.34 * 2 / 2 ** z / 2  # half a z16 tile, in metres
+            bbox = f"{mx - h},{my - h},{mx + h},{my + h}"
+            out = []
+            for fmt in ("image/vnd.jpeg-png8", "image/vnd.jpeg-png", "image/jpeg", "image/png"):
+                q = (f"{url}{'&' if '?' in url else '?'}SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS={urllib.parse.quote(layer)}"
+                     f"&STYLES=&CRS=EPSG:3857&BBOX={bbox}&WIDTH=512&HEIGHT=512&FORMAT={urllib.parse.quote(fmt)}&TRANSPARENT=true")
+                t0 = time.time()
+                st, ct, body = get(q, timeout=40)
+                ok = st == 200 and ct.startswith("image")
+                out.append(f"{fmt.split('/')[1]}:{(ct.split('/')[-1].split(';')[0] + ' ' + format(len(body) / 1e3, '.1f') + 'kB ' + format(time.time() - t0, '.1f') + 's') if ok else 'X' + str(st)}")
+            r[where] = " ; ".join(out)
+        print("O2|" + json.dumps(r, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":

@@ -385,12 +385,30 @@ const TRANSIT_STYLE = rasterStyle(
  * no downloaded substitute: one is imagery, the other carries information the
  * vector map does not have. Choosing one of them is choosing to need network.
  */
+/** The area the zones cover together; `undefined` if one has no area. */
+function unionBbox(zones: OfflineRegion[]): [number, number, number, number] | undefined {
+  let out: [number, number, number, number] | undefined;
+  for (const z of zones) {
+    if (!Array.isArray(z.bbox) || z.bbox.length !== 4) {
+      return undefined;
+    }
+    const [w, s, e, n] = z.bbox;
+    out = out
+      ? [Math.min(out[0], w), Math.min(out[1], s), Math.max(out[2], e), Math.max(out[3], n)]
+      : [w, s, e, n];
+  }
+  return out;
+}
+
 export function mapStyleFor(
   dark: boolean,
   mapType: MapType,
-  offline?: OfflineRegion | null,
+  offline?: OfflineRegion | OfflineRegion[] | null,
   satelliteDetail: SatelliteDetail = 'normal',
 ): StyleSpecification {
+  // Several zones of a country (Norte, Centro…) are drawn together; the first
+  // is the one in the middle of the view.
+  const zones = offline ? (Array.isArray(offline) ? offline : [offline]) : [];
   // Satellite + bus is the satellite underneath; the buses and stops are the
   // app's own layers on top.
   if (mapType === 'satellite' || mapType === 'satelliteTransit') {
@@ -400,19 +418,19 @@ export function mapStyleFor(
   // country downloaded, its stored map instead — the stops (from the stored
   // timetables) are our own layers and still draw on top (author's request:
   // transport must work offline). `offline` only comes without a network.
-  if (mapType === 'transit' && !offline) {
+  if (mapType === 'transit' && zones.length === 0) {
     return TRANSIT_STYLE;
   }
-  if (offline) {
+  if (zones.length > 0) {
     // When zooming far out, the downloaded country stops filling the screen
     // and the rest was left blank. Below that zoom the Internet tiles are shown
     // over the downloaded map — when there is no network they do not appear,
     // and what remains in view is the country again, which is the best one can
     // do without network.
-    return buildVectorStyle(localStyleSource(offline), glyphsTemplate(), dark, {
+    return buildVectorStyle(zones.map(localStyleSource), glyphsTemplate(), dark, {
       tiles: OSM_TILES,
       attribution: '© OpenStreetMap',
-      maxzoom: regionMinZoom(offline.bbox),
+      maxzoom: regionMinZoom(unionBbox(zones)),
       ...(dark ? { paint: DARK_PAINT } : {}),
     });
   }
