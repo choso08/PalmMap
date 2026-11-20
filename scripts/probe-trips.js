@@ -153,8 +153,9 @@ const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: '
     const todas = (r.data || []).filter((s) => /p[êe]ra\b/i.test((s.long_name || s.name || '').normalize('NFC')));
     const pera = [...todas.filter((s) => /cima/i.test(s.long_name || s.name || '')), ...todas.filter((s) => !/cima/i.test(s.long_name || s.name || ''))].slice(0, 8);
     console.log(`\n=== Pêra de Cima stops: ${pera.map((s) => `${s.id} ${s.long_name} ${s.lat},${s.lon} [${(s.line_ids || []).join(',')}]`).join(' | ')}`);
-    if (pera[0]) {
-      const destino = { latitude: Number(pera[0].lat), longitude: Number(pera[0].lon) };
+    {
+      // Rua Azinhaga de Pêra (line 3033), by Pêra de Cima.
+      const destino = { latitude: 38.661144, longitude: -9.214555 };
       for (const [nome, [la, lo]] of [['Granja', [38.6656, -9.1996]], ['Almada centro', [38.6790, -9.1569]], ['Costa da Caparica', [38.6413, -9.2358]]]) {
         const origem = { latitude: la, longitude: lo };
         const vivo = await transit.planBusTrips(origem, destino).catch((e) => `ERRO ${e && e.message}`);
