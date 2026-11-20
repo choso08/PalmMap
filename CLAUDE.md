@@ -20,9 +20,9 @@ biggest unknown and no longer is.
    The author asked: **build only when they say so.** Do not start the workflow unasked.
 2. **The maps are published under the `mapas` tag** — in November 2026 mainland Portugal's
    five zones (Norte, Centro, Lisboa e Vale do Tejo, Alentejo, Algarve), Madeira, Azores, São Tomé and Príncipe, Cape Verde, Guinea-Bissau, Angola,
-   Mozambique, Timor-Leste, Brazil, Morocco, Spain, France, Italy, Germany, United Kingdom,
-   Ireland, Netherlands, Belgium, Luxembourg, Switzerland, Austria, Poland, Czechia,
-   Croatia, Denmark and Greece. The manifest (`mapas.json` in that Release) is the truth;
+   Mozambique, Timor-Leste, Morocco, Ireland, Belgium, Luxembourg, Switzerland, Austria,
+   Croatia, Denmark and Greece whole; Spain (with the Canaries), France, Italy, Germany, the
+   United Kingdom, the Netherlands, Poland, Czechia and Brazil by zone only. The manifest (`mapas.json` in that Release) is the truth;
    read it rather than this list.
 3. **When touching the offline map, always test with data off.** If the stored map fails to
    open, the app falls back to the Internet tiles by itself and everything looks fine — a
@@ -678,6 +678,11 @@ environment cannot reach.
   `espanha-canarias` (`africa/canary-islands`) added; the UK's have no Northern Ireland,
   which is in the Ireland map (`ireland-and-northern-ireland`), whose bbox was widened east
   to −5.3 so the Ards coast is not cut. Ceuta and Melilla are in no zone.
+  **Done the same evening**: every zone of those nine countries, `espanha-canarias` and the
+  widened `irlanda` published, and all nine whole maps removed from `mapas.json`. **EU
+  timetables generated** that day for every country in `transit-feeds.json` except those
+  never listed (IT, then DE, PL, CZ, SK, HU, then RO, BG, HR, SI, FI, EE, LV, LT, IE, CY —
+  each batch complete, checked against the catalogue).
 - **Catalogue names in English, timetables by country** (author, 20 November 2026: "don't
   forget the translations of the transport etc., and each country of transport in a
   drop-down"; not seen on a phone). The manifests name maps, zones, countries and timetables
