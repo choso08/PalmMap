@@ -95,7 +95,7 @@ jobs:
         run: |
           mkdir -p /tmp/t && cd /tmp/t
           npm init -y > /dev/null
-          npm install --no-audit --no-fund axios@1 typescript@6.0.3 > /dev/null
+          npm install --no-audit --no-fund axios@1 typescript@6.0.3 gtfs-realtime-bindings@^3.0.0 > /dev/null
           # Compiled from /tmp/t, where there is no tsconfig.json: given a file by
           # hand, tsc refuses to run next to one.
           node_modules/.bin/tsc "$GITHUB_WORKSPACE/src/services/transit.ts" \
