@@ -300,6 +300,7 @@ export const en: typeof pt = {
     hiddenByPrefs: (n: number) =>
       n === 1 ? '1 option hidden by your preferences.' : `${n} options hidden by your preferences.`,
     noDirectTransit: 'No connection, not even with one change.',
+    getBusTimetable: (size: string) => `Download bus timetables (${size}) for more changes`,
     bikeTypes: { road: 'Road', normal: 'Normal', mtb: 'Mountain' },
     busStop: 'Bus stop',
     changeAt: (stop: string, wait: string, walk: string | null) =>

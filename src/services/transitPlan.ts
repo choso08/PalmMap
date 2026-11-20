@@ -1,6 +1,9 @@
 import { t } from '../i18n';
 import {
   ensureFeedsFor,
+  installedFeeds,
+  isInstalled,
+  listFeeds,
   planScheduledTransfers,
   planScheduledRaptor,
   planScheduledTrips,
@@ -22,6 +25,7 @@ import { distanceMeters } from '../utils/geometry';
 import { isOnline } from './network';
 import { TRANSIT_WALK_MAX_M } from './config';
 import type { Coordinates } from '../types/geo';
+import type { ScheduleFeedInfo } from '../types/schedule';
 import type { TransitModeGroup, TransitSort } from '../settings';
 
 /**
@@ -39,7 +43,19 @@ export interface TransitPlan {
   trips: TransitTrip[];
   /** Why there are none, when there are none and something failed. */
   error: string | null;
+  /**
+   * With nothing found: the bus timetable that would let the planner change
+   * buses several times (`BUS_TIMETABLE_ID`), offered for a tap — it is never
+   * downloaded by itself.
+   */
+  offerFeed?: ScheduleFeedInfo;
 }
+
+/** Carris Metropolitana's stored timetable (3 MB): buses with several changes. */
+export const BUS_TIMETABLE_ID = 'carris';
+/** How far ahead the several-changes search looks, in windows of two hours. */
+const RAPTOR_WINDOWS = 6;
+const RAPTOR_WINDOW_S = 2 * 3600;
 
 /**
  * When the trip is: leaving now, leaving at a time, or arriving by a time —
@@ -193,15 +209,54 @@ async function compute(
     return kept.sort((a, b) => a.reachAt - b.reachAt || b.leaveAt - a.leaveAt);
   };
 
+  // **Bus to bus, as many times as it takes** (author, 20 November 2026: "it can
+  // change from bus to bus"). The one-change searches above stop at one; RAPTOR
+  // over the stored timetables takes up to `RAPTOR_MAX_RIDES` vehicles, and with
+  // Carris Metropolitana's timetable on the phone those are buses too. It only
+  // looks two hours ahead, so it is asked window after window, up to twelve
+  // hours on. Without that timetable, it is offered (`offerFeed`).
+  let offerFeed: ScheduleFeedInfo | undefined;
+  const severalChanges = async (): Promise<TransitTrip[]> => {
+    const bus = installedFeeds().find((f) => f.id === BUS_TIMETABLE_ID && isInstalled(f));
+    if (!bus) {
+      const published = await listFeeds().catch(() => [] as ScheduleFeedInfo[]);
+      const info = published.find((f) => f.id === BUS_TIMETABLE_ID);
+      const inside = (c: Coordinates) => {
+        const [w, so, e, n] = info?.bbox ?? [0, 0, 0, 0];
+        return c.longitude >= w && c.longitude <= e && c.latitude >= so && c.latitude <= n;
+      };
+      if (info && inside(origin) && inside(destination)) {
+        offerFeed = info;
+      }
+      return [];
+    }
+    // The first window was already asked with the other stored timetables.
+    for (let k = 1; k <= RAPTOR_WINDOWS; k++) {
+      const found = await planScheduledRaptor(
+        origin,
+        destination,
+        startAt + k * RAPTOR_WINDOW_S,
+        1,
+      ).catch(() => [] as TransitTrip[]);
+      if (found.length > 0) {
+        return found;
+      }
+    }
+    return [];
+  };
+
   // Nothing at all: the next buses from the lines' own timetables, later today
   // or another day (`timetableBusTrips`; author's photo, Pêra de Cima — "there
   // is a bus, just not now"). Walking is beaten from when one leaves for it,
   // not from now: a bus tomorrow morning still beats a 40 km walk.
   const later = async (): Promise<TransitTrip[]> => {
-    if (!isOnline()) {
-      return [];
+    // Offline, the lines' patterns cannot be asked; the stored timetables can.
+    let found = isOnline()
+      ? await timetableBusTrips(origin, destination, startAt).catch(() => [])
+      : [];
+    if (found.length === 0) {
+      found = await severalChanges();
     }
-    const found = await timetableBusTrips(origin, destination, startAt).catch(() => []);
     const kept = unique(found).filter((trip) =>
       beatsWalking(trip, origin, destination, trip.leaveAt),
     );
@@ -224,6 +279,7 @@ async function compute(
     }
     return {
       trips,
+      offerFeed: trips.length === 0 ? offerFeed : undefined,
       error:
         trips.length === 0
           ? isOnline()
@@ -248,6 +304,7 @@ async function compute(
     }
     return {
       trips,
+      offerFeed: trips.length === 0 ? offerFeed : undefined,
       error: buses === null && trips.length === 0 ? t().errors.noTransitStops : null,
     };
   } catch (error) {

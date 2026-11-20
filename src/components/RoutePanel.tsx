@@ -115,6 +115,13 @@ interface RoutePanelProps {
   onChangeTransitWhen?: (when: TransitWhen) => void;
   /** Plan the transport trip again: the times shown age (author's report). */
   onRefreshTransit?: () => void;
+  /**
+   * With nothing found, the bus timetable's size in bytes when downloading it
+   * would let the planner change buses several times; the tap downloads it.
+   */
+  busTimetableBytes?: number | null;
+  onGetBusTimetable?: () => void;
+  busTimetableBusy?: boolean;
   /** The chosen trip's steps, for its timeline; null while being prepared. */
   transitGuide?: TransitGuide | null;
   /** Alternative routes, and which one is chosen. */
@@ -197,6 +204,9 @@ export function RoutePanel({
   transitGuide,
   onChangeTransitWhen,
   onRefreshTransit,
+  busTimetableBytes,
+  onGetBusTimetable,
+  busTimetableBusy,
   elevation = null,
   optionElevations,
   rain = null,
@@ -536,6 +546,24 @@ export function RoutePanel({
                 ? strings.route.hiddenByPrefs(transitHidden)
                 : strings.route.noDirectTransit}
             </Text>
+          ) : null}
+          {transitTrips.length === 0 && busTimetableBytes && onGetBusTimetable ? (
+            <Pressable
+              style={styles.busTimetable}
+              onPress={onGetBusTimetable}
+              disabled={busTimetableBusy}
+            >
+              {busTimetableBusy ? (
+                <ActivityIndicator size="small" color={theme.accent} />
+              ) : (
+                <MaterialCommunityIcons name="bus-multiple" size={18} color={theme.accent} />
+              )}
+              <Text style={styles.busTimetableText}>
+                {strings.route.getBusTimetable(
+                  `${(busTimetableBytes / 1048576).toFixed(1).replace('.', strings.units.decimal)} MB`,
+                )}
+              </Text>
+            </Pressable>
           ) : null}
 
           {transitTrips.map((t, i) => {
@@ -1162,6 +1190,18 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       borderRadius: 14,
       backgroundColor: theme.surfaceMuted,
     },
+    busTimetable: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.accent,
+    },
+    busTimetableText: { flex: 1, color: theme.accent, fontSize: 14, fontWeight: '600' },
     avisoTexto: {
       flex: 1,
       fontSize: 12,

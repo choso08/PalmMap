@@ -576,6 +576,13 @@ environment cannot reach.
   tomorrow 07:05; Seixal → 3116 to Corroios, change to the 3527; Amadora → 1716 to Marquês
   de Pombal, then the 3709, at the weekend Monday's first. 2–9 s the first time (patterns
   asked), milliseconds after.
+  **Bus to bus, several times** (author: "it can change from bus to bus", same day): still
+  nothing, and `planScheduledRaptor` (up to four vehicles, buses included once Carris
+  Metropolitana's stored timetable is on the phone) is asked window after window
+  (`RAPTOR_WINDOWS` × 2 h, twelve hours on) — it only looks two hours ahead. Without that
+  timetable (`BUS_TIMETABLE_ID` `carris`, 3.1 MB in v2) the plan carries `offerFeed`, and the
+  route panel offers "Download bus timetables (3,1 MB) for more changes" under "no
+  connection": a tap downloads and plans again. Never downloaded by itself.
 - **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
   none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
   vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so

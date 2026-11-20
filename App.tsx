@@ -168,9 +168,11 @@ import {
   searchCategoryInBounds,
 } from './src/services/overpass';
 import {
+  downloadFeed,
   ensureFeedsFor,
   scheduledBusStops,
 } from './src/services/schedules';
+import type { ScheduleFeedInfo } from './src/types/schedule';
 import { ALL_BUSINESSES, localPlacesInBounds, poisRegionFor } from './src/services/localPois';
 import {
   liveVehicles,
@@ -652,6 +654,9 @@ function PalmMap() {
    * the shown plan was made.
    */
   const [transitRefresh, setTransitRefresh] = useState(0);
+  /** The bus timetable offered when a plan found nothing (`TransitPlan.offerFeed`). */
+  const [busTimetableOffer, setBusTimetableOffer] = useState<ScheduleFeedInfo | null>(null);
+  const [busTimetableBusy, setBusTimetableBusy] = useState(false);
   const transitPlannedAt = useRef(0);
   useEffect(() => {
     setTransitWhen(LEAVE_NOW);
@@ -1729,6 +1734,7 @@ function PalmMap() {
             return;
           }
           setTransitTrips(plan.trips);
+          setBusTimetableOffer(plan.offerFeed ?? null);
           setTransitTripIndex(0);
           transitPlannedAt.current = Date.now();
           setRouteError(plan.error);
@@ -4423,6 +4429,27 @@ function PalmMap() {
                 transitGuide={previewGuide}
                 onChangeTransitWhen={setTransitWhen}
                 onRefreshTransit={refreshTransit}
+                busTimetableBytes={
+                  busTimetableOffer ? busTimetableOffer.bytes2 ?? busTimetableOffer.bytes : null
+                }
+                busTimetableBusy={busTimetableBusy}
+                onGetBusTimetable={() => {
+                  const info = busTimetableOffer;
+                  if (!info || busTimetableBusy) {
+                    return;
+                  }
+                  // A tap, never by itself: 3 MB the person asked for.
+                  setBusTimetableBusy(true);
+                  void downloadFeed(info)
+                    .then(() => {
+                      setBusTimetableOffer(null);
+                      refreshTransit();
+                    })
+                    .catch((error: unknown) =>
+                      setRouteError(error instanceof Error ? error.message : String(error)),
+                    )
+                    .finally(() => setBusTimetableBusy(false));
+                }}
               />
             )}
           </DraggableSheet>

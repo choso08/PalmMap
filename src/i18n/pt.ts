@@ -320,6 +320,7 @@ export const pt = {
     hiddenByPrefs: (n: number) =>
       n === 1 ? '1 opção escondida pelas preferências.' : `${n} opções escondidas pelas preferências.`,
     noDirectTransit: 'Não há ligação, nem com um transbordo.',
+    getBusTimetable: (size: string) => `Descarregar horários dos autocarros (${size}) para mais transbordos`,
     bikeTypes: { road: 'Estrada', normal: 'Normal', mtb: 'BTT' },
     busStop: 'Paragem',
     changeAt: (stop: string, wait: string, walk: string | null) =>
