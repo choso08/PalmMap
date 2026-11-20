@@ -109,6 +109,19 @@ def download_feed(urls: list[str]) -> tuple[str, zipfile.ZipFile]:
 # --- Read the GTFS-------------------------------------------------------------
 
 
+def iter_table(archive: zipfile.ZipFile, name: str):
+    """
+    A GTFS table, one row at a time. For `stop_times.txt` of a national feed
+    (OVapi: 1.1 million trips) a whole list of dicts does not fit in a runner's
+    memory; streaming it does.
+    """
+    if name not in archive.namelist():
+        return
+    with archive.open(name) as bruto:
+        texto = io.TextIOWrapper(bruto, encoding="utf-8-sig", newline="")
+        yield from csv.DictReader(texto)
+
+
 def read_table(archive: zipfile.ZipFile, name: str) -> list[dict[str, str]]:
     """A GTFS table. Returns an empty list if the file does not exist."""
     if name not in archive.namelist():
@@ -232,10 +245,39 @@ def build(feed: dict, janela: list[str]) -> tuple[dict, str]:
     if not viagens:
         raise RuntimeError("No trip runs in the coming days. Feed out of date?")
 
+    # **A cut by area** (`recorte`: west, south, east, north), for national
+    # feeds too big for a phone to plan over (author, 20 November 2026: "split
+    # the national ones by zone"): only the trips calling at a stop inside it,
+    # each kept whole — a train from Utrecht to Amsterdam stays in the
+    # Noord-Holland file with its stops outside. A first pass over the stop
+    # times finds them.
+    recorte = feed.get("recorte")
+    if recorte:
+        w, so, e, n = (float(x) for x in recorte)
+        dentro = set()
+        for stop_id, linha in stops_raw.items():
+            try:
+                lat = float(linha.get("stop_lat") or "")
+                lon = float(linha.get("stop_lon") or "")
+            except ValueError:
+                continue
+            if w <= lon <= e and so <= lat <= n:
+                dentro.add(stop_id)
+        tocam = set()
+        for linha in iter_table(archive, "stop_times.txt"):
+            trip = linha.get("trip_id")
+            if trip in viagens and (linha.get("stop_id") or "").strip() in dentro:
+                tocam.add(trip)
+        viagens = {k: v for k, v in viagens.items() if k in tocam}
+        log(f"  cut to {recorte}: {len(dentro)} stop(s) inside, {len(viagens)} trip(s) call there")
+        if not viagens:
+            raise RuntimeError("No trip calls inside the cut.")
+
     # The stop times, grouped by trip. It is the big table — hundreds of
-    # thousands of lines at CP — so only the essentials are kept.
+    # thousands of lines at CP — so only the essentials are kept, read a row at
+    # a time.
     passagens: dict[str, list[tuple[int, str, int]]] = {}
-    for linha in read_table(archive, "stop_times.txt"):
+    for linha in iter_table(archive, "stop_times.txt"):
         trip = linha.get("trip_id")
         if trip not in viagens:
             continue
@@ -1092,7 +1134,13 @@ def main() -> int:
     falhados = []
 
     for feed in catalogo.get("feeds", []):
-        if pedidos and pedidos != ["todos"] and feed["id"] not in pedidos:
+        # An id, or a whole country: "pais:IT" is every Italian timetable.
+        if (
+            pedidos
+            and pedidos != ["todos"]
+            and feed["id"] not in pedidos
+            and f"pais:{feed.get('pais', 'PT')}" not in pedidos
+        ):
             continue
 
         log(f"::group::{feed['nome']}")

@@ -536,6 +536,24 @@ environment cannot reach.
   (`poisRegionsFor`), twins merged as before. The maps list (`OfflineMaps.tsx`) groups by
   `pais ?? nome`: one row for a country with one map, a drop-down for the rest, opened by a
   matching search. Published entries without `pais` stay their own country until redone.
+- **Timetables of 23 EU countries** (author, 20 November 2026: "sources per country:
+  timetables and, if possible, live positions"; none generated yet, none seen on a phone).
+  `scripts/eu-catalogue.py` picked the active, keyless EU sources from the Mobility Database
+  (446, `scripts/eu-candidates.json`); `sondar: eu_feeds` (and `eu_feeds_compact`,
+  `_compact_a`, `_compact_fr` — the log is cut past ~300 lines) tried each from GitHub's
+  runners: real GTFS, size, stops, trips, last day, and every GTFS-RT feed's vehicles and age.
+  140 entries went into `transit-feeds.json` with `pais` (and `posicoes` for 28 live feeds):
+  only current ones (to mid-December 2026 or later), big cities and national rail first.
+  Left out on purpose: DELFI (Germany, 3.2 million trips — the transport associations
+  instead), TFI (Ireland, the operators instead), Sweden (all keyed), Greece's OASA, Lyon's
+  TCL, Lille, Strasbourg, Nantes, Rennes, Montpellier, Milan's ATM, Katowice, Wrocław,
+  Luxembourg, STIB, ÖBB, Porto's STCP (expired), and OVapi's live feed (`http://` only).
+  **National feeds too big for a phone are cut by area** (`recorte` in the entry: trips
+  calling inside, each kept whole; `build-transit.py`, which now streams `stop_times.txt`
+  — a list of dicts of OVapi's did not fit a runner): OVapi in four (Randstad, North and East,
+  South, Gelderland), Autolinee Toscane to Florence. The workflow takes `pais:IT` for a whole
+  country. Licences are in each entry's `notas`; most are CC BY or the national open
+  licences — credit the operators in About if they are ever listed there.
 - **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
   none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
   vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so

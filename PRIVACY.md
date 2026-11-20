@@ -22,6 +22,7 @@ and not you.
 | Routes (OSRM, Valhalla) | FOSSGIS e.V. | **Start, stops on the way and destination** | When you ask for a route, and on recalculating |
 | Businesses, speed cameras and limits (Overpass) | Volunteers (overpass-api.de, private.coffee) | The area in view, or along the route | Category buttons, a tapped business, cameras/limits on a route |
 | Public transport (Carris Metropolitana, Carris) | The operators | Which stop, line or bus you look at; the live bus list | Transport map and trips |
+| Live buses of other operators (Rome, Prague, Helsinki, Kraków, Bucharest…; GTFS-RT) | Each operator, or the open proxy it publishes through (busone.app for several Italian ones) | Nothing but the request: the whole fleet's positions come back, filtered on the phone | Transport map, only over that operator's area, only with its timetable downloaded |
 | Weather at the destination (Open-Meteo) | Open-Meteo | The destination rounded to about 1 km, and the hour | A route with route hints on |
 | Photos and street view (Wikimedia, Wikidata, Panoramax) | Wikimedia, Panoramax | The business's photo name, or a point near the place; with street view on, the coverage squares of the area in view and the point tapped | Opening a card, using street view |
 | OpenStreetMap notes | OSM Foundation | Your report's text and the place, **anonymously** | Only when you press Send on "Report" |

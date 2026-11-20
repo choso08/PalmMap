@@ -96,6 +96,1739 @@
         "https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS"
       ],
       "notas": "Autocarros e elétricos DENTRO de Lisboa (não é a Carris Metropolitana). Encontrado em Nov 2026 pela Mobility Database (fonte 2929): gateway.carris.pt responde com o GTFS, 47 MB, 177 linhas."
+    },
+    {
+      "id": "wien",
+      "nome": "Wiener Linien e Wiener Lokalbahnen",
+      "kind": "subway",
+      "pais": "AT",
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/at-wien-wiener-lokalbahnen-wlb-gtfs-648.zip?alt=media"
+      ],
+      "notas": "Mobility Database 648 (Wiener Lokalbahnen (WLB), Wiener Linien), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "sncb",
+      "nome": "SNCB — comboios da Bélgica",
+      "kind": "train",
+      "pais": "BE",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.irail.be/nmbs/gtfs/latest.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/be-unknown-societe-nationale-des-chemins-de-fer-belges-nmbs-sncb-gtfs-686.zip?alt=media"
+      ],
+      "notas": "Mobility Database 686 (Société nationale des chemins de fer belges (NMBS-SNCB)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "tec",
+      "nome": "TEC — Valónia",
+      "kind": "bus",
+      "pais": "BE",
+      "confirmado": true,
+      "urls": [
+        "https://data.gtfs.be/tec/gtfs/be-tec-gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/be-wallonne-tec-gtfs-1868.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1868 (TEC), probed 20 November 2026 (sondar: eu_feeds). Licence: https://gtfs.be/."
+    },
+    {
+      "id": "sofia",
+      "nome": "Sofia — transportes urbanos",
+      "kind": "bus",
+      "pais": "BG",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.sofiatraffic.bg/api/v1/static",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/bg-sofia-city-gtfs-2848.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2848 (Urban Mobility Center - Sofia Traffic), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.sofiatraffic.bg/bg/info-center/gtfs-danni.",
+      "posicoes": "https://gtfs.sofiatraffic.bg/api/v1/vehicle-positions"
+    },
+    {
+      "id": "plovdiv",
+      "nome": "Plovdiv — transportes urbanos",
+      "kind": "bus",
+      "pais": "BG",
+      "confirmado": true,
+      "urls": [
+        "https://sipbg.gov.bg/bgnap/portal/api/catalog/files/2527423b-e006-438d-8743-19d987b609fd/download",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/bg-plovdiv-plovdiv-municipality-transport-organisation-and-control-gtfs-3607.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3607 (Plovdiv Municipality Transport Organisation and Control), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "varna",
+      "nome": "Varna — transportes urbanos",
+      "kind": "bus",
+      "pais": "BG",
+      "confirmado": true,
+      "urls": [
+        "https://sipbg.gov.bg/bgnap/portal/api/catalog/files/79642de1-da00-47b3-9417-994ccf53ed4e/download",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/bg-varna-gradski-transport-varna-gtfs-3606.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3606 (Gradski Transport Varna), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "burgas",
+      "nome": "Burgasbus",
+      "kind": "bus",
+      "pais": "BG",
+      "confirmado": true,
+      "urls": [
+        "https://external.gtfs.ro/cities/bg-burgas.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/bg-burgas-burgasbus-gtfs-3613.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3613 (Burgasbus), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "chipre-lpt",
+      "nome": "Limassol (LPT)",
+      "kind": "bus",
+      "pais": "CY",
+      "confirmado": true,
+      "urls": [
+        "https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C10_google_transit.zip&rel=True",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cy-unknown-lpt-gtfs-1919.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1919 (LPT), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "chipre-osypa",
+      "nome": "Pafos (OSYPA)",
+      "kind": "bus",
+      "pais": "CY",
+      "confirmado": true,
+      "urls": [
+        "https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C2_google_transit.zip&rel=True",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cy-unknown-osypa-gtfs-1915.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1915 (OSYPA), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "chipre-osea",
+      "nome": "Famagusta (OSEA)",
+      "kind": "bus",
+      "pais": "CY",
+      "confirmado": true,
+      "urls": [
+        "https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C4_google_transit.zip&rel=True",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cy-unknown-osea-gtfs-1916.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1916 (OSEA), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "chipre-intercity",
+      "nome": "Chipre — interurbanos",
+      "kind": "bus",
+      "pais": "CY",
+      "confirmado": true,
+      "urls": [
+        "https://www.motionbuscard.org.cy/opendata/downloadfile?file=GTFS%5C5_google_transit.zip&rel=True",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cy-unknown-intercity-buses-gtfs-1917.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1917 (Intercity buses), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "praga",
+      "nome": "Praga (PID)",
+      "kind": "subway",
+      "pais": "CZ",
+      "confirmado": true,
+      "urls": [
+        "http://data.pid.cz/PID_GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cz-praha-prazska-integrovana-doprava-pid-gtfs-767.zip?alt=media"
+      ],
+      "notas": "Mobility Database 767 (Prazska integrovana doprava (PID)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://pid.cz/o-systemu/opendata/.",
+      "posicoes": "https://api.golemio.cz/v2/vehiclepositions/gtfsrt/vehicle_positions.pb"
+    },
+    {
+      "id": "brno",
+      "nome": "Morávia do Sul (IDS JMK)",
+      "kind": "bus",
+      "pais": "CZ",
+      "confirmado": true,
+      "urls": [
+        "https://www.arcgis.com/sharing/rest/content/items/379d2e9a7907460c8ca7fda1f3e84328/data",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/cz-south-moravian-integrated-transit-system-of-the-south-moravian-region-ids-jmk-gtfs-2155.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2155 (Integrated Transit System of the South Moravian Region (IDS JMK)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.brno.cz/datasets/379d2e9a7907460c8ca7fda1f3e84328/about."
+    },
+    {
+      "id": "vbb",
+      "nome": "Berlim e Brandeburgo (VBB)",
+      "kind": "subway",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://unternehmen.vbb.de/fileadmin/user_upload/VBB/Dokumente/API-Datensaetze/gtfs-mastscharf/GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-berlin-verkehrsverbund-berlin-brandenburg-gtfs-3233.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3233 (Verkehrsverbund Berlin-Brandenburg (VBB)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://creativecommons.org/licenses/by/4.0/deed.en."
+    },
+    {
+      "id": "hvv",
+      "nome": "Hamburgo (HVV)",
+      "kind": "subway",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://daten.transparenz.hamburg.de/Dataport.HmbTG.ZS.Webservice.GetRessource100/GetRessource100.svc/f0073555-962c-4d55-870e-b94bb676ad9d/Upload__hvv_Rohdaten_GTFS_Fpl_20260408.ZIP",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-hamburg-hamburger-verkehrsverbund-gmbh-hvv-gtfs-3362.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3362 (Hamburger Verkehrsverbund GmbH (HVV)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.govdata.de/dl-de/by-2-0."
+    },
+    {
+      "id": "mvg",
+      "nome": "Munique (MVG)",
+      "kind": "subway",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://www.mvg.de/static/gtfs/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-bavaria-munchner-verkehrsgesellschaft-mvg-gtfs-2335.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2333 (Münchner Verkehrsgesellschaft (MVG)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.mvg.de/verbindungen/Fahrplandaten.html."
+    },
+    {
+      "id": "vgn",
+      "nome": "Nuremberga (VGN)",
+      "kind": "subway",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "http://www.vgn.de/opendata/GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-bayern-verkehrsverbund-grossraum-nurnberg-vgn-gtfs-858.zip?alt=media"
+      ],
+      "notas": "Mobility Database 858 (Ver­kehrs­ver­bund Groß­raum Nürn­berg (VGN)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "vrs",
+      "nome": "Colónia e Bona (VRS)",
+      "kind": "light_rail",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "http://download.vrsinfo.de/gtfs/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-bayern-verkehrsverbund-rhein-sieg-gtfs-778.zip?alt=media"
+      ],
+      "notas": "Mobility Database 778 (Verkehrsverbund Rhein-Sieg (VRS)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.vrs.de/fahren/fahrplanauskunft/opendata-/-openservice."
+    },
+    {
+      "id": "kvv",
+      "nome": "Karlsruhe (KVV)",
+      "kind": "light_rail",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://projekte.kvv-efa.de/GTFS/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-baden-wurttemberg-karlsruher-verkehrsverbund-gtfs-2231.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2231 (Karlsruher Verkehrsverbund), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.kvv.de/fahrplan/fahrplaene/open-data.html."
+    },
+    {
+      "id": "rnv",
+      "nome": "Mannheim e Heidelberga (RNV)",
+      "kind": "light_rail",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs-sandbox-dds.rnv-online.de/latest/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-baden-wurttemberg-rhein-neckar-verkehr-gtfs-777.zip?alt=media"
+      ],
+      "notas": "Mobility Database 777 (Rhein-Neckar-Verkehr), probed 20 November 2026 (sondar: eu_feeds). Licence: https://opendata.rnv-online.de/dataset/gtfs-general-transit-feed-specification."
+    },
+    {
+      "id": "vmt",
+      "nome": "Turíngia central (VMT)",
+      "kind": "bus",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://www.vmt-thueringen.de/fileadmin/VMT_Redaktion/OPEN_DATA/VMT_GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-thuringen-verkehrsverbund-mittelthuringen-vmt-gtfs-1172.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1172 (Verkehrsverbund Mittelthüringen (VMT)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://creativecommons.org/licenses/by-nd/2.0/de/."
+    },
+    {
+      "id": "freiburg",
+      "nome": "Friburgo (VAG)",
+      "kind": "light_rail",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://www.vag-freiburg.de/fileadmin/gtfs/VAGFR.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-baden-wurttemberg-freiburger-verkehrs-ag-vag-gtfs-1115.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1115 (Freiburger Verkehrs AG (VAG), R.A.S.T. Reisen (RAST), Tuniberg Express), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.vag-freiburg.de/service-infos/downloads/gtfs-daten."
+    },
+    {
+      "id": "aachen",
+      "nome": "Aachen (AVV)",
+      "kind": "bus",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "http://opendata.avv.de/current_GTFS/AVV_GTFS_Masten_mit_SPNV.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-nordrhein-westfalen-rurtalbahn-gmbh-gtfs-1224.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1224 (Rurtalbahn GmbH | ABELLIO Rail | VIAS GmbH| Aachener Straßenbahn und Energieversorgungs-AG | Rurtalbus GmbH | WestVerkehr GmbH | Staatsbahnen | National Express | ASEAG Netliner), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "ulm",
+      "nome": "Ulm (SWU)",
+      "kind": "bus",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.swu.de/daten/SWU.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-baden-wurttemberg-swu-verkehr-gmbh-swu-gtfs-776.zip?alt=media"
+      ],
+      "notas": "Mobility Database 776 (SWU Verkehr GmbH (SWU)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "de-regional",
+      "nome": "Alemanha — comboios regionais",
+      "kind": "train",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://download.gtfs.de/germany/rv_free/latest.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-unknown-verkehrsverbund-stuttgart-gtfs-1089.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1089 (Regional Rail Transport Germany), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "de-longo",
+      "nome": "Alemanha — longo curso",
+      "kind": "train",
+      "pais": "DE",
+      "confirmado": true,
+      "urls": [
+        "https://download.gtfs.de/germany/fv_free/latest.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/de-bayern-gesamtnetz-der-deutschen-bahn-gtfs-768.zip?alt=media"
+      ],
+      "notas": "Mobility Database 768 (Long-distance rail transport in Germany), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "rejseplanen",
+      "nome": "Dinamarca (Rejseplanen)",
+      "kind": "bus",
+      "pais": "DK",
+      "confirmado": true,
+      "urls": [
+        "https://www.rejseplanen.info/labs/GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/dk-unknown-rejseplanen-gtfs-1292.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1292 (Rejseplanen), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "tallinn",
+      "nome": "Tallinn — transportes urbanos",
+      "kind": "bus",
+      "pais": "EE",
+      "confirmado": true,
+      "urls": [
+        "https://eu-gtfs.remix.com/tallinn.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ee-tallinna-linn-tallinna-linn-gtfs-3047.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3047 (Tallinna Linn), probed 20 November 2026 (sondar: eu_feeds). Licence: https://peatus.ee/content/teenusest."
+    },
+    {
+      "id": "tartu",
+      "nome": "Tartu — transportes urbanos",
+      "kind": "bus",
+      "pais": "EE",
+      "confirmado": true,
+      "urls": [
+        "https://eu-gtfs.remix.com/tartu.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ee-tartumaa-gobus-as-gtfs-3363.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3363 (GoBus AS, HANSABUSS AS, SEBE Aktsiaselts), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.agri.ee/regionaalareng-uhistransport/uhistransport-ja-reisimine/uhistranspordiregistri-avaandmed."
+    },
+    {
+      "id": "elron",
+      "nome": "Elron — comboios da Estónia",
+      "kind": "train",
+      "pais": "EE",
+      "confirmado": true,
+      "urls": [
+        "https://eu-gtfs.remix.com/elron.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ee-unknown-elron-gtfs-3153.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3153 (ELRON), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "emt-madrid",
+      "nome": "EMT Madrid",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://servicios.emtmadrid.es:8443/gtfs/transitemt.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-madrid-empresa-municipal-de-transportes-de-madrid-emt-madrid-gtfs-793.zip?alt=media"
+      ],
+      "notas": "Mobility Database 793 (Empresa Municipal de Transportes de Madrid (EMT Madrid)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "crtm-interurbanos",
+      "nome": "Madrid — interurbanos (CRTM)",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-madrid-autobuses-interurbanos-madrid-crtm-gtfs-791.zip?alt=media"
+      ],
+      "notas": "Mobility Database 791 (Consorcio Regional de Transportes de Madrid CRTM Intercity Buses (Madrid Intercity Buses)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://www.crtm.es/licencia-de-uso."
+    },
+    {
+      "id": "crtm-metro-ligeiro",
+      "nome": "Madrid — metro ligeiro (CRTM)",
+      "kind": "light_rail",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://www.arcgis.com/sharing/rest/content/items/aaed26cc0ff64b0c947ac0bc3e033196/data",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-madrid-crtm-light-rail-gtfs-2802.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2802 (Consorcio Regional de Transportes de Madrid CRTM Light Rail Network (Red de Metro Ligero)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.crtm.es/licencia-de-uso."
+    },
+    {
+      "id": "amb",
+      "nome": "Barcelona (AMB)",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://www.ambmobilitat.cat/OpenData/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-barcelona-autos-castellbisbal-gtfs-892.zip?alt=media"
+      ],
+      "notas": "Mobility Database 892 (Àrea Metropolitana de Barcelona (AMB)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "tram-barcelona",
+      "nome": "TRAM Barcelona",
+      "kind": "light_rail",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://opendata.tram.cat/GTFS/zip/TBX.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-barcelona-tram-gtfs-1003.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1003 (TRAM Barcelona (Tranvía Metropolitano Barcelona)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "tram-besos",
+      "nome": "TRAM Barcelona Besòs",
+      "kind": "light_rail",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://opendata.tram.cat/GTFS/zip/TBS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-barcelona-trambesos-gtfs-1004.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1004 (TRAM Barcelona Besós (Tranvía Metropolitano Barcelona)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "fgc",
+      "nome": "FGC — Ferrocarrils de la Generalitat",
+      "kind": "train",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://www.fgc.cat/google/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-catalunya-ferrocarrils-de-la-generalitat-de-catalunya-gtfs-1856.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1856 (Railways of the Generalitat of Catalonia (Ferrocarrils de la Generalitat de Catalunya)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://dadesobertes.fgc.cat/explore/?q=gtfs_zip."
+    },
+    {
+      "id": "cat-interurbanos",
+      "nome": "Catalunha — interurbanos",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://territori.gencat.cat/web/.content/home/serveis/visors-cartografia/bases-cartografiques/infraestructures-mobilitat/autobusos-interurbans/busos-interurbans-GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-catalonia-autobusos-interurbans-gtfs-2926.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2926 (Autobusos Interurbans), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "cercanias",
+      "nome": "Renfe Cercanías",
+      "kind": "train",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-unknown-renfe-cercanias-gtfs-2653.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2653 (Renfe commuter trains (Cercanias)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.renfe.com/dataset/horarios-cercanias/resource/6f1523c6-a9e3-48e3-9ace-bb107a762be6.",
+      "posicoes": "https://gtfsrt.renfe.com/vehicle_positions.pb"
+    },
+    {
+      "id": "renfe",
+      "nome": "Renfe — longo curso",
+      "kind": "train",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://ssl.renfe.com/gtransit/Fichero_AV_LD/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-renfe-alta-velocidad-larga-distancia-media-distancia-gtfs-2620.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2620 (Renfe), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.renfe.com/dataset/horarios-de-alta-velocidad-larga-distancia-y-media-distancia/resource/25d6b043-9e47-4f99-bd91-edd51d782450."
+    },
+    {
+      "id": "iryo",
+      "nome": "iryo",
+      "kind": "train",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://deryclem.github.io/iryo-gtfs/gtfs-iryo.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-iryo-gtfs-3645.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3645 (iryo), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "metro-bilbao",
+      "nome": "Metro Bilbao",
+      "kind": "subway",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://ctb-gtfs.s3.eu-south-2.amazonaws.com/metrobilbao.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-metro-bilbao-gtfs-3052.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3052 (Metro Bilbao), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.ctb.eus/en/pages/legal-notice.",
+      "posicoes": "https://ctb-gtfs-rt.s3.eu-south-2.amazonaws.com/metro-bilbao-vehicle-positions.pb"
+    },
+    {
+      "id": "bizkaibus",
+      "nome": "Bizkaibus",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://baliabideak.bizkaia.eus/Bizkaibus/GTFS/Bizkaibus.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-bizkaia-bizkaibus-gtfs-1135.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1135 (Bizkaibus), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "tuvisa",
+      "nome": "Vitória (TUVISA)",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "http://www.vitoria-gasteiz.org/we001/http/vgTransit/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-alava-tuvisa-euskotran-gtfs-797.zip?alt=media"
+      ],
+      "notas": "Mobility Database 797 (TUVISA (Transportes Urbanos de Vitoria)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.vitoria-gasteiz.org/wb021/was/contenidoAction.do?idioma=es&uid=app_j34_0021."
+    },
+    {
+      "id": "emt-malaga",
+      "nome": "EMT Málaga",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.emtmalaga.es/GTFS/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-andalucia-empresa-malaguena-de-transportes-emt-gtfs-2212.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2212 (Empresa Malagueña de Transportes (EMT)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://gtfs.emtmalaga.es/GTFSRTapi/api/vehicleposition"
+    },
+    {
+      "id": "metro-malaga",
+      "nome": "Metro de Málaga",
+      "kind": "subway",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://metromalaga.es/GTFS/GTFS_METRO_MALAGA.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-andalucia-metro-de-malaga-gtfs-1017.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1017 (Metro de Málaga), probed 20 November 2026 (sondar: eu_feeds). Licence: https://metromalaga.es/GTFS/ACCESO%20A%20DATOS%20P%C3%9ABLICOS%20DE%20METRO%20M%C3%81LAGA%20LICENCIA%20Y%20CONDICIONES%20DE%20USO.pdf."
+    },
+    {
+      "id": "emt-valencia",
+      "nome": "EMT Valência",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://opendata.vlci.valencia.es/dataset/ab058cf8-ad3e-4d9c-ac89-0c6367ecf351/resource/c81b69e6-c082-44dc-acc6-66fc417b4e66/download/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-valencia-emt-valencia-gtfs-795.zip?alt=media"
+      ],
+      "notas": "Mobility Database 795 (Empresa Municipal de Transportes de Valencia (EMT Valencia)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.valencia.es/val/ajuntament/govern-obert."
+    },
+    {
+      "id": "mallorca",
+      "nome": "Maiorca (TIB)",
+      "kind": "bus",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "https://www.tib.org/documents/20124/478141/ctm-mallorca-es.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-pm-consorcio-de-transportes-de-mallorca-gtfs-2141.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2141 (Consorcio de Transportes de Mallorca), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.tib.org/en/sobre-ctm/portal-de-transparencia/dades-obertes."
+    },
+    {
+      "id": "tram-alicante",
+      "nome": "TRAM Alicante",
+      "kind": "light_rail",
+      "pais": "ES",
+      "confirmado": true,
+      "urls": [
+        "http://www.tramalicante.es/google_transit_feed/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/es-alicante-tram-alicante-gtfs-1039.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1039 (TRAM Alicante), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "hsl",
+      "nome": "Helsínquia (HSL)",
+      "kind": "subway",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "http://dev.hsl.fi/gtfs/hsl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-uusimaa-helsingin-seudun-liikenne-hsl-gtfs-865.zip?alt=media"
+      ],
+      "notas": "Mobility Database 865 (Helsingin seudun liikenne (HSL)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://developer.reittiopas.fi/pages/en/home.php.",
+      "posicoes": "https://realtime.hsl.fi/realtime/vehicle-positions/v2/hsl"
+    },
+    {
+      "id": "tampere",
+      "nome": "Tampere (Nysse)",
+      "kind": "light_rail",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "http://data.itsfactory.fi/journeys/files/gtfs/latest/gtfs_tampere.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-unknown-tampereen-joukkoliikenne-joli-gtfs-866.zip?alt=media"
+      ],
+      "notas": "Mobility Database 866 (Tampereen joukkoliikenne (JOLI)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "turku",
+      "nome": "Turku (Föli)",
+      "kind": "bus",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "http://data.foli.fi/gtfs/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-varsinais-suomi-turku-gtfs-864.zip?alt=media"
+      ],
+      "notas": "Mobility Database 864 (Turku), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "oulu",
+      "nome": "Oulu",
+      "kind": "bus",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "https://tvv.fra1.digitaloceanspaces.com/229.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-pohjois-pohjanmaa-oulun-joukkoliikenne-gtfs-869.zip?alt=media"
+      ],
+      "notas": "Mobility Database 869 (Waltti - Oulu), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "jyvaskyla",
+      "nome": "Jyväskylä",
+      "kind": "bus",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "https://tvv.fra1.digitaloceanspaces.com/209.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-keski-suomi-jyvaskyla-gtfs-867.zip?alt=media"
+      ],
+      "notas": "Mobility Database 867 (Waltti - Jyväskylä), probed 20 November 2026 (sondar: eu_feeds). Licence: https://creativecommons.org/licenses/by/4.0/."
+    },
+    {
+      "id": "lahti",
+      "nome": "Lahti",
+      "kind": "bus",
+      "pais": "FI",
+      "confirmado": true,
+      "urls": [
+        "https://tvv.fra1.digitaloceanspaces.com/223.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fi-paijat-hame-haarasilta-toivo-samuli-gtfs-1129.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1129 (Haarasilta Toivo Samuli, Järvisen Liikenne Oy, Koiviston Auto Oy, Lehtimäen Liikenne Oy, Bus Travel Oy Reissu Ruoti, Tilausliikenne Kuisma Ky), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "idfm",
+      "nome": "Île-de-France Mobilités",
+      "kind": "subway",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://data.iledefrance-mobilites.fr/explore/dataset/offre-horaires-tc-gtfs-idfm/files/a925e164271e4bca93433756d6a340d1/download/",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-paris-ile-de-france-mobilite-gtfs-1026.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1026 ( Île-de-France Mobilités (IDFM)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://vvlibri.org/fr/licence/odbl-10/legalcode/unofficial."
+    },
+    {
+      "id": "tbm",
+      "nome": "Bordéus (TBM)",
+      "kind": "light_rail",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://bdx.mecatran.com/utw/ws/gtfsfeed/static/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-nouvelle-aquitaine-bordeaux-tbm-gtfs-2622.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2622 (Transports Bordeaux Métropole (TBM)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://transport.data.gouv.fr/datasets/offres-de-services-bus-tram-et-scolaire-au-format-gtfs-gtfs-rt-siri-lite-1.",
+      "posicoes": "https://bdx.mecatran.com/utw/ws/gtfsfeed/vehicles/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt"
+    },
+    {
+      "id": "tisseo",
+      "nome": "Toulouse (Tisséo)",
+      "kind": "subway",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://data.toulouse-metropole.fr/api/v2/catalog/datasets/tisseo-gtfs/files/fc1dda89077cf37e4f7521760e0ef4e9",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-occitanie-tisseo-gtfs-1024.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1024 (Tisséo), probed 20 November 2026 (sondar: eu_feeds). Licence: https://opendatacommons.org/licenses/odbl/."
+    },
+    {
+      "id": "tag-grenoble",
+      "nome": "Grenoble (TAG)",
+      "kind": "light_rail",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://data.mobilites-m.fr/api/gtfs/SEM",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-auvergne-rhone-alpes-transports-de-lagglomeration-grenobloise-tag-gtfs-1055.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1055 (Mobilités M - Tag), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.mobilites-m.fr/blog/licence-d-utilisation-des-donnees."
+    },
+    {
+      "id": "aix-marseille",
+      "nome": "Aix-Marselha (Métropole)",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-pam?apiKey=596e694f3330142c525b7d6b123a5b055f744058",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-fr-pac-metropole-aix-marseille-gtfs-2133.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2133 (Métropole Aix-Marseille), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.etalab.gouv.fr/licence-ouverte-open-licence/."
+    },
+    {
+      "id": "ulysse",
+      "nome": "Ulysse (Provença)",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://www.data.gouv.fr/fr/datasets/r/e8a86701-6359-45de-bee5-95e648ec04e3",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-provence-alpes-cote-dazur-ulysse-gtfs-988.zip?alt=media"
+      ],
+      "notas": "Mobility Database 988 (Ulysse), probed 20 November 2026 (sondar: eu_feeds). Licence: http://opendata.regionpaca.fr/fileadmin/user_upload/tx_ausyopendata/licences/Licence-Ouverte-Open-Licence-ETALAB.pdf."
+    },
+    {
+      "id": "tours",
+      "nome": "Tours (Fil Bleu)",
+      "kind": "light_rail",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://data.tours-metropole.fr/api/datasets/1.0/horaires-temps-reel-gtfsrt-reseau-filbleu-tmvl/alternative_exports/filbleu_gtfszip/",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-centre-val-de-loire-tours-metropole-val-de-loire-gtfs-1987.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1987 (Tours Métropole Val de Loire), probed 20 November 2026 (sondar: eu_feeds). Licence: https://transport.data.gouv.fr/datasets/fil-bleu-syndicat-des-mobilites-gtfs-gtfs-rt."
+    },
+    {
+      "id": "besancon",
+      "nome": "Besançon (Ginko)",
+      "kind": "light_rail",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://api.ginko.voyage/gtfs-ginko.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-doubs-ginko-gtfs-1116.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1116 (Ginko), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "metz",
+      "nome": "Metz (Le Met')",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://data.lemet.fr/documents/LEMET-gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-grand-est-metz-gtfs-1298.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1298 (Metz), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.etalab.gouv.fr/licence-ouverte-open-licence/."
+    },
+    {
+      "id": "nancy",
+      "nome": "Nancy (Stan)",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-meurthe-et-moselle-reseau-urbain-stan-gtfs-1256.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1256 (Réseau urbain Stan), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.etalab.gouv.fr/licence-ouverte-open-licence/."
+    },
+    {
+      "id": "lio",
+      "nome": "Occitânia — interurbanos (liO)",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://app.mecatran.com/utw/ws/gtfsfeed/static/lio?apiKey=2b160d626f783808095373766f18714901325e45&type=gtfs_lio",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-occitanie-reseau-interurbain-li0-gtfs-2604.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2604 (Réseau interurbain liO Occitanie), probed 20 November 2026 (sondar: eu_feeds). Licence: https://transport.data.gouv.fr/datasets/reseau-lio-occitanie."
+    },
+    {
+      "id": "aleop",
+      "nome": "Países do Loire — interurbanos (Aléop)",
+      "kind": "bus",
+      "pais": "FR",
+      "confirmado": true,
+      "urls": [
+        "https://donnees.paysdelaloire.fr/data/pdl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-pays-de-la-loire-aleop-renfort-lr-85-gtfs-1096.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1096 (Aleop Renfort LR 85, Aléop en Loire-Atlantique, Aléop en Maine-et-Loire, Aléop en Mayenne, Aléop en Sarthe, Aléop en Vendée, Aléop en Vendée et Loire-Atlantique, Aléop express Régionale, Aléop TER, projet Aléop en Loire-Atlantique, Yeu Continent), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.paysdelaloire.fr/explore/dataset/234400034_lignes-regulieres-de-transports-regionaux-arrets/information/."
+    },
+    {
+      "id": "hzpp",
+      "nome": "HŽPP — comboios da Croácia",
+      "kind": "train",
+      "pais": "HR",
+      "confirmado": true,
+      "urls": [
+        "https://www.hzpp.hr/GTFS_files.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/hr-hzpp-gtfs-3043.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3043 (HŽ Passenger Transport), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "bkk",
+      "nome": "Budapeste (BKK)",
+      "kind": "subway",
+      "pais": "HU",
+      "confirmado": true,
+      "urls": [
+        "https://go.bkk.hu/api/static/v1/public-gtfs/budapest_gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/hu-budapest-budapesti-kozlekedesi-kozpont-bkk-gtfs-990.zip?alt=media"
+      ],
+      "notas": "Mobility Database 990 (Budapesti Közlekedési Központ (BKK)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "szeged",
+      "nome": "Szeged",
+      "kind": "bus",
+      "pais": "HU",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.menetbrand.com/download/szeged",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/hu-szeged-dakk-zrt-gtfs-887.zip?alt=media"
+      ],
+      "notas": "Mobility Database 887 (Szegedi Közlekedési Társaság), probed 20 November 2026 (sondar: eu_feeds). Licence: http://szegedimenetrend.hu/."
+    },
+    {
+      "id": "pecs",
+      "nome": "Pécs",
+      "kind": "bus",
+      "pais": "HU",
+      "confirmado": true,
+      "urls": [
+        "http://mobilitas.biokom.hu/gtfs",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/hu-pecs-biokom-gtfs-861.zip?alt=media"
+      ],
+      "notas": "Mobility Database 861 (BIOKOM), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "dublin-bus",
+      "nome": "Dublin Bus",
+      "kind": "bus",
+      "pais": "IE",
+      "confirmado": true,
+      "urls": [
+        "https://www.transportforireland.ie/transitData/Data/GTFS_Dublin_Bus.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ie-dublin-dublin-bus-gtfs-2635.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2635 (Dublin Bus), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.transportforireland.ie/transitData/PT_Data.html."
+    },
+    {
+      "id": "luas",
+      "nome": "Luas (Dublin)",
+      "kind": "light_rail",
+      "pais": "IE",
+      "confirmado": true,
+      "urls": [
+        "https://www.transportforireland.ie/transitData/Data/GTFS_LUAS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ie-dublin-luas-gtfs-2638.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2638 (LUAS), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.transportforireland.ie/transitData/PT_Data.html."
+    },
+    {
+      "id": "goahead-ie",
+      "nome": "Go-Ahead Ireland",
+      "kind": "bus",
+      "pais": "IE",
+      "confirmado": true,
+      "urls": [
+        "https://www.transportforireland.ie/transitData/Data/GTFS_GoAhead.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ie-dublin-goahead-ireland-gtfs-2639.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2639 (GoAhead Ireland), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.transportforireland.ie/transitData/PT_Data.html."
+    },
+    {
+      "id": "irish-rail",
+      "nome": "Irish Rail",
+      "kind": "train",
+      "pais": "IE",
+      "confirmado": true,
+      "urls": [
+        "https://www.transportforireland.ie/transitData/Data/GTFS_Irish_Rail.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ie-irish-rail-gtfs-2637.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2637 (Irish Rail), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.transportforireland.ie/transitData/PT_Data.html."
+    },
+    {
+      "id": "bus-eireann",
+      "nome": "Bus Éireann",
+      "kind": "bus",
+      "pais": "IE",
+      "confirmado": true,
+      "urls": [
+        "https://www.transportforireland.ie/transitData/Data/GTFS_Bus_Eireann.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ie-dublin-bus-eireann-gtfs-2636.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2636 (Bus Éireann), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.transportforireland.ie/transitData/PT_Data.html."
+    },
+    {
+      "id": "roma",
+      "nome": "Roma (ATAC e outros)",
+      "kind": "subway",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://romamobilita.it/sites/default/files/rome_static_gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-lazio-roma-servizi-per-la-mobilita-gtfs-1294.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1294 (Roma Servizi per la Mobilità), probed 20 November 2026 (sondar: eu_feeds). Licence: https://romamobilita.it/it/tecnologie/open-data/dataset.",
+      "posicoes": "https://romamobilita.it/sites/default/files/rome_rtgtfs_vehicle_positions_feed.pb"
+    },
+    {
+      "id": "cotral",
+      "nome": "Lácio (Cotral)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/cotral/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-lazio-rome-cotral-busone-gtfs-3386.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3386 (Cotral S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/cotral/readme.",
+      "posicoes": "https://proxy.busone.app/cotral/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "trenitalia",
+      "nome": "Trenitalia",
+      "kind": "train",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/trenitalia/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-unknown-trenitalia-spa-gtfs-3569.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3569 (TRENITALIA S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/trenitalia/readme."
+    },
+    {
+      "id": "italo",
+      "nome": "Italo",
+      "kind": "train",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/italo/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-unknown-italo-gtfs-3571.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3571 (Italo), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/italo/readme."
+    },
+    {
+      "id": "trenord",
+      "nome": "Trenord (Lombardia)",
+      "kind": "train",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-lombardia-trenord-gtfs-855.zip?alt=media"
+      ],
+      "notas": "Mobility Database 855 (Trenord), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "gtt",
+      "nome": "Turim (GTT)",
+      "kind": "subway",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://www.gtt.to.it/open_data/gtt_gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-piedmont-turin-gruppo-torinese-trasporti-gtfs-2687.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2687 (Gruppo Torinese Trasporti (GTT)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.gtt.to.it/gtt_gtfs_license.html.",
+      "posicoes": "https://percorsieorari.gtt.to.it/das_gtfsrt/vehicle_position.aspx"
+    },
+    {
+      "id": "actv-aut",
+      "nome": "Veneza — autocarros (ACTV)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "http://actv.avmspa.it/sites/default/files/attachments/opendata/automobilistico/actv_aut.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-veneto-automobilistico-gtfs-1062.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1062 (Automobilistico), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://tpl.actv.it/aut/GTFSRT/vehiclePositions"
+    },
+    {
+      "id": "actv-nav",
+      "nome": "Veneza — vaporetti (ACTV)",
+      "kind": "boat",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "http://actv.avmspa.it/sites/default/files/attachments/opendata/navigazione/actv_nav.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-veneto-navigazione-gtfs-1063.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1063 (Azienda del Consorzio Trasporti Veneziano (ACTV) Navigazione), probed 20 November 2026 (sondar: eu_feeds). Licence: https://actv.avmspa.it/it/content/catalogo-dei-dati-metadati-e-banche-dati-actv.",
+      "posicoes": "https://tpl.actv.it/nav/GTFSRT/vehiclePositions"
+    },
+    {
+      "id": "anm",
+      "nome": "Nápoles (ANM)",
+      "kind": "subway",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "http://www.anm.it/google/google-transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-campania-azienda-napoletana-mobilita-gtfs-893.zip?alt=media"
+      ],
+      "notas": "Mobility Database 893 (Azienda Napoletana Mobilità), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "sta",
+      "nome": "Tirol do Sul (STA)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/sta/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-trentino-alto-adige-sta-sudtiroler-transportstrukturen-ag-gtfs-3573.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3573 (STA - Südtiroler Transportstrukturen AG), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/sta/readme.",
+      "posicoes": "https://proxy.busone.app/sta/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "tpl-fvg",
+      "nome": "Friul-Veneza Júlia (TPL FVG)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/TPLFVG/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-friuli-venezia-giulia-tpl-fvg-gtfs-3566.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3566 (TPL FVG), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/TPLFVG/readme.",
+      "posicoes": "https://proxy.busone.app/TPLFVG/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "start-romagna",
+      "nome": "Romanha (START)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/start/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-emilia-romagna-start-romagna-spa-gtfs-3576.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3576 (START Romagna S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/start/readme.",
+      "posicoes": "https://proxy.busone.app/start/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "busitalia-veneto",
+      "nome": "Pádua (Busitalia Veneto)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/biv/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-veneto-busitalia-veneto-spa-gtfs-3584.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3584 (Busitalia Veneto S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/biv/readme.",
+      "posicoes": "https://proxy.busone.app/biv/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "seta-modena",
+      "nome": "Módena (SETA)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/seta-mo/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-emilia-romagna-seta-spa-modena-gtfs-3554.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3554 (SETA S.p.A. - Modena), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/seta-mo/readme.",
+      "posicoes": "https://proxy.busone.app/seta-mo/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "seta-reggio",
+      "nome": "Reggio Emilia (SETA)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/seta-re/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-emilia-romagna-seta-spa-reggio-emilia-gtfs-3557.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3557 (SETA S.p.A. - Reggio Emilia), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/seta-re/readme.",
+      "posicoes": "https://proxy.busone.app/seta-re/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "seta-piacenza",
+      "nome": "Piacenza (SETA)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/seta-pc/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-emilia-romagna-seta-spa-piacenza-gtfs-3560.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3560 (SETA S.p.A. - Piacenza), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/seta-pc/readme.",
+      "posicoes": "https://proxy.busone.app/seta-pc/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "tep-parma",
+      "nome": "Parma (TEP)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/tep/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-emilia-romagna-tep-spa-gtfs-3551.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3551 (TEP S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/tep/readme.",
+      "posicoes": "https://proxy.busone.app/tep/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "amtab",
+      "nome": "Bari (AMTAB)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/amtab/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-puglia-amtab-spa-gtfs-3579.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3579 (AMTAB S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/amtab/readme.",
+      "posicoes": "https://proxy.busone.app/amtab/gtfs-rt/vehicle-positions.pb"
+    },
+    {
+      "id": "amat-palermo",
+      "nome": "Palermo (AMAT)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://opendata.comune.palermo.it/js/server/uploads/dataset/gtfs/amat_gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-sicilia-amat-palermo-spa-gtfs-2373.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2373 (AMAT Palermo S.P.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://opendata.comune.palermo.it/opendata-dataset.php?dataset=1303."
+    },
+    {
+      "id": "trentino",
+      "nome": "Trentino Trasporti",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/trentino/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-trentino-alto-adige-trentino-trasporti-spa-gtfs-3582.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3582 (Trentino trasporti S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/trentino/readme."
+    },
+    {
+      "id": "arst",
+      "nome": "Sardenha (ARST)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://www.arstspa.info/arst-cagliari-it.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-sardegna-arst-spa-trasporti-regionali-della-sardegna-gtfs-895.zip?alt=media"
+      ],
+      "notas": "Mobility Database 895 (ARST SpA - Trasporti Regionali Della Sardegna), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "at-firenze",
+      "nome": "Florença (Autolinee Toscane)",
+      "kind": "bus",
+      "pais": "IT",
+      "confirmado": true,
+      "urls": [
+        "https://proxy.busone.app/toscana/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/it-toscana-autolinee-toscane-spa-gtfs-3563.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3563 (Autolinee Toscane S.p.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://proxy.busone.app/toscana/readme.",
+      "recorte": [
+        10.95,
+        43.65,
+        11.45,
+        43.95
+      ]
+    },
+    {
+      "id": "vilnius",
+      "nome": "Vilnius",
+      "kind": "bus",
+      "pais": "LT",
+      "confirmado": true,
+      "urls": [
+        "http://www.stops.lt/vilnius/vilnius/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lt-vilniaus-apskritis-vilnius-transport-gtfs-1044.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1044 (Vilnius Transport), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://www.stops.lt/vilnius/vehicle_positions.pb"
+    },
+    {
+      "id": "kaunas",
+      "nome": "Kaunas",
+      "kind": "bus",
+      "pais": "LT",
+      "confirmado": true,
+      "urls": [
+        "http://www.stops.lt/kaunas/kaunas/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lt-kauno-apskritis-kauno-viesasis-transportas-kvt-gtfs-1041.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1041 (Kauno viešasis transportas (KVT)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "klaipeda",
+      "nome": "Klaipėda",
+      "kind": "bus",
+      "pais": "LT",
+      "confirmado": true,
+      "urls": [
+        "http://www.stops.lt/klaipeda/klaipeda/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lt-klaipedos-apskritis-klaipeda-transport-gtfs-1042.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1042 (Klaipėda Transport), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "ltg-link",
+      "nome": "LTG Link — comboios da Lituânia",
+      "kind": "train",
+      "pais": "LT",
+      "confirmado": true,
+      "urls": [
+        "https://jbb.ghsq.de/gtfs/lt-ltglink.gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lt-unknown-ltg-link-gtfs-2991.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2991 (LTG Link), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "riga",
+      "nome": "Riga (Rīgas Satiksme)",
+      "kind": "bus",
+      "pais": "LV",
+      "confirmado": true,
+      "urls": [
+        "https://data.gov.lv/dati/dataset/6d78358a-0095-4ce3-b119-6cde5d0ac54f/resource/3f7719a3-cc74-416a-b3a6-d7933b0d655e/download/marsrutusaraksti06_2026.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lv-riga-rigas-satiksme-gtfs-884.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3502 (Rīgas Satiksme), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam."
+    },
+    {
+      "id": "pv",
+      "nome": "Pasažieru Vilciens — comboios da Letónia",
+      "kind": "train",
+      "pais": "LV",
+      "confirmado": true,
+      "urls": [
+        "https://vivi.lv/uploads/GTFS.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/lv-unknown-vivi-gtfs-3385.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3385 (Pasažieru Vilciens), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.gov.lv/dati/eng/dataset/iekszemes-dzelzcela-vilcienu-kustibas-saraksts-gtfs-formata."
+    },
+    {
+      "id": "ovapi-randstad",
+      "nome": "Países Baixos — Randstad",
+      "kind": "train",
+      "pais": "NL",
+      "confirmado": true,
+      "urls": [
+        "http://gtfs.ovapi.nl/gtfs-nl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/nl-unknown-allgo-keolis-gtfs-1077.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1077 (OVapi), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "recorte": [
+        3.9,
+        51.75,
+        6.0,
+        52.85
+      ]
+    },
+    {
+      "id": "ovapi-norte",
+      "nome": "Países Baixos — Norte e Leste",
+      "kind": "train",
+      "pais": "NL",
+      "confirmado": true,
+      "urls": [
+        "http://gtfs.ovapi.nl/gtfs-nl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/nl-unknown-allgo-keolis-gtfs-1077.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1077 (OVapi), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "recorte": [
+        4.6,
+        52.1,
+        7.25,
+        53.7
+      ]
+    },
+    {
+      "id": "ovapi-sul",
+      "nome": "Países Baixos — Sul",
+      "kind": "train",
+      "pais": "NL",
+      "confirmado": true,
+      "urls": [
+        "http://gtfs.ovapi.nl/gtfs-nl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/nl-unknown-allgo-keolis-gtfs-1077.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1077 (OVapi), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "recorte": [
+        3.2,
+        50.75,
+        6.4,
+        51.85
+      ]
+    },
+    {
+      "id": "ovapi-gueldria",
+      "nome": "Países Baixos — Guéldria",
+      "kind": "train",
+      "pais": "NL",
+      "confirmado": true,
+      "urls": [
+        "http://gtfs.ovapi.nl/gtfs-nl.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/nl-unknown-allgo-keolis-gtfs-1077.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1077 (OVapi), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "recorte": [
+        5.0,
+        51.73,
+        6.84,
+        52.52
+      ]
+    },
+    {
+      "id": "ztm-warszawa",
+      "nome": "Varsóvia (ZTM)",
+      "kind": "subway",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/warsaw.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-mazowieckie-warszawski-transport-publiczny-ztm-warszawa-gtfs-2092.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2092 (Warszawski Transport Publiczny (ZTM Warszawa)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://creativecommons.org/publicdomain/zero/1.0/."
+    },
+    {
+      "id": "krakow",
+      "nome": "Cracóvia (ZTP)",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.ztp.krakow.pl/GTFS_KRK_A.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-malopolskie-zarzad-transportu-publicznego-w-krakowie-ztp-krakow-gtfs-1326.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1326 (Zarząd Transportu Publicznego w Krakowie (ZTP Kraków)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://ztp.krakow.pl.",
+      "posicoes": "https://gtfs.ztp.krakow.pl/VehiclePositions.pb"
+    },
+    {
+      "id": "poznan",
+      "nome": "Poznań (ZTM)",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://www.ztm.poznan.pl/pl/dla-deweloperow/getGTFSFile",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-wielkopolskie-zarzad-transportu-miejskiego-poznan-ztm-poznan-gtfs-982.zip?alt=media"
+      ],
+      "notas": "Mobility Database 982 (Zarząd Transportu Miejskiego Poznań (ZTM Poznań)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://www.ztm.poznan.pl/pl/dla-deweloperow/index.",
+      "posicoes": "https://www.ztm.poznan.pl/pl/dla-deweloperow/getGtfsRtFile/?file=vehicle_positions.pb"
+    },
+    {
+      "id": "gdansk",
+      "nome": "Gdańsk (ZTM)",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/30e783e4-2bec-4a7d-bb22-ee3e3b26ca96/download/gtfsgoogle.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-pomorskie-zarzad-transportu-miejskiego-gdansk-ztm-gdansk-gtfs-2093.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2093 (Zarząd Transportu Miejskiego Gdańsk (ZTM Gdańsk)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://creativecommons.org/publicdomain/zero/1.0/."
+    },
+    {
+      "id": "gdynia",
+      "nome": "Gdynia (ZKM)",
+      "kind": "bus",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "http://api.zdiz.gdynia.pl/pt/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-pomorskie-zarzad-drog-i-zieleni-gdynia-zkm-gdynia-gtfs-2094.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2094 (Zarząd Dróg i Zieleni Gdynia (ZKM Gdynia)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://www.opendefinition.org/licenses/cc-by."
+    },
+    {
+      "id": "skm",
+      "nome": "SKM Tricidade",
+      "kind": "train",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://www.skm.pkp.pl/gtfs-mi-kpd.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-pomorskie-pkp-szybka-kolej-miejska-w-trojmiescie-gtfs-1290.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1290 ( PKP Szybka Kolej Miejska (SKM)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://bip.skm.pkp.pl/c60/rozklad-jazdy."
+    },
+    {
+      "id": "szczecin",
+      "nome": "Szczecin (ZDiTM)",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://www.zditm.szczecin.pl/storage/gtfs/gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-zachodniopomorskie-zarzad-drog-i-transportu-miejskiego-zditm-gtfs-981.zip?alt=media"
+      ],
+      "notas": "Mobility Database 981 (Zarząd Dróg i Transportu Miejskiego (ZDiTM)), probed 20 November 2026 (sondar: eu_feeds). Licence: https://creativecommons.org/publicdomain/zero/1.0/.",
+      "posicoes": "https://www.zditm.szczecin.pl/storage/gtfs/gtfs-rt-vehicles.pb"
+    },
+    {
+      "id": "lublin",
+      "nome": "Lublin (ZTM)",
+      "kind": "bus",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/lublin.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-lubelskie-zarzad-transportu-miejskiego-lublin-ztm-lublin-gtfs-1013.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1013 (Zarząd Transportu Miejskiego Lublin (ZTM Lublin)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "bydgoszcz",
+      "nome": "Bydgoszcz",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/bydgoszcz.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-kujawsko-pomorskie-zdmikp-w-bydgoszczy-gtfs-1009.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1009 (ZDMiKP w Bydgoszczy), probed 20 November 2026 (sondar: eu_feeds). Licence: https://mkuran.pl/gtfs/."
+    },
+    {
+      "id": "bialystok",
+      "nome": "Białystok",
+      "kind": "bus",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://komunikacja.bialystok.pl/cms/File/download/gtfs/google_transit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-podlaskie-bialostocka-komunikacja-miejska-gtfs-1907.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1907 (Białostocka Komunikacja Miejska), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "rzeszow",
+      "nome": "Rzeszów (ZTM)",
+      "kind": "bus",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/rzeszow.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-podkarpackie-zarzad-transportu-miejskiego-rzeszow-ztm-rzeszow-gtfs-2387.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2387 (Zarząd Transportu Miejskiego Rzeszów (ZTM Rzeszów)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "pl-comboios",
+      "nome": "Polónia — comboios",
+      "kind": "train",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/polish_trains.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-unknown-polskie-koleje-panstwowe-intercity-pkp-intercity-gtfs-3191.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3191 (Polish Trains), probed 20 November 2026 (sondar: eu_feeds). Licence: https://bip.plk-sa.pl/ponowne-wykorzystywanie."
+    },
+    {
+      "id": "koleje-slaskie",
+      "nome": "Koleje Śląskie",
+      "kind": "train",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://github.com/gtfs-proxies/24-Koleje-Slaskie/releases/latest/download/24-Koleje-Slaskie.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-koleje-slaskie-gtfs-3122.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3122 (Koleje Śląskie), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "koleje-malopolskie",
+      "nome": "Koleje Małopolskie",
+      "kind": "train",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "http://kolejemalopolskie.com.pl/rozklady_jazdy/kml-ska-gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-malopolskie-koleje-malopolskie-gtfs-1908.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1908 (Koleje Małopolskie), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "wkd",
+      "nome": "WKD (Varsóvia)",
+      "kind": "train",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/wkd.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-mazowieckie-warszawska-kolej-dojazdowa-wkd-gtfs-2091.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2091 (Warszawska Kolej Dojazdowa (WKD)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://creativecommons.org/publicdomain/zero/1.0/."
+    },
+    {
+      "id": "torun",
+      "nome": "Toruń",
+      "kind": "light_rail",
+      "pais": "PL",
+      "confirmado": true,
+      "urls": [
+        "https://mkuran.pl/gtfs/torun.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pl-kujawsko-pomorskie-miejski-zaklad-komunikacji-w-toruniu-mzk-torun-gtfs-2089.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2089 (Urząd Miasta Torunia (MZK Toruń)), probed 20 November 2026 (sondar: eu_feeds). Licence: http://creativecommons.org/publicdomain/zero/1.0/."
+    },
+    {
+      "id": "mobicascais",
+      "nome": "MobiCascais",
+      "kind": "bus",
+      "pais": "PT",
+      "confirmado": true,
+      "urls": [
+        "https://drive.google.com/uc?export=download&id=13ucYiAJRtu-gXsLa02qKJrGOgDjbnUWX",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-lisboa-mobi-cascais-gtfs-1272.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1272 (Cascais Próxima, E.M., S.A.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://dadosabertos.cascais.pt/dataset/gtfs-mobicascais."
+    },
+    {
+      "id": "tcb",
+      "nome": "Transportes Colectivos do Barreiro",
+      "kind": "bus",
+      "pais": "PT",
+      "confirmado": true,
+      "urls": [
+        "https://backend.tcbarreiro.pt/download-gtfs",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-setubal-barreiro-gtfs-3186.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3186 (Transportes Colectivos do Barreiro), probed 20 November 2026 (sondar: eu_feeds). Licence: https://dados.gov.pt/pt/datasets/gtfs-carris-metropolitana/."
+    },
+    {
+      "id": "horarios-funchal",
+      "nome": "Horários do Funchal",
+      "kind": "bus",
+      "pais": "PT",
+      "confirmado": true,
+      "urls": [
+        "https://www.horariosdofunchal.pt/googletransit.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-regiao-autonoma-da-madeira-horarios-do-funchal-transportes-publicos-gtfs-3104.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3104 (Horários do Funchal - Transportes Públicos, S.A), probed 20 November 2026 (sondar: eu_feeds). Licence: http://www.horariosdofunchal.pt/index.php?option=com_content&task=view&id=2022."
+    },
+    {
+      "id": "guimabus",
+      "nome": "Guimabus (Guimarães)",
+      "kind": "bus",
+      "pais": "PT",
+      "confirmado": true,
+      "urls": [
+        "https://map.mobility.ubiwhere.com/dataset/ee6d46e4-9f19-4f4a-ab93-1a3cd69df349/resource/08f1ee6c-2d3f-4fb3-a861-5d6fb347a6d4/download/gtfs_gui.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/pt-ave-guimabus-transportes-de-guimaraes-gtfs-2838.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2838 (Guimabus - Transportes de Guimarães), probed 20 November 2026 (sondar: eu_feeds). Licence: https://map.mobility.ubiwhere.com/dataset/operador-de-sptp-de-guimaraes."
+    },
+    {
+      "id": "bucuresti",
+      "nome": "Bucareste (STB e Metrorex)",
+      "kind": "subway",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://gtfs.tpbi.ro/regional/BUCHAREST-REGION.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-bucuresti-asociatia-de-dezvoltare-intercomunitara-pentru-transport-public-bucuresti-ilfov-tpbi-gtfs-2098.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2098 (Asociația de Dezvoltare Intercomunitară pentru Transport Public București – Ilfov (TPBI)), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://gtfs.tpbi.ro/api/gtfs-rt/vehiclePositions"
+    },
+    {
+      "id": "cluj",
+      "nome": "Cluj-Napoca (CTP)",
+      "kind": "bus",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://external.gtfs.ro/cluj/CLUJ.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-cluj-compania-de-transport-public-cluj-napoca-gtfs-2121.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2121 (Compania de Transport Public Cluj-Napoca), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://cluj-rt-feed.gtfs.ro/vehiclePositions"
+    },
+    {
+      "id": "iasi",
+      "nome": "Iași (CTP)",
+      "kind": "light_rail",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://external.gtfs.ro/iasi/IASI.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-iasi-compania-de-transport-public-iasi-gtfs-2116.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2116 (Compania de Transport Public Iași), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source.",
+      "posicoes": "https://iasi-rt-feed.gtfs.ro/vehiclePositions"
+    },
+    {
+      "id": "brasov",
+      "nome": "Brașov (RATBV)",
+      "kind": "bus",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://github.com/szjozsef/osm2gtfs/raw/refs/heads/master/output/gtfs/ro-ratbv.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-brasov-regia-autonoma-de-transport-brasov-gtfs-2143.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2143 (Regia Autonomă De Transport Brașov), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "timisoara",
+      "nome": "Timișoara (STPT)",
+      "kind": "light_rail",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-timis-societatea-metropolitana-de-transport-timisoara-gtfs-2868.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2868 (Societatea Metropolitană de Transport Timișoara), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "constanta",
+      "nome": "Constanța (CT Bus)",
+      "kind": "bus",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://external.gtfs.ro/constanta/CONSTANTA.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-constanta-ct-bus-constanta-gtfs-2100.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2100 (CT BUS Constanța), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "sibiu",
+      "nome": "Sibiu (Tursib)",
+      "kind": "bus",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://tursib.ro/trasee/gtfs",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-sibiu-tursib-sibiu-gtfs-2099.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2099 (Tursib Sibiu), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "oradea",
+      "nome": "Oradea (OTL)",
+      "kind": "light_rail",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://external.gtfs.ro/oradea/ORADEA.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-bihor-oradea-transport-local-gtfs-2101.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2101 (Oradea Transport Local), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "ro-comboios",
+      "nome": "Roménia — comboios",
+      "kind": "train",
+      "pais": "RO",
+      "confirmado": true,
+      "urls": [
+        "https://jbb.ghsq.de/gtfs/ro-railway.gtfs.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/ro-unknown-romanian-railway-operators-gtfs-3236.zip?alt=media"
+      ],
+      "notas": "Mobility Database 3236 (Romanian Railway Operators), probed 20 November 2026 (sondar: eu_feeds). Licence: https://data.gov.ro/base/images/logoinst/OGL-ROU-1.0.pdf."
+    },
+    {
+      "id": "lpp",
+      "nome": "Liubliana (LPP)",
+      "kind": "bus",
+      "pais": "SI",
+      "confirmado": true,
+      "urls": [
+        "https://data.lpp.si/api/gtfs/feed.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/si-ljubljana-ljubljanski-potniski-promet-gtfs-1827.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1827 (Ljubljanski Potniški Promet), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "ids-bk",
+      "nome": "Bratislava — regionais (IDS BK)",
+      "kind": "bus",
+      "pais": "SK",
+      "confirmado": true,
+      "urls": [
+        "https://transiq.xhyrom.dev/gtfs/sk/ids-bk_regional.zip",
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/sk-bratislavsky-kraj-ids-bk-regional-gtfs-2919.zip?alt=media"
+      ],
+      "notas": "Mobility Database 2919 (IDS BK Regional Buses), probed 20 November 2026 (sondar: eu_feeds). Licence: see the source."
+    },
+    {
+      "id": "zssk",
+      "nome": "ZSSK — comboios da Eslováquia",
+      "kind": "train",
+      "pais": "SK",
+      "confirmado": true,
+      "urls": [
+        "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/sk-unknown-zeleznicna-spolocnost-slovensko-gtfs-1832.zip?alt=media"
+      ],
+      "notas": "Mobility Database 1832 (Železničná spoločnosť Slovensko, a.s.), probed 20 November 2026 (sondar: eu_feeds). Licence: https://creativecommons.org/publicdomain/zero/1.0/."
     }
   ]
 }

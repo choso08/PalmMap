@@ -36,7 +36,7 @@ on:
         options: [gerar, descobrir, veiculos, passagens, trajetos, sondar]
         default: gerar
       operadores:
-        description: 'Space-separated ids (see transit-feeds.json). "todos" does the whole catalogue.'
+        description: 'Space-separated ids or countries (see transit-feeds.json; "pais:IT" is every Italian one). "todos" does the whole catalogue (hours since November 2026).'
         default: 'todos'
       dias:
         description: 'How many days of timetable to keep'
