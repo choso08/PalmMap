@@ -2567,9 +2567,10 @@ def line_probe(line_id="3527"):
     passes at its Feijó stops.
     """
     section(f"LINE {line_id}")
-    _, _, body = get(f"{CARRIS}/lines/{line_id}")
-    line = json.loads(body)
-    print("line:", {k: line.get(k) for k in ("id", "short_name", "long_name", "color", "text_color")})
+    _, _, body = get(f"{CARRIS}/lines", timeout=120)
+    lines = json.loads(body)
+    line = next((l for l in lines if l.get("id") == line_id or l.get("short_name") == line_id), {})
+    print("line:", {k: line.get(k) for k in ("id", "short_name", "long_name", "color", "text_color", "pattern_ids")})
     _, _, body = get(f"{CARRIS}/stops", timeout=120)
     stops = {s["id"]: s for s in json.loads(body)}
     for pid in line.get("pattern_ids") or []:
@@ -2600,10 +2601,15 @@ def line_probe(line_id="3527"):
             if st != 200:
                 continue
             now = time.time()
+            data = json.loads(body)
+            print(f"\n{sid}: lines here now:", sorted({str(a.get("line_id")) for a in data
+                  if (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now})[:30])
+            print("  sample 3527-ish:", [ {k: a.get(k) for k in ("line_id", "pattern_id", "headsign", "scheduled_arrival", "estimated_arrival")}
+                  for a in data if line_id in str(a.get("line_id")) + str(a.get("pattern_id"))][:3])
             nxt = sorted(
                 (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0, a.get("estimated_arrival_unix") is not None)
                 for a in json.loads(body)
-                if a.get("line_id") == line_id and (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now
+                if line_id in str(a.get("line_id")) and (a.get("estimated_arrival_unix") or a.get("scheduled_arrival_unix") or 0) > now
             )[:4]
             print(f"\nnext {line_id} at {sid} {stop.get('long_name')}:",
                   [(time.strftime('%H:%M', time.localtime(t)), live) for t, live in nxt])
