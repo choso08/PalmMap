@@ -592,6 +592,8 @@ export const pt = {
     } as Record<string, string>,
     loading: 'A obter a lista de horários…',
     empty: 'Ainda não há horários.',
+    feedCount: (n: number) => (n === 1 ? '1 horário' : `${n} horários`),
+    feedsSaved: (n: number) => (n === 1 ? '1 guardado' : `${n} guardados`),
     stationCount: (n: number) => `${n} estações`,
     expired: 'fora de prazo, descarregue outra vez',
     until: (date: string) => `até ${date}`,

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '../i18n';
+import { timetableName } from '../utils/catalogueName';
 import {
   downloadFeed,
   feedBytes,
@@ -68,6 +69,8 @@ export function Schedules() {
   const [busy, setBusy] = useState<string[]>([]);
   /** Text to filter the list: operator, country or kind. */
   const [filtro, setFiltro] = useState('');
+  /** The countries whose timetables are shown; Portugal's open at first. */
+  const [abertos, setAbertos] = useState<string[]>(['PT']);
   /** Changes on every download or delete, so the list redraws. */
   const [revision, setRevision] = useState(0);
 
@@ -121,7 +124,7 @@ export function Schedules() {
     if (
       procurado &&
       !simplify(
-        `${info.nome} ${countryName(pais)} ${pais} ${stationLabel(info.kind as StationKind)}`,
+        `${info.nome} ${timetableName(info)} ${countryName(pais)} ${pais} ${stationLabel(info.kind as StationKind)}`,
       ).includes(procurado)
     ) {
       continue;
@@ -133,7 +136,10 @@ export function Schedules() {
   const grupos = [...porPais.entries()]
     .map(
       ([pais, lista]) =>
-        [pais, lista.slice().sort((a, b) => a.nome.localeCompare(b.nome))] as const,
+        [
+          pais,
+          lista.slice().sort((a, b) => timetableName(a).localeCompare(timetableName(b))),
+        ] as const,
     )
     .sort(([a], [b]) =>
       a === 'PT' ? -1 : b === 'PT' ? 1 : countryName(a).localeCompare(countryName(b)),
@@ -161,7 +167,7 @@ export function Schedules() {
         />
 
         <View style={styles.rowText}>
-          <Text style={styles.name}>{info.nome}</Text>
+          <Text style={styles.name}>{timetableName(info)}</Text>
           <Text style={[styles.size, fora ? styles.expirado : null]}>
             {stationLabel(info.kind as StationKind)} · {formatBytes(feedBytes(info))} ·{' '}
             {strings.schedules.stationCount(info.estacoes)}
@@ -219,13 +225,51 @@ export function Schedules() {
         <Text style={styles.vazio}>{strings.schedules.noMatch}</Text>
       ) : null}
 
-      {grupos.map(([pais, lista]) => (
-        <View key={pais}>
-          {/* One heading per country, only when there is more than one. */}
-          {variosPaises ? <Text style={styles.country}>{countryName(pais)}</Text> : null}
-          {lista.map(renderRow)}
-        </View>
-      ))}
+      {grupos.map(([pais, lista]) => {
+        // One country alone is a plain list; several are drop-downs, as the
+        // country maps (author's request, 20 November 2026). Open while
+        // searching, so a match is seen; otherwise as the person left it.
+        if (!variosPaises) {
+          return <View key={pais}>{lista.map(renderRow)}</View>;
+        }
+        const aberto = procurado.length > 0 || abertos.includes(pais);
+        const guardados = lista.filter((f) => revision >= 0 && isInstalled(f)).length;
+        const aDescarregar = lista.some((f) => busy.includes(f.id));
+        return (
+          <View key={pais}>
+            <Pressable
+              style={styles.row}
+              onPress={() =>
+                setAbertos((atuais) =>
+                  atuais.includes(pais) ? atuais.filter((p) => p !== pais) : [...atuais, pais],
+                )
+              }
+              accessibilityRole="button"
+              accessibilityState={{ expanded: aberto }}
+            >
+              <MaterialCommunityIcons
+                name={guardados > 0 ? 'clock-check-outline' : 'clock-outline'}
+                size={22}
+                color={guardados > 0 ? theme.accent : theme.textMuted}
+              />
+              <View style={styles.rowText}>
+                <Text style={styles.name}>{countryName(pais)}</Text>
+                <Text style={styles.size}>
+                  {strings.schedules.feedCount(lista.length)}
+                  {guardados > 0 ? ` · ${strings.schedules.feedsSaved(guardados)}` : ''}
+                </Text>
+              </View>
+              {aDescarregar ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+              <MaterialCommunityIcons
+                name={aberto ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color={theme.textMuted}
+              />
+            </Pressable>
+            {aberto ? <View style={styles.zonas}>{lista.map(renderRow)}</View> : null}
+          </View>
+        );
+      })}
 
       <Text style={styles.nota}>{strings.schedules.note}</Text>
     </View>
@@ -256,14 +300,8 @@ function makeStyles(theme: Theme) {
       color: theme.textMuted,
       marginTop: 14,
     },
-    country: {
-      fontSize: 12,
-      fontWeight: '700',
-      letterSpacing: 0.5,
-      textTransform: 'uppercase',
-      color: theme.textMuted,
-      marginTop: 18,
-      marginBottom: 2,
+    zonas: {
+      paddingLeft: 24,
     },
     loading: {
       flexDirection: 'row',

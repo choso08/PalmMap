@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import { safeFileName } from '../utils/safeLink';
 import { t } from '../i18n';
+import { mapName } from '../utils/catalogueName';
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Network from 'expo-network';
@@ -511,7 +512,7 @@ async function downloadOnce(
           key: `mapa.${region.id}`,
           url: `${BASE_URL}/${region.ficheiro}`,
           destination: localFile(region),
-          title: region.nome,
+          title: mapName(region),
           expectedBytes: region.bytes,
           allowMetered,
           onProgress,
@@ -569,7 +570,7 @@ async function downloadOnce(
     // hundreds of megabytes it is almost always the network dropping halfway.
     const detail = error instanceof Error ? error.message : String(error);
     throw new OfflineMapError(
-      t().errors.mapDownloadFailed(region.nome, detail),
+      t().errors.mapDownloadFailed(mapName(region), detail),
     );
   }
 }
@@ -626,7 +627,7 @@ export async function downloadPois(
           key: `negocios.${region.id}`,
           url: `${BASE_URL}/${region.negocios}`,
           destination: poisFile(region),
-          title: region.nome,
+          title: mapName(region),
           expectedBytes: region.negociosBytes,
           allowMetered,
         });

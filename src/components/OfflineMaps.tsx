@@ -2,7 +2,8 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { t } from '../i18n';
+import { activeLanguage, t } from '../i18n';
+import { mapCountry, mapName } from '../utils/catalogueName';
 import {
   downloadRegion,
   isDownloaded,
@@ -124,7 +125,7 @@ export function OfflineMaps() {
     if (isDownloaded(region) && !desatualizadosRef.current.has(region.id)) {
       // Asked first: a tap meaning "download it again" removed the map, which
       // looked like a tap that did nothing (author's report, November 2026).
-      Alert.alert(t().offline.removeTitle(region.nome), t().offline.removeBody, [
+      Alert.alert(t().offline.removeTitle(mapName(region)), t().offline.removeBody, [
         { text: t().common.cancel, style: 'cancel' },
         {
           text: t().offline.remove,
@@ -176,6 +177,7 @@ export function OfflineMaps() {
       .toLowerCase();
 
   const procurado = simplificar(filtro.trim());
+  const lang = activeLanguage();
   // Each country's maps together — the whole country and its zones (Norte,
   // Alentejo, Bayern…) under one drop-down — countries alphabetical: with
   // dozens, the manifest's order (the order they happened to be generated in)
@@ -183,7 +185,10 @@ export function OfflineMaps() {
   const porPais = new Map<string, OfflineRegion[]>();
   for (const r of regions) {
     const pais = r.pais ?? r.nome;
-    if (procurado && !simplificar(`${r.nome} ${pais}`).includes(procurado)) {
+    if (
+      procurado &&
+      !simplificar(`${r.nome} ${pais} ${mapName(r)} ${mapCountry(r)}`).includes(procurado)
+    ) {
       continue;
     }
     porPais.set(pais, [...(porPais.get(pais) ?? []), r]);
@@ -191,16 +196,19 @@ export function OfflineMaps() {
   const grupos = [...porPais.entries()]
     .map(([pais, zonas]) => ({
       pais,
+      // Shown in the app's language; `pais` stays the Portuguese key.
+      label: mapCountry(zonas[0]),
       // The whole country first, then its zones by name.
       zonas: zonas
         .slice()
         .sort(
           (a, b) =>
             Number(b.nome === pais || b.pais === undefined) -
-              Number(a.nome === pais || a.pais === undefined) || a.nome.localeCompare(b.nome, 'pt'),
+              Number(a.nome === pais || a.pais === undefined) ||
+              mapName(a).localeCompare(mapName(b), lang),
         ),
     }))
-    .sort((a, b) => a.pais.localeCompare(b.pais, 'pt'));
+    .sort((a, b) => a.label.localeCompare(b.label, lang));
   const visiveis = grupos.flatMap((g) => g.zonas);
 
   const renderRow = (region: OfflineRegion, zona: boolean) => {
@@ -227,7 +235,7 @@ export function OfflineMaps() {
         />
 
         <View style={styles.rowText}>
-          <Text style={styles.name}>{region.nome}</Text>
+          <Text style={styles.name}>{mapName(region)}</Text>
           <Text style={styles.size}>
             {formatBytes(region.bytes)}
             {aDescarregar
@@ -295,7 +303,7 @@ export function OfflineMaps() {
         <Text style={styles.vazio}>{strings.offline.noMatch}</Text>
       ) : null}
 
-      {grupos.map(({ pais, zonas }) => {
+      {grupos.map(({ pais, label, zonas }) => {
         // A country with one map is a plain row, as before zones.
         if (
           zonas.length === 1 &&
@@ -325,7 +333,7 @@ export function OfflineMaps() {
                 color={guardadas > 0 ? theme.accent : theme.textMuted}
               />
               <View style={styles.rowText}>
-                <Text style={styles.name}>{pais}</Text>
+                <Text style={styles.name}>{label}</Text>
                 <Text style={styles.size}>
                   {strings.offline.zoneCount(zonas.length)}
                   {guardadas > 0 ? ` · ${strings.offline.zonesSaved(guardadas)}` : ''}

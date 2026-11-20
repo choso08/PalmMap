@@ -633,6 +633,17 @@ environment cannot reach.
   themselves on the 2nd** (`build-transit.yml` `schedule`, redoing the ids in `horarios.json`,
   60 days) — they had to be run by hand and would have expired in mid-January. Italy's 22
   timetables were generated the same day (`pais:IT`).
+- **Catalogue names in English, timetables by country** (author, 20 November 2026: "don't
+  forget the translations of the transport etc., and each country of transport in a
+  drop-down"; not seen on a phone). The manifests name maps, zones, countries and timetables
+  in Portuguese; `scripts/catalogue-names.py` writes `src/i18n/catalogueNames.ts` (id →
+  English, and a map's Portuguese `pais` → English) from `map-regions.json` and
+  `transit-feeds.json` — **run it again after adding catalogue entries**; it lists the names
+  it leaves as they are (operator names). `mapName`, `mapCountry`, `timetableName`
+  (`src/utils/catalogueName.ts`) read the language when called; used in both lists, the
+  download notifications, errors and timetable station/line labels. The timetables list
+  (`Schedules.tsx`) is a drop-down per country like the maps (Portugal open at first, all
+  open while searching, "N timetables · M saved").
 - **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
   with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
   the EU catalogue, zones and orthophotos above (none of those generated yet).
@@ -1376,6 +1387,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── build-pois.py       # Business file for a downloaded country (from Geofabrik)
 │   ├── poly-to-geojson.py  # A zone's Geofabrik outline, for cutting its map
 │   ├── eu-catalogue.py     # Open EU transport sources from the Mobility Database
+│   ├── catalogue-names.py  # English names of maps and timetables → src/i18n/catalogueNames.ts
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
 ├── modules/

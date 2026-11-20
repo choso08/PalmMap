@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { t } from '../i18n';
+import { timetableName } from '../utils/catalogueName';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import {
@@ -222,7 +223,7 @@ export async function downloadFeed(info: ScheduleFeedInfo): Promise<void> {
     forgetFeed(info.id);
     const detail = error instanceof Error ? error.message : String(error);
     throw new ScheduleError(
-      t().errors.scheduleDownloadFailed(info.nome, detail),
+      t().errors.scheduleDownloadFailed(timetableName(info), detail),
     );
   }
 }
@@ -674,7 +675,7 @@ export function scheduledBusStops(
           id: `sched:${feed.info.id}:${i}`,
           kind: 'bus',
           name: stop.n,
-          locality: feed.info.nome,
+          locality: timetableName(feed.info),
           coordinates: { latitude: stop.y, longitude: stop.x },
           stopIds: [],
           meters: 0,
@@ -762,7 +763,7 @@ function departuresFrom(
       }
       departures.push({
         key: `${feed.info.id}-${trip}-${day}`,
-        operator: feed.info.nome,
+        operator: timetableName(feed.info),
         feedId: feed.info.id,
         kind: feed.info.kind,
         station: feed.data.stops[station]?.n ?? '',
@@ -770,7 +771,7 @@ function departuresFrom(
           latitude: feed.data.stops[station]?.y ?? 0,
           longitude: feed.data.stops[station]?.x ?? 0,
         },
-        line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+        line: shortLine(feed.data.routes[scheduled.r]?.[0] || timetableName(feed.info)),
         destination: feed.data.headsigns[scheduled.h] ?? '',
         minutes: minutesLeft,
         time: clockOf(when),
@@ -791,7 +792,7 @@ function asStop(feed: IndexedFeed, station: number, meters: number): TransitStop
   return {
     id: `${feed.info.id}:${station}`,
     name: stop?.n ?? '',
-    locality: feed.info.nome,
+    locality: timetableName(feed.info),
     coordinates: { latitude: stop?.y ?? 0, longitude: stop?.x ?? 0 },
     lines: [],
     connections: [],
@@ -900,7 +901,7 @@ export function planScheduledTrips(
             best = {
               tripId: `${feed.info.id}:${trip}:${day}`,
               kind: feed.info.kind,
-              line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+              line: shortLine(feed.data.routes[scheduled.r]?.[0] || timetableName(feed.info)),
               headsign: feed.data.headsigns[scheduled.h] ?? '',
               from: asStop(feed, boardStation, departures.get(boardStation) ?? 0),
               to: asStop(feed, pattern[pos], walkAtEnd),
@@ -976,7 +977,7 @@ function reachFrom(
   const routeKey = (feed: IndexedFeed, trip: number) =>
     `${feed.info.id}:${feed.data.trips[trip].r}`;
   const lineOf = (feed: IndexedFeed, trip: number) =>
-    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || feed.info.nome);
+    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || timetableName(feed.info));
   const reached = new Map<string, Reached>();
   for (const feed of feeds) {
     const departures = stopsNear(feed, origin, TRANSIT_WALK_MAX_M);
@@ -1077,7 +1078,7 @@ export function planScheduledTransfers(
   const routeKey = (feed: IndexedFeed, trip: number) =>
     `${feed.info.id}:${feed.data.trips[trip].r}`;
   const lineOf = (feed: IndexedFeed, trip: number) =>
-    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || feed.info.nome);
+    shortLine(feed.data.routes[feed.data.trips[trip].r]?.[0] || timetableName(feed.info));
 
   // 1. Where the first legs can take us, and when.
   const reached = reachFrom(feeds, origin, nowUnix, days);
@@ -1313,7 +1314,7 @@ export function scheduledOnward(
           best = {
             tripId: `${feed.info.id}:${trip}:${day}`,
             kind: feed.info.kind,
-            line: shortLine(feed.data.routes[scheduled.r]?.[0] || feed.info.nome),
+            line: shortLine(feed.data.routes[scheduled.r]?.[0] || timetableName(feed.info)),
             headsign: feed.data.headsigns[scheduled.h] ?? '',
             from: asStop(feed, ref.station, 0),
             to: asStop(feed, pattern[next], walkAtEnd),
@@ -1943,7 +1944,7 @@ function raptorJourney(
     const scheduled = ride.feed.data.trips[ride.trip];
     return {
       kind: ride.feed.info.kind,
-      line: shortLine(ride.feed.data.routes[scheduled.r]?.[0] || ride.feed.info.nome),
+      line: shortLine(ride.feed.data.routes[scheduled.r]?.[0] || timetableName(ride.feed.info)),
       headsign: ride.feed.data.headsigns[scheduled.h] ?? '',
       ride: {
         source: 'schedule' as const,

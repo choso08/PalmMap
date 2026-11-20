@@ -555,6 +555,8 @@ export const en: typeof pt = {
     } as Record<string, string>,
     loading: 'Getting the list of timetables…',
     empty: 'No timetables yet.',
+    feedCount: (n: number) => (n === 1 ? '1 timetable' : `${n} timetables`),
+    feedsSaved: (n: number) => (n === 1 ? '1 saved' : `${n} saved`),
     stationCount: (n: number) => (n === 1 ? '1 station' : `${n} stations`),
     expired: 'out of date, download again',
     until: (date: string) => `until ${date}`,
