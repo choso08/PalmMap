@@ -2141,6 +2141,150 @@ def eu_feeds():
             print("EU|" + json.dumps(r, ensure_ascii=False), flush=True)
 
 
+# Open orthophoto services of EU countries, to try (author's request, 20 November
+# 2026: "the orthophoto maps of each EU country", as the DGT's and the PNOA). Each:
+# country, name, kind (wms / wmts / xyz), address, layer (for WMS; a guess if
+# unknown, the capabilities say), and a test point (lat, lon) in a city.
+EU_ORTHOS = [
+    ("FR", "IGN Géoplateforme WMTS", "wmts", "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetCapabilities", "ORTHOIMAGERY.ORTHOPHOTOS", (48.8566, 2.3522)),
+    ("FR", "IGN Géoplateforme WMS", "wms", "https://data.geopf.fr/wms-r/wms", "HR.ORTHOIMAGERY.ORTHOPHOTOS", (48.8566, 2.3522)),
+    ("NL", "PDOK Luchtfoto WMS", "wms", "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0", "Actueel_orthoHR", (52.3702, 4.8952)),
+    ("NL", "PDOK Luchtfoto WMTS", "wmts", "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0?request=GetCapabilities&service=wmts", "Actueel_orthoHR", (52.3702, 4.8952)),
+    ("BE", "Vlaanderen orthofoto WMS", "wms", "https://geo.api.vlaanderen.be/omw/wms", "", (51.0543, 3.7174)),
+    ("BE", "Vlaanderen OMZ WMS", "wms", "https://geo.api.vlaanderen.be/OMZ/wms", "", (51.2194, 4.4025)),
+    ("BE", "Wallonie ortho WMS", "wms", "https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer", "", (50.6326, 5.5797)),
+    ("BE", "Bruxelles UrbIS ortho WMS", "wms", "https://geoservices-urbis.irisnet.be/geoserver/ows", "", (50.8467, 4.3525)),
+    ("LU", "Geoportail.lu WMTS", "wmts", "https://wmts1.geoportail.lu/opendata/service?SERVICE=WMTS&REQUEST=GetCapabilities", "ortho_latest", (49.6116, 6.1319)),
+    ("LU", "Geoportail.lu WMS", "wms", "https://wms.geoportail.lu/opendata/service", "ortho_latest", (49.6116, 6.1319)),
+    ("AT", "basemap.at orthofoto", "xyz", "https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg", "", (48.2082, 16.3738)),
+    ("AT", "basemap.at WMTS", "wmts", "https://mapsneu.wien.gv.at/basemapneu/1.0.0/WMTSCapabilities.xml", "bmaporthofoto30cm", (48.2082, 16.3738)),
+    ("DE-NW", "NRW DOP WMS", "wms", "https://www.wms.nrw.de/geobasis/wms_nw_dop", "nw_dop_rgb", (50.9375, 6.9603)),
+    ("DE-BY", "Bayern DOP20 WMS", "wms", "https://geoservices.bayern.de/od/wms/dop/v1/dop20", "by_dop20c", (48.1372, 11.5756)),
+    ("DE-BB", "Berlin/Brandenburg DOP20 WMS", "wms", "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms", "bebb_dop20c", (52.5200, 13.4050)),
+    ("DE-SN", "Sachsen DOP WMS", "wms", "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest", "sn_dop_020", (51.0504, 13.7373)),
+    ("DE-HH", "Hamburg DOP WMS", "wms", "https://geodienste.hamburg.de/HH_WMS_DOP", "", (53.5511, 9.9937)),
+    ("DE-NI", "Niedersachsen DOP WMS", "wms", "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms", "", (52.3759, 9.7320)),
+    ("DE-HE", "Hessen DOP WMS", "wms", "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows", "", (50.1109, 8.6821)),
+    ("DE-TH", "Thüringen DOP WMS", "wms", "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP", "", (50.9848, 11.0299)),
+    ("DE-BW", "Baden-Württemberg DOP WMS", "wms", "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C", "", (48.7758, 9.1829)),
+    ("DE-ST", "Sachsen-Anhalt DOP WMS", "wms", "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest", "", (52.1205, 11.6276)),
+    ("DE-SH", "Schleswig-Holstein DOP WMS", "wms", "https://service.gdi-sh.de/WMS_SH_DOP20col_OpenGBD", "", (54.3233, 10.1228)),
+    ("DE-MV", "Mecklenburg-Vorpommern DOP WMS", "wms", "https://www.geodaten-mv.de/dienste/adv_dop", "", (54.0924, 12.0991)),
+    ("DE-RP", "Rheinland-Pfalz DOP WMS", "wms", "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi", "", (49.9929, 8.2473)),
+    ("DE-SL", "Saarland DOP WMS", "wms", "https://geoportal.saarland.de/freewms/dop2022", "", (49.2402, 6.9969)),
+    ("DE-HB", "Bremen DOP WMS", "wms", "https://geodienste.bremen.de/wms_dop_lb", "", (53.0793, 8.8017)),
+    ("CZ", "ČÚZK Ortofoto WMS", "wms", "https://ags.cuzk.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer", "0", (50.0755, 14.4378)),
+    ("PL", "Geoportal ORTO WMS", "wms", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", "Raster", (52.2297, 21.0122)),
+    ("PL", "Geoportal ORTO HR WMS", "wms", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/HighResolution", "Raster", (52.2297, 21.0122)),
+    ("SK", "ZBGIS ortofoto WMS", "wms", "https://zbgisws.skgeodesy.sk/zbgis_ortofoto_wms/service.svc/get", "", (48.1486, 17.1077)),
+    ("SI", "GURS DOF WMS", "wms", "https://ipi.eprostor.gov.si/wms-si-gurs-dts/wms", "", (46.0569, 14.5058)),
+    ("HR", "DGU orthophoto WMS", "wms", "https://geoportal.dgu.hr/services/inspire/orthophoto_2021_2022/ows", "", (45.8150, 15.9819)),
+    ("HR", "DGU DOF WMS", "wms", "https://geoportal.dgu.hr/services/dof/ows", "", (45.8150, 15.9819)),
+    ("EE", "Maa-amet fotokaart WMS", "wms", "https://kaart.maaamet.ee/wms/fotokaart", "EESTIFOTO", (59.4370, 24.7536)),
+    ("EE", "Maa-amet foto tiles", "xyz", "https://tiles.maaamet.ee/tm/tms/1.0.0/foto@GMC/{z}/{x}/{ty}.png", "", (59.4370, 24.7536)),
+    ("LV", "LVM ortofoto WMS", "wms", "https://lvmgeoserver.lvm.lv/geoserver/ows", "", (56.9496, 24.1052)),
+    ("LT", "Geoportal.lt ortofoto WMS", "wms", "https://www.geoportal.lt/mapproxy/gisc_ortofoto/wms", "", (54.6872, 25.2797)),
+    ("IT", "PCN ortofoto 2012 WMS", "wms", "http://wms.pcn.minambiente.it/ogc?map=/ms_ogc/WMS_v1.3/raster/ortofoto_colore_12.map", "", (41.9028, 12.4964)),
+    ("GR", "Ktimatologio WMS", "wms", "http://gis.ktimanet.gr/wms/wmsopen/wmsserver.aspx", "", (37.9838, 23.7275)),
+    ("CY", "DLS orthophoto WMS", "wms", "https://eservices.dls.moi.gov.cy/inspire/services/INSPIRE/OI_Orthoimagery/MapServer/WMSServer", "", (35.1856, 33.3823)),
+    ("FI", "MML ortokuva WMTS (key?)", "wmts", "https://avoin-karttakuva.maanmittauslaitos.fi/avoin/wmts/1.0.0/WMTSCapabilities.xml", "ortokuva", (60.1699, 24.9384)),
+    ("DK", "Dataforsyningen ortofoto (token?)", "wms", "https://api.dataforsyningen.dk/orto_foraar_DAF", "", (55.6761, 12.5683)),
+    ("SE", "Lantmäteriet ortofoto (open?)", "wms", "https://minkarta.lantmateriet.se/map/ortofoto/", "", (59.3293, 18.0686)),
+    ("IE", "Tailte Éireann (open?)", "wms", "https://maps.tailte.ie/arcgis/services/Basemaps/Ortho/MapServer/WMSServer", "", (53.3498, -6.2603)),
+    ("RO", "ANCPI ortofoto WMS", "wms", "https://geoportal.ancpi.ro/maps/services/Ortofoto/MapServer/WMSServer", "", (44.4268, 26.1025)),
+    ("HU", "Lechner ortofoto (open?)", "wms", "https://inspire.lechnerkozpont.hu/geoserver/OI/wms", "", (47.4979, 19.0402)),
+    ("BG", "Cadastre ortophoto (open?)", "wms", "https://inspire.cadastre.bg/arcgis/services/Orthophoto/MapServer/WMSServer", "", (42.6977, 23.3219)),
+    ("MT", "Planning Authority ortho (open?)", "wms", "https://geoserver.pa.org.mt/geoserver/ows", "", (35.8989, 14.5146)),
+]
+
+
+def _merc(lat, lon):
+    x = lon * 20037508.34 / 180
+    y = math.log(math.tan((90 + lat) * math.pi / 360)) / (math.pi / 180) * 20037508.34 / 180
+    return x, y
+
+
+def _tile(lat, lon, z):
+    n = 2 ** z
+    x = int((lon + 180) / 360 * n)
+    y = int((1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * n)
+    return x, y
+
+
+def _root_of(host):
+    import subprocess
+    try:
+        out = subprocess.run(["openssl", "s_client", "-connect", f"{host}:443", "-servername", host, "-showcerts"],
+                             input=b"", capture_output=True, timeout=20).stdout.decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001
+        return "?"
+    issuers = re.findall(r"^\s*i:(.*)$", out, re.M)
+    return issuers[-1].strip()[:90] if issuers else "?"
+
+
+def eu_orthos():
+    """
+    Each candidate orthophoto service: does it answer without a key, which
+    layers look like orthophotos, which formats and Web Mercator support, does
+    a 512 px tile at a city come back as an image (and how heavy), and which root
+    its certificate chain ends on (old Androids). One "ORTO|" JSON line each.
+    """
+    section("EU ORTHOS")
+    for country, name, kind, url, layer, (lat, lon) in EU_ORTHOS:
+        r = {"pais": country, "nome": name, "tipo": kind, "url": url}
+        host = urllib.parse.urlparse(url).hostname
+        r["https"] = url.startswith("https")
+        if r["https"]:
+            r["raiz"] = _root_of(host)
+        if kind == "xyz":
+            z = 17
+            x, y = _tile(lat, lon, z)
+            t = url.replace("{z}", str(z)).replace("{x}", str(x)).replace("{y}", str(y)).replace("{ty}", str(2 ** z - 1 - y))
+            st, ct, body = get(t, timeout=40)
+            r["tile"] = {"estado": st, "tipo": ct, "kb": round(len(body) / 1e3, 1)}
+        elif kind == "wmts":
+            st, ct, body = get(url, timeout=60)
+            text = body.decode("utf-8", "replace")
+            r["caps"] = st
+            layers = re.findall(r"<Layer>.*?<ows:Identifier>([^<]+)</ows:Identifier>", text, re.S)
+            r["camadas"] = [l for l in layers if re.search(r"orto|ortho|foto|photo|luchtfoto|dop|ortokuva", l, re.I)][:15] or layers[:15]
+            r["matrizes"] = sorted(set(re.findall(r"<TileMatrixSet>([^<]+)</TileMatrixSet>", text)))[:12]
+            tpl = re.findall(r'template="([^"]+)"', text)
+            want = [t for t in tpl if layer and layer in t] or tpl
+            r["modelo"] = want[0][:200] if want else None
+        else:
+            sep = "&" if "?" in url else "?"
+            st, ct, body = get(f"{url}{sep}SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0", timeout=60)
+            text = body.decode("utf-8", "replace")
+            r["caps"] = st
+            names = re.findall(r"<Name>([^<]+)</Name>", text)
+            r["camadas"] = [n for n in names if re.search(r"orto|ortho|foto|photo|dop|oi\.|luchtfoto|raster|ortofoto", n, re.I)][:20] or names[:20]
+            r["formatos"] = sorted(set(re.findall(r"<Format>(image/[^<]+)</Format>", text)))[:10]
+            r["3857"] = "EPSG:3857" in text
+            r["acesso"] = (re.findall(r"<AccessConstraints>([^<]{0,200})", text) or [""])[0]
+            r["taxas"] = (re.findall(r"<Fees>([^<]{0,120})", text) or [""])[0]
+            use = layer or (r["camadas"][0] if r["camadas"] else "")
+            if use and st == 200:
+                x, y = _merc(lat, lon)
+                h = 300  # metres each side: about zoom 17 at 512 px
+                crs = "EPSG:3857" if r["3857"] else "EPSG:4326"
+                if crs == "EPSG:3857":
+                    bbox = f"{x - h},{y - h},{x + h},{y + h}"
+                else:
+                    d = h / 111320
+                    bbox = f"{lat - d},{lon - d},{lat + d},{lon + d}"
+                for fmt in ("image/vnd.jpeg-png8", "image/jpeg", "image/png"):
+                    q = (f"{url}{sep}SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS={urllib.parse.quote(use)}"
+                         f"&STYLES=&CRS={crs}&BBOX={bbox}&WIDTH=512&HEIGHT=512&FORMAT={fmt}&TRANSPARENT=true")
+                    st2, ct2, body2 = get(q, timeout=60)
+                    r.setdefault("mapa", []).append({"formato": fmt, "estado": st2, "tipo": ct2, "kb": round(len(body2) / 1e3, 1),
+                                                     "erro": body2[:120].decode("utf-8", "replace") if not ct2.startswith("image") else ""})
+                    if st2 == 200 and ct2.startswith("image"):
+                        break
+                r["camada_usada"] = use
+        print("ORTO|" + json.dumps(r, ensure_ascii=False), flush=True)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
