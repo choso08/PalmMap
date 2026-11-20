@@ -2315,7 +2315,12 @@ def geofabrik_zones_compact():
     geofabrik_zones(compact=True)
 
 
-def geofabrik_zones(compact=False):
+def geofabrik_zones_ac():
+    """The compact list's first part only (ids up to "cataluna"), for a short log."""
+    geofabrik_zones(compact=True, upto="cataluna")
+
+
+def geofabrik_zones(compact=False, upto=None):
     """
     Geofabrik's sub-regions of every country (author's request, 20 November
     2026: maps by zone — Alentejo, Norte… — and per administrative area in
@@ -2363,6 +2368,8 @@ def geofabrik_zones(compact=False):
         if wanted is not None:
             grand = by_id[parent]["properties"].get("parent")
             if parent not in wanted or grand not in continents:
+                continue
+            if upto and p["id"] >= upto:
                 continue
             name = re.sub(r"<br\s*/?>.*", "", p.get("name") or "")
             b = bbox(f["geometry"]) if f.get("geometry") else None
