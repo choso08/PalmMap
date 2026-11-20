@@ -120,7 +120,53 @@
       "nome": "Brasil",
       "bbox": "-74.0,-33.8,-34.7,5.3",
       "maxzoom": 11,
-      "geofabrik": "south-america/brazil"
+      "geofabrik": "south-america/brazil",
+      "pais": "Brasil"
+    },
+    {
+      "id": "brasil-centro-oeste",
+      "nome": "Centro-Oeste",
+      "pais": "Brasil",
+      "bbox": "-61.665,-24.184,-45.878,-7.317",
+      "maxzoom": 13,
+      "geofabrik": "south-america/brazil/centro-oeste",
+      "poligono": "south-america/brazil/centro-oeste"
+    },
+    {
+      "id": "brasil-nordeste",
+      "nome": "Nordeste",
+      "pais": "Brasil",
+      "bbox": "-48.776,-18.595,-28.42,2.673",
+      "maxzoom": 13,
+      "geofabrik": "south-america/brazil/nordeste",
+      "poligono": "south-america/brazil/nordeste"
+    },
+    {
+      "id": "brasil-norte",
+      "nome": "Norte",
+      "pais": "Brasil",
+      "bbox": "-74.023,-13.734,-42.879,5.523",
+      "maxzoom": 13,
+      "geofabrik": "south-america/brazil/norte",
+      "poligono": "south-america/brazil/norte"
+    },
+    {
+      "id": "brasil-sudeste",
+      "nome": "Sudeste",
+      "pais": "Brasil",
+      "bbox": "-53.119,-25.499,-28.192,-14.224",
+      "maxzoom": 13,
+      "geofabrik": "south-america/brazil/sudeste",
+      "poligono": "south-america/brazil/sudeste"
+    },
+    {
+      "id": "brasil-sul",
+      "nome": "Sul",
+      "pais": "Brasil",
+      "bbox": "-57.673,-34.864,-44.246,-22.514",
+      "maxzoom": 13,
+      "geofabrik": "south-america/brazil/sul",
+      "poligono": "south-america/brazil/sul"
     },
     {
       "id": "timorleste",
@@ -134,35 +180,598 @@
       "nome": "Espanha",
       "bbox": "-9.4,35.9,3.4,43.9",
       "maxzoom": 13,
-      "geofabrik": "europe/spain"
+      "geofabrik": "europe/spain",
+      "pais": "Espanha"
+    },
+    {
+      "id": "espanha-andalucia",
+      "nome": "Andaluzia",
+      "pais": "Espanha",
+      "bbox": "-7.525,35.706,-1.332,38.733",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/andalucia",
+      "poligono": "europe/spain/andalucia"
+    },
+    {
+      "id": "espanha-aragon",
+      "nome": "Aragão",
+      "pais": "Espanha",
+      "bbox": "-2.179,39.838,0.773,42.927",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/aragon",
+      "poligono": "europe/spain/aragon"
+    },
+    {
+      "id": "espanha-asturias",
+      "nome": "Astúrias",
+      "pais": "Espanha",
+      "bbox": "-7.189,42.879,-4.4,44.011",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/asturias",
+      "poligono": "europe/spain/asturias"
+    },
+    {
+      "id": "espanha-islas-baleares",
+      "nome": "Baleares",
+      "pais": "Espanha",
+      "bbox": "0.615,38.057,4.938,40.71",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/islas-baleares",
+      "poligono": "europe/spain/islas-baleares"
+    },
+    {
+      "id": "espanha-cantabria",
+      "nome": "Cantábria",
+      "pais": "Espanha",
+      "bbox": "-4.862,42.755,-3.145,43.865",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/cantabria",
+      "poligono": "europe/spain/cantabria"
+    },
+    {
+      "id": "espanha-castilla-y-leon",
+      "nome": "Castela e Leão",
+      "pais": "Espanha",
+      "bbox": "-7.081,40.08,-1.766,43.241",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/castilla-y-leon",
+      "poligono": "europe/spain/castilla-y-leon"
+    },
+    {
+      "id": "espanha-castilla-la-mancha",
+      "nome": "Castela-Mancha",
+      "pais": "Espanha",
+      "bbox": "-5.411,38.02,-0.913,41.332",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/castilla-la-mancha",
+      "poligono": "europe/spain/castilla-la-mancha"
+    },
+    {
+      "id": "espanha-cataluna",
+      "nome": "Catalunha",
+      "pais": "Espanha",
+      "bbox": "0.156,40.212,4.175,42.863",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/cataluna",
+      "poligono": "europe/spain/cataluna"
+    },
+    {
+      "id": "espanha-extremadura",
+      "nome": "Estremadura",
+      "pais": "Espanha",
+      "bbox": "-7.544,37.939,-4.642,40.489",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/extremadura",
+      "poligono": "europe/spain/extremadura"
+    },
+    {
+      "id": "espanha-galicia",
+      "nome": "Galiza",
+      "pais": "Espanha",
+      "bbox": "-9.779,41.804,-6.727,44.149",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/galicia",
+      "poligono": "europe/spain/galicia"
+    },
+    {
+      "id": "espanha-la-rioja",
+      "nome": "La Rioja",
+      "pais": "Espanha",
+      "bbox": "-3.14,41.914,-1.673,42.646",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/la-rioja",
+      "poligono": "europe/spain/la-rioja"
+    },
+    {
+      "id": "espanha-madrid",
+      "nome": "Madrid",
+      "pais": "Espanha",
+      "bbox": "-4.59,39.881,-3.05,41.169",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/madrid",
+      "poligono": "europe/spain/madrid"
+    },
+    {
+      "id": "espanha-murcia",
+      "nome": "Múrcia",
+      "pais": "Espanha",
+      "bbox": "-2.351,37.112,-0.247,38.76",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/murcia",
+      "poligono": "europe/spain/murcia"
+    },
+    {
+      "id": "espanha-navarra",
+      "nome": "Navarra",
+      "pais": "Espanha",
+      "bbox": "-2.502,41.906,-0.717,43.317",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/navarra",
+      "poligono": "europe/spain/navarra"
+    },
+    {
+      "id": "espanha-pais-vasco",
+      "nome": "País Basco",
+      "pais": "Espanha",
+      "bbox": "-3.454,42.469,-1.666,43.747",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/pais-vasco",
+      "poligono": "europe/spain/pais-vasco"
+    },
+    {
+      "id": "espanha-valencia",
+      "nome": "Valência",
+      "pais": "Espanha",
+      "bbox": "-1.532,37.843,1.686,40.793",
+      "maxzoom": 14,
+      "geofabrik": "europe/spain/valencia",
+      "poligono": "europe/spain/valencia"
     },
     {
       "id": "franca",
       "nome": "França",
       "bbox": "-5.2,41.3,9.6,51.15",
       "maxzoom": 12,
-      "geofabrik": "europe/france"
+      "geofabrik": "europe/france",
+      "pais": "França"
+    },
+    {
+      "id": "franca-alsace",
+      "nome": "Alsácia",
+      "pais": "França",
+      "bbox": "6.839,47.418,8.235,49.079",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/alsace",
+      "poligono": "europe/france/alsace"
+    },
+    {
+      "id": "franca-haute-normandie",
+      "nome": "Alta Normandia",
+      "pais": "França",
+      "bbox": "0.009,48.666,1.804,50.088",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/haute-normandie",
+      "poligono": "europe/france/haute-normandie"
+    },
+    {
+      "id": "franca-aquitaine",
+      "nome": "Aquitânia",
+      "pais": "França",
+      "bbox": "-1.843,42.773,1.451,45.717",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/aquitaine",
+      "poligono": "europe/france/aquitaine"
+    },
+    {
+      "id": "franca-auvergne",
+      "nome": "Auvérnia",
+      "pais": "França",
+      "bbox": "2.061,44.615,4.493,46.807",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/auvergne",
+      "poligono": "europe/france/auvergne"
+    },
+    {
+      "id": "franca-basse-normandie",
+      "nome": "Baixa Normandia",
+      "pais": "França",
+      "bbox": "-2.088,48.178,0.979,49.885",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/basse-normandie",
+      "poligono": "europe/france/basse-normandie"
+    },
+    {
+      "id": "franca-bourgogne",
+      "nome": "Borgonha",
+      "pais": "França",
+      "bbox": "2.843,46.155,5.52,48.401",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/bourgogne",
+      "poligono": "europe/france/bourgogne"
+    },
+    {
+      "id": "franca-bretagne",
+      "nome": "Bretanha",
+      "pais": "França",
+      "bbox": "-5.849,47.077,-1.015,49.4",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/bretagne",
+      "poligono": "europe/france/bretagne"
+    },
+    {
+      "id": "franca-centre",
+      "nome": "Centro-Vale do Loire",
+      "pais": "França",
+      "bbox": "0.052,46.346,3.13,48.942",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/centre",
+      "poligono": "europe/france/centre"
+    },
+    {
+      "id": "franca-champagne-ardenne",
+      "nome": "Champanhe-Ardenas",
+      "pais": "França",
+      "bbox": "3.382,47.576,5.892,50.17",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/champagne-ardenne",
+      "poligono": "europe/france/champagne-ardenne"
+    },
+    {
+      "id": "franca-corse",
+      "nome": "Córsega",
+      "pais": "França",
+      "bbox": "8.318,41.311,9.751,43.166",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/corse",
+      "poligono": "europe/france/corse"
+    },
+    {
+      "id": "franca-franche-comte",
+      "nome": "Franco-Condado",
+      "pais": "França",
+      "bbox": "5.251,46.26,7.144,48.025",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/franche-comte",
+      "poligono": "europe/france/franche-comte"
+    },
+    {
+      "id": "franca-languedoc-roussillon",
+      "nome": "Languedoc-Rossilhão",
+      "pais": "França",
+      "bbox": "1.686,42.328,4.848,44.978",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/languedoc-roussillon",
+      "poligono": "europe/france/languedoc-roussillon"
+    },
+    {
+      "id": "franca-limousin",
+      "nome": "Limusino",
+      "pais": "França",
+      "bbox": "0.627,44.918,2.614,46.458",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/limousin",
+      "poligono": "europe/france/limousin"
+    },
+    {
+      "id": "franca-lorraine",
+      "nome": "Lorena",
+      "pais": "França",
+      "bbox": "4.886,47.812,7.64,49.619",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/lorraine",
+      "poligono": "europe/france/lorraine"
+    },
+    {
+      "id": "franca-midi-pyrenees",
+      "nome": "Midi-Pirenéus",
+      "pais": "França",
+      "bbox": "-0.328,42.568,3.453,45.048",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/midi-pyrenees",
+      "poligono": "europe/france/midi-pyrenees"
+    },
+    {
+      "id": "franca-nord-pas-de-calais",
+      "nome": "Nord-Pas-de-Calais",
+      "pais": "França",
+      "bbox": "1.278,49.968,4.237,51.281",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/nord-pas-de-calais",
+      "poligono": "europe/france/nord-pas-de-calais"
+    },
+    {
+      "id": "franca-pays-de-la-loire",
+      "nome": "Países do Loire",
+      "pais": "França",
+      "bbox": "-2.675,46.219,0.919,48.57",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/pays-de-la-loire",
+      "poligono": "europe/france/pays-de-la-loire"
+    },
+    {
+      "id": "franca-picardie",
+      "nome": "Picardia",
+      "pais": "França",
+      "bbox": "1.36,48.836,4.257,50.371",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/picardie",
+      "poligono": "europe/france/picardie"
+    },
+    {
+      "id": "franca-poitou-charentes",
+      "nome": "Poitou-Charentes",
+      "pais": "França",
+      "bbox": "-1.899,45.087,1.215,47.178",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/poitou-charentes",
+      "poligono": "europe/france/poitou-charentes"
+    },
+    {
+      "id": "franca-provence-alpes-cote-d-azur",
+      "nome": "Provença-Alpes-Costa Azul",
+      "pais": "França",
+      "bbox": "4.145,42.315,7.749,45.129",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/provence-alpes-cote-d-azur",
+      "poligono": "europe/france/provence-alpes-cote-d-azur"
+    },
+    {
+      "id": "franca-rhone-alpes",
+      "nome": "Ródano-Alpes",
+      "pais": "França",
+      "bbox": "3.686,44.113,7.192,46.522",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/rhone-alpes",
+      "poligono": "europe/france/rhone-alpes"
+    },
+    {
+      "id": "franca-ile-de-france",
+      "nome": "Île-de-France",
+      "pais": "França",
+      "bbox": "1.445,48.119,3.56,49.243",
+      "maxzoom": 14,
+      "geofabrik": "europe/france/ile-de-france",
+      "poligono": "europe/france/ile-de-france"
     },
     {
       "id": "italia",
       "nome": "Itália",
       "bbox": "6.6,35.4,18.6,47.1",
       "maxzoom": 13,
-      "geofabrik": "europe/italy"
+      "geofabrik": "europe/italy",
+      "pais": "Itália"
+    },
+    {
+      "id": "italia-centro",
+      "nome": "Centro",
+      "pais": "Itália",
+      "bbox": "9.306,40.214,14.669,44.48",
+      "maxzoom": 14,
+      "geofabrik": "europe/italy/centro",
+      "poligono": "europe/italy/centro"
+    },
+    {
+      "id": "italia-nord-est",
+      "nome": "Nordeste",
+      "pais": "Itália",
+      "bbox": "9.195,43.73,13.929,47.1",
+      "maxzoom": 14,
+      "geofabrik": "europe/italy/nord-est",
+      "poligono": "europe/italy/nord-est"
+    },
+    {
+      "id": "italia-nord-ovest",
+      "nome": "Noroeste",
+      "pais": "Itália",
+      "bbox": "6.603,43.481,11.433,46.641",
+      "maxzoom": 14,
+      "geofabrik": "europe/italy/nord-ovest",
+      "poligono": "europe/italy/nord-ovest"
+    },
+    {
+      "id": "italia-isole",
+      "nome": "Sicília e Sardenha",
+      "pais": "Itália",
+      "bbox": "7.718,35.076,15.709,41.519",
+      "maxzoom": 14,
+      "geofabrik": "europe/italy/isole",
+      "poligono": "europe/italy/isole"
+    },
+    {
+      "id": "italia-sud",
+      "nome": "Sul",
+      "pais": "Itália",
+      "bbox": "13.001,37.802,19.125,42.914",
+      "maxzoom": 14,
+      "geofabrik": "europe/italy/sud",
+      "poligono": "europe/italy/sud"
     },
     {
       "id": "alemanha",
       "nome": "Alemanha",
       "bbox": "5.85,47.25,15.05,55.1",
       "maxzoom": 13,
-      "geofabrik": "europe/germany"
+      "geofabrik": "europe/germany",
+      "pais": "Alemanha"
+    },
+    {
+      "id": "alemanha-baden-wuerttemberg",
+      "nome": "Bade-Vurtemberga",
+      "pais": "Alemanha",
+      "bbox": "7.506,47.531,10.515,49.795",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/baden-wuerttemberg",
+      "poligono": "europe/germany/baden-wuerttemberg"
+    },
+    {
+      "id": "alemanha-niedersachsen",
+      "nome": "Baixa Saxónia (com Bremen)",
+      "pais": "Alemanha",
+      "bbox": "6.295,51.293,11.607,54.24",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/niedersachsen",
+      "poligono": "europe/germany/niedersachsen"
+    },
+    {
+      "id": "alemanha-bayern",
+      "nome": "Baviera",
+      "pais": "Alemanha",
+      "bbox": "8.975,47.265,13.849,50.566",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/bayern",
+      "poligono": "europe/germany/bayern"
+    },
+    {
+      "id": "alemanha-berlin",
+      "nome": "Berlim",
+      "pais": "Alemanha",
+      "bbox": "13.083,52.334,13.762,52.678",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/berlin",
+      "poligono": "europe/germany/berlin"
+    },
+    {
+      "id": "alemanha-brandenburg",
+      "nome": "Brandeburgo (com Berlim)",
+      "pais": "Alemanha",
+      "bbox": "11.261,51.356,14.775,53.563",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/brandenburg",
+      "poligono": "europe/germany/brandenburg"
+    },
+    {
+      "id": "alemanha-bremen",
+      "nome": "Bremen",
+      "pais": "Alemanha",
+      "bbox": "8.481,53.01,8.991,53.611",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/bremen",
+      "poligono": "europe/germany/bremen"
+    },
+    {
+      "id": "alemanha-hamburg",
+      "nome": "Hamburgo",
+      "pais": "Alemanha",
+      "bbox": "7.968,53.392,10.332,54.063",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/hamburg",
+      "poligono": "europe/germany/hamburg"
+    },
+    {
+      "id": "alemanha-hessen",
+      "nome": "Hesse",
+      "pais": "Alemanha",
+      "bbox": "7.768,49.393,10.246,51.659",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/hessen",
+      "poligono": "europe/germany/hessen"
+    },
+    {
+      "id": "alemanha-mecklenburg-vorpommern",
+      "nome": "Meclemburgo-Pomerânia Ocidental",
+      "pais": "Alemanha",
+      "bbox": "10.588,53.106,14.423,54.984",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/mecklenburg-vorpommern",
+      "poligono": "europe/germany/mecklenburg-vorpommern"
+    },
+    {
+      "id": "alemanha-nordrhein-westfalen",
+      "nome": "Renânia do Norte-Vestefália",
+      "pais": "Alemanha",
+      "bbox": "5.864,50.321,9.468,52.533",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/nordrhein-westfalen",
+      "poligono": "europe/germany/nordrhein-westfalen"
+    },
+    {
+      "id": "alemanha-rheinland-pfalz",
+      "nome": "Renânia-Palatinado",
+      "pais": "Alemanha",
+      "bbox": "6.109,48.964,8.511,50.944",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/rheinland-pfalz",
+      "poligono": "europe/germany/rheinland-pfalz"
+    },
+    {
+      "id": "alemanha-saarland",
+      "nome": "Sarre",
+      "pais": "Alemanha",
+      "bbox": "6.354,49.108,7.406,49.641",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/saarland",
+      "poligono": "europe/germany/saarland"
+    },
+    {
+      "id": "alemanha-sachsen",
+      "nome": "Saxónia",
+      "pais": "Alemanha",
+      "bbox": "11.867,50.167,15.051,51.687",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/sachsen",
+      "poligono": "europe/germany/sachsen"
+    },
+    {
+      "id": "alemanha-sachsen-anhalt",
+      "nome": "Saxónia-Anhalt",
+      "pais": "Alemanha",
+      "bbox": "10.547,50.929,13.213,53.057",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/sachsen-anhalt",
+      "poligono": "europe/germany/sachsen-anhalt"
+    },
+    {
+      "id": "alemanha-schleswig-holstein",
+      "nome": "Schleswig-Holstein",
+      "pais": "Alemanha",
+      "bbox": "7.465,53.357,11.799,55.146",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/schleswig-holstein",
+      "poligono": "europe/germany/schleswig-holstein"
+    },
+    {
+      "id": "alemanha-thueringen",
+      "nome": "Turíngia",
+      "pais": "Alemanha",
+      "bbox": "9.863,50.2,12.661,51.652",
+      "maxzoom": 14,
+      "geofabrik": "europe/germany/thueringen",
+      "poligono": "europe/germany/thueringen"
     },
     {
       "id": "reinounido",
       "nome": "Reino Unido",
       "bbox": "-8.7,49.85,1.8,60.9",
       "maxzoom": 13,
-      "geofabrik": "europe/united-kingdom"
+      "geofabrik": "europe/united-kingdom",
+      "pais": "Reino Unido"
+    },
+    {
+      "id": "reinounido-scotland",
+      "nome": "Escócia",
+      "pais": "Reino Unido",
+      "bbox": "-14.862,54.54,0.216,61.136",
+      "maxzoom": 14,
+      "geofabrik": "europe/united-kingdom/scotland",
+      "poligono": "europe/united-kingdom/scotland"
+    },
+    {
+      "id": "reinounido-england",
+      "nome": "Inglaterra",
+      "pais": "Reino Unido",
+      "bbox": "-7.101,49.578,2.25,56.07",
+      "maxzoom": 13,
+      "geofabrik": "europe/united-kingdom/england",
+      "poligono": "europe/united-kingdom/england"
+    },
+    {
+      "id": "reinounido-wales",
+      "nome": "País de Gales",
+      "pais": "Reino Unido",
+      "bbox": "-6.183,51.04,-2.648,53.766",
+      "maxzoom": 14,
+      "geofabrik": "europe/united-kingdom/wales",
+      "poligono": "europe/united-kingdom/wales"
     },
     {
       "id": "irlanda",
@@ -176,7 +785,116 @@
       "nome": "Países Baixos",
       "bbox": "3.3,50.7,7.25,53.6",
       "maxzoom": 14,
-      "geofabrik": "europe/netherlands"
+      "geofabrik": "europe/netherlands",
+      "pais": "Países Baixos"
+    },
+    {
+      "id": "paisesbaixos-noord-brabant",
+      "nome": "Brabante do Norte",
+      "pais": "Países Baixos",
+      "bbox": "4.189,51.218,6.049,51.832",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/noord-brabant",
+      "poligono": "europe/netherlands/noord-brabant"
+    },
+    {
+      "id": "paisesbaixos-drenthe",
+      "nome": "Drenthe",
+      "pais": "Países Baixos",
+      "bbox": "6.119,52.611,7.095,53.205",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/drenthe",
+      "poligono": "europe/netherlands/drenthe"
+    },
+    {
+      "id": "paisesbaixos-flevoland",
+      "nome": "Flevolândia",
+      "pais": "Países Baixos",
+      "bbox": "5.06,52.248,6.018,52.845",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/flevoland",
+      "poligono": "europe/netherlands/flevoland"
+    },
+    {
+      "id": "paisesbaixos-friesland",
+      "nome": "Frísia",
+      "pais": "Países Baixos",
+      "bbox": "4.597,52.764,6.428,53.681",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/friesland",
+      "poligono": "europe/netherlands/friesland"
+    },
+    {
+      "id": "paisesbaixos-groningen",
+      "nome": "Groninga",
+      "pais": "Países Baixos",
+      "bbox": "6.166,52.837,7.23,53.657",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/groningen",
+      "poligono": "europe/netherlands/groningen"
+    },
+    {
+      "id": "paisesbaixos-gelderland",
+      "nome": "Guéldria",
+      "pais": "Países Baixos",
+      "bbox": "4.993,51.732,6.836,52.523",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/gelderland",
+      "poligono": "europe/netherlands/gelderland"
+    },
+    {
+      "id": "paisesbaixos-noord-holland",
+      "nome": "Holanda do Norte",
+      "pais": "Países Baixos",
+      "bbox": "3.897,52.165,5.378,53.289",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/noord-holland",
+      "poligono": "europe/netherlands/noord-holland"
+    },
+    {
+      "id": "paisesbaixos-zuid-holland",
+      "nome": "Holanda do Sul",
+      "pais": "Países Baixos",
+      "bbox": "3.345,51.643,5.032,52.476",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/zuid-holland",
+      "poligono": "europe/netherlands/zuid-holland"
+    },
+    {
+      "id": "paisesbaixos-limburg",
+      "nome": "Limburgo",
+      "pais": "Países Baixos",
+      "bbox": "5.563,50.748,6.229,51.78",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/limburg",
+      "poligono": "europe/netherlands/limburg"
+    },
+    {
+      "id": "paisesbaixos-overijssel",
+      "nome": "Overissel",
+      "pais": "Países Baixos",
+      "bbox": "5.777,52.113,7.075,52.855",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/overijssel",
+      "poligono": "europe/netherlands/overijssel"
+    },
+    {
+      "id": "paisesbaixos-utrecht",
+      "nome": "Utrecht",
+      "pais": "Países Baixos",
+      "bbox": "4.791,51.856,5.628,52.305",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/utrecht",
+      "poligono": "europe/netherlands/utrecht"
+    },
+    {
+      "id": "paisesbaixos-zeeland",
+      "nome": "Zelândia",
+      "pais": "Países Baixos",
+      "bbox": "3.234,51.197,4.278,51.87",
+      "maxzoom": 14,
+      "geofabrik": "europe/netherlands/zeeland",
+      "poligono": "europe/netherlands/zeeland"
     },
     {
       "id": "belgica",
@@ -211,14 +929,286 @@
       "nome": "Polónia",
       "bbox": "14.11,48.99,24.16,54.85",
       "maxzoom": 13,
-      "geofabrik": "europe/poland"
+      "geofabrik": "europe/poland",
+      "pais": "Polónia"
+    },
+    {
+      "id": "polonia-dolnoslaskie",
+      "nome": "Baixa Silésia",
+      "pais": "Polónia",
+      "bbox": "14.808,50.083,17.806,51.814",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/dolnoslaskie",
+      "poligono": "europe/poland/dolnoslaskie"
+    },
+    {
+      "id": "polonia-kujawsko-pomorskie",
+      "nome": "Cujávia-Pomerânia",
+      "pais": "Polónia",
+      "bbox": "17.239,52.321,19.772,53.792",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/kujawsko-pomorskie",
+      "poligono": "europe/poland/kujawsko-pomorskie"
+    },
+    {
+      "id": "polonia-wielkopolskie",
+      "nome": "Grande Polónia",
+      "pais": "Polónia",
+      "bbox": "15.76,51.084,19.129,53.681",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/wielkopolskie",
+      "poligono": "europe/poland/wielkopolskie"
+    },
+    {
+      "id": "polonia-lubelskie",
+      "nome": "Lublin",
+      "pais": "Polónia",
+      "bbox": "21.603,50.237,24.161,52.3",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/lubelskie",
+      "poligono": "europe/poland/lubelskie"
+    },
+    {
+      "id": "polonia-lubuskie",
+      "nome": "Lubúsquia",
+      "pais": "Polónia",
+      "bbox": "14.495,51.349,16.43,53.128",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/lubuskie",
+      "poligono": "europe/poland/lubuskie"
+    },
+    {
+      "id": "polonia-mazowieckie",
+      "nome": "Mazóvia",
+      "pais": "Polónia",
+      "bbox": "19.234,50.985,23.156,53.512",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/mazowieckie",
+      "poligono": "europe/poland/mazowieckie"
+    },
+    {
+      "id": "polonia-opolskie",
+      "nome": "Opole",
+      "pais": "Polónia",
+      "bbox": "16.901,49.958,18.702,51.201",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/opolskie",
+      "poligono": "europe/poland/opolskie"
+    },
+    {
+      "id": "polonia-malopolskie",
+      "nome": "Pequena Polónia",
+      "pais": "Polónia",
+      "bbox": "19.075,49.165,21.433,50.532",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/malopolskie",
+      "poligono": "europe/poland/malopolskie"
+    },
+    {
+      "id": "polonia-podlaskie",
+      "nome": "Podláquia",
+      "pais": "Polónia",
+      "bbox": "21.585,52.271,23.961,54.425",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/podlaskie",
+      "poligono": "europe/poland/podlaskie"
+    },
+    {
+      "id": "polonia-pomorskie",
+      "nome": "Pomerânia",
+      "pais": "Polónia",
+      "bbox": "16.687,53.481,19.661,55.079",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/pomorskie",
+      "poligono": "europe/poland/pomorskie"
+    },
+    {
+      "id": "polonia-zachodniopomorskie",
+      "nome": "Pomerânia Ocidental",
+      "pais": "Polónia",
+      "bbox": "13.99,52.617,16.988,55.007",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/zachodniopomorskie",
+      "poligono": "europe/poland/zachodniopomorskie"
+    },
+    {
+      "id": "polonia-swietokrzyskie",
+      "nome": "Santa Cruz",
+      "pais": "Polónia",
+      "bbox": "19.699,50.18,21.876,51.348",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/swietokrzyskie",
+      "poligono": "europe/poland/swietokrzyskie"
+    },
+    {
+      "id": "polonia-slaskie",
+      "nome": "Silésia",
+      "pais": "Polónia",
+      "bbox": "18.022,49.38,19.985,51.113",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/slaskie",
+      "poligono": "europe/poland/slaskie"
+    },
+    {
+      "id": "polonia-podkarpackie",
+      "nome": "Subcarpácia",
+      "pais": "Polónia",
+      "bbox": "21.134,48.986,23.554,50.826",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/podkarpackie",
+      "poligono": "europe/poland/podkarpackie"
+    },
+    {
+      "id": "polonia-warminsko-mazurskie",
+      "nome": "Vármia-Masúria",
+      "pais": "Polónia",
+      "bbox": "19.117,53.126,22.821,54.515",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/warminsko-mazurskie",
+      "poligono": "europe/poland/warminsko-mazurskie"
+    },
+    {
+      "id": "polonia-lodzkie",
+      "nome": "Łódź",
+      "pais": "Polónia",
+      "bbox": "18.062,50.831,20.669,52.406",
+      "maxzoom": 14,
+      "geofabrik": "europe/poland/lodzkie",
+      "poligono": "europe/poland/lodzkie"
     },
     {
       "id": "chequia",
       "nome": "Chéquia",
       "bbox": "12.08,48.54,18.87,51.07",
       "maxzoom": 14,
-      "geofabrik": "europe/czech-republic"
+      "geofabrik": "europe/czech-republic",
+      "pais": "Chéquia"
+    },
+    {
+      "id": "chequia-stredocesky",
+      "nome": "Boémia Central (com Praga)",
+      "pais": "Chéquia",
+      "bbox": "13.396,49.501,15.536,50.619",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/stredocesky",
+      "poligono": "europe/czech-republic/stredocesky"
+    },
+    {
+      "id": "chequia-jihocesky",
+      "nome": "Boémia do Sul",
+      "pais": "Chéquia",
+      "bbox": "13.534,48.543,15.606,49.621",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/jihocesky",
+      "poligono": "europe/czech-republic/jihocesky"
+    },
+    {
+      "id": "chequia-kralovehradecky",
+      "nome": "Hradec Králové",
+      "pais": "Chéquia",
+      "bbox": "15.103,50.037,16.599,50.787",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/kralovehradecky",
+      "poligono": "europe/czech-republic/kralovehradecky"
+    },
+    {
+      "id": "chequia-karlovarsky",
+      "nome": "Karlovy Vary",
+      "pais": "Chéquia",
+      "bbox": "12.085,49.89,13.302,50.473",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/karlovarsky",
+      "poligono": "europe/czech-republic/karlovarsky"
+    },
+    {
+      "id": "chequia-liberecky",
+      "nome": "Liberec",
+      "pais": "Chéquia",
+      "bbox": "14.342,50.471,15.634,51.032",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/liberecky",
+      "poligono": "europe/czech-republic/liberecky"
+    },
+    {
+      "id": "chequia-jihomoravsky",
+      "nome": "Morávia do Sul",
+      "pais": "Chéquia",
+      "bbox": "15.54,48.61,17.65,49.635",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/jihomoravsky",
+      "poligono": "europe/czech-republic/jihomoravsky"
+    },
+    {
+      "id": "chequia-moravskoslezky",
+      "nome": "Morávia-Silésia",
+      "pais": "Chéquia",
+      "bbox": "17.145,49.371,18.863,50.33",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/moravskoslezky",
+      "poligono": "europe/czech-republic/moravskoslezky"
+    },
+    {
+      "id": "chequia-olomoucky",
+      "nome": "Olomouc",
+      "pais": "Chéquia",
+      "bbox": "16.709,49.267,17.92,50.452",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/olomoucky",
+      "poligono": "europe/czech-republic/olomoucky"
+    },
+    {
+      "id": "chequia-pardubicky",
+      "nome": "Pardubice",
+      "pais": "Chéquia",
+      "bbox": "15.363,49.572,16.868,50.213",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/pardubicky",
+      "poligono": "europe/czech-republic/pardubicky"
+    },
+    {
+      "id": "chequia-plzensky",
+      "nome": "Plzeň",
+      "pais": "Chéquia",
+      "bbox": "12.389,48.934,13.842,50.106",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/plzensky",
+      "poligono": "europe/czech-republic/plzensky"
+    },
+    {
+      "id": "chequia-praha",
+      "nome": "Praga",
+      "pais": "Chéquia",
+      "bbox": "14.224,49.942,14.707,50.178",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/praha",
+      "poligono": "europe/czech-republic/praha"
+    },
+    {
+      "id": "chequia-vysocina",
+      "nome": "Vysočina",
+      "pais": "Chéquia",
+      "bbox": "14.887,48.936,16.42,49.861",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/vysocina",
+      "poligono": "europe/czech-republic/vysocina"
+    },
+    {
+      "id": "chequia-zlinsky",
+      "nome": "Zlín",
+      "pais": "Chéquia",
+      "bbox": "17.108,48.837,18.451,49.541",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/zlinsky",
+      "poligono": "europe/czech-republic/zlinsky"
+    },
+    {
+      "id": "chequia-ustecky",
+      "nome": "Ústí nad Labem",
+      "pais": "Chéquia",
+      "bbox": "12.937,50.076,14.666,51.064",
+      "maxzoom": 14,
+      "geofabrik": "europe/czech-republic/ustecky",
+      "poligono": "europe/czech-republic/ustecky"
     },
     {
       "id": "eslovaquia",

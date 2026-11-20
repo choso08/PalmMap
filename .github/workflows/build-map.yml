@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       regioes:
-        description: 'Space-separated ids (see map-regions.json). "todas" only if you know what you are doing.'
+        description: 'Space-separated ids or patterns (see map-regions.json; "alemanha-*" is every zone of Germany). "todas" only if you know what you are doing.'
         default: 'portugal'
         required: true
       apenas_negocios:
@@ -124,8 +124,16 @@ jobs:
           FALHADAS=""
 
           for ID in $(jq -r '.regioes[].id' map-regions.json); do
-            if [ "$PEDIDAS" != "todas" ] && ! echo " $PEDIDAS " | grep -q " $ID "; then
-              continue
+            # Each word is an id or a pattern: "alemanha-*" is every zone of
+            # Germany. `set -f` so the shell does not expand the * into files.
+            if [ "$PEDIDAS" != "todas" ]; then
+              PEDIDA=0
+              set -f
+              for P in $PEDIDAS; do
+                case "$ID" in $P) PEDIDA=1 ;; esac
+              done
+              set +f
+              [ "$PEDIDA" -eq 1 ] || continue
             fi
 
             NOME=$(jq -r ".regioes[] | select(.id==\"$ID\") | .nome" map-regions.json)

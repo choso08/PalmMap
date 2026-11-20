@@ -523,7 +523,11 @@ environment cannot reach.
   entry carries `pais`. **Portugal has no Geofabrik sub-regions**: its zones (Norte, Centro,
   Lisboa e Vale do Tejo, Alentejo, Algarve — roughly NUTS II) are rectangles that overlap a
   little. The other countries' zones come from Geofabrik's index (`sondar:
-  geofabrik_zones_compact`). **Offline, every downloaded zone in view is drawn at once**
+  geofabrik_zones_compact`, and `geofabrik_zones_ac` for its first part — the log is cut
+  past ~200 lines): 109 zones in Spain (16), France (22, Geofabrik's old regions), Italy (5),
+  Germany (16), United Kingdom (3; England at zoom 13), Netherlands (12), Poland (16),
+  Czechia (14) and Brazil (5, zoom 13), named in Portuguese, ids `<country>-<geofabrik id>`.
+  The map workflow takes patterns: `regioes: "alemanha-*"` is every German zone. **Offline, every downloaded zone in view is drawn at once**
   (`regionsForView`, at most `MAX_ZONES_IN_VIEW` 6): `buildVectorStyle` takes several
   `pmtiles://` addresses and repeats each layer once per zone side by side (`earth`,
   `earth@1`…), so zone B's land never covers zone A's roads; overlapping tiles are the same
