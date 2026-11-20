@@ -693,7 +693,7 @@ export const pt = {
       normal: 'Normal',
       alta: 'Alta',
     },
-    satelliteHighHint: 'Casa a casa, em Portugal e Espanha. Gasta mais dados.',
+    satelliteHighHint: 'Casa a casa em Portugal, Espanha, França e parte da Alemanha. Gasta mais dados.',
 
     map: 'Mapa',
     trails: 'Trilhos marcados',
@@ -808,6 +808,12 @@ export const pt = {
       'Sentinel-2 cloudless por EOX IT Services GmbH (contém dados Copernicus Sentinel modificados 2025)',
     orthophotos: 'Ortofotos © Direção-Geral do Território',
     pnoa: 'PNOA cedido por © Instituto Geográfico Nacional (CC BY 4.0 scne.es)',
+    ign: '© IGN – Géoplateforme (Licence Ouverte Etalab 2.0)',
+    bayern: '© Bayerische Vermessungsverwaltung (CC BY 4.0)',
+    hessen: '© HVBG Hessen',
+    rlp: '© GeoBasis-DE / LVermGeoRP (dl-de/by-2-0)',
+    saarland: '© GeoBasis DE/LVGL-SL',
+    bremen: '© Landesamt GeoInformation Bremen (CC BY)',
   },
 
   hints: {

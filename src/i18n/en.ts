@@ -655,7 +655,7 @@ export const en: typeof pt = {
       normal: 'Normal',
       alta: 'High',
     },
-    satelliteHighHint: 'House by house, in Portugal and Spain. Uses more data.',
+    satelliteHighHint: 'House by house in Portugal, Spain, France and part of Germany. Uses more data.',
 
     map: 'Map',
     trails: 'Marked trails',
@@ -762,6 +762,12 @@ export const en: typeof pt = {
       'Sentinel-2 cloudless by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
     orthophotos: 'Aerial imagery © Direção-Geral do Território',
     pnoa: 'PNOA courtesy of © Instituto Geográfico Nacional (CC BY 4.0 scne.es)',
+    ign: '© IGN – Géoplateforme (Licence Ouverte Etalab 2.0)',
+    bayern: '© Bayerische Vermessungsverwaltung (CC BY 4.0)',
+    hessen: '© HVBG Hessen',
+    rlp: '© GeoBasis-DE / LVermGeoRP (dl-de/by-2-0)',
+    saarland: '© GeoBasis DE/LVGL-SL',
+    bremen: '© Landesamt GeoInformation Bremen (CC BY)',
   },
 
   hints: {

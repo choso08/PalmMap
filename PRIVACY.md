@@ -17,7 +17,7 @@ and not you.
 | Service | Run by | What it receives | When |
 | --- | --- | --- | --- |
 | Map tiles (OpenStreetMap, ÖPNVKarte, Waymarked Trails, OpenFreeMap) | OSM Foundation, memomaps, Waymarked Trails, OpenFreeMap | The map squares on screen, so the area you are looking at | While the map is shown |
-| Satellite imagery (EOX, DGT, IGN) | EOX, Portuguese and Spanish mapping agencies | The same, for the satellite view | Satellite map type only |
+| Satellite imagery (EOX, DGT, IGN Spain, IGN France, German state surveys) | EOX; the Portuguese, Spanish and French mapping agencies; the survey offices of Bavaria, Hesse, Rhineland-Palatinate, Saarland and Bremen | The same, for the satellite view (each only for a view over its own area) | Satellite map type only ("High" detail for the orthophotos) |
 | Search (Nominatim, Photon as fallback) | OSM Foundation, Komoot | What you type (from 3 letters, after a pause), and the area in view | When you search, or drop a pin (its point) |
 | Routes (OSRM, Valhalla) | FOSSGIS e.V. | **Start, stops on the way and destination** | When you ask for a route, and on recalculating |
 | Businesses, speed cameras and limits (Overpass) | Volunteers (overpass-api.de, private.coffee) | The area in view, or along the route | Category buttons, a tapped business, cameras/limits on a route |

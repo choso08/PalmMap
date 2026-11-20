@@ -536,6 +536,18 @@ environment cannot reach.
   (`poisRegionsFor`), twins merged as before. The maps list (`OfflineMaps.tsx`) groups by
   `pais ?? nome`: one row for a country with one map, a drop-down for the rest, opened by a
   matching search. Published entries without `pais` stay their own country until redone.
+- **Orthophotos of other EU countries in "High" satellite detail** (author, 20 November
+  2026; not seen on a phone): `EU_ORTHOS` in `tiles.ts` — France (IGN's WMTS, Licence
+  Ouverte) and the German states Bavaria, Hesse, Rhineland-Palatinate, Saarland and Bremen
+  (WMS with `image/vnd.jpeg-png(8)`), same fade from zoom 12, bounds per service, credits in
+  `attributions`. **Only services transparent outside their area**: `sondar: eu_orthos2`
+  asked each for a tile inside and one across its border; JPEG-only services (Netherlands,
+  Austria, Luxembourg, Belgium, Czechia, Saxony, NRW, Brandenburg/Berlin, Thuringia, BW,
+  Saxony-Anhalt, SH, MV) send blank opaque squares there and are left out — the DGT's white
+  squares again; their PNG is 5–10× heavier. Keys needed: Denmark, Finland, Lithuania; no
+  Web Mercator: Croatia, Cyprus, Greece, Sweden; nothing open found for Italy (PCN is 2012,
+  HTTP), Ireland, Hungary, Bulgaria, Malta, Romania, Slovakia, Slovenia, Latvia. Every
+  candidate's TLS root is an old one (USERTrust, ISRG X1, SwissSign, GlobalSign R6, D-TRUST).
 - **Built in 7.0.65** (19 November): every fix of the code review below.
 - **Live buses every minute, fixed** (author, 20 November 2026, on 7.0.65: "transport now takes
   1 min to update"; not seen on a phone): `nextVehiclesDelay` "learnt each feed's pace" from the

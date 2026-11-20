@@ -258,6 +258,87 @@ const PNOA_ORTOS =
   '&WIDTH=512&HEIGHT=512' +
   ORTHO_FORMAT;
 
+/** A WMS GetMap address at the app's tile size, in a given format. */
+function wmsTiles(base: string, layer: string, format: string): string {
+  return (
+    `${base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(layer)}` +
+    '&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512' +
+    `&FORMAT=${format}&TRANSPARENT=true`
+  );
+}
+
+/**
+ * Other EU countries' open orthophotos (author's request, 20 November 2026:
+ * "the orthophoto maps of each EU country").
+ *
+ * **Only services that send nothing outside their own area.** Each was asked
+ * for a tile inside and one just across its border (`sondar: eu_orthos2`): a
+ * JPEG-only service sends a blank opaque square there, which would paint white
+ * over the neighbour's imagery and the sea — the DGT's old white squares. So:
+ * France's WMTS answers 404 outside; Bavaria, Hesse, Rhineland-Palatinate,
+ * Saarland and Bremen take `image/vnd.jpeg-png(8)` (JPEG over imagery, a
+ * 100-byte transparent PNG outside). Left out for that reason, though they
+ * answer: the Netherlands (PDOK), Austria (basemap.at), Luxembourg, Flanders,
+ * Wallonia, Czechia (ArcGIS: its "jpeg-png8" is a 600 KB PNG), Saxony and the
+ * other German states. Need a key: Denmark, Finland, Lithuania. Not in Web
+ * Mercator: Croatia, Cyprus, Greece, Sweden. Bounds are Geofabrik's outlines'
+ * rectangles, so nothing is asked elsewhere.
+ */
+const EU_ORTHOS: { id: string; tiles: string; bounds: [number, number, number, number]; attribution: () => string }[] = [
+  {
+    // IGN's BD ORTHO, 20 cm, mainland France and Corsica. Licence Ouverte 2.0.
+    id: 'ign',
+    tiles:
+      'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+      '&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM' +
+      '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg',
+    bounds: [-5.3, 41.3, 9.6, 51.2],
+    attribution: () => t().attributions.ign,
+  },
+  {
+    // DOP20, CC BY 4.0. Takes jpeg-png, not jpeg-png8.
+    id: 'dop-by',
+    tiles: wmsTiles('https://geoservices.bayern.de/od/wms/dop/v1/dop20', 'by_dop20c', 'image/vnd.jpeg-png'),
+    bounds: [8.975, 47.265, 13.849, 50.566],
+    attribution: () => t().attributions.bayern,
+  },
+  {
+    id: 'dop-he',
+    tiles: wmsTiles(
+      'https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows',
+      'he_dop20_rgb',
+      'image/vnd.jpeg-png8',
+    ),
+    bounds: [7.768, 49.393, 10.246, 51.659],
+    attribution: () => t().attributions.hessen,
+  },
+  {
+    id: 'dop-rp',
+    tiles: wmsTiles('https://geo4.service24.rlp.de/wms/rp_dop20.fcgi', 'rp_dop20', 'image/vnd.jpeg-png8'),
+    bounds: [6.109, 48.964, 8.511, 50.944],
+    attribution: () => t().attributions.rlp,
+  },
+  {
+    id: 'dop-sl',
+    tiles: wmsTiles('https://geoportal.saarland.de/freewms/dop2022', 'sl_dop20_rgb', 'image/vnd.jpeg-png8'),
+    bounds: [6.354, 49.108, 7.406, 49.641],
+    attribution: () => t().attributions.saarland,
+  },
+  {
+    id: 'dop-hb',
+    tiles: wmsTiles(
+      'https://geodienste.bremen.de/wms_dop_lb',
+      'DOP Luftbilder Land Bremen',
+      'image/vnd.jpeg-png8',
+    ),
+    bounds: [8.481, 53.01, 8.991, 53.611],
+    attribution: () => t().attributions.bremen,
+  },
+];
+
+/** The same fade-in from zoom 12 as the DGT's and the PNOA's (see below). */
+const ORTHO_FADE = { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 1] };
+
 /**
  * Satellite with the orthophotos' detail wherever there are any.
  *
@@ -297,6 +378,19 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       bounds: [-18.2, 27.6, -13.4, 29.5],
       attribution: t().attributions.pnoa,
     },
+    ...Object.fromEntries(
+      EU_ORTHOS.map((o) => [
+        o.id,
+        {
+          type: 'raster',
+          tiles: [o.tiles],
+          tileSize: 256,
+          maxzoom: 18,
+          bounds: o.bounds,
+          attribution: o.attribution(),
+        },
+      ]),
+    ),
     ortos: {
       type: 'raster',
       tiles: [DGT_ORTOS],
@@ -339,6 +433,16 @@ const SATELLITE_DETAILED_STYLE: StyleSpecification = {
       minzoom: 12,
       paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 1] },
     },
+    ...EU_ORTHOS.map(
+      (o) =>
+        ({
+          id: o.id,
+          type: 'raster',
+          source: o.id,
+          minzoom: 12,
+          paint: ORTHO_FADE,
+        }) as StyleSpecification['layers'][number],
+    ),
     {
       id: 'ortos',
       type: 'raster',
