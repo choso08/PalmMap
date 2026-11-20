@@ -2469,6 +2469,96 @@ def eu_orthos2():
         print("O2|" + json.dumps(r, ensure_ascii=False), flush=True)
 
 
+def _png_alpha(body):
+    """Share of fully transparent pixels in a PNG (None if not a PNG or unreadable)."""
+    import zlib, struct
+    if body[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    i, idat, w, h, depth, ctype, trns = 8, b"", 0, 0, 0, 0, None
+    plte = None
+    while i < len(body):
+        n = struct.unpack(">I", body[i:i + 4])[0]; kind = body[i + 4:i + 8]; data = body[i + 8:i + 8 + n]; i += 12 + n
+        if kind == b"IHDR":
+            w, h, depth, ctype = struct.unpack(">IIBB", data[:10])
+        elif kind == b"IDAT":
+            idat += data
+        elif kind == b"tRNS":
+            trns = data
+        elif kind == b"PLTE":
+            plte = data
+    if depth != 8:
+        return f"depth{depth}/type{ctype}"
+    bpp = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[ctype]
+    raw = zlib.decompress(idat)
+    stride = w * bpp
+    prev = bytearray(stride); clear = 0
+    for row in range(h):
+        f = raw[row * (stride + 1)]; line = bytearray(raw[row * (stride + 1) + 1:(row + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0; b = prev[x]; c = prev[x - bpp] if x >= bpp else 0
+            if f == 1: line[x] = (line[x] + a) & 255
+            elif f == 2: line[x] = (line[x] + b) & 255
+            elif f == 3: line[x] = (line[x] + (a + b) // 2) & 255
+            elif f == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        for px in range(0, stride, bpp):
+            if ctype == 6 and line[px + 3] == 0: clear += 1
+            elif ctype == 4 and line[px + 1] == 0: clear += 1
+            elif ctype == 3 and trns is not None and line[px] < len(trns) and trns[line[px]] == 0: clear += 1
+        prev = line
+    return round(clear / (w * h), 3)
+
+
+EU_PNG = [
+    # (id, url, layer, inside, outside across a land border, outside at sea or far)
+    ("NL", "https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0", "Actueel_orthoHR", (52.3702, 4.8952), (51.2194, 4.4025), (52.6, 3.9)),
+    ("BE-WAL", "https://geoservices.wallonie.be/arcgis/services/IMAGERIE/ORTHO_LAST/MapServer/WMSServer", "0", (50.6326, 5.5797), (50.8514, 5.6909), (49.3, 5.0)),
+    ("BE-VLA", "https://geo.api.vlaanderen.be/omw/wms", "OMWRGB25VL", (51.0543, 3.7174), (50.6292, 3.0573), (51.5, 2.8)),
+    ("LU", "https://wms.geoportail.lu/opendata/service", "ortho_latest", (49.6116, 6.1319), (49.6833, 5.8167), (49.3, 6.5)),
+    ("CZ", "https://ags.cuzk.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer", "0", (50.0755, 14.4378), (51.0504, 13.7373), (48.2, 16.37)),
+    ("PL", "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution", "Raster", (52.2297, 21.0122), (52.3471, 14.5506), (54.8, 18.0)),
+    ("FR-WMS", "https://data.geopf.fr/wms-r/wms", "HR.ORTHOIMAGERY.ORTHOPHOTOS", (48.8566, 2.3522), (41.3874, 2.1686), (46.0, -3.0)),
+    ("DE-NW", "https://www.wms.nrw.de/geobasis/wms_nw_dop", "nw_dop_rgb", (50.9375, 6.9603), (51.3704, 6.1724), (50.5, 5.6)),
+    ("DE-BB", "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms", "bebb_dop20c", (52.5200, 13.4050), (53.4285, 14.5528), (51.0, 13.7)),
+    ("DE-SN", "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest", "sn_dop_020", (51.0504, 13.7373), (50.6607, 14.0323), (52.5, 13.4)),
+    ("DE-TH", "https://www.geoproxy.geoportal-th.de/geoproxy/services/DOP", "th_dop", (50.9848, 11.0299), (51.3127, 9.4797), (52.5, 13.4)),
+    ("DE-BW", "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C", "IMAGES_DOP_20_RGB", (48.7758, 9.1829), (48.5734, 7.7521), (50.1, 8.68)),
+    ("DE-ST", "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest", "lsa_lvermgeo_dop20_2", (52.1205, 11.6276), (52.2689, 10.5268), (50.1, 8.68)),
+    ("DE-SH", "https://service.gdi-sh.de/WMS_SH_DOP20col_OpenGBD", "sh_dop20_rgb", (54.3233, 10.1228), (53.5511, 9.9937), (54.6, 7.5)),
+    ("DE-MV", "https://www.geodaten-mv.de/dienste/adv_dop", "mv_dop", (54.0924, 12.0991), (53.4285, 14.5528), (54.8, 13.0)),
+]
+
+
+def eu_orthos_png():
+    """
+    Each JPEG-only-in-jpeg-png service asked for image/png with TRANSPARENT=true:
+    a tile inside (size: the data cost), one across a land border and one at sea
+    or far away. "clear" is the share of fully transparent pixels: 1.0 outside is
+    what lets a service be drawn over its neighbours.
+    """
+    section("EU ORTHOS PNG")
+    z = 16
+    for cid, url, layer, *points in EU_PNG:
+        r = {"id": cid}
+        for where, (lat, lon) in zip(("dentro", "fronteira", "longe"), points):
+            mx, my = _merc(lat, lon)
+            h = 20037508.34 * 2 / 2 ** z / 2
+            q = (f"{url}{'&' if '?' in url else '?'}SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS={urllib.parse.quote(layer)}"
+                 f"&STYLES=&CRS=EPSG:3857&BBOX={mx - h},{my - h},{mx + h},{my + h}&WIDTH=512&HEIGHT=512&FORMAT=image%2Fpng&TRANSPARENT=true")
+            t0 = time.time()
+            try:
+                st, ct, body = get(q, timeout=40)
+            except Exception as e:  # noqa: BLE001
+                r[where] = f"ERR {e}"; continue
+            try:
+                a = _png_alpha(body)
+            except Exception as e:  # noqa: BLE001
+                a = f"?{e}"
+            r[where] = f"{st} {ct.split(';')[0]} {len(body) / 1e3:.1f}kB {time.time() - t0:.1f}s clear={a}"
+        print("PNG|" + json.dumps(r, ensure_ascii=False), flush=True)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
