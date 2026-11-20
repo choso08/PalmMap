@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { departuresAtStop } from '../services/schedules';
 import { arrivalsAt, type TransitStop } from '../services/transit';
+import { stretchLive } from '../services/busEta';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import { lineColour, textOn } from '../utils/lineColour';
@@ -51,7 +52,7 @@ export function FavouriteStopRow({ stop, onPress }: Props) {
       arrivalsAt(stop.id, 3)
         .then((list) =>
           done(
-            list.map((a) => ({
+            stretchLive(list).map((a) => ({
               line: a.line,
               destination: a.destination,
               minutes: a.minutes,

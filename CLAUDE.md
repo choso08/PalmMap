@@ -614,6 +614,13 @@ environment cannot reach.
   also says how many stops away the bus is. The list of buses is shared with the map's
   (`metropolitanaVehiclesRecent`, 25 s); with a stop panel open and a live bus within 30 min,
   ~100 KB every 30 s. Study probe: `trajetos` with `sondar: eta` (`scripts/probe-eta.js`).
+  **Built in 7.0.67.** **Then measured** (`sondar: eta`, 20 November 14:25–14:41, 13 buses,
+  112 readings): the service's time left is about 0.7 of the real one — mean −50 s, 34
+  readings over a minute too soon, none over a minute late; the position floor moved only 4.
+  So live estimates within 10 min are now stretched by `LIVE_STRETCH` (1.2; 1.3+ began to
+  promise buses later than they came): a minute too soon 34 → 17, median miss 48 → 24 s,
+  latest 32 s — on the stop panel, the Transit tab and favourite stops (`stretchLive`).
+  One weekday afternoon in Oeiras/Amadora; probe again at rush hour before raising it.
 - **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
   with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
   the EU catalogue, zones and orthophotos above (none of those generated yet).

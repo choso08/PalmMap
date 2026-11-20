@@ -18,6 +18,7 @@ import { serviceAlerts } from '../services/alerts';
 import { busDeparturesNear, departuresNear, type ScheduleDeparture } from '../services/schedules';
 import { useOnline } from '../services/network';
 import { arrivalsAt, nearbyStops, type TransitStop } from '../services/transit';
+import { stretchLive } from '../services/busEta';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
 import type { Coordinates } from '../types/geo';
@@ -172,7 +173,7 @@ export function NearbySheet({
       try {
         const stops = (await nearbyStops(origin, NEARBY_STOPS)) ?? [];
         const arrivals = await Promise.all(
-          stops.map((s) => arrivalsAt(s.id, 12).catch(() => [])),
+          stops.map((s) => arrivalsAt(s.id, 12).then(stretchLive).catch(() => [])),
         );
         stops.forEach((stop, i) => {
           out.push({

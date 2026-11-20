@@ -10,7 +10,8 @@ import {
 import { metropolitanaVehiclesRecent, type LiveVehicle } from './vehicles';
 
 /**
- * The service's estimate checked against where its bus really is.
+ * The service's estimate, stretched as measured (`LIVE_STRETCH`) and checked
+ * against where its bus really is.
  *
  * Author's report, 20 November 2026: a stop said "1 min, real time" and the
  * bus took 3. TML's `estimated_arrival` is worked out on their side and can
@@ -35,6 +36,46 @@ const LOOK_AHEAD_S = 30 * 60;
 const VEHICLES_FRESH_MS = 25000;
 /** Moved by less than this, the estimate is kept as it came. */
 const MIN_SHIFT_S = 30;
+
+/**
+ * **Measured: the service's estimate runs early, never late.** `sondar: eta`,
+ * 20 November 2026 (14:25–14:41, 13 buses followed to a stop 2–6 stops
+ * ahead, 112 readings): the time left it gave was about 0.7 of the real one —
+ * mean error −50 s, 34 readings more than a minute too soon, none more than a
+ * minute too late; "1 min" when the bus was 2–3 min away, as the author saw.
+ * The position floor below moved only 4 of them. Stretching what it gives by
+ * `LIVE_STRETCH` brought the readings a minute too soon down to 17 (10 counting
+ * the probe's own lag in seeing arrivals) and the median miss from 48 to 24 s,
+ * while the latest any came out was 32 s; 1.3 or more began to promise buses
+ * later than they came. Only within `STRETCH_MAX_S` of now, the range measured.
+ */
+const LIVE_STRETCH = 1.2;
+const STRETCH_MAX_S = 10 * 60;
+
+/**
+ * The live estimates of a list stretched as measured, without asking for the
+ * buses — for the short lists (Transit tab, favourite stops).
+ */
+export function stretchLive(arrivals: TransitArrival[]): TransitArrival[] {
+  const now = Date.now() / 1000;
+  return arrivals.map((a) => stretched(a, now)).sort((a, b) => a.unix - b.unix);
+}
+
+/** The service's live estimate, stretched as measured. */
+function stretched(arrival: TransitArrival, now: number): TransitArrival {
+  const left = arrival.unix - now;
+  if (!arrival.live || left <= 0 || left > STRETCH_MAX_S) {
+    return arrival;
+  }
+  const unix = now + left * LIVE_STRETCH;
+  return {
+    ...arrival,
+    unix,
+    minutes: Math.max(0, Math.round((unix - now) / 60)),
+    time: clockOf(unix),
+    adjusted: true,
+  };
+}
 
 /** Each bus's trip (pattern, stops, timetable), kept for the session. */
 const trips = new Map<string, Promise<VehicleTrip | null>>();
@@ -111,15 +152,19 @@ export async function withBusPositions(
   arrivals: TransitArrival[],
 ): Promise<TransitArrival[]> {
   const now = Date.now() / 1000;
+  const service = arrivals;
+  arrivals = arrivals.map((a) => stretched(a, now));
+  const settled = () =>
+    arrivals.some((a, i) => a !== service[i]) ? [...arrivals].sort((a, b) => a.unix - b.unix) : service;
   const wanted = (a: TransitArrival) => a.live && !!a.tripId && a.unix - now < LOOK_AHEAD_S;
   if (!arrivals.some(wanted)) {
-    return arrivals;
+    return settled();
   }
   let buses: LiveVehicle[];
   try {
     buses = await metropolitanaVehiclesRecent(VEHICLES_FRESH_MS);
   } catch {
-    return arrivals;
+    return settled();
   }
   const byTrip = new Map<string, LiveVehicle>();
   for (const v of buses) {
