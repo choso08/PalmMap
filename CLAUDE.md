@@ -558,6 +558,15 @@ environment cannot reach.
   covering feed up to that size downloads by itself on any network and the plan waits for it,
   as before; a bigger one (national rail, the EU catalogue's regions) only on Wi-Fi, in the
   background, with nobody waiting — Settings still offers it for a tap.
+- **The next bus from the timetable when none comes now** (author's photo, 20 November 2026:
+  Pêra de Cima said "no connection, not even with one change" — "I know there is a bus here,
+  just not now"; not seen on a phone). The live arrivals only hold what is left of today, so a
+  line running a few times a day vanished. When a plan finds nothing, `timetableBusTrips`
+  (`transit.ts`) reads the patterns shared by stops near both ends (`/patterns`, kept on the
+  phone, at most `TIMETABLE_PATTERNS_MAX` 6) and offers each line's next two trips by
+  `valid_on`, up to `TIMETABLE_DAYS_AHEAD` (7) days on — timetable times, not live, with the
+  pattern as `ride` so Start follows it. Walking is beaten from when one leaves for it, not
+  from now. The trip card puts "Amanhã" or the weekday before the times (`dayLabel`).
 - **Live buses of any operator with open GTFS-RT** (20 November 2026; not seen on a phone,
   none published yet): a timetable's manifest entry may carry `posicoes` (its GTFS-RT
   vehicle positions, from `transit-feeds.json`; https only — Android refuses cleartext, so
