@@ -544,6 +544,8 @@ export const pt = {
     loading: 'A obter a lista de mapas…',
     empty: 'Ainda não há mapas.',
     searchIn: (n: number) => `Procurar entre ${n} países`,
+    zoneCount: (n: number) => (n === 1 ? '1 mapa' : `${n} mapas`),
+    zonesSaved: (n: number) => (n === 1 ? '1 guardado' : `${n} guardados`),
     noMatch: 'Nenhum país com esse nome.',
     outdated: 'desatualizado',
     bundled: 'vem com a aplicação',

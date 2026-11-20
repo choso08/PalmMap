@@ -507,6 +507,8 @@ export const en: typeof pt = {
     loading: 'Getting the list of maps…',
     empty: 'No maps yet.',
     searchIn: (n: number) => `Search among ${n} countries`,
+    zoneCount: (n: number) => (n === 1 ? '1 map' : `${n} maps`),
+    zonesSaved: (n: number) => `${n} saved`,
     noMatch: 'No country by that name.',
     outdated: 'out of date',
     bundled: 'included with the app',

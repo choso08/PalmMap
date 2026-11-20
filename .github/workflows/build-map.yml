@@ -133,6 +133,30 @@ jobs:
             MAXZOOM=$(jq -r ".regioes[] | select(.id==\"$ID\") | .maxzoom" map-regions.json)
 
             GEOFABRIK=$(jq -r ".regioes[] | select(.id==\"$ID\") | .geofabrik // empty" map-regions.json)
+            # A zone of a country (Norte, Bayern…): which country it belongs to,
+            # for the app's drop-down, and whether to cut it by its outline.
+            PAIS=$(jq -r ".regioes[] | select(.id==\"$ID\") | .pais // empty" map-regions.json)
+            POLIGONO=$(jq -r ".regioes[] | select(.id==\"$ID\") | .poligono // empty" map-regions.json)
+
+            # **The zone's real outline, not its rectangle**, from Geofabrik's
+            # .poly (published beside each extract). Rectangles of neighbouring
+            # zones overlap a lot — Bayern's holds half of Baden-Württemberg —
+            # and every overlap is downloaded twice. Cut by the outline, a
+            # zone only carries the tiles that touch it.
+            REGION_ARG=""
+            POLY_FILE=""
+            if [ -n "$POLIGONO" ]; then
+              POLY_FILE="poly/${ID}.poly"
+              mkdir -p poly
+              if curl -sSfL -A "PalmMap map builder (github.com/$REPO)" -o "$POLY_FILE" \
+                   "https://download.geofabrik.de/${POLIGONO}.poly" \
+                 && python3 scripts/poly-to-geojson.py "$POLY_FILE" "poly/${ID}.geojson"; then
+                REGION_ARG="--region=poly/${ID}.geojson"
+              else
+                echo "::warning::No outline for $NOME; cut by its rectangle"
+                POLY_FILE=""
+              fi
+            fi
 
             echo "::group::$NOME ($BBOX, zoom $MAXZOOM)"
 
@@ -146,8 +170,13 @@ jobs:
               fi
             else
               # One failing region must not take the whole batch down.
+              if [ -n "$REGION_ARG" ]; then
+                CUT="$REGION_ARG"
+              else
+                CUT="--bbox=$BBOX"
+              fi
               if ! ./pmtiles extract "$PLANET" "mapas/${ID}.pmtiles" \
-                   --bbox="$BBOX" --maxzoom="$MAXZOOM"; then
+                   "$CUT" --maxzoom="$MAXZOOM"; then
                 echo "FALHOU: $NOME"
                 FALHADAS="$FALHADAS $ID"
                 rm -f "mapas/${ID}.pmtiles"
@@ -176,6 +205,9 @@ jobs:
               # phone is older than the one published.
               ENTRY=$(printf '{"id":"%s","nome":"%s","ficheiro":"%s.pmtiles","bytes":%s,"maxzoom":%s,"bbox":[%s],"gerado":"%s"}' \
                 "$ID" "$NOME" "$ID" "$BYTES" "$MAXZOOM" "$BBOX" "$(date -u +%Y-%m-%d)")
+              if [ -n "$PAIS" ]; then
+                ENTRY=$(echo "$ENTRY" | jq -c --arg p "$PAIS" '. + {pais: $p}')
+              fi
             fi
 
             # **Every named business, for use without network.** From
@@ -192,7 +224,11 @@ jobs:
                   -o "$PBF" "https://download.geofabrik.de/${GEOFABRIK}-latest.osm.pbf" || rm -f "$PBF"
               fi
               if [ -f "$PBF" ] \
-                && osmium extract -b "$BBOX" -s simple "$PBF" -o "osm/${ID}.pbf" --overwrite \
+                && if [ -n "$POLY_FILE" ]; then
+                     osmium extract -p "$POLY_FILE" -s simple "$PBF" -o "osm/${ID}.pbf" --overwrite
+                   else
+                     osmium extract -b "$BBOX" -s simple "$PBF" -o "osm/${ID}.pbf" --overwrite
+                   fi \
                 && osmium tags-filter "osm/${ID}.pbf" nwr/amenity nwr/shop nwr/tourism nwr/leisure \
                      nwr/office nwr/craft nwr/healthcare n/entrance -o "osm/${ID}-f.pbf" --overwrite \
                 && osmium export "osm/${ID}-f.pbf" -f geojsonseq --add-unique-id=type_id \

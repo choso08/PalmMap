@@ -60,6 +60,8 @@ export function OfflineMaps() {
   const emCurso = useRef<Set<string>>(new Set());
   /** Changes on every download or delete, so the list redraws. */
   const [revision, setRevision] = useState(0);
+  /** The countries whose zones are shown (the drop-downs open). */
+  const [abertos, setAbertos] = useState<string[]>([]);
   /** Text to filter the list. With dozens of countries, searching beats scrolling. */
   const [filtro, setFiltro] = useState('');
 
@@ -174,22 +176,96 @@ export function OfflineMaps() {
       .toLowerCase();
 
   const procurado = simplificar(filtro.trim());
-  // Alphabetical: with dozens of countries, the manifest's order (the order
-  // they happened to be generated in) made a country hard to find.
-  const visiveis = (
-    procurado ? regions.filter((r) => simplificar(r.nome).includes(procurado)) : regions
-  )
-    .slice()
-    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+  // Each country's maps together — the whole country and its zones (Norte,
+  // Alentejo, Bayern…) under one drop-down — countries alphabetical: with
+  // dozens, the manifest's order (the order they happened to be generated in)
+  // made a country hard to find. A search matches the zone or its country.
+  const porPais = new Map<string, OfflineRegion[]>();
+  for (const r of regions) {
+    const pais = r.pais ?? r.nome;
+    if (procurado && !simplificar(`${r.nome} ${pais}`).includes(procurado)) {
+      continue;
+    }
+    porPais.set(pais, [...(porPais.get(pais) ?? []), r]);
+  }
+  const grupos = [...porPais.entries()]
+    .map(([pais, zonas]) => ({
+      pais,
+      // The whole country first, then its zones by name.
+      zonas: zonas
+        .slice()
+        .sort(
+          (a, b) =>
+            Number(b.nome === pais || b.pais === undefined) -
+              Number(a.nome === pais || a.pais === undefined) || a.nome.localeCompare(b.nome, 'pt'),
+        ),
+    }))
+    .sort((a, b) => a.pais.localeCompare(b.pais, 'pt'));
+  const visiveis = grupos.flatMap((g) => g.zonas);
+
+  const renderRow = (region: OfflineRegion, zona: boolean) => {
+    // `revision` is here so the state is read again after the files change.
+    const guardado = revision >= 0 && isDownloaded(region);
+    const progresso = downloads[region.id];
+    const aDescarregar = progresso !== undefined;
+    // A newer version is published than the one on the phone. On Wi-Fi
+    // it renews by itself; this lets someone on mobile data do it by hand,
+    // knowing what it will cost.
+    const velho = guardado && desatualizados.has(region.id);
+
+    return (
+      <Pressable
+        key={region.id}
+        style={[styles.row, zona ? styles.zonaRow : null]}
+        disabled={aDescarregar}
+        onPress={() => void handleToggle(region)}
+      >
+        <MaterialCommunityIcons
+          name={guardado ? 'check-circle' : 'download'}
+          size={22}
+          color={guardado ? theme.accent : theme.textMuted}
+        />
+
+        <View style={styles.rowText}>
+          <Text style={styles.name}>{region.nome}</Text>
+          <Text style={styles.size}>
+            {formatBytes(region.bytes)}
+            {aDescarregar
+              ? ` · ${Math.round(progresso * 100)}%`
+              : velho
+                ? ` · ${strings.offline.outdated}`
+                : guardado
+                  ? ` · ${strings.common.saved}`
+                  : ''}
+          </Text>
+
+          {/*
+                The bar only shows while downloading. On a file of hundreds of
+                megabytes it is what tells "moving" from "stuck" — without it
+                there was only a spinner.
+              */}
+          {aDescarregar ? (
+            <View style={styles.track}>
+              <View style={[styles.fill, { width: `${Math.round(progresso * 100)}%` }]} />
+            </View>
+          ) : null}
+        </View>
+
+        {aDescarregar ? (
+          <ActivityIndicator size="small" color={theme.accent} />
+        ) : guardado ? (
+          <MaterialCommunityIcons name="delete-outline" size={20} color={theme.danger} />
+        ) : null}
+      </Pressable>
+    );
+  };
 
   return (
     <View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {regions.length === 0 && !error ? (
-        <Text style={styles.error}>
-          {strings.offline.empty}
-        </Text>
+        <Text style={styles.error}>{strings.offline.empty}</Text>
       ) : null}
 
       {/* The search box only shows when the list is long enough to need it.
@@ -201,7 +277,9 @@ export function OfflineMaps() {
             style={styles.searchInput}
             value={filtro}
             onChangeText={setFiltro}
-            placeholder={strings.offline.searchIn(regions.length)}
+            placeholder={strings.offline.searchIn(
+              new Set(regions.map((r) => r.pais ?? r.nome)).size,
+            )}
             placeholderTextColor={theme.placeholder}
             autoCorrect={false}
           />
@@ -217,64 +295,53 @@ export function OfflineMaps() {
         <Text style={styles.vazio}>{strings.offline.noMatch}</Text>
       ) : null}
 
-      {visiveis.map((region) => {
-        // `revision` is here so the state is read again after the files change.
-        const guardado = revision >= 0 && isDownloaded(region);
-        const progresso = downloads[region.id];
-        const aDescarregar = progresso !== undefined;
-        // A newer version is published than the one on the phone. On Wi-Fi
-        // it renews by itself; this lets someone on mobile data do it by hand,
-        // knowing what it will cost.
-        const velho = guardado && desatualizados.has(region.id);
-
+      {grupos.map(({ pais, zonas }) => {
+        // A country with one map is a plain row, as before zones.
+        if (
+          zonas.length === 1 &&
+          (zonas[0].pais === undefined || zonas[0].pais === zonas[0].nome)
+        ) {
+          return renderRow(zonas[0], false);
+        }
+        // Open while searching, so a match is seen; otherwise as the person left it.
+        const aberto = procurado.length > 0 || abertos.includes(pais);
+        const guardadas = zonas.filter((z) => revision >= 0 && isDownloaded(z)).length;
+        const aDescarregar = zonas.some((z) => downloads[z.id] !== undefined);
         return (
-          <Pressable
-            key={region.id}
-            style={styles.row}
-            disabled={aDescarregar}
-            onPress={() => void handleToggle(region)}
-          >
-            <MaterialCommunityIcons
-              name={guardado ? 'check-circle' : 'download'}
-              size={22}
-              color={guardado ? theme.accent : theme.textMuted}
-            />
-
-            <View style={styles.rowText}>
-              <Text style={styles.name}>{region.nome}</Text>
-              <Text style={styles.size}>
-                {formatBytes(region.bytes)}
-                {aDescarregar
-                  ? ` · ${Math.round(progresso * 100)}%`
-                  : velho
-                    ? ` · ${strings.offline.outdated}`
-                    : guardado
-                      ? ` · ${strings.common.saved}`
-                      : ''}
-              </Text>
-
-              {/*
-                The bar only shows while downloading. On a file of hundreds of
-                megabytes it is what tells "moving" from "stuck" — without it
-                there was only a spinner.
-              */}
-              {aDescarregar ? (
-                <View style={styles.track}>
-                  <View style={[styles.fill, { width: `${Math.round(progresso * 100)}%` }]} />
-                </View>
-              ) : null}
-            </View>
-
-            {aDescarregar ? (
-              <ActivityIndicator size="small" color={theme.accent} />
-            ) : guardado ? (
+          <View key={`pais:${pais}`}>
+            <Pressable
+              style={styles.row}
+              onPress={() =>
+                setAbertos((atuais) =>
+                  atuais.includes(pais) ? atuais.filter((p) => p !== pais) : [...atuais, pais],
+                )
+              }
+              accessibilityRole="button"
+              accessibilityState={{ expanded: aberto }}
+            >
               <MaterialCommunityIcons
-                name="delete-outline"
-                size={20}
-                color={theme.danger}
+                name={guardadas > 0 ? 'map-check' : 'map-outline'}
+                size={22}
+                color={guardadas > 0 ? theme.accent : theme.textMuted}
               />
+              <View style={styles.rowText}>
+                <Text style={styles.name}>{pais}</Text>
+                <Text style={styles.size}>
+                  {strings.offline.zoneCount(zonas.length)}
+                  {guardadas > 0 ? ` · ${strings.offline.zonesSaved(guardadas)}` : ''}
+                </Text>
+              </View>
+              {aDescarregar ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+              <MaterialCommunityIcons
+                name={aberto ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color={theme.textMuted}
+              />
+            </Pressable>
+            {aberto ? (
+              <View style={styles.zonas}>{zonas.map((z) => renderRow(z, true))}</View>
             ) : null}
-          </Pressable>
+          </View>
         );
       })}
     </View>
@@ -283,6 +350,12 @@ export function OfflineMaps() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    zonas: {
+      paddingLeft: 24,
+    },
+    zonaRow: {
+      paddingVertical: 11,
+    },
     search: {
       flexDirection: 'row',
       alignItems: 'center',
