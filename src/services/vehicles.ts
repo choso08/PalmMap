@@ -194,40 +194,30 @@ export function mergeVehicles(
   return [...byId.values()];
 }
 
-/** Per operator: the newest report seen, how often new ones come, and retries. */
-const feedClock: Record<'cm' | 'cl', { newest: number; period: number | null }> = {
-  cm: { newest: 0, period: null },
-  cl: { newest: 0, period: null },
-};
+/** Per operator: the newest report seen. */
+const newestSeen: Record<'cm' | 'cl', number> = { cm: 0, cl: 0 };
 let earlyRetries = 0;
-/** When the last list was asked for (s): a long gap measures the app, not the feed. */
-let lastAskAt = 0;
-/** A second after the data is due, for the server to have it. */
-const DUE_MARGIN_S = 1.5;
 /** When an ask brought nothing newer, the one retry comes this soon. */
 const EARLY_RETRY_MS = 3000;
 
 /**
- * How long to wait before the next ask, from what the last one brought
- * (author, 19 November 2026: "if it only updates at 11 s…"). Each operator's
- * newest report shows how often its data really changes; the next ask goes a
- * moment after the next change is due — never sooner than the interval the
- * person chose (`baseMs`, the data they agreed to spend), and when the
- * feed is slower than that, not before it has anything new. An ask that
- * brought nothing newer is retried once, 3 s later, instead of a whole
- * interval later.
+ * How long to wait before the next ask: the interval the person chose
+ * (`baseMs`), and when an ask brought nothing newer than the last, one retry
+ * 3 s later instead of a whole interval (author, 19 November 2026: "if it
+ * only updates at 11 s it disappears" — the buses kept through a miss and the
+ * glide do the rest).
+ *
+ * It used to "learn each feed's pace" from the step between the newest
+ * reports and wait until the next was due. **That measured the app, not the
+ * feed**: ~900 buses report at their own moments (922 of 950 positions change
+ * in 10 s), so the newest report always sits about a second behind the ask,
+ * and the step between two is the app's own interval plus that second. Fed
+ * back, each wait grew the next — 10 s crept to 18 s, 20 s to 33 s and on to
+ * the one-minute ceiling (author, 20 November 2026: "transport now takes
+ * 1 min to update"; simulated, same curve). There is no beat to catch.
  */
 export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
-  const now = Date.now() / 1000;
-  // The step between two newest reports is the feed's own pace only when the
-  // two asks were close: after a pause (Settings open, the app in the
-  // background) it is the pause, and learning it left the buses refreshing
-  // every 30–60 s for the rest of the session (code review, 19 November 2026).
-  const sinceAsk = lastAskAt > 0 ? now - lastAskAt : Infinity;
-  lastAskAt = now;
-  const asksClose = sinceAsk <= (baseMs / 1000) * 1.5 + DUE_MARGIN_S + 2;
   let gotNew = false;
-  let latestDue: number | null = null;
   for (const op of ['cm', 'cl'] as const) {
     let newest = 0;
     for (const v of list) {
@@ -235,21 +225,9 @@ export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
         newest = v.reportedAt;
       }
     }
-    if (newest === 0) {
-      continue;
-    }
-    const clock = feedClock[op];
-    if (newest > clock.newest) {
-      const step = newest - clock.newest;
-      if (clock.newest > 0 && asksClose && step >= 3 && step <= 120) {
-        clock.period = clock.period === null ? step : clock.period * 0.6 + step * 0.4;
-      }
-      clock.newest = newest;
+    if (newest > newestSeen[op]) {
+      newestSeen[op] = newest;
       gotNew = true;
-    }
-    if (clock.period !== null) {
-      const due = clock.newest + clock.period + DUE_MARGIN_S;
-      latestDue = latestDue === null ? due : Math.min(latestDue, due);
     }
   }
   if (!gotNew && list.length > 0 && earlyRetries < 1) {
@@ -257,11 +235,7 @@ export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
     return EARLY_RETRY_MS;
   }
   earlyRetries = 0;
-  if (latestDue === null) {
-    return baseMs;
-  }
-  const untilDue = (latestDue - now) * 1000;
-  return Math.round(Math.min(Math.max(baseMs, untilDue), Math.max(baseMs * 3, 60000)));
+  return baseMs;
 }
 
 /** Carris Metropolitana's fleet, from its JSON API. */

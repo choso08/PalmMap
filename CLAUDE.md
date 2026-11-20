@@ -462,7 +462,7 @@ environment cannot reach.
   "every 10 s, and if it only updates at 11 s it disappears" — chose all three; not seen on a
   phone). `mergeVehicles` (`vehicles.ts`) keeps a bus missing from a fresh list at its last
   place for `MISSING_GRACE_S` (45 s) since it was last listed, while `VEHICLE_MAX_AGE_S` still
-  applies, and of two copies keeps the newer report. `nextVehiclesDelay` learns each operator's
+  applies, and of two copies keeps the newer report. `nextVehiclesDelay` learnt each operator's (undone 20 November, see above)
   pace from its newest report and asks a moment (`DUE_MARGIN_S`, 1.5 s) after the next is due —
   never sooner than the chosen `vehiclesRefresh`, at most 3× it or a minute — and retries an
   ask that brought nothing newer once, 3 s later. `useGlidingVehicles` (`MapView.tsx`) slides
@@ -515,6 +515,13 @@ environment cannot reach.
   now leave 12:44 and walk 63 m to Rotunda Campo Flores, same bus, same arrival. The live
   planner already broke ties this way (`optionsPerKey`).
 - **Built in 7.0.65** (19 November): every fix of the code review below.
+- **Live buses every minute, fixed** (author, 20 November 2026, on 7.0.65: "transport now takes
+  1 min to update"; not seen on a phone): `nextVehiclesDelay` "learnt each feed's pace" from the
+  step between the newest reports — but ~900 buses report at their own moments, so the newest
+  sits about a second behind each ask and the step was **the app's own interval** plus that
+  second. Fed back, every wait grew the next until the one-minute ceiling (simulated: 10 s → 18 s,
+  20 s → 33 s and climbing). It now waits the chosen `vehiclesRefresh`, with the one quick retry
+  when nothing newer came; the kept-when-missed grace and the glide stay.
 - **Code review of the 19 November work, every finding fixed** (author: "see really all the
   bugs and fix them"; none seen on a phone, the Kotlin parts need a full build):
   - **Downloads** (`systemDownload.ts`, `DownloaderModule.kt`): the Wi-Fi-only refresh asks

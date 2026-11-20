@@ -1156,8 +1156,8 @@ function PalmMap() {
         settings.vehiclesIdleSlowdown &&
         Date.now() - lastMapMove.current > VEHICLES_IDLE_MS &&
         !selectedVehicleRef.current;
-      // Not on a fixed clock: a moment after the next positions are due
-      // (`nextVehiclesDelay`), never sooner than the chosen interval.
+      // The chosen interval, or a quick retry when nothing came newer
+      // (`nextVehiclesDelay`).
       timer = setTimeout(
         () => void carregar(),
         idle ? Math.max(nextDelay, Math.min(base * 3, 60000)) : nextDelay,
