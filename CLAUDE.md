@@ -605,6 +605,15 @@ environment cannot reach.
   Web Mercator: Croatia, Cyprus, Greece, Sweden; nothing open found for Italy (PCN is 2012,
   HTTP), Ireland, Hungary, Bulgaria, Malta, Romania, Slovakia, Slovenia, Latvia. Every
   candidate's TLS root is an old one (USERTrust, ISRG X1, SwissSign, GlobalSign R6, D-TRUST).
+- **Bus arrivals checked against the bus itself** (author, 20 November 2026: "1 min, real
+  time" and the bus took 3; not seen on a phone): `withBusPositions` (`services/busEta.ts`)
+  finds each live arrival's bus in `/vehicles` by `trip_id` (prefixes off), places it on its
+  pattern (`vehicleProgress`) and moves the service's estimate **later only** when the rest of
+  the way would need more than 1/`PACE_FLOOR` (0.7) of the timetable's pace or over
+  `MAX_BUS_MS` (40 km/h) on average; never sooner (a bus may wait at a timing point). The row
+  also says how many stops away the bus is. The list of buses is shared with the map's
+  (`metropolitanaVehiclesRecent`, 25 s); with a stop panel open and a live bus within 30 min,
+  ~100 KB every 30 s. Study probe: `trajetos` with `sondar: eta` (`scripts/probe-eta.js`).
 - **Built in 7.0.66** (20 November): the next bus from the timetable (direct, one change, several
   with the bus timetable), the parked car asking first, big timetables waiting for Wi-Fi, and
   the EU catalogue, zones and orthophotos above (none of those generated yet).
