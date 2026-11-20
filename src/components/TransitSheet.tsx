@@ -15,6 +15,7 @@ import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-conte
 import { t } from '../i18n';
 import { ARRIVALS_REFRESH_MS } from '../services/config';
 import { isOnline } from '../services/network';
+import { withBusPositions } from '../services/busEta';
 import {
   departuresAtStop,
   busDeparturesNear,
@@ -254,8 +255,17 @@ export function TransitSheet({
       }
       setArrivals(horas);
       setArrivalsError(null);
+      // Then each live bus is found on the map and its estimate checked
+      // against where it really is (`withBusPositions`).
+      const checkedTimes = await withBusPositions(stopId, horas);
+      if (ultimoPedido.current !== pedido) {
+        return;
+      }
+      if (checkedTimes !== horas) {
+        setArrivals(checkedTimes);
+      }
       // A bus with a reminder moves to its new estimate.
-      updateReminders(stopId, horas);
+      updateReminders(stopId, checkedTimes);
     } catch {
       if (ultimoPedido.current === pedido) {
         const offline = guardadas();
@@ -466,6 +476,11 @@ export function TransitSheet({
                           {a.live ? '● ' : ''}
                           {a.time}
                         </Text>
+                        {typeof a.stopsAway === 'number' ? (
+                          <Text style={styles.esperaHora}>
+                            {strings.transit.stopsAway(a.stopsAway)}
+                          </Text>
+                        ) : null}
                       </View>
                       {/* The bell: a notification 5 min before it arrives. */}
                       {(() => {

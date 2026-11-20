@@ -157,6 +157,13 @@ export interface TransitArrival {
   /** This stop's place in the trip, and its timetable time (`HH:MM:SS`). */
   stopSequence: number | null;
   scheduledText: string | null;
+  /** The real-time trip, to find its bus on the map (`withBusPositions`). */
+  tripId?: string | null;
+  /** How many stops away its bus is, and how far along the way, when found. */
+  stopsAway?: number;
+  busMeters?: number;
+  /** True when the bus's position made the service's estimate later. */
+  adjusted?: boolean;
 }
 
 /**
@@ -348,7 +355,7 @@ export async function stopsInBounds(bounds: Bounds, limit = 200): Promise<Transi
 }
 
 /** `HH:MM` from seconds since 1970, in the phone's time zone. */
-function clockOf(unixSeconds: number): string {
+export function clockOf(unixSeconds: number): string {
   const d = new Date(unixSeconds * 1000);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
@@ -440,6 +447,7 @@ export async function arrivalsAt(stopId: string, limit = 8): Promise<TransitArri
       patternId: arrival.pattern_id ?? null,
       stopSequence: typeof arrival.stop_sequence === 'number' ? arrival.stop_sequence : null,
       scheduledText: arrival.scheduled_arrival ?? null,
+      tripId: live ? arrival.trip_id ?? null : null,
     });
   }
 
@@ -1020,7 +1028,7 @@ export interface VehicleProgress {
 }
 
 /** The `[…]` prefixes off an id: `[7DQC0][LA77N]1529_0_1` → `1529_0_1`. */
-function bareId(id: string): string {
+export function bareId(id: string): string {
   return id.replace(/^(\[[^\]]*\])+/, '');
 }
 

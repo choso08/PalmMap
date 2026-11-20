@@ -435,6 +435,7 @@ export const en: typeof pt = {
     reminderTitle: (line: string, min: number) => (min > 0 ? `The ${line} arrives in ${min} min` : `The ${line} is arriving`),
     reminderBody: (stop: string, dest: string) => `${stop} → ${dest}`,
     reminderDenied: 'Notifications are off for PalmMap.',
+    stopsAway: (n: number) => (n === 0 ? 'at the stop' : n === 1 ? '1 stop away' : `${n} stops away`),
     reminderSet: 'Remind 5 min before',
     reminderOff: 'Remove the reminder',
     reminderFailed: 'Could not set the reminder.',

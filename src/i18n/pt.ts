@@ -471,6 +471,7 @@ export const pt = {
     reminderTitle: (line: string, min: number) => (min > 0 ? `O ${line} chega daqui a ${min} min` : `O ${line} está a chegar`),
     reminderBody: (stop: string, dest: string) => `${stop} → ${dest}`,
     reminderDenied: 'As notificações estão desligadas para o PalmMap.',
+    stopsAway: (n: number) => (n === 0 ? 'na paragem' : n === 1 ? 'a 1 paragem' : `a ${n} paragens`),
     reminderSet: 'Avisar 5 min antes',
     reminderOff: 'Tirar o aviso',
     reminderFailed: 'Não foi possível marcar o aviso.',

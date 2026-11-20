@@ -66,6 +66,15 @@ const PARES = [
 const hora = (u) => new Date(u * 1000).toLocaleTimeString('pt-PT', { timeZone: 'Europe/Lisbon' });
 
 (async () => {
+  // `sondar: eta` in `trajetos` mode: only the arrival-estimate study.
+  if (process.env.PROBE_ONLY === 'eta') {
+    try {
+      await require('./probe-eta.js')(pasta);
+    } catch (error) {
+      console.log('ETA study failed:', error && error.message);
+    }
+    process.exit(0);
+  }
   // A bus tapped on the map (`vehicleTrip` + `vehicleProgress`): where it is
   // on its way, the next stop and the times after.
   try {

@@ -310,6 +310,27 @@ export function nextVehiclesDelay(list: LiveVehicle[], baseMs: number): number {
 }
 
 /** Carris Metropolitana's fleet, from its JSON API. */
+/** The last Carris Metropolitana list, whoever asked for it (map or stop panel). */
+let lastMetropolitana: { at: number; list: LiveVehicle[] } | null = null;
+let metropolitanaInFlight: Promise<LiveVehicle[]> | null = null;
+
+/**
+ * Carris Metropolitana's buses, from the last list if it is younger than
+ * `maxAgeMs` — the map's own refresh fills it, so a stop panel open over the
+ * transport map asks nothing more (`withBusPositions`).
+ */
+export function metropolitanaVehiclesRecent(maxAgeMs: number): Promise<LiveVehicle[]> {
+  if (lastMetropolitana && Date.now() - lastMetropolitana.at < maxAgeMs) {
+    return Promise.resolve(lastMetropolitana.list);
+  }
+  if (!metropolitanaInFlight) {
+    metropolitanaInFlight = metropolitanaVehicles().finally(() => {
+      metropolitanaInFlight = null;
+    });
+  }
+  return metropolitanaInFlight;
+}
+
 async function metropolitanaVehicles(): Promise<LiveVehicle[]> {
   const { data } = await client.get<CarrisVehicle[]>('/vehicles');
 
@@ -361,6 +382,7 @@ async function metropolitanaVehicles(): Promise<LiveVehicle[]> {
     });
   }
 
+  lastMetropolitana = { at: Date.now(), list: moving };
   return moving;
 }
 
