@@ -681,9 +681,9 @@ environment cannot reach.
   **Done the same evening**: every zone of those nine countries, `espanha-canarias` and the
   widened `irlanda` published, and all nine whole maps removed from `mapas.json`. **EU
   timetables generated** that day in batches (IT; DE, PL, CZ, SK, HU; RO, BG, HR, SI, FI, EE,
-  LV, LT, IE, CY), each complete against the catalogue. **Not yet generated** (checked
-  against `horarios.json`): Metz (`metz`) and the four Portuguese the EU catalogue added —
-  `mobicascais`, `tcb` (Barreiro), `horarios-funchal`, `guimabus`.
+  LV, LT, IE, CY), each complete against the catalogue; the last five — Metz and the four
+  Portuguese the EU catalogue added (`mobicascais`, `tcb` Barreiro, `horarios-funchal`,
+  `guimabus`) — on 21 November. Every catalogue entry is now in `horarios.json`.
 - **Catalogue names in English, timetables by country** (author, 20 November 2026: "don't
   forget the translations of the transport etc., and each country of transport in a
   drop-down"; not seen on a phone). The manifests name maps, zones, countries and timetables
