@@ -2629,14 +2629,14 @@ def cl_stop_side():
     (public GTFS only, no one's position)."""
     import csv, io, struct, zipfile
     section("cl_stop_side")
-    z = zipfile.ZipFile(io.BytesIO(get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS", 180)))
+    z = zipfile.ZipFile(io.BytesIO(get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS", 180)[2]))
     stops = {}
     for r in csv.DictReader(io.TextIOWrapper(z.open("stops.txt"), "utf-8-sig")):
         stops[r["stop_id"]] = (float(r["stop_lat"]), float(r["stop_lon"]))
     route_of = {}
     for r in csv.DictReader(io.TextIOWrapper(z.open("trips.txt"), "utf-8-sig")):
         route_of[r["trip_id"]] = r["route_id"]
-    body = get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions")
+    body = get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions")[2]
     buses = []
     for num, _, ent in _fields(body):
         if num != 2:
