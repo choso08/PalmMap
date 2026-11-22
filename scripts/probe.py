@@ -2622,6 +2622,114 @@ def _dist(a, b):
     return 2 * 6371000 * math.asin(math.sqrt(h))
 
 
+def cl_stop_side():
+    """Carris de Lisboa's GTFS-RT: is a bus's `stop_id` the stop it heads to,
+    or the one it just passed? Each bus is placed against that stop's
+    neighbours in a trip of its route calling there at `current_stop_sequence`
+    (public GTFS only, no one's position)."""
+    import csv, io, struct, zipfile
+    section("cl_stop_side")
+    z = zipfile.ZipFile(io.BytesIO(get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS", 180)))
+    stops = {}
+    for r in csv.DictReader(io.TextIOWrapper(z.open("stops.txt"), "utf-8-sig")):
+        stops[r["stop_id"]] = (float(r["stop_lat"]), float(r["stop_lon"]))
+    route_of = {}
+    for r in csv.DictReader(io.TextIOWrapper(z.open("trips.txt"), "utf-8-sig")):
+        route_of[r["trip_id"]] = r["route_id"]
+    body = get("https://gateway.carris.pt/gateway/gtfs/api/v2.11/GTFS/realtime/vehiclepositions")
+    buses = []
+    for num, _, ent in _fields(body):
+        if num != 2:
+            continue
+        for n2, _, veh in _fields(ent):
+            if n2 != 4:
+                continue
+            b = {"status": 2, "seq": None, "stop": None, "route": None, "trip": None, "pos": None}
+            for n3, _, v in _fields(veh):
+                if n3 == 1:
+                    for n4, _, v4 in _fields(v):
+                        if n4 == 5:
+                            b["route"] = v4.decode()
+                        if n4 == 1:
+                            b["trip"] = v4.decode()
+                elif n3 == 2:
+                    lat = lon = None
+                    for n4, _, v4 in _fields(v):
+                        if n4 == 1:
+                            lat = struct.unpack("<f", v4)[0]
+                        if n4 == 2:
+                            lon = struct.unpack("<f", v4)[0]
+                    b["pos"] = (lat, lon)
+                elif n3 == 3:
+                    b["seq"] = v
+                elif n3 == 4:
+                    b["status"] = v
+                elif n3 == 7:
+                    b["stop"] = v.decode()
+            if b["pos"] and b["stop"] and b["route"]:
+                buses.append(b)
+    print("buses", len(buses), "statuses", {s: sum(1 for b in buses if b["status"] == s) for s in (0, 1, 2)})
+    print("trip ids present", sum(1 for b in buses if b["trip"]))
+    want = {(b["route"], b["stop"], b["seq"]) for b in buses}
+    # For each (route, stop, seq): one trip's stops before and after.
+    neigh = {}
+    cur_trip, rows = None, []
+    def flush():
+        if not rows or cur_trip not in route_of:
+            return
+        route = route_of[cur_trip]
+        rows.sort()
+        for k, (seq, sid) in enumerate(rows):
+            key = (route, sid, seq)
+            if key in want and key not in neigh:
+                prev = rows[k - 1][1] if k > 0 else None
+                nxt = rows[k + 1][1] if k + 1 < len(rows) else None
+                neigh[key] = (prev, nxt, k)
+    for r in csv.DictReader(io.TextIOWrapper(z.open("stop_times.txt"), "utf-8-sig")):
+        if r["trip_id"] != cur_trip:
+            flush()
+            cur_trip, rows = r["trip_id"], []
+        rows.append((int(r["stop_sequence"]), r["stop_id"]))
+    flush()
+    def frac(p, a, b):
+        # Position of p along a→b, 0 at a, 1 at b (flat projection).
+        ax, ay = a[1] * math.cos(math.radians(a[0])), a[0]
+        bx, by = b[1] * math.cos(math.radians(a[0])), b[0]
+        px, py = p[1] * math.cos(math.radians(a[0])), p[0]
+        dx, dy = bx - ax, by - ay
+        L = dx * dx + dy * dy
+        return ((px - ax) * dx + (py - ay) * dy) / L if L else 0
+    tally = {}
+    shown = 0
+    seq_index = {"seq==index": 0, "seq==index+1": 0, "other": 0}
+    for b in buses:
+        key = (b["route"], b["stop"], b["seq"])
+        if key not in neigh:
+            tally["no trip"] = tally.get("no trip", 0) + 1
+            continue
+        prev, nxt, k = neigh[key]
+        s = stops.get(b["stop"])
+        dstop = _dist(b["pos"], s)
+        before = frac(b["pos"], stops[prev], s) if prev else None
+        after = frac(b["pos"], s, stops[nxt]) if nxt else None
+        if dstop <= 30:
+            side = "at stop (<=30 m)"
+        elif before is not None and 0 <= before <= 1.05 and not (after is not None and 0 < after <= 1):
+            side = "before (heading to it)"
+        elif after is not None and -0.05 <= after <= 1:
+            side = "after (passed it)"
+        else:
+            side = "unclear"
+        tally[(b["status"], side)] = tally.get((b["status"], side), 0) + 1
+        if shown < 25:
+            shown += 1
+            print(b["route"], "status", b["status"], "seq", b["seq"], "idx", k, side,
+                  "d_stop %d m" % dstop, "frac_before", None if before is None else round(before, 2),
+                  "frac_after", None if after is None else round(after, 2))
+    for k_, v in sorted(tally.items(), key=lambda kv: str(kv[0])):
+        print("tally", k_, v)
+
+
 if __name__ == "__main__":
     import sys
     steps = (arrivals, vehicles, light_rail, satellite, mts)
