@@ -2670,27 +2670,23 @@ def cl_stop_side():
                 buses.append(b)
     print("buses", len(buses), "statuses", {s: sum(1 for b in buses if b["status"] == s) for s in (0, 1, 2)})
     print("trip ids present", sum(1 for b in buses if b["trip"]))
-    want = {(b["route"], b["stop"], b["seq"]) for b in buses}
-    # For each (route, stop, seq): one trip's stops before and after.
-    neigh = {}
-    cur_trip, rows = None, []
-    def flush():
-        if not rows or cur_trip not in route_of:
-            return
-        route = route_of[cur_trip]
-        rows.sort()
-        for k, (seq, sid) in enumerate(rows):
-            key = (route, sid, seq)
-            if key in want and key not in neigh:
-                prev = rows[k - 1][1] if k > 0 else None
-                nxt = rows[k + 1][1] if k + 1 < len(rows) else None
-                neigh[key] = (prev, nxt, k)
+    # The bus's own trip (every one carries it): its stops in order.
+    wanted_trips = {b["trip"] for b in buses}
+    rows_of = {}
     for r in csv.DictReader(io.TextIOWrapper(z.open("stop_times.txt"), "utf-8-sig")):
-        if r["trip_id"] != cur_trip:
-            flush()
-            cur_trip, rows = r["trip_id"], []
-        rows.append((int(r["stop_sequence"]), r["stop_id"]))
-    flush()
+        if r["trip_id"] in wanted_trips:
+            rows_of.setdefault(r["trip_id"], []).append((int(r["stop_sequence"]), r["stop_id"]))
+    print("trips found in the static GTFS", len(rows_of), "of", len(wanted_trips))
+    neigh = {}
+    for b in buses:
+        rows = sorted(rows_of.get(b["trip"], []))
+        for k, (seq, sid) in enumerate(rows):
+            if sid == b["stop"]:
+                neigh[(b["route"], b["stop"], b["seq"])] = (
+                    rows[k - 1][1] if k > 0 else None,
+                    rows[k + 1][1] if k + 1 < len(rows) else None,
+                    k, seq)
+                break
     def frac(p, a, b):
         # Position of p along a→b, 0 at a, 1 at b (flat projection).
         ax, ay = a[1] * math.cos(math.radians(a[0])), a[0]
@@ -2707,7 +2703,8 @@ def cl_stop_side():
         if key not in neigh:
             tally["no trip"] = tally.get("no trip", 0) + 1
             continue
-        prev, nxt, k = neigh[key]
+        prev, nxt, k, gseq = neigh[key]
+        seq_index["seq==index" if b["seq"] == k else "seq==index+1" if b["seq"] == k + 1 else "other"] += 1
         s = stops.get(b["stop"])
         dstop = _dist(b["pos"], s)
         before = frac(b["pos"], stops[prev], s) if prev else None
@@ -2726,6 +2723,7 @@ def cl_stop_side():
             print(b["route"], "status", b["status"], "seq", b["seq"], "idx", k, side,
                   "d_stop %d m" % dstop, "frac_before", None if before is None else round(before, 2),
                   "frac_after", None if after is None else round(after, 2))
+    print("current_stop_sequence vs stop's place in the trip", seq_index)
     for k_, v in sorted(tally.items(), key=lambda kv: str(kv[0])):
         print("tally", k_, v)
 
