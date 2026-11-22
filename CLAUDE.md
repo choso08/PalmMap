@@ -1222,6 +1222,14 @@ environment cannot reach.
   **"Missing a country?"** — see section 4 and the Nominatim rules.
 - **São Tomé no longer ships inside the app** (`assets/mapas/` does not exist); it downloads
   like the others. Older parts of this file may still say otherwise.
+- **A Carris de Lisboa bus was shown a stop behind** (author's photo, 22 November 2026: the
+  729's panel said "next stop Pontinha (Metro)" with the bus already past it; not seen on a
+  phone). Probed (`sondar: cl_stop_side`, each bus against its own trip in the static GTFS):
+  that feed's `stop_id` is **the stop last passed** — 133 buses clearly past it, 55 within
+  30 m, none before it; `current_status` is always 2 and `current_stop_sequence` is the passed
+  stop's sequence. `LiveVehicle.stopPassed` (true for `cl` only — other GTFS-RT feeds are
+  taken at the specification's word) makes `vehicleProgress` place the bus at that stop while
+  within `AT_STOP_M` (30 m) of it, else heading to the next.
 
 **The English translation is done** for the code, the README, the workflows and this file.
 The Portuguese in `src/i18n/pt.ts` is the app's Portuguese text, not a leftover.

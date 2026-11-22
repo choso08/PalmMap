@@ -95,6 +95,14 @@ export interface LiveVehicle {
    * is heading to. A plain id, as in the pattern's path (probed).
    */
   stopId: string | null;
+  /**
+   * `stopId` is the stop it last passed, not the next one. Carris de Lisboa's
+   * feed does this (`sondar: cl_stop_side`, 22 November 2026: of 201 buses
+   * with their trip found, 133 were clearly past their `stop_id`, 55 within
+   * 30 m of it and none before it; `current_status` is always 2, in transit,
+   * and `current_stop_sequence` is that passed stop's sequence).
+   */
+  stopPassed: boolean;
 }
 
 function toNumber(value: unknown): number | null {
@@ -378,6 +386,7 @@ async function metropolitanaVehicles(): Promise<LiveVehicle[]> {
       reportedAt,
       patternId: vehicle.pattern_id ?? null,
       tripId: vehicle.trip_id ?? null,
+      stopPassed: false,
       stopId: vehicle.stop_id ?? null,
     });
   }
@@ -466,6 +475,9 @@ async function gtfsRtVehicles(
       patternId: null,
       tripId: v.trip?.tripId || null,
       stopId: v.stopId || null,
+      // Only Carris de Lisboa's was measured; the others are taken at the
+      // specification's word (the stop it stands at or heads to).
+      stopPassed: operator === 'cl',
     });
   }
   return moving;

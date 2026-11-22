@@ -1175,7 +1175,13 @@ const AT_STOP_M = 30;
  */
 export function vehicleProgress(
   trip: VehicleTrip,
-  vehicle: { coordinates: Coordinates; stopId: string | null; atStop: boolean; reportedAt: number },
+  vehicle: {
+    coordinates: Coordinates;
+    stopId: string | null;
+    atStop: boolean;
+    reportedAt: number;
+    stopPassed?: boolean;
+  },
 ): VehicleProgress {
   const { stops } = trip;
   const at = vehicle.coordinates;
@@ -1187,6 +1193,20 @@ export function vehicleProgress(
     )
     .filter((i) => i >= 0);
   let standing = vehicle.atStop;
+  if (vehicle.stopPassed && candidates.length > 0) {
+    // The named stop is behind the bus (Carris de Lisboa): it stands there
+    // while still on it, otherwise it heads to the one after — the 729 was
+    // shown a stop behind where it was (author's photo, 22 November 2026).
+    const on = candidates.filter((c) => d(c) <= AT_STOP_M);
+    if (on.length > 0) {
+      candidates = on;
+      standing = true;
+    } else {
+      const ahead = candidates.filter((c) => c + 1 < stops.length).map((c) => c + 1);
+      candidates = ahead.length > 0 ? ahead : [stops.length - 1];
+      standing = ahead.length === 0;
+    }
+  }
   if (candidates.length === 0) {
     // No stop of this pattern named: the nearest one, and standing there only
     // when right on it.
