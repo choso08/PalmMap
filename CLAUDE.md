@@ -260,14 +260,15 @@ environment cannot reach.
     `5e8f1606…`, up to 7.0.49 and whatever came before our key): `expo prebuild`'s template
     signs `release` with `debug.keystore`, which everyone has — anyone could sign an APK
     Android accepts as an update of PalmMap, and AhnLab flagged the APK as
-    `PUP/Android.Malct` (1 of 63 on VirusTotal, 17 November). **Our own key: the secrets were
-    added by the author on 21 November 2026; the next build is the first one signed with it**
+    `PUP/Android.Malct` (1 of 63 on VirusTotal, 17 November). **Our own key since 7.0.59**
+    (19 November 2026; checked on 23 November by reading each Release's APK: 7.0.58 and before
+    `CN=Android Debug`, 7.0.59 onwards `CN=PalmMap, C=PT`, certificate SHA-256 `7aed862d…`)
     (author's decision, 17 November): the author made it and put it in the repository's secrets
     `PALMMAP_KEYSTORE_BASE64` (the `.jks`, base64) and `PALMMAP_KEYSTORE_PASSWORD` (store and
     key, alias `palmmap`). `build-apk.yml` writes it to `$RUNNER_TEMP`, and
     `plugins/withReleaseSigning.js` (an Expo config plugin, only when `PALMMAP_KEYSTORE` is
     set) gives `release` a signing config read from the environment. Without the secrets the
-    workflow would sign with the debug key and warn (builds up to 7.0.69 were made that way);
+    workflow would sign with the debug key and warn (builds up to 7.0.58 were made that way);
     with them, it fails if the APK still says `CN=Android Debug`. When the
     certificate differs from the previous Release's APK, the notes tell people to uninstall
     first — Android refuses an update with another key, and the old app's in-app updater
@@ -696,6 +697,8 @@ environment cannot reach.
   download notifications, errors and timetable station/line labels. The timetables list
   (`Schedules.tsx`) is a drop-down per country like the maps (Portugal open at first, all
   open while searching, "N timetables · M saved").
+- **Built in 7.0.70** (23 November): the Carris de Lisboa bus placed past the stop it last
+  passed, and the review fixes after it. Signed with our key, as every build since 7.0.59.
 - **Built in 7.0.69** (20 November): everything in "From the author's phone, 20 November
   2026 (7.0.68)" above — timetables opened by area, "Best" weighing walking, smaller buses
   and coloured line numbers, buses along streets, the archipelagos under Portugal, the PNG
