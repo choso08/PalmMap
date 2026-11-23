@@ -53,6 +53,8 @@ export interface RideLeg {
   colour: string | null;
   /** Who runs it, for its colour when it has none of its own (`lineColour`). */
   operator?: string;
+  /** Which stops it rides through (`RideRef`) — also how its live vehicle is found. */
+  ride?: RideRef;
 }
 
 export type GuideLeg = WalkLeg | RideLeg;
@@ -224,6 +226,7 @@ export async function buildGuide(
       path: stops.map((s) => s.coordinates),
       colour: null,
       operator: rideOperator(r.ref) ?? (r.live ? 'carris-metropolitana' : undefined),
+      ride: r.ref,
     };
     legs.push(leg);
     rideLegs.push({ leg, ref: r.ref });

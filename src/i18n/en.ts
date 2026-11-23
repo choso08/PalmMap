@@ -345,6 +345,9 @@ export const en: typeof pt = {
     arrived: 'You have arrived.',
     timetable: 'timetable, no delays',
     end: 'End',
+    minimise: 'Back to the map (the trip goes on)',
+    backToTrip: 'Back to the trip',
+    noticeChannel: 'Trip under way',
     // The trip's timeline, Maps-style.
     walkFor: (time: string, distance: string) => `Walk ${time} (${distance})`,
     wait: (time: string) => `Wait ${time}`,

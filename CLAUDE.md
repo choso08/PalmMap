@@ -697,6 +697,29 @@ environment cannot reach.
   download notifications, errors and timetable station/line labels. The timetables list
   (`Schedules.tsx`) is a drop-down per country like the maps (Portugal open at first, all
   open while searching, "N timetables · M saved").
+- **The trip in the notification shade, my bus on the map, and back to the map** (author's
+  photo, 23 November 2026; not seen on a phone, needs a full build):
+  - **A progress bar in the notification**, as Google Maps: `TripNoticeModule.kt`
+    (`PalmMapTripNotice`, in `modules/palmmap-voice`; `expo-notifications` draws no bar),
+    used through `services/tripNotice.ts` — one ongoing, quiet notification (channel
+    `viagem`), replaced in place, a tap brings the app back. On Android 16+ it asks to be a
+    Live Update (`setRequestPromotedOngoing`, the time left as `setShortCriticalText`, by
+    reflection; `POST_PROMOTED_NOTIFICATIONS` in `app.json`, a normal permission granted at install, no prompt). A transport trip off screen
+    shows the banner's words (`utils/guideHeadline.ts`, shared with the panel and the pill)
+    and `guideFraction` (the timetable time where one is, against leaving → the door);
+    navigation shows the manoeuvre, time and distance left and the distance done. Without
+    the module (older build) navigation keeps its `navNotice` instruction. Both follow
+    `notifyDirections`.
+  - **The bus of the ride on the map, on any map type** (`services/guideVehicle.ts`,
+    `findRideVehicle`): among the operator's live buses of that line (Carris Metropolitana's
+    pattern; the stored timetable's `route_id` for Carris de Lisboa and other GTFS-RT feeds),
+    on board the nearest within 250 m, before boarding the one with the fewest stops to the
+    boarding stop that has not passed it (`vehicleProgress`); the one kept wins near ties.
+    Asked every `vehiclesRefresh` (15 s at least) with the app on screen and online; merged
+    into the map's list (`mapVehicles`). `RideLeg.ride` carries the `RideRef` for this.
+  - **Minimise the trip** (chevron in the trip banner, or back): the main map, search bar and
+    tabs come back while the trip goes on (`guideMinimised`); a pill under the search says
+    the step and "Back to the trip". Choosing another destination ends the trip.
 - **Built in 7.0.70** (23 November): the Carris de Lisboa bus placed past the stop it last
   passed, and the review fixes after it. Signed with our key, as every build since 7.0.59.
 - **Built in 7.0.69** (20 November): everything in "From the author's phone, 20 November
@@ -1463,7 +1486,7 @@ to produce an AAB. For Android Auto it is the only way — see that section.
 │   ├── probe.py            # Read-only probes run by the timetables workflow (`sondar`)
 │   └── probe-trips.js      # Runs the trip planning against the real API
 ├── modules/
-│   └── palmmap-voice/      # Our only native code: speech, compass, downloads, vault (Kotlin)
+│   └── palmmap-voice/      # Our only native code: speech, compass, downloads, vault, trip notice (Kotlin)
 ├── docs/
 │   └── project-brief-original.pdf
 ├── src/

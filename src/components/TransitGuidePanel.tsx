@@ -15,7 +15,8 @@ import { MODE_ICONS, TripTimeline } from './TripTimeline';
 import type { GuideProgress, TransitGuide } from '../services/transitGuide';
 import { useT, useTheme } from '../settings';
 import type { Theme } from '../theme';
-import { formatDistance, formatDuration } from '../utils/format';
+import { formatDuration } from '../utils/format';
+import { clock, guideHeadline } from '../utils/guideHeadline';
 
 interface Props {
   dragHandlers?: GestureResponderHandlers;
@@ -28,15 +29,12 @@ interface Props {
   /** A step tapped in the list becomes the current one — the way back. */
   onChooseStep: (leg: number) => void;
   onEnd: () => void;
+  /** Back to the map, search and tabs, the trip going on (`guideMinimised`). */
+  onMinimise: () => void;
   voiceOn: boolean;
   onToggleVoice: () => void;
   /** The last place's name in the steps. */
   destinationName: string;
-}
-
-function clock(unixSeconds: number): string {
-  const d = new Date(unixSeconds * 1000);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /** The clock, once every half minute, for "leaves in 4 min". */
@@ -64,6 +62,7 @@ export function TransitGuidePanel({
   arrived,
   onChooseStep,
   onEnd,
+  onMinimise,
   voiceOn,
   onToggleVoice,
   destinationName,
@@ -76,41 +75,18 @@ export function TransitGuidePanel({
 
   const g = strings.guide;
 
-  /** The big line at the top, and the one under it. */
+  /** The big line at the top, and the one under it — the notification says the same. */
   const headline = (): { icon: string; title: string; detail: string } => {
-    if (!guide) {
-      return { icon: 'bus-clock', title: g.preparing, detail: '' };
-    }
-    if (arrived) {
-      return { icon: 'flag-checkered', title: g.arrived, detail: '' };
-    }
-    const step = guide.legs[progress.leg];
-    if (step.type === 'walk') {
-      return {
-        icon: 'walk',
-        title: step.toName ? g.walkTo(step.toName) : g.walkToDestination,
-        detail: `${formatDistance(step.meters)} · ${formatDuration(step.seconds)}`,
-      };
-    }
-    const icon = MODE_ICONS[step.kind] ?? 'bus';
-    if (progress.stop === 0) {
-      const wait = step.departsAt - now;
-      return {
-        icon,
-        title: g.board(step.line, step.headsign),
-        detail:
-          wait > 60
-            ? g.leavesAt(clock(step.departsAt), formatDuration(wait))
-            : g.leavingNow(clock(step.departsAt)),
-      };
-    }
-    const last = step.stops[step.stops.length - 1];
-    const left = step.stops.length - 1 - progress.stop;
-    return {
-      icon,
-      title: left <= 1 ? g.getOffNext(last.name) : g.getOffAt(last.name),
-      detail: g.stopsLeft(left, clock(step.arrivesAt)),
-    };
+    const words = guideHeadline(guide, progress, arrived, now);
+    const step = guide?.legs[progress.leg];
+    const icon = !guide
+      ? 'bus-clock'
+      : arrived || !step
+        ? 'flag-checkered'
+        : step.type === 'walk'
+          ? 'walk'
+          : MODE_ICONS[step.kind] ?? 'bus';
+    return { icon, ...words };
   };
   const top = headline();
 
@@ -132,6 +108,15 @@ export function TransitGuidePanel({
           </Text>
           {top.detail ? <Text style={styles.bannerDetail}>{top.detail}</Text> : null}
         </View>
+        {/* Back to the map and the search, the trip going on, as Maps. */}
+        <Pressable
+          style={({ pressed }) => [styles.minimise, pressed && styles.pressed]}
+          onPress={onMinimise}
+          hitSlop={8}
+          accessibilityLabel={g.minimise}
+        >
+          <MaterialCommunityIcons name="chevron-down" size={26} color={theme.onAccent} />
+        </Pressable>
       </View>
 
       {guide ? (
@@ -242,6 +227,15 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       fontSize: 13,
       color: theme.onAccent,
       marginTop: 2,
+    },
+    minimise: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: theme.onAccent,
     },
     list: {
       maxHeight: 320,

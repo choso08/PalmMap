@@ -212,6 +212,9 @@ import {
   type GuideProgress,
   type TransitGuide,
 } from './src/services/transitGuide';
+import { guideFraction, guideHeadline } from './src/utils/guideHeadline';
+import { findRideVehicle } from './src/services/guideVehicle';
+import { clearTripNotice, showTripNotice, tripNoticeAvailable } from './src/services/tripNotice';
 import {
   applyTransitPrefs,
   fastestTrip,
@@ -671,6 +674,14 @@ function PalmMap() {
    * `guide` arrives once the walks and the rides' stops are known.
    */
   const [guiding, setGuiding] = useState(false);
+  /**
+   * The trip goes on while the person is back on the plain map, with the
+   * search and the tabs, as Maps allows (author's request, 23 November 2026).
+   * A pill under the search bar brings the trip's panel back.
+   */
+  const [guideMinimised, setGuideMinimised] = useState(false);
+  /** The destination the trip was started for: choosing another ends the trip. */
+  const guideDestination = useRef<Place | null>(null);
   const [guide, setGuide] = useState<TransitGuide | null>(null);
   const [guideStep, setGuideStep] = useState<GuideProgress>({ leg: 0, stop: 0 });
   const guideStepRef = useRef(guideStep);
@@ -1509,6 +1520,81 @@ function PalmMap() {
   );
 
   /**
+   * The bus of the ride one is on, or about to take, live on the map — on any
+   * map type, not only the transport ones (author's request, 23 November
+   * 2026): `findRideVehicle`, asked every `vehiclesRefresh` (15 s at least)
+   * while the app is on screen. Gone after the last ride.
+   */
+  const [guideBus, setGuideBus] = useState<LiveVehicle | null>(null);
+  const guideBusId = useRef<string | null>(null);
+  const guideRideIndex = useMemo(() => {
+    if (!guide || guideDone) {
+      return -1;
+    }
+    for (let k = guideStep.leg; k < guide.legs.length; k += 1) {
+      if (guide.legs[k].type === 'ride') {
+        return k;
+      }
+    }
+    return -1;
+  }, [guide, guideStep.leg, guideDone]);
+  const guideOnBoard = guideRideIndex === guideStep.leg && guideStep.stop > 0;
+  useEffect(() => {
+    const leg = guide && guideRideIndex >= 0 ? guide.legs[guideRideIndex] : null;
+    if (!leg || leg.type !== 'ride' || !leg.ride || !appActive || !online) {
+      if (!leg || leg.type !== 'ride') {
+        guideBusId.current = null;
+        setGuideBus(null);
+      }
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const ask = async () => {
+      try {
+        const bus = await findRideVehicle(
+          leg,
+          guideOnBoard,
+          userLocationRef.current,
+          guideBusId.current,
+        );
+        if (!cancelled) {
+          guideBusId.current = bus?.id ?? null;
+          setGuideBus(bus);
+        }
+      } catch {
+        // No live answer this time: the last bus stays until the next ask.
+      }
+      if (!cancelled) {
+        timer = setTimeout(() => void ask(), Math.max(15, Number(settings.vehiclesRefresh) || 20) * 1000);
+      }
+    };
+    void ask();
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [guide, guideRideIndex, guideOnBoard, appActive, online, settings.vehiclesRefresh]);
+  /** The map's buses: the transport map's list, plus the trip's own bus on any map. */
+  const mapVehicles = useMemo(() => {
+    if (!guiding || !guideBus) {
+      return vehicles;
+    }
+    const listed = vehicles.findIndex((v) => v.id === guideBus.id);
+    if (listed < 0) {
+      return [...vehicles, guideBus];
+    }
+    if (vehicles[listed].reportedAt >= guideBus.reportedAt) {
+      return vehicles;
+    }
+    const out = vehicles.slice();
+    out[listed] = guideBus;
+    return out;
+  }, [vehicles, guideBus, guiding]);
+
+  /**
    * What the voice says along a transport trip, once each: the walk on
    * starting it, the line to take, "get off at the next stop" one stop before,
    * and the arrival.
@@ -1620,6 +1706,8 @@ function PalmMap() {
     void prepareTripNotices();
     guideSaid.current.clear();
     guideAlong.current = {};
+    guideDestination.current = destination;
+    setGuideMinimised(false);
     setGuideStep({ leg: 0, stop: 0 });
     setSelectedPlace(null);
     setFollowUser(true);
@@ -1650,8 +1738,18 @@ function PalmMap() {
   const handleEndTransit = useCallback(() => {
     setGuiding(false);
     setGuide(null);
+    setGuideMinimised(false);
     stopSpeaking();
   }, []);
+
+  // Another destination chosen from the plain map while the trip was
+  // minimised (search, a place's card, Directions): that trip is over, and the
+  // new one is planned as usual.
+  useEffect(() => {
+    if (guiding && destination !== guideDestination.current) {
+      handleEndTransit();
+    }
+  }, [guiding, destination, handleEndTransit]);
 
   /*
     Arriving ends a transport trip too, as navigation does (author's report,
@@ -1667,6 +1765,8 @@ function PalmMap() {
     const timer = setTimeout(() => {
       setGuiding(false);
       setGuide(null);
+      setGuideMinimised(false);
+      guideDestination.current = null;
       setDestination(null);
       setRouteOrigin(null);
       setWaypoints([]);
@@ -2686,11 +2786,13 @@ function PalmMap() {
     p ? `${p.id}|${p.coordinates.latitude},${p.coordinates.longitude}` : null;
   const panelSubject: Record<BottomPanel, unknown> = {
     measure: measuring ? true : null,
-    guide: guiding ? true : null,
+    guide: guiding && !guideMinimised ? true : null,
     route: !navigating && !guiding ? placeKey(destination) : null,
     // Not over a transport trip: its Directions would change the destination
     // under the trip.
-    place: !navigating && !guiding ? placeKey(selectedPlace) : null,
+    // Except with the trip minimised: then the map is the plain map, and a new
+    // destination from the card ends the trip (see `guideDestination`).
+    place: !navigating && (!guiding || guideMinimised) ? placeKey(selectedPlace) : null,
     line: lineShown ?? null,
     stop: transitVisible ? selectedStopId ?? selectedStationId ?? true : null,
     vehicle: selectedVehicleId ?? null,
@@ -2721,6 +2823,9 @@ function PalmMap() {
     (shownPanel ? panelHeights[shownPanel] : 0) + 12,
   );
 
+  /** A route's destination holds the bottom of the screen — not a minimised trip's. */
+  const destinationShown = destination !== null && !(guiding && guideMinimised);
+
   /**
    * How high the map's compass sits, in the bottom-left corner.
    *
@@ -2734,7 +2839,7 @@ function PalmMap() {
    * `measureButton`, in that order.
    */
   const compassBottom =
-    selectedPlace || destination || measuring
+    selectedPlace || destinationShown || measuring
       ? raisedBottom
       : navigating
         ? // While navigating, this corner has the speedometer, which `NavigationPanel`
@@ -2754,9 +2859,9 @@ function PalmMap() {
   const tabsVisible =
     !pinHomeWork &&
     !navigating &&
-    !guiding &&
+    (!guiding || guideMinimised) &&
     !selectedPlace &&
-    !destination &&
+    !destinationShown &&
     !measuring &&
     !transitVisible &&
     !selectedVehicleId &&
@@ -3426,7 +3531,7 @@ function PalmMap() {
       return null;
     }
     // The newest report of this bus, wherever it came from.
-    for (const v of [vehicles.find((x) => x.id === selectedVehicleId), freshVehicle]) {
+    for (const v of [mapVehicles.find((x) => x.id === selectedVehicleId), freshVehicle]) {
       if (
         v &&
         v.id === selectedVehicleId &&
@@ -3438,7 +3543,7 @@ function PalmMap() {
       }
     }
     return lastVehicle.current;
-  }, [vehicles, freshVehicle, selectedVehicleId]);
+  }, [mapVehicles, freshVehicle, selectedVehicleId]);
   const [busTrip, setBusTrip] = useState<{
     trip: VehicleTrip | null;
     loading: boolean;
@@ -3835,7 +3940,8 @@ function PalmMap() {
     // one underneath at the next press.
     switch (topPanel) {
       case 'guide':
-        handleEndTransit();
+        // Back leaves the trip running behind the map, as Maps; the ✕ ends it.
+        setGuideMinimised(true);
         return true;
       case 'vehicle':
         setSelectedVehicleId(null);
@@ -3871,6 +3977,11 @@ function PalmMap() {
     if (measuring) {
       setMeasuring(false);
       setMeasurePoints([]);
+      return true;
+    }
+    // A minimised trip, nothing else open: back to the trip, not out of the app.
+    if (guiding && guideMinimised) {
+      setGuideMinimised(false);
       return true;
     }
     return false;
@@ -4104,17 +4215,40 @@ function PalmMap() {
   const approachedStep = useRef<RouteStep | null>(null);
   /** Whether a notice is up, so nothing is dismissed for nothing at every step. */
   const noticesUp = useRef(false);
+  const lastPlainNotice = useRef('');
   useEffect(() => {
     if (!navigating || appActive || !settings.notifyDirections || !shownStep) {
       if (noticesUp.current) {
         clearNavNotices();
+        lastPlainNotice.current = '';
+        if (!guiding) {
+          clearTripNotice();
+        }
         noticesUp.current = false;
       }
       approachedStep.current = null;
       return;
     }
     noticesUp.current = true;
-    void showInstruction(formatDistance(noticeMetres), shownStep.instruction);
+    // With our native module, the instruction carries a progress bar and the
+    // time left, as Maps (author's request, 23 November 2026); without it, the
+    // plain notice as before.
+    const total = route?.distanceMeters ?? 0;
+    const shownWithBar =
+      tripNoticeAvailable() &&
+      showTripNotice(
+        t().guide.noticeChannel,
+        `${formatDistance(noticeMetres)} · ${shownStep.instruction}`,
+        `${formatDurationShort(remaining.seconds)} · ${formatDistance(remaining.meters)}`,
+        total > 0 ? 1 - remaining.meters / total : null,
+        formatDurationShort(remaining.seconds),
+      );
+    const plain = `${noticeMetres}|${shownStep.instruction}`;
+    if (!shownWithBar && plain !== lastPlainNotice.current) {
+      // The remaining time re-runs this every second: post only on a change.
+      lastPlainNotice.current = plain;
+      void showInstruction(formatDistance(noticeMetres), shownStep.instruction);
+    }
     const near =
       settings.travelMode === 'driving' ? 250 : settings.travelMode === 'cycling' ? 120 : 50;
     if (approachedStep.current !== null && approachedStep.current !== shownStep) {
@@ -4126,8 +4260,47 @@ function PalmMap() {
       approachedStep.current = shownStep;
       void alertManeuver(shownStep.instruction, formatDistance(noticeMetres));
     }
-  }, [navigating, appActive, settings.notifyDirections, settings.travelMode, shownStep, noticeMetres]);
+  }, [
+    navigating,
+    appActive,
+    settings.notifyDirections,
+    settings.travelMode,
+    shownStep,
+    noticeMetres,
+    route,
+    remaining.meters,
+    remaining.seconds,
+    guiding,
+  ]);
   useEffect(() => clearNavNotices, []);
+
+  /*
+    A transport trip in the notification shade while the app is off screen:
+    the step in words (the same as the trip panel's banner) and a bar of how
+    much of the trip is done (`guideFraction`), as Maps. Only with our native
+    module; gone on coming back or when the trip ends.
+  */
+  const tripNoticeUp = useRef(false);
+  useEffect(() => {
+    if (!guiding || !guide || appActive || !settings.notifyDirections) {
+      if (tripNoticeUp.current) {
+        clearTripNotice();
+        tripNoticeUp.current = false;
+      }
+      return;
+    }
+    const now = Date.now() / 1000;
+    const { title, detail } = guideHeadline(guide, guideStep, guideDone, now);
+    const left = Math.max(0, guide.trip.reachAt - now);
+    tripNoticeUp.current = showTripNotice(
+      t().guide.noticeChannel,
+      title,
+      detail,
+      guideDone ? 1 : guideFraction(guide, guideStep, now),
+      formatDurationShort(left),
+    );
+  }, [guiding, guide, guideStep, guideDone, appActive, settings.notifyDirections, userLocation]);
+  useEffect(() => clearTripNotice, []);
 
   const lastPlace = useLastValue(selectedPlace);
   const lastDestination = useLastValue(destination);
@@ -4200,14 +4373,14 @@ function PalmMap() {
         onStationPress={handleStationPress}
         selectedStationId={selectedStationId}
         transitStations={shownStations}
-        vehicles={vehicles}
+        vehicles={mapVehicles}
         onVehiclePress={handleVehiclePress}
         selectedVehicleId={selectedVehicleId}
         selectedVehicleStanding={(busProgress?.atIndex ?? -1) >= 0}
         // Under the search bar and the category chips, as in Maps — and not
         // when those are hidden (navigating, or a transport trip under way).
         scaleTop={
-          navigating || guiding
+          navigating || (guiding && !guideMinimised)
             ? null
             : chipsBottom !== null
               ? chipsBottom + SCALE_BAR_GAP
@@ -4218,7 +4391,7 @@ function PalmMap() {
         labelsReady={labelsReady}
       />
 
-      {!navigating && !guiding ? (
+      {!navigating && (!guiding || guideMinimised) ? (
       <View
         style={[styles.top, searchFocused && styles.searchBackdrop]}
         pointerEvents="box-none"
@@ -4296,6 +4469,26 @@ function PalmMap() {
         )}
 
         {searchFocused ? null : <ConnectivityBanner />}
+
+        {/* The trip going on behind the plain map: a tap brings it back. */}
+        {guiding && guideMinimised && !searchFocused ? (
+          <Pressable
+            style={({ pressed }) => [styles.backToTrip, pressed && styles.buttonPressed]}
+            onPress={() => setGuideMinimised(false)}
+            accessibilityLabel={strings.guide.backToTrip}
+          >
+            <MaterialCommunityIcons name="navigation-variant" size={20} color={theme.onAccent} />
+            <View style={styles.backToTripTexts}>
+              <Text style={styles.backToTripTitle} numberOfLines={1}>
+                {guideHeadline(guide, guideStep, guideDone, Date.now() / 1000).title}
+              </Text>
+              <Text style={styles.backToTripDetail} numberOfLines={1}>
+                {strings.guide.backToTrip}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-up" size={24} color={theme.onAccent} />
+          </Pressable>
+        ) : null}
 
         {suggestion && !searchFocused && !shownPanel ? (
           <SuggestionCard
@@ -4534,7 +4727,7 @@ function PalmMap() {
             followUser && !navigating ? styles.locateFollowing : null,
             navigating
               ? styles.locateNavigating
-              : selectedPlace || destination || measuring
+              : selectedPlace || destinationShown || measuring
                 ? { bottom: raisedBottom }
                 : null,
             pressed && styles.buttonPressed,
@@ -4579,6 +4772,7 @@ function PalmMap() {
                   setGuideStep({ leg, stop: 0 });
                 }}
                 onEnd={handleEndTransit}
+                onMinimise={() => setGuideMinimised(true)}
                 voiceOn={settings.voiceGuidance}
                 onToggleVoice={toggleVoice}
                 destinationName={lastDestination?.name ?? ''}
@@ -5064,6 +5258,36 @@ function makeStyles(theme: Theme, insets: EdgeInsets) {
       // sides; the category buttons want to start aligned with it but run off
       // the right edge, to show there is more to the side. Each handles its own.
       paddingTop: insets.top + 12,
+    },
+    /** "Back to the trip": the minimised trip, under the search bar. */
+    backToTrip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 8,
+      marginHorizontal: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 16,
+      backgroundColor: theme.accent,
+      elevation: 6,
+      shadowColor: '#000000',
+      shadowOpacity: 0.16,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+    },
+    backToTripTexts: {
+      flex: 1,
+    },
+    backToTripTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.onAccent,
+    },
+    backToTripDetail: {
+      fontSize: 12,
+      color: theme.onAccent,
+      marginTop: 1,
     },
     notice: {
       marginTop: 8,

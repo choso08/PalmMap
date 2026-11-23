@@ -1430,6 +1430,20 @@ export function scheduledReachedFrom(
  * the minutes between stations are the timetable's. Empty when the feed is no
  * longer on the phone.
  */
+/**
+ * The GTFS `route_id` of a stored trip, as its operator's live feed names it
+ * (`172_1`), to find that ride's vehicle among the live ones; null when the
+ * timetable keeps no route ids.
+ */
+export function scheduledRouteId(ref: Extract<RideRef, { source: 'schedule' }>): string | null {
+  const feed = loadedFeeds((info) => info.id === ref.feedId)[0];
+  const scheduled = feed?.data.trips[ref.trip];
+  if (!feed || !scheduled) {
+    return null;
+  }
+  return feed.data.routeIds?.[scheduled.r] ?? null;
+}
+
 export function scheduledRide(
   ref: Extract<RideRef, { source: 'schedule' }>,
   departsAt: number,

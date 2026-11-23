@@ -365,6 +365,9 @@ export const pt = {
     arrived: 'Chegou ao destino.',
     timetable: 'horário, sem atrasos',
     end: 'Terminar',
+    minimise: 'Voltar ao mapa (a viagem continua)',
+    backToTrip: 'Voltar à viagem',
+    noticeChannel: 'Viagem em curso',
     // The trip's timeline, Maps-style.
     walkFor: (time: string, distance: string) => `Andar ${time} (${distance})`,
     wait: (time: string) => `Espera ${time}`,
