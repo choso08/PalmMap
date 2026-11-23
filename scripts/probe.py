@@ -2680,13 +2680,16 @@ def cl_stop_side():
     neigh = {}
     for b in buses:
         rows = sorted(rows_of.get(b["trip"], []))
-        for k, (seq, sid) in enumerate(rows):
-            if sid == b["stop"]:
-                neigh[(b["route"], b["stop"], b["seq"])] = (
-                    rows[k - 1][1] if k > 0 else None,
-                    rows[k + 1][1] if k + 1 < len(rows) else None,
-                    k, seq)
-                break
+        # Of the passes by this stop (a circular line has two), the one whose
+        # sequence is nearest the bus's own.
+        passes = [k for k, (_, sid) in enumerate(rows) if sid == b["stop"]]
+        if not passes:
+            continue
+        k = min(passes, key=lambda j: abs(rows[j][0] - (b["seq"] or 0)))
+        neigh[(b["trip"], b["stop"], b["seq"])] = (
+            rows[k - 1][1] if k > 0 else None,
+            rows[k + 1][1] if k + 1 < len(rows) else None,
+            k)
     def frac(p, a, b):
         # Position of p along a→b, 0 at a, 1 at b (flat projection).
         ax, ay = a[1] * math.cos(math.radians(a[0])), a[0]
@@ -2699,11 +2702,11 @@ def cl_stop_side():
     shown = 0
     seq_index = {"seq==index": 0, "seq==index+1": 0, "other": 0}
     for b in buses:
-        key = (b["route"], b["stop"], b["seq"])
+        key = (b["trip"], b["stop"], b["seq"])
         if key not in neigh:
             tally["no trip"] = tally.get("no trip", 0) + 1
             continue
-        prev, nxt, k, gseq = neigh[key]
+        prev, nxt, k = neigh[key]
         seq_index["seq==index" if b["seq"] == k else "seq==index+1" if b["seq"] == k + 1 else "other"] += 1
         s = stops.get(b["stop"])
         dstop = _dist(b["pos"], s)

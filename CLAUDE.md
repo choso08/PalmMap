@@ -262,13 +262,13 @@ environment cannot reach.
     Android accepts as an update of PalmMap, and AhnLab flagged the APK as
     `PUP/Android.Malct` (1 of 63 on VirusTotal, 17 November). **Our own key: the secrets were
     added by the author on 21 November 2026; the next build is the first one signed with it**
-    (author's decision, 17 November): the author is to make it and put it in the repository's secrets
+    (author's decision, 17 November): the author made it and put it in the repository's secrets
     `PALMMAP_KEYSTORE_BASE64` (the `.jks`, base64) and `PALMMAP_KEYSTORE_PASSWORD` (store and
     key, alias `palmmap`). `build-apk.yml` writes it to `$RUNNER_TEMP`, and
     `plugins/withReleaseSigning.js` (an Expo config plugin, only when `PALMMAP_KEYSTORE` is
-    set) gives `release` a signing config read from the environment. **Until the secrets exist
-    the build signs with the debug key and warns** (the author asked to build before making
-    the key); with them, it fails if the APK still says `CN=Android Debug`. When the
+    set) gives `release` a signing config read from the environment. Without the secrets the
+    workflow would sign with the debug key and warn (builds up to 7.0.69 were made that way);
+    with them, it fails if the APK still says `CN=Android Debug`. When the
     certificate differs from the previous Release's APK, the notes tell people to uninstall
     first — Android refuses an update with another key, and the old app's in-app updater
     just ends in "App not installed" (saved places and downloads are lost once). **Losing the
@@ -1228,8 +1228,10 @@ environment cannot reach.
   that feed's `stop_id` is **the stop last passed** — 133 buses clearly past it, 55 within
   30 m, none before it; `current_status` is always 2 and `current_stop_sequence` is the passed
   stop's sequence. `LiveVehicle.stopPassed` (true for `cl` only — other GTFS-RT feeds are
-  taken at the specification's word) makes `vehicleProgress` place the bus at that stop while
-  within `AT_STOP_M` (30 m) of it, else heading to the next.
+  taken at the specification's word, unmeasured) makes `vehicleProgress` place the bus at that
+  stop while within `AT_PASSED_STOP_M` (50 m) of it, else heading to the next; the stop's
+  sequence breaks the tie on a circular line's shared first/last stop, and the open bus is
+  drawn "stopped" on the map as its panel places it (`selectedVehicleStanding`).
 
 **The English translation is done** for the code, the README, the workflows and this file.
 The Portuguese in `src/i18n/pt.ts` is the app's Portuguese text, not a leftover.

@@ -1163,6 +1163,12 @@ export async function vehicleTrip(vehicle: {
 
 /** Within this of a stop, a bus with no status is taken to stand at it. */
 const AT_STOP_M = 30;
+/**
+ * The same for a feed naming the stop last passed: its buses were seen 31–48 m
+ * from that stop with 3–11 % of the next stretch done (`sondar: cl_stop_side`)
+ * — long bays, or stop points set off where buses halt.
+ */
+const AT_PASSED_STOP_M = 50;
 
 /**
  * Where the bus is on its way now: the stop it stands at or heads to, from
@@ -1181,6 +1187,7 @@ export function vehicleProgress(
     atStop: boolean;
     reportedAt: number;
     stopPassed?: boolean;
+    stopSequence?: number | null;
   },
 ): VehicleProgress {
   const { stops } = trip;
@@ -1197,7 +1204,7 @@ export function vehicleProgress(
     // The named stop is behind the bus (Carris de Lisboa): it stands there
     // while still on it, otherwise it heads to the one after — the 729 was
     // shown a stop behind where it was (author's photo, 22 November 2026).
-    const on = candidates.filter((c) => d(c) <= AT_STOP_M);
+    const on = candidates.filter((c) => d(c) <= AT_PASSED_STOP_M);
     if (on.length > 0) {
       candidates = on;
       standing = true;
@@ -1220,7 +1227,20 @@ export function vehicleProgress(
     standing = d(best) <= AT_STOP_M;
   }
   const cost = (i: number) => (standing ? d(i) : d(i - 1) + d(i));
-  const i = candidates.reduce((a, b) => (cost(b) < cost(a) ? b : a));
+  // A circular line's first and last stops are one place, so their costs tie:
+  // the stop's sequence (1-based, of the stop named) says which pass is meant.
+  const named = vehicle.stopSequence != null ? vehicle.stopSequence - 1 : null;
+  const hint =
+    named === null ? null : vehicle.stopPassed && !standing ? named + 1 : named;
+  const better = (a: number, b: number) => {
+    const ca = cost(a);
+    const cb = cost(b);
+    if (Math.abs(ca - cb) > 1 || hint === null) {
+      return cb < ca ? b : a;
+    }
+    return Math.abs(b - hint) < Math.abs(a - hint) ? b : a;
+  };
+  const i = candidates.reduce(better);
 
   const atIndex = standing ? i : -1;
   const nextIndex = standing ? i + 1 : i;

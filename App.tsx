@@ -4203,6 +4203,7 @@ function PalmMap() {
         vehicles={vehicles}
         onVehiclePress={handleVehiclePress}
         selectedVehicleId={selectedVehicleId}
+        selectedVehicleStanding={(busProgress?.atIndex ?? -1) >= 0}
         // Under the search bar and the category chips, as in Maps — and not
         // when those are hidden (navigating, or a transport trip under way).
         scaleTop={

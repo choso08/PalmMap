@@ -291,6 +291,11 @@ interface MapViewProps {
   /** The bus whose panel is open, drawn bigger. */
   selectedVehicleId?: string | null;
   /**
+   * The open bus stands at a stop, as its panel places it — a feed that names
+   * the stop last passed (Carris de Lisboa) never says "stopped" itself.
+   */
+  selectedVehicleStanding?: boolean;
+  /**
    * How high the compass sits, in points from the bottom edge of the screen.
    *
    * The bottom-left corner is shared with other buttons and covered by the
@@ -467,6 +472,7 @@ export function MapView({
   vehicles = NONE,
   onVehiclePress,
   selectedVehicleId = null,
+  selectedVehicleStanding = false,
   onStopPress,
   onStationPress,
   selectedStationId = null,
@@ -750,7 +756,7 @@ export function MapView({
           // Each operator its own colour (`-cm` yellow, `-cl` deep blue);
           // every other operator one neutral drawing (`-gen`).
           op: v.operator === 'cm' || v.operator === 'cl' ? v.operator : 'gen',
-          parado: v.atStop ? 1 : 0,
+          parado: v.atStop || (v.id === selectedVehicleId && selectedVehicleStanding) ? 1 : 0,
           rumo: v.bearing ?? -1,
           aberto: v.id === selectedVehicleId ? 1 : 0,
           // The line's own colour, where known (`''`: the operator's pill).
@@ -758,7 +764,7 @@ export function MapView({
           corTexto: v.operator === 'cm' ? colourOf[v.line]?.text ?? '' : '',
         },
       })),
-    [glidingVehicles, selectedVehicleId, colourOf],
+    [glidingVehicles, selectedVehicleId, selectedVehicleStanding, colourOf],
   );
 
   const camerasJson = useMemo(
