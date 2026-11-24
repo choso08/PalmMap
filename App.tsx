@@ -342,6 +342,8 @@ function rememberView(bounds: Bounds, zoom: number): void {
 const PIN_SAVED_M = 40;
 /** A "leave now" transport plan older than this is redone on coming back. */
 const TRANSIT_STALE_MS = 2 * 60_000;
+/** A replanned option leaving within this of the one chosen is the same bus. */
+const KEEP_CHOSEN_WITHIN_S = 4 * 60;
 
 /** Arriving counts near the end only once this little of the route is left. */
 const ARRIVAL_NEAR_M = 300;
@@ -649,6 +651,46 @@ function PalmMap() {
     [plannedTrips, settings.transitSort, settings.transitAvoid],
   );
   const transitTrips = shownTransit?.trips ?? null;
+  /**
+   * The option chosen, and for which destination: a plan made again for the
+   * same destination (coming back to the app, the refresh button, the network
+   * coming back) keeps that bus chosen when the new plan still has it, instead
+   * of falling back to the first — author's report, 24 November 2026: a trip
+   * looked at ahead of time came back offering the bus ten minutes later.
+   */
+  const chosenTripRef = useRef<{ destination: Place | null; trip: TransitTrip | null }>({
+    destination: null,
+    trip: null,
+  });
+  chosenTripRef.current = {
+    destination,
+    trip: transitTrips?.[transitTripIndex] ?? null,
+  };
+  const keepChosen = useRef<TransitTrip | null>(null);
+  useEffect(() => {
+    const kept = keepChosen.current;
+    if (!kept || !transitTrips) {
+      return;
+    }
+    keepChosen.current = null;
+    // The same vehicles, leaving within a few minutes of before: a live
+    // estimate moves, and the same bus is the same bus.
+    const lines = (trip: TransitTrip) =>
+      [trip.line, trip.headsign, ...changesOf(trip).map((c) => `${c.line}>${c.headsign}`)].join('|');
+    const wanted = lines(kept);
+    let best = -1;
+    let bestGap = KEEP_CHOSEN_WITHIN_S + 1;
+    transitTrips.forEach((trip, i) => {
+      const gap = Math.abs(trip.departsAt - kept.departsAt);
+      if (lines(trip) === wanted && gap < bestGap) {
+        best = i;
+        bestGap = gap;
+      }
+    });
+    if (best > 0) {
+      setTransitTripIndex(best);
+    }
+  }, [transitTrips, setTransitTripIndex]);
   /** Leave now, depart at, arrive by — reset to now with each new destination. */
   const [transitWhen, setTransitWhen] = useState<TransitWhen>(LEAVE_NOW);
   /**
@@ -1827,14 +1869,26 @@ function PalmMap() {
     //   moving train — see `planScheduledTrips`.
     if (perfil === null) {
       setRouteOptions([]);
-      void arrivalPoint(destination, origem)
-        .then((alvo) => planTransit(origem, alvo, transitWhen))
+      const before =
+        chosenTripRef.current.destination === destination ? chosenTripRef.current.trip : null;
+      // From where one is now: after a while in the background the last GPS
+      // reading is where one was, and its walk to the stop can miss the bus
+      // one is about to catch. A fresh one is asked (bounded); a typed origin
+      // is used as it is.
+      const from = routeOrigin
+        ? Promise.resolve(origem)
+        : getBestPosition()
+            .then((fresh) => fresh ?? origem)
+            .catch(() => origem);
+      void from
+        .then((start) => arrivalPoint(destination, start).then((alvo) => planTransit(start, alvo, transitWhen)))
         .then((plan) => {
           if (cancelled) {
             return;
           }
           setTransitTrips(plan.trips);
           setBusTimetableOffer(plan.offerFeed ?? null);
+          keepChosen.current = before;
           setTransitTripIndex(0);
           transitPlannedAt.current = Date.now();
           setRouteError(plan.error);

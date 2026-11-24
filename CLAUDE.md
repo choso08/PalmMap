@@ -720,6 +720,14 @@ environment cannot reach.
   - **Minimise the trip** (chevron in the trip banner, or back): the main map, search bar and
     tabs come back while the trip goes on (`guideMinimised`); a pill under the search says
     the step and "Back to the trip". Choosing another destination ends the trip.
+- **A trip looked at ahead keeps its bus** (author's photo, 24 November 2026: coming back to
+  the app, the plan offered the bus ten minutes later; not seen on a phone). Two causes: the
+  replan (stale plan on coming back, refresh, network back) planned from the last GPS reading,
+  old or rough after the background, so the walk to the stop seemed too long; and every replan
+  chose the first option again. Now a transport plan from the GPS asks `getBestPosition`
+  first (bounded), and a replan for the same destination keeps the chosen option when the new
+  plan has the same vehicles leaving within `KEEP_CHOSEN_WITHIN_S` (4 min; `chosenTripRef`,
+  `keepChosen` in `App.tsx`).
 - **Built in 7.0.70** (23 November): the Carris de Lisboa bus placed past the stop it last
   passed, and the review fixes after it. Signed with our key, as every build since 7.0.59.
 - **Built in 7.0.69** (20 November): everything in "From the author's phone, 20 November
