@@ -73,6 +73,12 @@ const PLAN_FRESH_MS = 2 * 60 * 1000;
 
 /** For "arrive by", trips are looked for from this long before the time. */
 const ARRIVE_LOOKBACK_S = 2 * 3600;
+/**
+ * "Depart at" looks this much earlier too (author's request, 24 November
+ * 2026): a bus leaving a few minutes before the time set is often the one to
+ * take, and it was left out.
+ */
+const DEPART_LEEWAY_S = 5 * 60;
 
 const plans = new Map<string, { at: number; plan: Promise<TransitPlan> }>();
 
@@ -163,7 +169,7 @@ async function compute(
   // and the ones that arrive in time are kept below.
   const startAt =
     when.kind === 'depart'
-      ? Math.max(nowUnix, when.at)
+      ? Math.max(nowUnix, when.at - DEPART_LEEWAY_S)
       : when.kind === 'arrive'
         ? Math.max(nowUnix, when.at - ARRIVE_LOOKBACK_S)
         : nowUnix;

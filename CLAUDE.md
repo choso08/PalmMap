@@ -728,6 +728,8 @@ environment cannot reach.
   first (bounded), and a replan for the same destination keeps the chosen option when the new
   plan has the same vehicles leaving within `KEEP_CHOSEN_WITHIN_S` (4 min; `chosenTripRef`,
   `keepChosen` in `App.tsx`).
+  **"Depart at" also offers buses leaving up to 5 min before the time set**
+  (`DEPART_LEEWAY_S` in `transitPlan.ts`, author's request the same day; never before now).
 - **Built in 7.0.70** (23 November): the Carris de Lisboa bus placed past the stop it last
   passed, and the review fixes after it. Signed with our key, as every build since 7.0.59.
 - **Built in 7.0.69** (20 November): everything in "From the author's phone, 20 November
